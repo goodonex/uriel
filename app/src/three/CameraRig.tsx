@@ -7,22 +7,23 @@ interface CameraRigProps {
   damping?: number
   tunnelTarget: THREE.Vector3 | null
   onTunnelComplete?: () => void
+  /** Brand-Workspace: dezente Kamera, Nodes unten rechts im Canvas. */
+  brandAmbient?: boolean
 }
 
 const REST_POSITION = new THREE.Vector3(0, 0, 11)
+const BRAND_REST_POSITION = new THREE.Vector3(6.4, -2.2, 15)
+const BRAND_LOOK_AT = new THREE.Vector3(5.1, -3.35, 0)
 const REST_FOV = 35
 const TUNNEL_FOV = 80
 const TUNNEL_DISTANCE = 1.4
 
-// CameraRig:
-// - dampened parallax follow of mouse pointer in rest mode
-// - on tunnelTarget, lerps the camera toward node and widens FOV;
-//   fires onTunnelComplete once the camera is close enough.
 export function CameraRig({
   parallaxStrength = 0.6,
   damping = 0.06,
   tunnelTarget,
   onTunnelComplete,
+  brandAmbient = false,
 }: CameraRigProps) {
   const { camera, pointer } = useThree()
   const completed = useRef(false)
@@ -36,6 +37,15 @@ export function CameraRig({
       const dir = tunnelTarget.clone().normalize()
       desired.current.copy(tunnelTarget).addScaledVector(dir, -TUNNEL_DISTANCE)
       desiredFov.current = TUNNEL_FOV
+    } else if (brandAmbient) {
+      completed.current = false
+      const px = parallaxStrength * 0.22
+      desired.current.set(
+        BRAND_REST_POSITION.x + pointer.x * px,
+        BRAND_REST_POSITION.y + pointer.y * px,
+        BRAND_REST_POSITION.z,
+      )
+      desiredFov.current = REST_FOV
     } else {
       completed.current = false
       desired.current.set(
@@ -60,6 +70,8 @@ export function CameraRig({
         completed.current = true
         onTunnelComplete?.()
       }
+    } else if (brandAmbient) {
+      camera.lookAt(BRAND_LOOK_AT)
     } else {
       camera.lookAt(0, 0, 0)
     }
