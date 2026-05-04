@@ -12,7 +12,7 @@
 
 ---
 
-## Phase 2 — Building Mode (Session 1 ✓ DONE, Session 2 ← AKTIV)
+## Phase 2 — Building Mode ✓ DONE
 
 **Session 1 ✓**
 - localStorage-Persistenz (lib/storage.ts)
@@ -23,64 +23,55 @@
 - Context Export (lib/contextExport.ts + Button)
 - Toast-System
 
-**Session 2 ← AKTIV**
-- [ ] Business Model Editor (Wer/Was/Wie/Für wen/Womit)
-- [ ] Assets (URL + Embed-Preview)
-- [ ] SOP Editor (Tiptap)
-- [ ] ModeNav: Discovery-Modus ergänzen
+**Session 2 ✓**
+- Business Model Editor (Wer/Was/Wie/Für wen/Womit)
+- Assets (URL + Embed-Preview)
+- SOP Editor (Tiptap)
+- ModeNav: Discovery-Modus ergänzen
 
 ---
 
-## Phase 3 — Discovery Mode
-**Ziel:** Außenperspektive, automatisch aktualisiert. Informiert Building.
+## Phase 3 — Discovery Mode ✓ DONE (Mock)
 
-**Discovery Foundation (einmalig)**
-- [ ] Markt / Wettbewerber / Nische eingeben
-- [ ] Agent analysiert einmalig tief
-- [ ] Ergebnis: ICP-Entwürfe, Word-Bank-Vorschläge, Positioning-Ideen
-- [ ] User entscheidet was in Building übernommen wird
+**Discovery Foundation**
+- Markt / Wettbewerber / Nische + Mock-Analyse
+- Übernahme nach Building (ICP, Word Bank, Positioning)
 
-**Discovery Feed (automatisch, alle X Tage)**
-- [ ] Wettbewerber-Monitoring
-- [ ] Nischen-Content-Performance (welche Formate laufen)
-- [ ] ICP-Suchtrends (was suchen sie gerade)
-- [ ] Alle Einträge mit Timestamp — Verlauf sichtbar
-- [ ] Wenn Signal stark: Vorschlag → Word Bank / ICP aktualisieren
-- [ ] Konfigurierbares Intervall (täglich / wöchentlich / alle 2 Wochen)
+**Discovery Feed**
+- Mock-Feed, Intervall-Einstellung, Refresh
+
+_(Echter Agent / APIs — später)_
 
 ---
 
-## Phase 4 — Promo Mode + Tracking
-**Ziel:** Content aus Foundation heraus erstellen, taggen, messen.
+## Phase 4 — Promo Mode + Tracking ✓ DONE (App-seitig)
 
-- [ ] Content-Piece Editor (Tiptap + Auto-Tagging aus Foundation)
-- [ ] Kampagnen-Verwaltung
-- [ ] Kalender-View (kompakt)
-- [ ] Performance-Eingabe (manuell)
-- [ ] Instagram Graph API
-- [ ] LinkedIn Analytics API
-- [ ] Performance-Daten direkt am Content
-
----
-
-## Phase 5 — Sales CRM
-**Ziel:** Leichtes CRM, verbunden mit Promo.
-
-- [ ] Kontakt-Verwaltung
-- [ ] Pipeline-View (Kanban, Glass)
-- [ ] Follow-up Tracking
-- [ ] Verknüpfung Content → Kontakt (Quelle)
+- [x] Content-Piece Editor (Tiptap + Auto-Tagging aus Foundation)
+- [x] Kampagnen-Verwaltung
+- [x] Kalender-View (kompakt)
+- [x] Performance-Eingabe (manuell)
+- [ ] Instagram Graph API _(OAuth/Backend offen — siehe docs/open-questions.md)_
+- [ ] LinkedIn Analytics API _(OAuth/Backend offen)_
+- [x] Performance-Daten / API-Mocks direkt am Content-Piece
 
 ---
 
-## Phase 6 — Intelligence + Focus KI
-**Ziel:** System lernt, Discovery + Performance + Sales = vollständiger Loop.
+## Phase 5 — Sales CRM ✓ DONE (App-seitig)
 
-- [ ] Focus Tasks (generiert aus allen Modi)
-- [ ] Pattern Recognition (Format/ICP/Cluster)
-- [ ] ICP-Drift Erkennung (Discovery + Performance kombiniert)
-- [ ] Foundation-Anpassungsvorschläge
-- [ ] Morning Brief / Notifications
+- [x] Kontakt-Verwaltung
+- [x] Pipeline-View (Kanban-Spalten, Glass)
+- [x] Follow-up Tracking (Datumsfelder)
+- [x] Verknüpfung Content → Kontakt (Quelle) + Kampagne optional
+
+---
+
+## Phase 6 — Intelligence + Focus KI ✓ DONE (Mock)
+
+- [x] Focus Tasks (aus localStorage-Daten berechnet, Dismiss-Persistenz)
+- [x] Pattern Recognition (Mock-Kopie aus Promo/Sales-Daten)
+- [x] ICP-Drift Erkennung (Mock)
+- [x] Foundation-Anpassungsvorschläge (Mock)
+- [x] Morning Brief (Mock)
 - [ ] Discovery-Feed automatisiert (Cron via Supabase Edge Functions)
 
 ---

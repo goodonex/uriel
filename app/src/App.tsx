@@ -7,7 +7,9 @@ import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
-import { ModePlaceholder } from './pages/ModePlaceholder'
+import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
+import { PromoMode } from './pages/promo/PromoMode'
+import { SalesMode } from './pages/sales/SalesMode'
 import { NodeGraphPage } from './pages/NodeGraphPage'
 import { NodeGraph } from './three/NodeGraph'
 
@@ -63,39 +65,9 @@ function App() {
               <Route index element={<ModeNav />} />
               <Route path="building" element={<BuildingMode />} />
               <Route path="discovery" element={<DiscoveryMode />} />
-              <Route
-                path="promo"
-                element={
-                  <ModePlaceholder
-                    mode="promo"
-                    title="Promo Mode"
-                    phase="Phase 3"
-                    description="Content-Pieces, Kampagnen, Auto-Tagging und Performance-Tracking. Verbunden mit Foundation und Sales."
-                  />
-                }
-              />
-              <Route
-                path="sales"
-                element={
-                  <ModePlaceholder
-                    mode="sales"
-                    title="Sales Mode"
-                    phase="Phase 4"
-                    description="Leichtes CRM. Pipeline, Kontakte, Follow-ups — verbunden mit Promo. Quelle jedes Kontakts wird auf Content zurückverfolgt."
-                  />
-                }
-              />
-              <Route
-                path="intelligence"
-                element={
-                  <ModePlaceholder
-                    mode="intelligence"
-                    title="Intelligence Mode"
-                    phase="Phase 5"
-                    description="Lernschicht. Pattern Recognition, ICP-Drift, Foundation-Optimierung. Läuft im Hintergrund und füttert den Focus."
-                  />
-                }
-              />
+              <Route path="promo" element={<PromoMode />} />
+              <Route path="sales" element={<SalesMode />} />
+              <Route path="intelligence" element={<IntelligenceMode />} />
             </Route>
           </Routes>
         </main>
