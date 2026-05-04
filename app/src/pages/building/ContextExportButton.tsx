@@ -4,6 +4,8 @@ import { useToast } from '../../components/Toast'
 import { buildContextMarkdown } from '../../lib/contextExport'
 import { useAssets } from '../../hooks/useAssets'
 import { useBusinessModel } from '../../hooks/useBusinessModel'
+import { useContacts } from '../../hooks/useContacts'
+import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { Brand, ICP, Positioning, WordBankEntry } from '../../types/db'
 
 interface ContextExportButtonProps {
@@ -22,6 +24,8 @@ export function ContextExportButton({
   const { slug } = useParams<{ slug: string }>()
   const businessModel = useBusinessModel(slug)
   const assets = useAssets(slug)
+  const contacts = useContacts(slug)
+  const deliver = useDeliverProjects(slug)
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
 
@@ -36,6 +40,8 @@ export function ContextExportButton({
         wordBank,
         businessModel: businessModel.item,
         assets: assets.items,
+        contacts: contacts.items,
+        deliverProjects: deliver.items,
       })
       if (!navigator.clipboard) {
         show('Clipboard nicht verfügbar', 'error')

@@ -50,6 +50,10 @@ Offen nach Umstellung auf Auth/RLS:
 - Shell unter `ClientPortal.tsx`; vorerst **jede eingeloggte Session** (Owner testet mit Projekt-UUID).
 - Daten kommen aus **localStorage** `deliver-projects` über alle Brand-Slugs; später Supabase + Policies für `role = client`.
 
+## Context Export (`buildContextMarkdown`)
+
+- Enthält optional **`SALES_SNAPSHOT`** (Kontakte gesamt, Anzahl pro Pipeline-Stage, überfällige Follow-ups) und **`DELIVER_SNAPSHOT`** (aktive Projekte, Stages-Verteilung, jüngstes Projekt inkl. Stage) wenn Daten aus `useContacts` / `useDeliverProjects` übergeben werden (Building-Modus „Copy for Claude“).
+
 ## APIs Promo (Instagram Graph, LinkedIn Analytics)
 
 Echte OAuth-Flows und Token-Speicherung sind bewusst nicht Teil der aktuellen UI-Mocks. Offen:
