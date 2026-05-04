@@ -145,3 +145,124 @@ export interface DiscoverySettingsDoc {
   last_feed_generated_at: string | null
   updated_at: string
 }
+
+/* --- Promo Mode (Phase 4) --- */
+
+export type ContentFormat =
+  | 'post'
+  | 'reel'
+  | 'story'
+  | 'article'
+  | 'email'
+  | 'carousel'
+  | 'other'
+
+export type ContentChannel =
+  | 'instagram'
+  | 'linkedin'
+  | 'website'
+  | 'email'
+  | 'tiktok'
+  | 'other'
+
+export type ContentGoal =
+  | 'awareness'
+  | 'leads'
+  | 'nurture'
+  | 'sales'
+  | 'other'
+
+export interface ContentPieceTags {
+  icp_ids: string[]
+  cluster_tags: string[]
+  format: ContentFormat
+  channel: ContentChannel
+  goal: ContentGoal
+}
+
+export interface ContentPerformanceManual {
+  impressions: number | null
+  engagements: number | null
+  leads: number | null
+  notes: string
+  updated_at: string | null
+}
+
+/** Platzhalter für Instagram / LinkedIn APIs — später echte Keys & Sync. */
+export interface ContentPerformanceApiStub {
+  instagram_last_sync_at: string | null
+  linkedin_last_sync_at: string | null
+  instagram_metrics_json: Record<string, unknown> | null
+  linkedin_metrics_json: Record<string, unknown> | null
+}
+
+export interface ContentPiece {
+  id: string
+  brand_id: string
+  title: string
+  content: Record<string, unknown>
+  /** Kalender-Datum (YYYY-MM-DD oder ISO mit Zeit) */
+  scheduled_at: string
+  published_at: string | null
+  campaign_id: string | null
+  tags: ContentPieceTags
+  performance_manual: ContentPerformanceManual
+  performance_api: ContentPerformanceApiStub
+  updated_at: string
+}
+
+export interface Campaign {
+  id: string
+  brand_id: string
+  name: string
+  goal: string
+  start_at: string
+  end_at: string | null
+  content_piece_ids: string[]
+  updated_at: string
+}
+
+/* --- Sales CRM (Phase 5) --- */
+
+export type PipelineStage =
+  | 'first_contact'
+  | 'conversation'
+  | 'proposal'
+  | 'deal'
+  | 'paused'
+
+export interface Contact {
+  id: string
+  brand_id: string
+  name: string
+  email: string
+  source_content_piece_id: string | null
+  source_campaign_id: string | null
+  pipeline_stage: PipelineStage
+  last_contact_at: string | null
+  next_follow_up_at: string | null
+  notes: string
+  updated_at: string
+}
+
+/* --- Intelligence / Focus (Phase 6) --- */
+
+export type FocusTaskImpact = 'high' | 'medium' | 'low'
+
+export type FocusTaskSource =
+  | 'promo'
+  | 'sales'
+  | 'discovery'
+  | 'building'
+  | 'intelligence'
+
+export interface FocusTask {
+  id: string
+  brand_id: string
+  title: string
+  detail: string
+  impact: FocusTaskImpact
+  source: FocusTaskSource
+  related_ids: string[]
+  created_at: string
+}
