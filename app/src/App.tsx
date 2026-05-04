@@ -15,6 +15,7 @@ import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
 import { ClientPortal } from './pages/portal/ClientPortal'
 import { PromoMode } from './pages/promo/PromoMode'
+import { ContactPage } from './pages/sales/ContactPage'
 import { SalesMode } from './pages/sales/SalesMode'
 import { NodeGraphPage } from './pages/NodeGraphPage'
 import { NodeGraph } from './three/NodeGraph'
@@ -101,6 +102,7 @@ function App() {
                 <Route path="discovery" element={<DiscoveryMode />} />
                 <Route path="promo" element={<PromoMode />} />
                 <Route path="sales" element={<SalesMode />} />
+                <Route path="sales/:contactId" element={<ContactPage />} />
                 <Route path="intelligence" element={<IntelligenceMode />} />
                 <Route path="deliver" element={<DeliverMode />} />
               </Route>

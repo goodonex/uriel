@@ -232,17 +232,30 @@ export type PipelineStage =
   | 'deal'
   | 'paused'
 
+export interface ContactActivityEntry {
+  id: string
+  text: string
+  /** ISO timestamp */
+  at: string
+}
+
 export interface Contact {
   id: string
   brand_id: string
   name: string
   email: string
+  phone: string
+  website: string
+  instagram: string
+  linkedin: string
+  company: string
   source_content_piece_id: string | null
   source_campaign_id: string | null
   pipeline_stage: PipelineStage
   last_contact_at: string | null
   next_follow_up_at: string | null
   notes: string
+  activity_log: ContactActivityEntry[]
   updated_at: string
 }
 
