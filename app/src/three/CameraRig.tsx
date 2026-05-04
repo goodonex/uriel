@@ -12,8 +12,8 @@ interface CameraRigProps {
 }
 
 const REST_POSITION = new THREE.Vector3(0, 0, 11)
-const BRAND_REST_POSITION = new THREE.Vector3(6.4, -2.2, 15)
-const BRAND_LOOK_AT = new THREE.Vector3(5.1, -3.35, 0)
+const BRAND_REST_POSITION = new THREE.Vector3(6.45, -2.25, 15)
+const BRAND_LOOK_AT = new THREE.Vector3(5.15, -3.45, 0)
 const REST_FOV = 35
 const TUNNEL_FOV = 80
 const TUNNEL_DISTANCE = 1.4

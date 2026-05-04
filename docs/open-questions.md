@@ -1,5 +1,10 @@
 # Brand OS — Offene Produkt-/Tech-Fragen
 
+## 3D-Hintergrund / Canvas
+
+- Auf allen Routen außer `/` hat das R3F-Canvas `pointer-events: none` — UI-Overlay hat Vorrang; Universe (`/`) bleibt klickbar für Brand-Tunnel.
+- Ambient-Nodes (unten rechts) skalieren mit Viewport-Breite, Obergrenze ca. 20 % — Feintuning nach Feedback möglich.
+
 ## TypeScript / Build
 
 - `tsc -b` und `npm run build` (App) sind aktuell fehlerfrei; es gibt keine gemeldeten offenen TS-Fehler in dieser Liste.

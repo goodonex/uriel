@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
-import { Outlet, Route, Routes } from 'react-router-dom'
+import { Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { Background } from './components/Background'
 import { ModeNav } from './components/ModeNav'
 import { RequireAuthShell } from './components/RequireAuthShell'
@@ -31,6 +31,9 @@ function OwnerWorkspaceShell() {
 }
 
 function App() {
+  const location = useLocation()
+  const canvasPointerEvents = location.pathname === '/' ? 'auto' : 'none'
+
   return (
     <ToastProvider>
       <Background />
@@ -47,6 +50,7 @@ function App() {
           background: 'transparent',
           display: 'block',
           outline: 'none',
+          pointerEvents: canvasPointerEvents,
         }}
       >
         <Suspense fallback={null}>

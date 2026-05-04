@@ -1,7 +1,8 @@
 import { Html } from '@react-three/drei'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { useThree } from '@react-three/fiber'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import type { Brand } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -9,9 +10,10 @@ import { BrandNode } from './BrandNode'
 import { CameraRig } from './CameraRig'
 import { Connections } from './Connections'
 
-/** Auf /brand/*: Nodes unten rechts, klein — weniger Überlagerung mit Content. */
-const BRAND_NODES_OFFSET: [number, number, number] = [4.95, -3.35, 0]
-const BRAND_NODES_SCALE = 0.25
+/** Nicht-/: Nodes unten rechts, visuell max. ~20 % Viewport-Breite (Skalierung an Canvas-Breite gekoppelt). */
+const CORNER_NODES_OFFSET: [number, number, number] = [5.15, -3.45, 0]
+const CORNER_SCALE_CAP = 0.2
+const CORNER_SCALE_MIN = 0.11
 const NODE_POSITIONS: [number, number, number][] = [
   [-2.35, 0.65, 0],
   [-0.52, -0.88, 0],
@@ -50,8 +52,17 @@ export function NodeGraph() {
   const { brands, loading, error } = useBrands()
   const navigate = useNavigate()
   const location = useLocation()
-  const brandAmbient = useMatch({ path: '/brand/:slug', end: false })
-  const ambient = brandAmbient != null
+  const cornerMode = location.pathname !== '/'
+  const { size } = useThree()
+
+  const cornerClusterScale = useMemo(() => {
+    if (!cornerMode) return 1
+    const w = size.width
+    return Math.min(
+      CORNER_SCALE_CAP,
+      Math.max(CORNER_SCALE_MIN, w * 0.000165),
+    )
+  }, [cornerMode, size.width])
 
   const [tunnelTarget, setTunnelTarget] = useState<THREE.Vector3 | null>(null)
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
@@ -67,8 +78,8 @@ export function NodeGraph() {
   }, [location.pathname])
 
   useLayoutEffect(() => {
-    applyMeshOpacity(nodesGroupRef.current, ambient)
-  }, [ambient, brands])
+    applyMeshOpacity(nodesGroupRef.current, cornerMode)
+  }, [cornerMode, brands])
 
   if (error) {
     return (
@@ -105,7 +116,7 @@ export function NodeGraph() {
         <CameraRig
           tunnelTarget={tunnelTarget}
           onTunnelComplete={handleTunnelComplete}
-          brandAmbient={ambient}
+          brandAmbient={cornerMode}
         />
         {/* Nur auf Universe: Linien wirken über Glas-Panels wie ein „V zur Mitte“. */}
         {location.pathname === '/' ? (
@@ -113,8 +124,8 @@ export function NodeGraph() {
         ) : null}
         <group
           ref={nodesGroupRef}
-          position={ambient ? BRAND_NODES_OFFSET : [0, 0, 0]}
-          scale={ambient ? BRAND_NODES_SCALE : 1}
+          position={cornerMode ? CORNER_NODES_OFFSET : [0, 0, 0]}
+          scale={cornerMode ? cornerClusterScale : 1}
         >
           {brands.map((brand, idx) => (
             <BrandNode
