@@ -59,6 +59,18 @@ const MODES: ModeDef[] = [
     ),
   },
   {
+    key: 'deliver',
+    name: 'Deliver',
+    desc: 'Kundenprojekte — interner Bereich und Kundenfläche pro Projekt.',
+    cssVar: '--accent-teal',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" strokeWidth="1.5">
+        <path d="M3 13 L8 3 L13 13 Z M8 7 L8 10" strokeLinecap="round" />
+        <circle cx="8" cy="11.5" r="0.75" fill="#2dd4bf" stroke="none" />
+      </svg>
+    ),
+  },
+  {
     key: 'discovery',
     name: 'Discovery',
     desc: 'Markt, Wettbewerb, Trends. Automatisch aktualisiert.',
@@ -102,7 +114,7 @@ export function ModeNav() {
   const navigate = useNavigate()
 
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
       {MODES.map((mode, idx) => (
         <motion.button
           key={mode.key}

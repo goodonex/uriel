@@ -176,6 +176,19 @@ deferred_at   timestamp nullable
 created_at    timestamp
 ```
 
+### deliver_projects (Deliver Modus)
+```sql
+id                  uuid PK
+owner_brand_id      uuid FK brands  — Brand, die das Projekt intern führt
+name                text
+client_contact_id   uuid FK contacts nullable
+status              text           -- 'active' | 'completed'
+internal_notes      text
+client_area_notes   text
+updated_at          timestamptz
+```
+Die UI speichert Projekte derzeit zusätzlich in **localStorage** (`deliver-projects`); Migration `0008_deliver.sql` ist die DB-Vorbereitung.
+
 ---
 
 ## Context Export (generiert, nicht gespeichert)

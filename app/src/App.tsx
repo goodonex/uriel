@@ -9,6 +9,7 @@ import { RequireOwnerGate } from './components/RequireOwnerGate'
 import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
+import { DeliverMode } from './pages/DeliverMode'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
@@ -101,6 +102,7 @@ function App() {
                 <Route path="promo" element={<PromoMode />} />
                 <Route path="sales" element={<SalesMode />} />
                 <Route path="intelligence" element={<IntelligenceMode />} />
+                <Route path="deliver" element={<DeliverMode />} />
               </Route>
             </Route>
           </Routes>

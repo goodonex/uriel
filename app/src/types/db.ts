@@ -4,6 +4,7 @@ export type ModeKey =
   | 'sales'
   | 'intelligence'
   | 'discovery'
+  | 'deliver'
 
 export type AssetType = 'website' | 'instagram' | 'linkedin' | 'document'
 
