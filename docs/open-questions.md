@@ -23,6 +23,11 @@ Offen nach Umstellung auf Auth/RLS:
 - Client-Rolle: welche Tabellen/Zeilen dürfen `role = client` lesen (Portal)?
 - `user_roles.client_slug` vs. spätere Zuordnung Brand↔Client.
 
+### Kundenportal (`/portal/:clientSlug`)
+
+- Shell unter `ClientPortal.tsx`; gleiche Supabase-Session wie Owner.
+- Zugriffskontrolle über `user_roles.role = 'client'` + spätere Policy für freigegebene Views.
+
 ## APIs Promo (Instagram Graph, LinkedIn Analytics)
 
 Echte OAuth-Flows und Token-Speicherung sind bewusst nicht Teil der aktuellen UI-Mocks. Offen:
