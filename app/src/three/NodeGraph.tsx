@@ -1,7 +1,7 @@
-import { Canvas } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
-import { Suspense, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Suspense, useLayoutEffect, useRef, useState } from 'react'
+import { useMatch, useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import type { Brand } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -24,22 +24,53 @@ function resolveColor(brand: Brand, idx: number): string {
   return brand.color
 }
 
+function applyMeshOpacity(root: THREE.Object3D | null, ambient: boolean) {
+  if (!root) return
+  root.traverse((o) => {
+    if (o instanceof THREE.Mesh && o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material]
+      for (const mat of mats) {
+        if (
+          mat instanceof THREE.MeshStandardMaterial ||
+          mat instanceof THREE.MeshPhysicalMaterial
+        ) {
+          mat.transparent = ambient
+          mat.opacity = ambient ? 0.3 : 1
+          mat.needsUpdate = true
+        }
+      }
+    }
+  })
+}
+
 export function NodeGraph() {
   const { brands, loading, error } = useBrands()
   const navigate = useNavigate()
+  const brandAmbient = useMatch({ path: '/brand/:slug', end: false })
+  const ambient = brandAmbient != null
+
   const [tunnelTarget, setTunnelTarget] = useState<THREE.Vector3 | null>(null)
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
+  const nodesGroupRef = useRef<THREE.Group>(null)
+
+  useLayoutEffect(() => {
+    applyMeshOpacity(nodesGroupRef.current, ambient)
+  }, [ambient, brands])
+
   if (error) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <span
-          className="font-mono text-xs"
-          style={{ color: 'var(--accent-coral)' }}
-        >
-          3D-Graph konnte nicht geladen werden: {error}
-        </span>
-      </div>
+      <>
+        <ambientLight intensity={0.35} />
+        <Html center>
+          <span
+            className="font-mono text-xs"
+            style={{ color: 'var(--accent-coral)' }}
+          >
+            3D-Graph konnte nicht geladen werden: {error}
+          </span>
+        </Html>
+      </>
     )
   }
 
@@ -53,12 +84,37 @@ export function NodeGraph() {
   }
 
   return (
-    <div
-      className="relative w-full"
-      style={{ height: 'calc(100vh - 64px)' }}
-    >
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+    <>
+      <ambientLight intensity={0.35} />
+      <Suspense fallback={null}>
+        <CameraRig
+          tunnelTarget={tunnelTarget}
+          onTunnelComplete={handleTunnelComplete}
+        />
+        <Connections positions={NODE_POSITIONS.slice(0, brands.length)} />
+        <group ref={nodesGroupRef} scale={ambient ? 0.4 : 1}>
+          {brands.map((brand, idx) => (
+            <BrandNode
+              key={brand.id}
+              position={NODE_POSITIONS[idx % NODE_POSITIONS.length]}
+              color={resolveColor(brand, idx)}
+              label={brand.name}
+              onSelect={(pos) => handleSelect(brand.slug, pos)}
+            />
+          ))}
+        </group>
+        <EffectComposer>
+          <Bloom
+            intensity={0.65}
+            luminanceThreshold={0.25}
+            luminanceSmoothing={0.5}
+            mipmapBlur
+          />
+        </EffectComposer>
+      </Suspense>
+
+      {loading ? (
+        <Html center>
           <span
             className="font-mono"
             style={{
@@ -70,52 +126,8 @@ export function NodeGraph() {
           >
             Lade Brands…
           </span>
-        </div>
-      )}
-
-      <Canvas
-        gl={{ alpha: true, antialias: true }}
-        camera={{ position: [0, 0, 11], fov: 35 }}
-        style={{ background: 'transparent' }}
-      >
-        <Suspense fallback={null}>
-          <ambientLight intensity={0.35} />
-          <CameraRig
-            tunnelTarget={tunnelTarget}
-            onTunnelComplete={handleTunnelComplete}
-          />
-          <Connections positions={NODE_POSITIONS.slice(0, brands.length)} />
-          {brands.map((brand, idx) => (
-            <BrandNode
-              key={brand.id}
-              position={NODE_POSITIONS[idx % NODE_POSITIONS.length]}
-              color={resolveColor(brand, idx)}
-              label={brand.name}
-              onSelect={(pos) => handleSelect(brand.slug, pos)}
-            />
-          ))}
-          <EffectComposer>
-            <Bloom
-              intensity={0.65}
-              luminanceThreshold={0.25}
-              luminanceSmoothing={0.5}
-              mipmapBlur
-            />
-          </EffectComposer>
-        </Suspense>
-      </Canvas>
-
-      <div
-        className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 font-mono"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'var(--text-tertiary)',
-        }}
-      >
-        Klicke einen Node um in die Brand zu fliegen
-      </div>
-    </div>
+        </Html>
+      ) : null}
+    </>
   )
 }

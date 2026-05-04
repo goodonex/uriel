@@ -1,5 +1,9 @@
 # Brand OS — Visual Reference
 
+## 3D Visueller Status — PLATZHALTER
+
+Die 3D-Szene ist bewusst minimal gehalten. Keine Zeit für Materialien, Texturen oder Lichtdesign. Finales Visual kommt in Phase 7 mit Higgsfield. Fokus jetzt: korrekte Architektur, Canvas persistent, Glas-Panels lesbar.
+
 ## Ästhetik-Richtung
 Dark glass. Räumliche Tiefe. Minimal aber lebendig.
 Kein generisches Dashboard. Kein Tailwind-Standard-Look.

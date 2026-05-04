@@ -9,13 +9,14 @@ export function BrandPage() {
   const current = brands.find((b) => b.slug === slug)
 
   return (
-    <>
+    <div style={{ pointerEvents: 'auto', background: 'transparent' }}>
       <AppHeader />
       <motion.div
         key={slug}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        style={{ background: 'transparent' }}
       >
         <div className="mb-4 flex items-baseline justify-between">
           <h1
@@ -43,6 +44,6 @@ export function BrandPage() {
         </div>
         <Outlet />
       </motion.div>
-    </>
+    </div>
   )
 }

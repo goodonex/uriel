@@ -118,6 +118,7 @@ export function DiscoveryMode() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      style={{ background: 'transparent' }}
     >
       <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
         <div>
