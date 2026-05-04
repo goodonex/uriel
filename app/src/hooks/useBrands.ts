@@ -1,65 +1,66 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Brand } from '../types/db'
-
-const MOCK_BRANDS: Brand[] = [
-  {
-    id: 'mock-herrmann',
-    user_id: null,
-    name: 'Herrmann & Co.',
-    slug: 'herrmann',
-    color: 'var(--accent-blue)',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'mock-offmarketbude',
-    user_id: null,
-    name: 'Offmarketbude',
-    slug: 'offmarketbude',
-    color: 'var(--accent-purple)',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'mock-homeflower',
-    user_id: null,
-    name: 'Homeflower',
-    slug: 'homeflower',
-    color: 'var(--accent-teal)',
-    created_at: new Date().toISOString(),
-  },
-]
+import { supabase } from '../lib/supabase'
+import { useAuth } from './useAuth'
 
 interface UseBrandsResult {
   brands: Brand[]
   loading: boolean
   error: string | null
+  /** Explizit neu laden (z. B. nach Seed). */
+  reload: () => Promise<void>
+}
+
+function mapBrand(row: {
+  id: string
+  user_id: string | null
+  name: string
+  slug: string
+  color: string | null
+  created_at: string
+}): Brand {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    name: row.name,
+    slug: row.slug,
+    color: row.color ?? '',
+    created_at: row.created_at,
+  }
 }
 
 export function useBrands(): UseBrandsResult {
+  const { user } = useAuth()
   const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    // TODO: replace with supabase.from('brands').select() when configured.
-    const timer = window.setTimeout(() => {
-      if (cancelled) return
-      try {
-        setBrands(MOCK_BRANDS)
-        setError(null)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
-      } finally {
-        setLoading(false)
-      }
-    }, 200)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
+  const reload = useCallback(async () => {
+    if (!supabase || !user?.id) {
+      setBrands([])
+      setError(null)
+      setLoading(false)
+      return
     }
-  }, [])
+    setLoading(true)
+    const { data, error: err } = await supabase
+      .from('brands')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+    if (err) {
+      setError(err.message)
+      setBrands([])
+    } else {
+      setError(null)
+      setBrands((data ?? []).map(mapBrand))
+    }
+    setLoading(false)
+  }, [user?.id])
 
-  return { brands, loading, error }
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  return { brands, loading, error, reload }
 }
