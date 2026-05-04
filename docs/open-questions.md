@@ -40,6 +40,8 @@ Offen nach Umstellung auf Auth/RLS:
 
 ## Kundenportal (`/portal/:projectId`)
 
+- UI: Brand-Name + Projektname, Fortschrittsbalken (5 Stages), Willkommenstext, Dokumente &amp; Links, **Updates** aus `team_notes` (Absätze getrennt). Heller Glass-Hintergrund zur Abgrenzung vom internen Bereich.
+- Willkommenstext bearbeitet der **Owner** in `ProjectPage`; Portal ist read-only.
 - Shell unter `ClientPortal.tsx`; vorerst **jede eingeloggte Session** (Owner testet mit Projekt-UUID).
 - Daten kommen aus **localStorage** `deliver-projects` über alle Brand-Slugs; später Supabase + Policies für `role = client`.
 
