@@ -1,6 +1,6 @@
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import {
   mergeTagsIntoPieceTags,
@@ -35,22 +35,47 @@ const EDITOR_STYLE = {
   outline: 'none',
 }
 
-const LABEL: Record<string, string> = {
-  post: 'Post',
-  reel: 'Reel',
-  story: 'Story',
-  article: 'Artikel',
-  email: 'E-Mail',
-  carousel: 'Karussell',
-  other: 'Sonstiges',
-  instagram: 'Instagram',
-  linkedin: 'LinkedIn',
-  website: 'Website',
-  tiktok: 'TikTok',
-  awareness: 'Awareness',
-  leads: 'Leads',
-  nurture: 'Nurture',
-  sales: 'Sales',
+const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
+  { value: 'post', label: 'Post' },
+  { value: 'reel', label: 'Reel' },
+  { value: 'story', label: 'Story' },
+  { value: 'email', label: 'E-Mail' },
+  { value: 'article', label: 'Artikel' },
+  { value: 'carousel', label: 'Karussell' },
+  { value: 'other', label: 'Ad / Werbung' },
+]
+
+const CHANNEL_OPTIONS: { value: ContentChannel; label: string }[] = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'email', label: 'E-Mail' },
+  { value: 'website', label: 'Website' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'other', label: 'Sonstiges' },
+]
+
+const GOAL_OPTIONS: { value: ContentGoal; label: string }[] = [
+  { value: 'awareness', label: 'Awareness' },
+  { value: 'leads', label: 'Lead' },
+  { value: 'sales', label: 'Sale' },
+  { value: 'nurture', label: 'Nurture' },
+  { value: 'other', label: 'Sonstiges' },
+]
+
+const BTN = {
+  fontSize: 11,
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: '1px solid var(--glass-border-2)',
+  background: 'var(--glass-2)',
+  color: 'var(--text-secondary)',
+} as const
+
+function readManualConversions(piece: ContentPiece): number | null {
+  const j = piece.performance_api.instagram_metrics_json
+  if (!j || typeof j !== 'object') return null
+  const v = (j as Record<string, unknown>).manual_conversions
+  return typeof v === 'number' ? v : null
 }
 
 export function ContentPieceEditor({
@@ -63,10 +88,34 @@ export function ContentPieceEditor({
   onAutoTagged,
 }: ContentPieceEditorProps) {
   const [title, setTitle] = useState(piece.title)
+  const [imp, setImp] = useState(() =>
+    String(piece.performance_manual.impressions ?? ''),
+  )
+  const [clk, setClk] = useState(() =>
+    String(piece.performance_manual.engagements ?? ''),
+  )
+  const [leadsIn, setLeadsIn] = useState(() =>
+    String(piece.performance_manual.leads ?? ''),
+  )
+  const [convIn, setConvIn] = useState(() =>
+    String(readManualConversions(piece) ?? ''),
+  )
+  const [notesLocal, setNotesLocal] = useState(piece.performance_manual.notes)
+
+  const pieceRef = useRef(piece)
+  pieceRef.current = piece
 
   useEffect(() => {
     setTitle(piece.title)
   }, [piece.id, piece.title])
+
+  useEffect(() => {
+    setImp(String(piece.performance_manual.impressions ?? ''))
+    setClk(String(piece.performance_manual.engagements ?? ''))
+    setLeadsIn(String(piece.performance_manual.leads ?? ''))
+    setConvIn(String(readManualConversions(piece) ?? ''))
+    setNotesLocal(piece.performance_manual.notes)
+  }, [piece.id])
 
   const debouncedTitle = useDebouncedCallback((v: string) =>
     onPatch({ title: v }),
@@ -74,6 +123,32 @@ export function ContentPieceEditor({
   const debouncedContent = useDebouncedCallback((doc: Record<string, unknown>) =>
     onPatch({ content: doc }),
   )
+
+  const debouncedPerf = useDebouncedCallback(
+    (partial: Partial<ContentPiece['performance_manual']>) => {
+      const cur = pieceRef.current.performance_manual
+      onPatch({
+        performance_manual: {
+          ...cur,
+          ...partial,
+          updated_at: new Date().toISOString(),
+        },
+      })
+    },
+    450,
+  )
+
+  const debouncedConversions = useDebouncedCallback((n: number | null) => {
+    const cur = pieceRef.current.performance_api
+    const prev =
+      (cur.instagram_metrics_json as Record<string, unknown> | null) ?? {}
+    onPatch({
+      performance_api: {
+        ...cur,
+        instagram_metrics_json: { ...prev, manual_conversions: n },
+      },
+    })
+  }, 450)
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -99,11 +174,24 @@ export function ContentPieceEditor({
     }
   }, [editor, piece.id, piece.content])
 
+  const clusterChoices = [
+    ...new Set(
+      wordBank.map((w) => (w.cluster.trim() ? w.cluster.trim() : 'Allgemein')),
+    ),
+  ].sort()
+
   const toggleIcp = (id: string) => {
     const set = new Set(piece.tags.icp_ids)
     if (set.has(id)) set.delete(id)
     else set.add(id)
     onPatch({ tags: { ...piece.tags, icp_ids: [...set] } })
+  }
+
+  const toggleCluster = (cluster: string) => {
+    const set = new Set(piece.tags.cluster_tags)
+    if (set.has(cluster)) set.delete(cluster)
+    else set.add(cluster)
+    onPatch({ tags: { ...piece.tags, cluster_tags: [...set] } })
   }
 
   const applyAutoTag = () => {
@@ -112,34 +200,6 @@ export function ContentPieceEditor({
       tags: mergeTagsIntoPieceTags(piece.tags, sug),
     })
     onAutoTagged?.()
-  }
-
-  const syncMockInstagram = () => {
-    onPatch({
-      performance_api: {
-        ...piece.performance_api,
-        instagram_last_sync_at: new Date().toISOString(),
-        instagram_metrics_json: {
-          mock: true,
-          reach: Math.floor(Math.random() * 5000),
-          saves: Math.floor(Math.random() * 120),
-        },
-      },
-    })
-  }
-
-  const syncMockLinkedIn = () => {
-    onPatch({
-      performance_api: {
-        ...piece.performance_api,
-        linkedin_last_sync_at: new Date().toISOString(),
-        linkedin_metrics_json: {
-          mock: true,
-          impressions: Math.floor(Math.random() * 8000),
-          clicks: Math.floor(Math.random() * 200),
-        },
-      },
-    })
   }
 
   return (
@@ -174,69 +234,210 @@ export function ContentPieceEditor({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label
-            className="font-mono mb-1 block"
-            style={{
-              fontSize: 11,
-              letterSpacing: '0.06em',
-              color: 'var(--text-tertiary)',
-            }}
+      <div>
+        <label
+          className="font-mono mb-1 block"
+          style={{
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          Inhalt
+        </label>
+        {editor ? (
+          <div
+            className="mb-2 flex flex-wrap gap-1"
+            style={{ pointerEvents: 'auto' }}
           >
-            Geplant am
-          </label>
-          <input
-            type="date"
-            value={piece.scheduled_at.slice(0, 10)}
-            onChange={(e) => onPatch({ scheduled_at: e.target.value })}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 10,
-              background: 'var(--glass-1)',
-              border: '1px solid var(--glass-border-1)',
-              color: 'var(--text-primary)',
-              fontSize: 13,
-            }}
-          />
+            <button
+              type="button"
+              style={{
+                ...BTN,
+                fontWeight: editor.isActive('bold') ? 700 : 400,
+              }}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            >
+              Bold
+            </button>
+            <button
+              type="button"
+              style={{
+                ...BTN,
+                fontStyle: editor.isActive('italic') ? 'italic' : 'normal',
+              }}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            >
+              Italic
+            </button>
+            <button
+              type="button"
+              style={{
+                ...BTN,
+                borderColor: editor.isActive('bulletList')
+                  ? 'var(--mode-promo)'
+                  : BTN.border,
+              }}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+              Liste
+            </button>
+            <button
+              type="button"
+              style={{
+                ...BTN,
+                borderColor: editor.isActive('orderedList')
+                  ? 'var(--mode-promo)'
+                  : BTN.border,
+              }}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+              Nummeriert
+            </button>
+          </div>
+        ) : null}
+        <div
+          style={{
+            borderRadius: 12,
+            border: '1px solid var(--glass-border-1)',
+            background: 'var(--glass-1)',
+          }}
+        >
+          <EditorContent editor={editor} style={EDITOR_STYLE} />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
-          <label
+          <span
             className="font-mono mb-1 block"
-            style={{
-              fontSize: 11,
-              letterSpacing: '0.06em',
-              color: 'var(--text-tertiary)',
-            }}
+            style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
           >
-            Veröffentlicht
-          </label>
-          <input
-            type="datetime-local"
-            value={
-              piece.published_at
-                ? piece.published_at.slice(0, 16)
-                : ''
-            }
+            Format
+          </span>
+          <select
+            value={piece.tags.format}
             onChange={(e) =>
               onPatch({
-                published_at: e.target.value
-                  ? new Date(e.target.value).toISOString()
-                  : null,
+                tags: {
+                  ...piece.tags,
+                  format: e.target.value as ContentFormat,
+                },
               })
             }
             style={{
               width: '100%',
-              padding: '10px 12px',
+              padding: '8px 10px',
               borderRadius: 10,
               background: 'var(--glass-1)',
               border: '1px solid var(--glass-border-1)',
               color: 'var(--text-primary)',
-              fontSize: 13,
+              fontSize: 12,
             }}
-          />
+          >
+            {FORMAT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
+        <div>
+          <span
+            className="font-mono mb-1 block"
+            style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+          >
+            Kanal
+          </span>
+          <select
+            value={piece.tags.channel}
+            onChange={(e) =>
+              onPatch({
+                tags: {
+                  ...piece.tags,
+                  channel: e.target.value as ContentChannel,
+                },
+              })
+            }
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 10,
+              background: 'var(--glass-1)',
+              border: '1px solid var(--glass-border-1)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+            }}
+          >
+            {CHANNEL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span
+            className="font-mono mb-1 block"
+            style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+          >
+            Ziel
+          </span>
+          <select
+            value={piece.tags.goal}
+            onChange={(e) =>
+              onPatch({
+                tags: {
+                  ...piece.tags,
+                  goal: e.target.value as ContentGoal,
+                },
+              })
+            }
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 10,
+              background: 'var(--glass-1)',
+              border: '1px solid var(--glass-border-1)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+            }}
+          >
+            {GOAL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label
+          className="font-mono mb-1 block"
+          style={{
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          Geplant am (scheduled_at)
+        </label>
+        <input
+          type="date"
+          value={piece.scheduled_at.slice(0, 10)}
+          onChange={(e) => onPatch({ scheduled_at: e.target.value })}
+          style={{
+            width: '100%',
+            maxWidth: 220,
+            padding: '10px 12px',
+            borderRadius: 10,
+            background: 'var(--glass-1)',
+            border: '1px solid var(--glass-border-1)',
+            color: 'var(--text-primary)',
+            fontSize: 13,
+          }}
+        />
       </div>
 
       <div>
@@ -294,7 +495,7 @@ export function ContentPieceEditor({
               color: 'var(--mode-promo)',
             }}
           >
-            Tags (Foundation)
+            Auto-Tagging &amp; Foundation
           </span>
           <button
             type="button"
@@ -312,137 +513,12 @@ export function ContentPieceEditor({
             Auto-Tag aus Text
           </button>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <span
-              className="font-mono mb-1 block"
-              style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-            >
-              Format
-            </span>
-            <select
-              value={piece.tags.format}
-              onChange={(e) =>
-                onPatch({
-                  tags: {
-                    ...piece.tags,
-                    format: e.target.value as ContentFormat,
-                  },
-                })
-              }
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: 10,
-                background: 'var(--glass-1)',
-                border: '1px solid var(--glass-border-1)',
-                color: 'var(--text-primary)',
-                fontSize: 12,
-              }}
-            >
-              {(
-                [
-                  'post',
-                  'reel',
-                  'story',
-                  'article',
-                  'email',
-                  'carousel',
-                  'other',
-                ] as ContentFormat[]
-              ).map((k) => (
-                <option key={k} value={k}>
-                  {LABEL[k]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <span
-              className="font-mono mb-1 block"
-              style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-            >
-              Kanal
-            </span>
-            <select
-              value={piece.tags.channel}
-              onChange={(e) =>
-                onPatch({
-                  tags: {
-                    ...piece.tags,
-                    channel: e.target.value as ContentChannel,
-                  },
-                })
-              }
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: 10,
-                background: 'var(--glass-1)',
-                border: '1px solid var(--glass-border-1)',
-                color: 'var(--text-primary)',
-                fontSize: 12,
-              }}
-            >
-              {(
-                [
-                  'instagram',
-                  'linkedin',
-                  'website',
-                  'email',
-                  'tiktok',
-                  'other',
-                ] as ContentChannel[]
-              ).map((k) => (
-                <option key={k} value={k}>
-                  {LABEL[k]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <span
-              className="font-mono mb-1 block"
-              style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-            >
-              Ziel
-            </span>
-            <select
-              value={piece.tags.goal}
-              onChange={(e) =>
-                onPatch({
-                  tags: {
-                    ...piece.tags,
-                    goal: e.target.value as ContentGoal,
-                  },
-                })
-              }
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: 10,
-                background: 'var(--glass-1)',
-                border: '1px solid var(--glass-border-1)',
-                color: 'var(--text-primary)',
-                fontSize: 12,
-              }}
-            >
-              {(
-                ['awareness', 'leads', 'nurture', 'sales', 'other'] as ContentGoal[]
-              ).map((k) => (
-                <option key={k} value={k}>
-                  {LABEL[k]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
         <div className="mt-3">
           <span
             className="font-mono mb-1 block"
             style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
           >
-            ICPs
+            ICPs (useICPs)
           </span>
           <div className="flex max-h-28 flex-col gap-1 overflow-y-auto">
             {icps.length === 0 ? (
@@ -472,57 +548,39 @@ export function ContentPieceEditor({
             className="font-mono mb-1 block"
             style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
           >
-            Cluster-Tags
+            Word-Bank-Cluster (useWordBank)
           </span>
-          <div className="flex flex-wrap gap-1">
-            {piece.tags.cluster_tags.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className="font-mono"
-                style={{
-                  fontSize: 10,
-                  padding: '4px 8px',
-                  borderRadius: 999,
-                  border: '1px solid var(--glass-border-2)',
-                  background: 'var(--glass-1)',
-                  color: 'var(--text-secondary)',
-                }}
-                onClick={() =>
-                  onPatch({
-                    tags: {
-                      ...piece.tags,
-                      cluster_tags: piece.tags.cluster_tags.filter((x) => x !== t),
-                    },
-                  })
-                }
-              >
-                {t} ✕
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5">
+            {clusterChoices.length === 0 ? (
+              <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Keine Cluster in der Word Bank.
+              </span>
+            ) : (
+              clusterChoices.map((c) => {
+                const active = piece.tags.cluster_tags.includes(c)
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    className="font-mono"
+                    style={{
+                      fontSize: 10,
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: active
+                        ? '1px solid var(--mode-promo)'
+                        : '1px solid var(--glass-border-2)',
+                      background: active ? 'var(--glass-3)' : 'var(--glass-1)',
+                      color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                    onClick={() => toggleCluster(c)}
+                  >
+                    {c}
+                  </button>
+                )
+              })
+            )}
           </div>
-        </div>
-      </div>
-
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{
-            fontSize: 11,
-            letterSpacing: '0.06em',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          Inhalt
-        </label>
-        <div
-          style={{
-            borderRadius: 12,
-            border: '1px solid var(--glass-border-1)',
-            background: 'var(--glass-1)',
-          }}
-        >
-          <EditorContent editor={editor} style={EDITOR_STYLE} />
         </div>
       </div>
 
@@ -543,49 +601,123 @@ export function ContentPieceEditor({
             color: 'var(--text-tertiary)',
           }}
         >
-          Performance (manuell)
+          Performance (manuell, debounced Autosave)
         </span>
-        <div className="grid grid-cols-3 gap-2">
-          {(
-            [
-              ['impressions', 'Impressions'],
-              ['engagements', 'Engagements'],
-              ['leads', 'Leads'],
-            ] as const
-          ).map(([key, lab]) => (
-            <div key={key}>
-              <span
-                className="font-mono mb-1 block"
-                style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
-              >
-                {lab}
-              </span>
-              <input
-                type="number"
-                min={0}
-                value={piece.performance_manual[key] ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  onPatch({
-                    performance_manual: {
-                      ...piece.performance_manual,
-                      [key]: v === '' ? null : Number(v),
-                      updated_at: new Date().toISOString(),
-                    },
-                  })
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: 10,
-                  background: 'var(--glass-1)',
-                  border: '1px solid var(--glass-border-1)',
-                  color: 'var(--text-primary)',
-                  fontSize: 12,
-                }}
-              />
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div>
+            <span
+              className="font-mono mb-1 block"
+              style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+            >
+              Impressionen
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={imp}
+              onChange={(e) => {
+                const v = e.target.value
+                setImp(v)
+                debouncedPerf({
+                  impressions: v === '' ? null : Number(v),
+                })
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: 'var(--glass-1)',
+                border: '1px solid var(--glass-border-1)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+              }}
+            />
+          </div>
+          <div>
+            <span
+              className="font-mono mb-1 block"
+              style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+            >
+              Klicks
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={clk}
+              onChange={(e) => {
+                const v = e.target.value
+                setClk(v)
+                debouncedPerf({
+                  engagements: v === '' ? null : Number(v),
+                })
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: 'var(--glass-1)',
+                border: '1px solid var(--glass-border-1)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+              }}
+            />
+          </div>
+          <div>
+            <span
+              className="font-mono mb-1 block"
+              style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+            >
+              Leads
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={leadsIn}
+              onChange={(e) => {
+                const v = e.target.value
+                setLeadsIn(v)
+                debouncedPerf({
+                  leads: v === '' ? null : Number(v),
+                })
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: 'var(--glass-1)',
+                border: '1px solid var(--glass-border-1)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+              }}
+            />
+          </div>
+          <div>
+            <span
+              className="font-mono mb-1 block"
+              style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+            >
+              Conversions
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={convIn}
+              onChange={(e) => {
+                const v = e.target.value
+                setConvIn(v)
+                debouncedConversions(v === '' ? null : Number(v))
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: 'var(--glass-1)',
+                border: '1px solid var(--glass-border-1)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+              }}
+            />
+          </div>
         </div>
         <label
           className="font-mono mb-1 mt-3 block"
@@ -594,16 +726,12 @@ export function ContentPieceEditor({
           Notizen
         </label>
         <textarea
-          value={piece.performance_manual.notes}
-          onChange={(e) =>
-            onPatch({
-              performance_manual: {
-                ...piece.performance_manual,
-                notes: e.target.value,
-                updated_at: new Date().toISOString(),
-              },
-            })
-          }
+          value={notesLocal}
+          onChange={(e) => {
+            const v = e.target.value
+            setNotesLocal(v)
+            debouncedPerf({ notes: v })
+          }}
           rows={3}
           style={{
             width: '100%',
@@ -616,81 +744,6 @@ export function ContentPieceEditor({
             resize: 'vertical',
           }}
         />
-      </div>
-
-      <div
-        className="glass-2"
-        style={{
-          borderRadius: 12,
-          padding: 14,
-          border: '1px solid var(--glass-border-1)',
-        }}
-      >
-        <span
-          className="font-mono mb-2 block"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          API-Anbindung (Phase 4 Scope — noch Mock)
-        </span>
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
-          Instagram Graph &amp; LinkedIn Analytics: echte OAuth-Flows folgen mit
-          Backend. Hier nur Platzhalter-Sync für UI-Demos.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="font-mono"
-            style={{
-              fontSize: 11,
-              padding: '8px 12px',
-              borderRadius: 10,
-              border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-3)',
-              color: 'var(--text-secondary)',
-            }}
-            onClick={syncMockInstagram}
-          >
-            Mock: Instagram Sync
-          </button>
-          <button
-            type="button"
-            className="font-mono"
-            style={{
-              fontSize: 11,
-              padding: '8px 12px',
-              borderRadius: 10,
-              border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-3)',
-              color: 'var(--text-secondary)',
-            }}
-            onClick={syncMockLinkedIn}
-          >
-            Mock: LinkedIn Sync
-          </button>
-        </div>
-        <div
-          className="font-mono mt-3"
-          style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-        >
-          IG letzter Sync:{' '}
-          {piece.performance_api.instagram_last_sync_at
-            ? new Date(piece.performance_api.instagram_last_sync_at).toLocaleString(
-                'de-DE',
-              )
-            : '—'}
-          <br />
-          LI letzter Sync:{' '}
-          {piece.performance_api.linkedin_last_sync_at
-            ? new Date(piece.performance_api.linkedin_last_sync_at).toLocaleString(
-                'de-DE',
-              )
-            : '—'}
-        </div>
       </div>
 
       <button

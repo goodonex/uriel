@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { generateId } from '../lib/storage'
+import { generateId, loadList, saveList } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type {
   ContentChannel,
@@ -96,6 +97,8 @@ function pieceToRow(p: ContentPiece): Record<string, unknown> {
   }
 }
 
+const STORAGE_KEY = 'content-pieces' as const
+
 export function useContentPieces(
   brandSlug: string | undefined,
 ): UseContentPiecesResult {
@@ -105,12 +108,33 @@ export function useContentPieces(
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<ContentPiece[]>([])
   itemsRef.current = items
+  const localOnlyRef = useRef(false)
+
+  const loadLocal = useCallback(() => {
+    if (!brandSlug) return
+    setItems(loadList<ContentPiece>([brandSlug, STORAGE_KEY]))
+    setError(null)
+  }, [brandSlug])
+
+  const persistLocal = useCallback(
+    (next: ContentPiece[]) => {
+      if (!brandSlug) return
+      saveList([brandSlug, STORAGE_KEY], next)
+    },
+    [brandSlug],
+  )
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItems([])
       setLoading(false)
       setError(null)
+      return
+    }
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -119,15 +143,25 @@ export function useContentPieces(
       .select('*')
       .eq('brand_id', brandId)
       .order('scheduled_at', { ascending: true })
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useContentPieces] → localStorage', err.message)
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
+      return
+    }
     if (err) {
       setError(err.message)
       setItems([])
-    } else {
-      setError(null)
-      setItems((data ?? []).map(rowToPiece))
+      setLoading(false)
+      return
     }
+    localOnlyRef.current = false
+    setError(null)
+    setItems((data ?? []).map(rowToPiece))
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug, loadLocal])
 
   useEffect(() => {
     void reload()
@@ -137,14 +171,12 @@ export function useContentPieces(
     (
       partial?: Partial<Omit<ContentPiece, 'id' | 'brand_id' | 'updated_at'>>,
     ): ContentPiece => {
-      if (!supabase || !brandId) {
-        throw new Error('Supabase oder Brand nicht verfügbar')
-      }
+      if (!brandSlug) throw new Error('Kein Brand-Slug')
       const now = new Date().toISOString()
       const today = now.slice(0, 10)
       const item: ContentPiece = {
         id: generateId(),
-        brand_id: brandId,
+        brand_id: localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
         title: partial?.title ?? 'Neues Content-Piece',
         content: partial?.content ?? EMPTY_DOC,
         scheduled_at: partial?.scheduled_at ?? today,
@@ -156,49 +188,75 @@ export function useContentPieces(
         performance_api: partial?.performance_api ?? defaultPerformanceApi(),
         updated_at: now,
       }
-      const row = pieceToRow(item)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        const next = [...itemsRef.current, item]
+        setItems(next)
+        persistLocal(next)
+        return item
+      }
+      const row = pieceToRow({ ...item, brand_id: brandId })
       setItems([...itemsRef.current, item])
       void supabase.from('content_pieces').insert(row).then(({ error: err }) => {
         if (err) {
-          setError(err.message)
-          void reload()
+          if (isMissingSupabaseTableError(err.message)) {
+            localOnlyRef.current = true
+            const next = [...itemsRef.current, item]
+            persistLocal(next)
+            setItems(next)
+          } else {
+            setError(err.message)
+            void reload()
+          }
         }
       })
       return item
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const update = useCallback(
     (id: string, patch: Partial<Omit<ContentPiece, 'id' | 'brand_id'>>) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const now = new Date().toISOString()
       const next = itemsRef.current.map((p) =>
         p.id === id ? { ...p, ...patch, updated_at: now } : p,
       )
       setItems(next)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
       const merged = next.find((p) => p.id === id)
       if (!merged) return
       void supabase
         .from('content_pieces')
-        .update(pieceToRow(merged))
+        .update(pieceToRow({ ...merged, brand_id: brandId }))
         .eq('id', id)
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const remove = useCallback(
     (id: string) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const next = itemsRef.current.filter((p) => p.id !== id)
       setItems(next)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
       void supabase
         .from('content_pieces')
         .delete()
@@ -206,12 +264,17 @@ export function useContentPieces(
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   return { items, loading, error, create, update, remove }

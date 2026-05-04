@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { generateId } from '../lib/storage'
+import { generateId, loadList, saveList } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { Contact, PipelineStage } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -34,6 +35,8 @@ function rowToContact(row: Record<string, unknown>): Contact {
   }
 }
 
+const STORAGE_KEY = 'contacts' as const
+
 export function useContacts(brandSlug: string | undefined): UseContactsResult {
   const brandId = useBrandId(brandSlug)
   const [items, setItems] = useState<Contact[]>([])
@@ -41,12 +44,33 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<Contact[]>([])
   itemsRef.current = items
+  const localOnlyRef = useRef(false)
+
+  const loadLocal = useCallback(() => {
+    if (!brandSlug) return
+    setItems(loadList<Contact>([brandSlug, STORAGE_KEY]))
+    setError(null)
+  }, [brandSlug])
+
+  const persistLocal = useCallback(
+    (next: Contact[]) => {
+      if (!brandSlug) return
+      saveList([brandSlug, STORAGE_KEY], next)
+    },
+    [brandSlug],
+  )
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItems([])
       setLoading(false)
       setError(null)
+      return
+    }
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -55,15 +79,25 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       .select('*')
       .eq('brand_id', brandId)
       .order('updated_at', { ascending: false })
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useContacts] → localStorage', err.message)
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
+      return
+    }
     if (err) {
       setError(err.message)
       setItems([])
-    } else {
-      setError(null)
-      setItems((data ?? []).map(rowToContact))
+      setLoading(false)
+      return
     }
+    localOnlyRef.current = false
+    setError(null)
+    setItems((data ?? []).map(rowToContact))
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug, loadLocal])
 
   useEffect(() => {
     void reload()
@@ -73,13 +107,11 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     (
       partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
     ): Contact => {
-      if (!supabase || !brandId) {
-        throw new Error('Supabase oder Brand nicht verfügbar')
-      }
+      if (!brandSlug) throw new Error('Kein Brand-Slug')
       const now = new Date().toISOString()
-      const row = {
+      const item: Contact = {
         id: generateId(),
-        brand_id: brandId,
+        brand_id: localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
         name: partial?.name ?? 'Neuer Kontakt',
         email: partial?.email ?? '',
         source_content_piece_id: partial?.source_content_piece_id ?? null,
@@ -90,27 +122,56 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         notes: partial?.notes ?? '',
         updated_at: now,
       }
-      const item = rowToContact(row)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        const next = [...itemsRef.current, item]
+        setItems(next)
+        persistLocal(next)
+        return item
+      }
+      const row = {
+        id: item.id,
+        brand_id: brandId,
+        name: item.name,
+        email: item.email,
+        source_content_piece_id: item.source_content_piece_id,
+        source_campaign_id: item.source_campaign_id,
+        pipeline_stage: item.pipeline_stage,
+        last_contact_at: item.last_contact_at,
+        next_follow_up_at: item.next_follow_up_at,
+        notes: item.notes,
+        updated_at: now,
+      }
       setItems([...itemsRef.current, item])
       void supabase.from('contacts').insert(row).then(({ error: err }) => {
         if (err) {
-          setError(err.message)
-          void reload()
+          if (isMissingSupabaseTableError(err.message)) {
+            localOnlyRef.current = true
+            const next = [...itemsRef.current, item]
+            persistLocal(next)
+            setItems(next)
+          } else {
+            setError(err.message)
+            void reload()
+          }
         }
       })
       return item
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const update = useCallback(
     (id: string, patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const now = new Date().toISOString()
       const next = itemsRef.current.map((c) =>
         c.id === id ? { ...c, ...patch, updated_at: now } : c,
       )
       setItems(next)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
       void supabase
         .from('contacts')
         .update({ ...patch, updated_at: now })
@@ -118,19 +179,28 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const remove = useCallback(
     (id: string) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const next = itemsRef.current.filter((c) => c.id !== id)
       setItems(next)
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
       void supabase
         .from('contacts')
         .delete()
@@ -138,12 +208,17 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   return { items, loading, error, create, update, remove }

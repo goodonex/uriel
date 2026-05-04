@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { loadList, saveList } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { DiscoveryFeedItem } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -22,6 +24,8 @@ function rowToItem(row: Record<string, unknown>): DiscoveryFeedItem {
   }
 }
 
+const STORAGE_KEY = 'discovery-feed' as const
+
 export function useDiscoveryFeed(
   brandSlug: string | undefined,
 ): UseDiscoveryFeedResult {
@@ -31,12 +35,33 @@ export function useDiscoveryFeed(
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<DiscoveryFeedItem[]>([])
   itemsRef.current = items
+  const localOnlyRef = useRef(false)
+
+  const loadLocal = useCallback(() => {
+    if (!brandSlug) return
+    setItems(loadList<DiscoveryFeedItem>([brandSlug, STORAGE_KEY]))
+    setError(null)
+  }, [brandSlug])
+
+  const persistLocal = useCallback(
+    (next: DiscoveryFeedItem[]) => {
+      if (!brandSlug) return
+      saveList([brandSlug, STORAGE_KEY], next)
+    },
+    [brandSlug],
+  )
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItems([])
       setLoading(false)
       setError(null)
+      return
+    }
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -45,15 +70,25 @@ export function useDiscoveryFeed(
       .select('*')
       .eq('brand_id', brandId)
       .order('recorded_at', { ascending: false })
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useDiscoveryFeed] → localStorage', err.message)
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
+      return
+    }
     if (err) {
       setError(err.message)
       setItems([])
-    } else {
-      setError(null)
-      setItems((data ?? []).map(rowToItem))
+      setLoading(false)
+      return
     }
+    localOnlyRef.current = false
+    setError(null)
+    setItems((data ?? []).map(rowToItem))
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug, loadLocal])
 
   useEffect(() => {
     void reload()
@@ -61,8 +96,20 @@ export function useDiscoveryFeed(
 
   const prepend = useCallback(
     (batch: DiscoveryFeedItem[]) => {
-      if (!supabase || !brandId || batch.length === 0) return
-      const rows = batch.map((b) => ({
+      if (!brandSlug || batch.length === 0) return
+      const merged = batch.map((b) => ({
+        ...b,
+        brand_id: localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
+      }))
+      const next = [...merged, ...itemsRef.current]
+      setItems(next)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
+
+      const rows = merged.map((b) => ({
         id: b.id,
         brand_id: brandId,
         category: b.category,
@@ -71,16 +118,20 @@ export function useDiscoveryFeed(
         signal_strength: b.signal_strength,
         recorded_at: b.recorded_at,
       }))
-      const merged = batch.map((b) => ({ ...b, brand_id: brandId }))
-      setItems([...merged, ...itemsRef.current])
+
       void supabase.from('discovery_feed_items').insert(rows).then(({ error: err }) => {
         if (err) {
-          setError(err.message)
-          void reload()
+          if (isMissingSupabaseTableError(err.message)) {
+            localOnlyRef.current = true
+            persistLocal(next)
+          } else {
+            setError(err.message)
+            void reload()
+          }
         }
       })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   return { items, loading, error, prepend }

@@ -1,5 +1,22 @@
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
 import { SectionLabel } from '../../components/SectionLabel'
@@ -22,6 +39,253 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   proposal: 'Angebot',
   deal: 'Deal',
   paused: 'Pause',
+}
+
+/** Vergleicht Kalendertag (YYYY-MM-DD) mit heute — Follow-up heute oder früher = überfällig. */
+function isFollowUpOverdue(nextFollowUpAt: string | null): boolean {
+  if (!nextFollowUpAt) return false
+  const ymd = nextFollowUpAt.slice(0, 10)
+  const t = new Date()
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  return ymd <= today
+}
+
+function DroppableStageColumn({
+  stage,
+  children,
+}: {
+  stage: PipelineStage
+  children: ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage })
+  return (
+    <div
+      ref={setNodeRef}
+      className="glass-2 shrink-0"
+      style={{
+        width: 200,
+        borderRadius: 14,
+        padding: 10,
+        border: isOver
+          ? '2px solid var(--mode-sales)'
+          : '1px solid var(--glass-border-1)',
+        backdropFilter: 'var(--blur-md)',
+        WebkitBackdropFilter: 'var(--blur-md)',
+        minHeight: 120,
+      }}
+    >
+      <div
+        className="font-mono mb-2"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--text-tertiary)',
+        }}
+      >
+        {STAGE_LABEL[stage]}
+      </div>
+      <div className="flex flex-col gap-2">{children}</div>
+    </div>
+  )
+}
+
+function SortableContactCard({
+  contact,
+  onSelect,
+}: {
+  contact: Contact
+  onSelect: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: contact.id })
+
+  const overdue = isFollowUpOverdue(contact.next_follow_up_at)
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.35 : 1,
+    padding: 10,
+    borderRadius: 10,
+    background: 'var(--glass-1)',
+    border: overdue
+      ? '2px solid var(--accent-coral)'
+      : '1px solid var(--glass-border-2)',
+    position: 'relative' as const,
+    width: '100%',
+    textAlign: 'left' as const,
+    cursor: 'grab',
+    touchAction: 'none' as const,
+  }
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={onSelect}
+    >
+      {overdue ? (
+        <span
+          className="font-mono"
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            fontSize: 8,
+            letterSpacing: '0.04em',
+            padding: '3px 7px',
+            borderRadius: 6,
+            background: 'var(--accent-coral)',
+            color: '#fff',
+          }}
+        >
+          Überfällig
+        </span>
+      ) : null}
+      <div
+        className="font-display"
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          paddingRight: overdue ? 56 : 0,
+        }}
+      >
+        {contact.name}
+      </div>
+      {contact.next_follow_up_at ? (
+        <div
+          className="font-mono mt-1"
+          style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+        >
+          Next: {contact.next_follow_up_at.slice(0, 10)}
+        </div>
+      ) : null}
+    </button>
+  )
+}
+
+function PipelineBoard({
+  contacts,
+  onMoveToStage,
+  onSelectContact,
+}: {
+  contacts: Contact[]
+  onMoveToStage: (contactId: string, stage: PipelineStage) => void
+  onSelectContact: (id: string) => void
+}) {
+  const skipClickRef = useRef(false)
+  const markSkipClick = useCallback(() => {
+    skipClickRef.current = true
+    window.setTimeout(() => {
+      skipClickRef.current = false
+    }, 220)
+  }, [])
+
+  const [activeDrag, setActiveDrag] = useState<Contact | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 10 },
+    }),
+  )
+
+  const resolveTargetStage = useCallback(
+    (overId: string | number | null | undefined): PipelineStage | null => {
+      if (overId == null) return null
+      const oid = String(overId)
+      if ((STAGES as readonly string[]).includes(oid))
+        return oid as PipelineStage
+      const overContact = contacts.find((c) => c.id === oid)
+      return overContact ? overContact.pipeline_stage : null
+    },
+    [contacts],
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    markSkipClick()
+    setActiveDrag(null)
+    const { active, over } = event
+    if (!over) return
+    const target = resolveTargetStage(over.id)
+    const activeId = String(active.id)
+    const contact = contacts.find((c) => c.id === activeId)
+    if (!contact || !target || contact.pipeline_stage === target) return
+    onMoveToStage(activeId, target)
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={({ active }: DragStartEvent) => {
+        setActiveDrag(
+          contacts.find((c) => c.id === String(active.id)) ?? null,
+        )
+      }}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => {
+        markSkipClick()
+        setActiveDrag(null)
+      }}
+    >
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {STAGES.map((stage) => {
+          const list = contacts.filter((c) => c.pipeline_stage === stage)
+          return (
+            <DroppableStageColumn key={stage} stage={stage}>
+              <SortableContext
+                items={list.map((c) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {list.map((c) => (
+                  <SortableContactCard
+                    key={c.id}
+                    contact={c}
+                    onSelect={() => {
+                      if (skipClickRef.current) return
+                      onSelectContact(c.id)
+                    }}
+                  />
+                ))}
+              </SortableContext>
+            </DroppableStageColumn>
+          )
+        })}
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {activeDrag ? (
+          <div
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              background: 'var(--glass-2)',
+              border: '1px solid var(--glass-border-2)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+              minWidth: 168,
+            }}
+          >
+            <div
+              className="font-display"
+              style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}
+            >
+              {activeDrag.name}
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  )
 }
 
 export function SalesMode() {
@@ -115,73 +379,13 @@ export function SalesMode() {
       ) : null}
 
       {!contacts.loading && !contacts.error ? (
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {STAGES.map((stage) => {
-            const list = contacts.items.filter((c) => c.pipeline_stage === stage)
-            return (
-              <div
-                key={stage}
-                className="glass-2 shrink-0"
-                style={{
-                  width: 200,
-                  borderRadius: 14,
-                  padding: 10,
-                  border: '1px solid var(--glass-border-1)',
-                  backdropFilter: 'var(--blur-md)',
-                  WebkitBackdropFilter: 'var(--blur-md)',
-                }}
-              >
-                <div
-                  className="font-mono mb-2"
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-tertiary)',
-                  }}
-                >
-                  {STAGE_LABEL[stage]}
-                </div>
-                <div className="flex flex-col gap-2">
-                  {list.map((c) => (
-                    <motion.button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedId(c.id)}
-                      whileHover={{ y: -1 }}
-                      className="text-left"
-                      style={{
-                        padding: 10,
-                        borderRadius: 10,
-                        background: 'var(--glass-1)',
-                        border: '1px solid var(--glass-border-2)',
-                      }}
-                    >
-                      <div
-                        className="font-display"
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                        }}
-                      >
-                        {c.name}
-                      </div>
-                      {c.next_follow_up_at ? (
-                        <div
-                          className="font-mono mt-1"
-                          style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
-                        >
-                          Next: {c.next_follow_up_at.slice(0, 10)}
-                        </div>
-                      ) : null}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <PipelineBoard
+          contacts={contacts.items}
+          onMoveToStage={(id, stage) =>
+            contacts.update(id, { pipeline_stage: stage })
+          }
+          onSelectContact={setSelectedId}
+        />
       ) : null}
 
       <Drawer

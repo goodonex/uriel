@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { generateId } from '../lib/storage'
+import { generateId, loadList, saveList } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { ICP } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -32,6 +33,8 @@ function rowToICP(row: Record<string, unknown>): ICP {
   }
 }
 
+const STORAGE_KEY = 'icps' as const
+
 export function useICPs(brandSlug: string | undefined): UseICPsResult {
   const brandId = useBrandId(brandSlug)
   const [items, setItems] = useState<ICP[]>([])
@@ -39,29 +42,64 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<ICP[]>([])
   itemsRef.current = items
+  const localOnlyRef = useRef(false)
+
+  const loadLocal = useCallback(() => {
+    if (!brandSlug) return
+    setItems(sortByPriority(loadList<ICP>([brandSlug, STORAGE_KEY])))
+    setError(null)
+  }, [brandSlug])
+
+  const persistLocal = useCallback(
+    (next: ICP[]) => {
+      if (!brandSlug) return
+      saveList([brandSlug, STORAGE_KEY], next)
+    },
+    [brandSlug],
+  )
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItems([])
       setLoading(false)
       setError(null)
       return
     }
+
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const { data, error: err } = await supabase
       .from('foundation_icps')
       .select('*')
       .eq('brand_id', brandId)
       .order('priority', { ascending: true })
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useICPs] → localStorage (Tabelle fehlt)', err.message)
+      localOnlyRef.current = true
+      loadLocal()
+      setLoading(false)
+      return
+    }
+
     if (err) {
       setError(err.message)
       setItems([])
-    } else {
-      setError(null)
-      setItems(sortByPriority((data ?? []).map(rowToICP)))
+      setLoading(false)
+      return
     }
+
+    localOnlyRef.current = false
+    setError(null)
+    setItems(sortByPriority((data ?? []).map(rowToICP)))
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug, loadLocal])
 
   useEffect(() => {
     void reload()
@@ -69,9 +107,7 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
 
   const create = useCallback(
     (partial?: Partial<Omit<ICP, 'id' | 'brand_id' | 'updated_at'>>): ICP => {
-      if (!supabase || !brandId) {
-        throw new Error('Supabase oder Brand nicht verfügbar')
-      }
+      if (!brandSlug) throw new Error('Kein Brand-Slug')
       const now = new Date().toISOString()
       const existingPriorities = itemsRef.current.map((i) => i.priority)
       const defaultPriority: 1 | 2 | 3 = !existingPriorities.includes(1)
@@ -79,9 +115,9 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
         : !existingPriorities.includes(2)
           ? 2
           : 3
-      const row = {
+      const item: ICP = {
         id: generateId(),
-        brand_id: brandId,
+        brand_id: localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
         name: partial?.name ?? 'Neuer ICP',
         age_range: partial?.age_range ?? '',
         location: partial?.location ?? '',
@@ -91,22 +127,48 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
         notes: partial?.notes ?? '',
         updated_at: now,
       }
-      const item = rowToICP(row)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        const next = sortByPriority([...itemsRef.current, item])
+        setItems(next)
+        persistLocal(next)
+        return item
+      }
+
+      const row = {
+        id: item.id,
+        brand_id: brandId,
+        name: item.name,
+        age_range: item.age_range,
+        location: item.location,
+        pain_points: item.pain_points,
+        word_clusters: item.word_clusters,
+        priority: item.priority,
+        notes: item.notes,
+        updated_at: now,
+      }
       setItems(sortByPriority([...itemsRef.current, item]))
       void supabase.from('foundation_icps').insert(row).then(({ error: err }) => {
         if (err) {
-          setError(err.message)
-          void reload()
+          if (isMissingSupabaseTableError(err.message)) {
+            localOnlyRef.current = true
+            const next = sortByPriority([...itemsRef.current, item])
+            persistLocal(next)
+            setItems(next)
+          } else {
+            setError(err.message)
+            void reload()
+          }
         }
       })
       return item
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const update = useCallback(
     (id: string, patch: Partial<Omit<ICP, 'id' | 'brand_id'>>) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const now = new Date().toISOString()
       const next = sortByPriority(
         itemsRef.current.map((i) =>
@@ -114,6 +176,12 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
         ),
       )
       setItems(next)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
+
       void supabase
         .from('foundation_icps')
         .update({ ...patch, updated_at: now })
@@ -121,19 +189,30 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   const remove = useCallback(
     (id: string) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const next = itemsRef.current.filter((i) => i.id !== id)
       setItems(next)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        persistLocal(next)
+        return
+      }
+
       void supabase
         .from('foundation_icps')
         .delete()
@@ -141,12 +220,17 @@ export function useICPs(brandSlug: string | undefined): UseICPsResult {
         .eq('brand_id', brandId)
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              persistLocal(next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, persistLocal, reload],
   )
 
   return { items, loading, error, create, update, remove }

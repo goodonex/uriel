@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { loadOne, saveOne } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { DiscoverySettingsDoc } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -9,6 +11,8 @@ interface UseDiscoverySettingsResult {
   error: string | null
   save: (patch: Partial<Omit<DiscoverySettingsDoc, 'updated_at'>>) => void
 }
+
+const STORAGE_PART = 'discovery-settings' as const
 
 function defaults(): DiscoverySettingsDoc {
   return {
@@ -36,12 +40,20 @@ export function useDiscoverySettings(
   const [error, setError] = useState<string | null>(null)
   const itemRef = useRef<DiscoverySettingsDoc | null>(null)
   itemRef.current = item
+  const localOnlyRef = useRef(false)
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItem(null)
       setLoading(false)
       setError(null)
+      return
+    }
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      setItem(loadOne<DiscoverySettingsDoc>([brandSlug, STORAGE_PART]))
+      setError(null)
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -50,15 +62,26 @@ export function useDiscoverySettings(
       .select('*')
       .eq('brand_id', brandId)
       .maybeSingle()
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useDiscoverySettings] → localStorage', err.message)
+      localOnlyRef.current = true
+      setItem(loadOne<DiscoverySettingsDoc>([brandSlug, STORAGE_PART]))
+      setError(null)
+      setLoading(false)
+      return
+    }
+
     if (err) {
       setError(err.message)
       setItem(null)
     } else {
+      localOnlyRef.current = false
       setError(null)
       setItem(data ? rowToDoc(data as Record<string, unknown>) : null)
     }
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug])
 
   useEffect(() => {
     void reload()
@@ -66,7 +89,7 @@ export function useDiscoverySettings(
 
   const save = useCallback(
     (patch: Partial<Omit<DiscoverySettingsDoc, 'updated_at'>>) => {
-      if (!supabase || !brandId) return
+      if (!brandSlug) return
       const base = itemRef.current ?? defaults()
       const next: DiscoverySettingsDoc = {
         ...base,
@@ -74,6 +97,12 @@ export function useDiscoverySettings(
         updated_at: new Date().toISOString(),
       }
       setItem(next)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        saveOne([brandSlug, STORAGE_PART], next)
+        return
+      }
+
       void supabase
         .from('discovery_settings')
         .upsert(
@@ -87,12 +116,17 @@ export function useDiscoverySettings(
         )
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              saveOne([brandSlug, STORAGE_PART], next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, reload],
   )
 
   return { item, loading, error, save }

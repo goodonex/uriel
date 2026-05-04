@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Brand } from '../types/db'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -36,15 +37,6 @@ const FALLBACK_BRANDS: Brand[] = [
     created_at: new Date().toISOString(),
   },
 ]
-
-function isBrandsTableUnavailable(message: string): boolean {
-  const m = message.toLowerCase()
-  return (
-    m.includes('could not find the table') ||
-    m.includes('schema cache') ||
-    m.includes('relation') && m.includes('brands') && m.includes('does not exist')
-  )
-}
 
 interface UseBrandsResult {
   brands: Brand[]
@@ -93,7 +85,7 @@ export function useBrands(): UseBrandsResult {
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
     if (err) {
-      if (isBrandsTableUnavailable(err.message)) {
+      if (isMissingSupabaseTableError(err.message)) {
         console.warn(
           '[useBrands] Tabelle `brands` fehlt oder Cache — 3D-Graph nutzt Fallback. Migration 0001 im Supabase SQL Editor ausführen.',
           err.message,
@@ -132,7 +124,7 @@ export function useBrands(): UseBrandsResult {
       }))
       const { error: insErr } = await supabase.from('brands').insert(rows)
       if (insErr) {
-        if (isBrandsTableUnavailable(insErr.message)) {
+        if (isMissingSupabaseTableError(insErr.message)) {
           console.warn(
             '[useBrands] Seed übersprungen (keine Tabelle) — Fallback-Nodes.',
             insErr.message,

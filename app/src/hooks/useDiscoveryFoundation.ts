@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { generateId } from '../lib/storage'
+import { generateId, loadOne, saveOne } from '../lib/storage'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { DiscoveryFoundationDoc } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -13,10 +14,12 @@ interface UseDiscoveryFoundationResult {
   ) => void
 }
 
-function emptyDoc(brandId: string): DiscoveryFoundationDoc {
+const STORAGE_PART = 'discovery-foundation' as const
+
+function emptyDoc(brandKey: string): DiscoveryFoundationDoc {
   return {
     id: generateId(),
-    brand_id: brandId,
+    brand_id: brandKey,
     market: '',
     competitors: '',
     niche: '',
@@ -48,12 +51,20 @@ export function useDiscoveryFoundation(
   const [error, setError] = useState<string | null>(null)
   const itemRef = useRef<DiscoveryFoundationDoc | null>(null)
   itemRef.current = item
+  const localOnlyRef = useRef(false)
 
   const reload = useCallback(async () => {
-    if (!supabase || !brandId) {
+    if (!brandSlug) {
       setItem(null)
       setLoading(false)
       setError(null)
+      return
+    }
+    if (!supabase || !brandId) {
+      localOnlyRef.current = true
+      setItem(loadOne<DiscoveryFoundationDoc>([brandSlug, STORAGE_PART]))
+      setError(null)
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -62,15 +73,26 @@ export function useDiscoveryFoundation(
       .select('*')
       .eq('brand_id', brandId)
       .maybeSingle()
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useDiscoveryFoundation] → localStorage', err.message)
+      localOnlyRef.current = true
+      setItem(loadOne<DiscoveryFoundationDoc>([brandSlug, STORAGE_PART]))
+      setError(null)
+      setLoading(false)
+      return
+    }
+
     if (err) {
       setError(err.message)
       setItem(null)
     } else {
+      localOnlyRef.current = false
       setError(null)
       setItem(data ? rowToDoc(data as Record<string, unknown>) : null)
     }
     setLoading(false)
-  }, [brandId])
+  }, [brandId, brandSlug])
 
   useEffect(() => {
     void reload()
@@ -78,14 +100,22 @@ export function useDiscoveryFoundation(
 
   const save = useCallback(
     (patch: Partial<Omit<DiscoveryFoundationDoc, 'id' | 'brand_id'>>) => {
-      if (!supabase || !brandId) return
-      const base = itemRef.current ?? emptyDoc(brandId)
+      if (!brandSlug) return
+      const key = localOnlyRef.current ? brandSlug : (brandId ?? brandSlug)
+      const base = itemRef.current ?? emptyDoc(key)
       const next: DiscoveryFoundationDoc = {
         ...base,
         ...patch,
+        brand_id: localOnlyRef.current ? brandSlug : base.brand_id,
         updated_at: new Date().toISOString(),
       }
       setItem(next)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        saveOne([brandSlug, STORAGE_PART], next)
+        return
+      }
+
       void supabase
         .from('discovery_foundation')
         .upsert(
@@ -103,12 +133,17 @@ export function useDiscoveryFoundation(
         )
         .then(({ error: err }) => {
           if (err) {
-            setError(err.message)
-            void reload()
+            if (isMissingSupabaseTableError(err.message)) {
+              localOnlyRef.current = true
+              saveOne([brandSlug, STORAGE_PART], next)
+            } else {
+              setError(err.message)
+              void reload()
+            }
           }
         })
     },
-    [brandId, reload],
+    [brandId, brandSlug, reload],
   )
 
   return { item, loading, error, save }

@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useCallback, useEffect, useState } from 'react'
+import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 
 export type AppUserRole = 'owner' | 'client'
@@ -24,7 +25,13 @@ async function fetchRoleRow(userId: string): Promise<{
     .select('role, client_slug')
     .eq('user_id', userId)
     .maybeSingle()
-  if (error || !data) return null
+  if (error) {
+    if (isMissingSupabaseTableError(error.message)) {
+      return { role: 'owner' as const, client_slug: null }
+    }
+    return null
+  }
+  if (!data) return null
   return {
     role: data.role as AppUserRole,
     client_slug: data.client_slug as string | null,
@@ -41,7 +48,7 @@ async function ensureOwnerRow(userId: string): Promise<void> {
     role: 'owner',
     client_slug: null,
   })
-  if (error) {
+  if (error && !isMissingSupabaseTableError(error.message)) {
     console.warn('[useAuth] user_roles Insert (owner) übersprungen:', error.message)
   }
 }
