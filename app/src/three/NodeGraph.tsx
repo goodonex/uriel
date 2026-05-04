@@ -9,10 +9,11 @@ import { BrandNode } from './BrandNode'
 import { CameraRig } from './CameraRig'
 import { Connections } from './Connections'
 
+/** Leicht asymmetrisch — kein Node auf der optischen Achse (x≈0), sonst wirkt eine Kugel „fest in der Mitte“. */
 const NODE_POSITIONS: [number, number, number][] = [
-  [-2.4, 0.6, 0],
-  [0, -0.9, 0],
-  [2.4, 0.6, 0],
+  [-2.35, 0.65, 0],
+  [-0.52, -0.88, 0],
+  [2.28, 0.52, 0],
 ]
 
 const COLOR_FALLBACK = ['#4f7fff', '#8b5cf6', '#2dd4bf']
@@ -103,7 +104,10 @@ export function NodeGraph() {
           tunnelTarget={tunnelTarget}
           onTunnelComplete={handleTunnelComplete}
         />
-        <Connections positions={NODE_POSITIONS.slice(0, brands.length)} />
+        {/* Nur auf Universe: Linien wirken über Glas-Panels wie ein „V zur Mitte“. */}
+        {location.pathname === '/' ? (
+          <Connections positions={NODE_POSITIONS.slice(0, brands.length)} />
+        ) : null}
         <group ref={nodesGroupRef} scale={ambient ? 0.4 : 1}>
           {brands.map((brand, idx) => (
             <BrandNode
