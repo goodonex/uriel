@@ -4,7 +4,6 @@ import { Outlet, Route, Routes } from 'react-router-dom'
 import { Background } from './components/Background'
 import { ModeNav } from './components/ModeNav'
 import { RequireAuthShell } from './components/RequireAuthShell'
-import { RequireClientGate } from './components/RequireClientGate'
 import { RequireOwnerGate } from './components/RequireOwnerGate'
 import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
@@ -86,12 +85,10 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
-              path="/portal/:clientSlug"
+              path="/portal/:projectId"
               element={
                 <RequireAuthShell>
-                  <RequireClientGate>
-                    <ClientPortal />
-                  </RequireClientGate>
+                  <ClientPortal />
                 </RequireAuthShell>
               }
             />
