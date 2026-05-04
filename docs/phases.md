@@ -62,6 +62,16 @@ _(Echter Agent / APIs — später)_
 - [x] Pipeline-View (Kanban-Spalten, Glass)
 - [x] Follow-up Tracking (Datumsfelder)
 - [x] Verknüpfung Content → Kontakt (Quelle) + Kampagne optional
+- [x] Kontakt-Vollseite `/brand/:slug/sales/:contactId` (Aktivitäts-Log, Profilfelder)
+- [x] Deal → Deliver-Projekt Shortcut
+
+---
+
+## Phase 5b — Deliver & Kundenportal (App, localStorage-first)
+
+- [x] Deliver-Projekte mit Notion-ähnlichen Stages + `useDeliverProjects`
+- [x] Projekt-Detailseite (Intern / Kundenbereich, Tiptap, Kanban)
+- [x] Kundenportal-Placeholder `/portal/:projectId` (Owner-Session zum Testen)
 
 ---
 

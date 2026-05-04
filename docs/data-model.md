@@ -128,21 +128,44 @@ status        text          -- 'planning' | 'active' | 'done'
 
 ## Sales Tables
 
-### contacts
+### contacts (App / Supabase)
 ```sql
-id            uuid PK
-brand_id      uuid FK
-name          text
-email         text
-company       text
-source        text          -- 'organic' | 'ad' | 'referral' | 'event'
-source_content_id uuid FK nullable  -- welcher Content hat ihn gebracht
-pipeline_stage text         -- 'lead' | 'contact' | 'meeting' | 'offer' | 'deal' | 'pause'
-last_contact  date
-next_action   text
-notes         text
-created_at    timestamp
+id                      uuid PK
+brand_id                uuid FK brands
+name, email             text
+phone, website          text
+instagram, linkedin     text
+company                 text
+source_content_piece_id uuid FK nullable
+source_campaign_id      uuid FK nullable
+pipeline_stage          text  -- first_contact | conversation | proposal | deal | paused
+last_contact_at         timestamptz nullable
+next_follow_up_at       timestamptz nullable
+notes                   text
+activity_log            jsonb  -- [{ id, text, at }]
+updated_at              timestamptz
 ```
+
+### deliver_projects (Deliver Modus)
+```sql
+id                   uuid PK
+owner_brand_id       uuid FK brands
+name                 text
+client_name          text
+client_contact_id    uuid FK contacts nullable
+status               text  -- active | completed
+internal_stage       text  -- onboarding … execute
+client_stage         text
+internal_notes_doc   jsonb  -- Tiptap
+internal_file_links  text[]
+team_notes           text
+client_welcome_text  text
+client_documents     jsonb  -- [{ label, url }]
+internal_notes       text   -- Legacy-Spalte aus 0008
+client_area_notes    text   -- Legacy
+updated_at           timestamptz
+```
+Migration `0010_deliver_projects.sql` ergänzt die erweiterten Spalten; UI sync über `useDeliverProjects`.
 
 ---
 
@@ -175,19 +198,6 @@ completed_at  timestamp nullable
 deferred_at   timestamp nullable
 created_at    timestamp
 ```
-
-### deliver_projects (Deliver Modus)
-```sql
-id                  uuid PK
-owner_brand_id      uuid FK brands  — Brand, die das Projekt intern führt
-name                text
-client_contact_id   uuid FK contacts nullable
-status              text           -- 'active' | 'completed'
-internal_notes      text
-client_area_notes   text
-updated_at          timestamptz
-```
-Die UI speichert Projekte derzeit zusätzlich in **localStorage** (`deliver-projects`); Migration `0008_deliver.sql` ist die DB-Vorbereitung.
 
 ---
 

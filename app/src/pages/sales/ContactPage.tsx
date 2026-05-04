@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { generateId } from '../../lib/storage'
 import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContacts } from '../../hooks/useContacts'
@@ -48,6 +48,7 @@ const FIELD = {
 
 export function ContactPage() {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
+  const navigate = useNavigate()
   const contacts = useContacts(slug)
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
@@ -452,6 +453,28 @@ export function ContactPage() {
                 </div>
               </div>
             ) : null}
+
+            <button
+              type="button"
+              className="font-mono"
+              style={{
+                alignSelf: 'flex-start',
+                marginTop: 8,
+                fontSize: 11,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--accent-coral)',
+                color: 'var(--accent-coral)',
+                background: 'transparent',
+              }}
+              onClick={() => {
+                if (!contactId || !slug) return
+                contacts.remove(contactId)
+                navigate(`/brand/${slug}/sales`)
+              }}
+            >
+              Kontakt löschen
+            </button>
           </div>
 
           <div

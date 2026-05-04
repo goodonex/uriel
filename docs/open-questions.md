@@ -1,5 +1,9 @@
 # Brand OS — Offene Produkt-/Tech-Fragen
 
+## TypeScript / Build
+
+- `tsc -b` und `npm run build` (App) sind aktuell fehlerfrei; es gibt keine gemeldeten offenen TS-Fehler in dieser Liste.
+
 ## Supabase Migrationen (manuell im Dashboard ausführen)
 
 Im Supabase SQL Editor **der Reihe nach** ausführen:
