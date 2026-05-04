@@ -396,12 +396,14 @@ export function SalesMode() {
 
   const [quickOpen, setQuickOpen] = useState(false)
   const [qdName, setQdName] = useState('')
-  const [qdReach, setQdReach] = useState('')
+  const [qdPhone, setQdPhone] = useState('')
+  const [qdEmail, setQdEmail] = useState('')
   const [qdNote, setQdNote] = useState('')
 
   const openQuickDeal = useCallback(() => {
     setQdName('')
-    setQdReach('')
+    setQdPhone('')
+    setQdEmail('')
     setQdNote('')
     setQuickOpen(true)
   }, [])
@@ -560,11 +562,13 @@ export function SalesMode() {
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Telefon oder E-Mail
+              Telefon
             </span>
             <input
-              value={qdReach}
-              onChange={(e) => setQdReach(e.target.value)}
+              type="tel"
+              autoComplete="tel"
+              value={qdPhone}
+              onChange={(e) => setQdPhone(e.target.value)}
               className="font-mono rounded-lg px-3 py-2"
               style={{
                 fontSize: 13,
@@ -572,7 +576,26 @@ export function SalesMode() {
                 background: 'var(--glass-1)',
                 color: 'var(--text-primary)',
               }}
-              placeholder="+49 … oder name@…"
+              placeholder="+49 …"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              E-Mail
+            </span>
+            <input
+              type="email"
+              autoComplete="email"
+              value={qdEmail}
+              onChange={(e) => setQdEmail(e.target.value)}
+              className="font-mono rounded-lg px-3 py-2"
+              style={{
+                fontSize: 13,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-1)',
+                color: 'var(--text-primary)',
+              }}
+              placeholder="name@…"
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -606,13 +629,10 @@ export function SalesMode() {
               color: 'var(--mode-sales)',
             }}
             onClick={() => {
-              const reach = qdReach.trim()
-              const email = reach.includes('@') ? reach : ''
-              const phone = email ? '' : reach
               const c = contacts.create({
                 name: qdName.trim() || 'Neuer Kontakt',
-                email,
-                phone,
+                email: qdEmail.trim(),
+                phone: qdPhone.trim(),
                 pipeline_stage: 'first_contact',
                 notes: qdNote.trim(),
               })
