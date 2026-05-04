@@ -10,6 +10,7 @@ import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
 import { DeliverMode } from './pages/DeliverMode'
+import { ProjectPage } from './pages/deliver/ProjectPage'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
@@ -105,6 +106,7 @@ function App() {
                 <Route path="sales/:contactId" element={<ContactPage />} />
                 <Route path="intelligence" element={<IntelligenceMode />} />
                 <Route path="deliver" element={<DeliverMode />} />
+                <Route path="deliver/:projectId" element={<ProjectPage />} />
               </Route>
             </Route>
           </Routes>

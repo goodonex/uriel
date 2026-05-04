@@ -259,6 +259,46 @@ export interface Contact {
   updated_at: string
 }
 
+/* --- Deliver Mode — Kundenprojekte (Notion-Portal-Stages) --- */
+
+export type DeliverProjectStage =
+  | 'onboarding'
+  | 'discover'
+  | 'inner_world'
+  | 'visual_world'
+  | 'execute'
+
+export const DELIVER_STAGE_ORDER: DeliverProjectStage[] = [
+  'onboarding',
+  'discover',
+  'inner_world',
+  'visual_world',
+  'execute',
+]
+
+export interface ClientDocumentLink {
+  label: string
+  url: string
+}
+
+export interface DeliverProject {
+  id: string
+  brand_id: string
+  name: string
+  client_name: string
+  client_contact_id: string | null
+  status: 'active' | 'completed'
+  internal_stage: DeliverProjectStage
+  client_stage: DeliverProjectStage
+  /** Tiptap JSON */
+  internal_notes_doc: Record<string, unknown>
+  internal_file_links: string[]
+  team_notes: string
+  client_welcome_text: string
+  client_documents: ClientDocumentLink[]
+  updated_at: string
+}
+
 /* --- Intelligence / Focus (Phase 6) --- */
 
 export type FocusTaskImpact = 'high' | 'medium' | 'low'

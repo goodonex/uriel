@@ -15,9 +15,10 @@ Im Supabase SQL Editor **der Reihe nach** ausführen:
 | `0007_auth.sql` | `user_roles` (Rollen `owner` / `client`, optional `client_slug` → `brands.slug`) |
 | `0008_deliver.sql` | `deliver_projects` |
 | `0009_rls.sql` | Row Level Security für alle App-Tabellen inkl. `deliver_projects` |
-| `0011_contacts_extended.sql` | `contacts`: `phone`, `website`, `instagram`, `linkedin`, `company`, `activity_log` (jsonb) |
+| `0010_deliver_projects.sql` | `deliver_projects`: Stages, Tiptap-Doc, Dateilinks, Kundeninhalt |
+| `0011_contacts_extended.sql` | `contacts`: Profilfelder + `activity_log` |
 
-**Reihenfolge:** `0001` … `0008`, optional **`0011_contacts_extended.sql`** vor oder nach `0009` (Spalten brauchen keine RLS-Änderung), danach **`0009_rls.sql`** wenn noch nicht ausgeführt. Weitere Migrationen: siehe `0010_*` in Repo.
+**Reihenfolge:** `0001` … `0008`, **`0010_deliver_projects.sql`**, **`0011_contacts_extended.sql`** (Spalten-Erweiterungen), danach **`0009_rls.sql`** falls noch nicht ausgeführt.
 
 Offen nach Umstellung auf Auth/RLS:
 

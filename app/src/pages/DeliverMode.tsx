@@ -1,93 +1,56 @@
 import { motion } from 'framer-motion'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { SectionLabel } from '../components/SectionLabel'
-import { generateId, loadList, saveList } from '../lib/storage'
-import type { Contact } from '../types/db'
 import { useContacts } from '../hooks/useContacts'
+import { useDeliverProjects } from '../hooks/useDeliverProjects'
+import { DELIVER_STAGE_ORDER } from '../types/db'
+import type { DeliverProject, DeliverProjectStage } from '../types/db'
+import { DELIVER_STAGE_LABEL } from './deliver/stageLabels'
 
-export type DeliverProjectStatus = 'active' | 'completed'
-
-export interface DeliverProjectLocal {
-  id: string
-  name: string
-  /** Referenz zu Kontakt-ID aus CRM (dieselbe Brand) */
-  client_contact_id: string | null
-  status: DeliverProjectStatus
-  internal_notes: string
-  client_area_notes: string
+function stageIndex(s: DeliverProjectStage): number {
+  return DELIVER_STAGE_ORDER.indexOf(s)
 }
 
-function emptyProject(): DeliverProjectLocal {
-  return {
-    id: generateId(),
-    name: 'Neues Projekt',
-    client_contact_id: null,
-    status: 'active',
-    internal_notes: '',
-    client_area_notes: '',
-  }
-}
-
-function contactLabel(c: Contact): string {
-  const bits = [c.name, c.email].filter(Boolean)
-  return bits.join(' · ')
+function StageDots({ stage }: { stage: DeliverProjectStage }) {
+  const idx = stageIndex(stage)
+  return (
+    <div className="flex items-center gap-1">
+      {DELIVER_STAGE_ORDER.map((key, i) => (
+        <div
+          key={key}
+          title={DELIVER_STAGE_LABEL[key]}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: i <= idx ? 'var(--accent-teal)' : 'var(--glass-3)',
+            border: `1px solid ${i <= idx ? 'var(--accent-teal)' : 'var(--glass-border-2)'}`,
+          }}
+        />
+      ))}
+    </div>
+  )
 }
 
 export function DeliverMode() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
+  const projects = useDeliverProjects(slug)
   const contacts = useContacts(slug)
 
-  const [items, setItems] = useState<DeliverProjectLocal[]>([])
-  const itemsRef = useRef<DeliverProjectLocal[]>([])
-  itemsRef.current = items
+  const contactNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of contacts.items) m.set(c.id, c.name)
+    return m
+  }, [contacts.items])
 
-  useEffect(() => {
-    if (!slug) {
-      setItems([])
-      return
+  const clientDisplay = (p: DeliverProject) => {
+    if (p.client_contact_id) {
+      return contactNameById.get(p.client_contact_id) ?? p.client_name
     }
-    const loaded = loadList<DeliverProjectLocal>([slug, 'deliver-projects'])
-    setItems(loaded)
-  }, [slug])
-
-  const persist = useCallback(
-    (next: DeliverProjectLocal[]) => {
-      if (!slug) return
-      saveList([slug, 'deliver-projects'], next)
-    },
-    [slug],
-  )
-
-  const addProject = () => {
-    const next = [...itemsRef.current, emptyProject()]
-    setItems(next)
-    persist(next)
+    return p.client_name || '—'
   }
-
-  const patchProject = (id: string, patch: Partial<DeliverProjectLocal>) => {
-    const next = itemsRef.current.map((p) =>
-      p.id === id ? { ...p, ...patch } : p,
-    )
-    setItems(next)
-    persist(next)
-  }
-
-  const removeProject = (id: string) => {
-    const next = itemsRef.current.filter((p) => p.id !== id)
-    setItems(next)
-    persist(next)
-  }
-
-  const field = {
-    width: '100%',
-    padding: '8px 10px',
-    borderRadius: 10,
-    background: 'var(--glass-1)',
-    border: '1px solid var(--glass-border-1)',
-    color: 'var(--text-primary)',
-    fontSize: 13,
-  } as const
 
   return (
     <motion.div
@@ -123,29 +86,52 @@ export function DeliverMode() {
             Kundenprojekte
           </h2>
         </div>
-        <button
-          type="button"
-          className="font-mono"
-          style={{
-            fontSize: 12,
-            padding: '10px 16px',
-            borderRadius: 12,
-            border: '1px solid var(--glass-border-2)',
-            background: 'var(--glass-3)',
-            color: 'var(--accent-teal)',
-          }}
-          onClick={addProject}
-        >
-          + Projekt
-        </button>
+        {!projects.loading && !projects.error ? (
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              padding: '10px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--glass-3)',
+              color: 'var(--accent-teal)',
+            }}
+            onClick={() => {
+              const p = projects.create()
+              navigate(`/brand/${slug}/deliver/${p.id}`)
+            }}
+          >
+            + Projekt
+          </button>
+        ) : null}
       </div>
 
       <SectionLabel accent="var(--accent-teal)" tight>
-        Projekte (localStorage · später Supabase `deliver_projects`)
+        Projekte · localStorage / Supabase `deliver_projects`
       </SectionLabel>
 
+      {projects.loading ? (
+        <div
+          className="animate-pulse mt-3"
+          style={{
+            minHeight: 160,
+            borderRadius: 16,
+            background: 'var(--glass-1)',
+            border: '1px solid var(--glass-border-1)',
+          }}
+        />
+      ) : null}
+
+      {projects.error ? (
+        <p className="font-mono mt-3" style={{ fontSize: 12, color: 'var(--accent-coral)' }}>
+          {projects.error}
+        </p>
+      ) : null}
+
       <div className="mt-3 flex flex-col gap-3">
-        {items.length === 0 ? (
+        {!projects.loading && projects.items.length === 0 ? (
           <div
             className="glass-2 font-mono"
             style={{
@@ -160,125 +146,62 @@ export function DeliverMode() {
           </div>
         ) : null}
 
-        {items.map((p, idx) => (
-          <motion.div
+        {projects.items.map((p, idx) => (
+          <motion.button
             key={p.id}
+            type="button"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.04, duration: 0.35 }}
-            className="glass-2"
+            className="glass-2 text-left"
             style={{
               borderRadius: 16,
               padding: 18,
               border: '1px solid var(--glass-border-1)',
               backdropFilter: 'var(--blur-md)',
               WebkitBackdropFilter: 'var(--blur-md)',
+              cursor: 'pointer',
             }}
+            onClick={() => navigate(`/brand/${slug}/deliver/${p.id}`)}
           >
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-              <input
-                type="text"
-                value={p.name}
-                onChange={(e) => patchProject(p.id, { name: e.target.value })}
-                className="font-display flex-1"
-                style={{
-                  ...field,
-                  fontWeight: 600,
-                  fontSize: 16,
-                  minWidth: 160,
-                }}
-              />
-              <select
-                value={p.status}
-                onChange={(e) =>
-                  patchProject(p.id, {
-                    status: e.target.value as DeliverProjectStatus,
-                  })
-                }
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div
+                  className="font-display"
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {p.name}
+                </div>
+                <div className="font-mono mt-1" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  Client: {clientDisplay(p)}
+                </div>
+              </div>
+              <span
                 className="font-mono shrink-0"
-                style={{ ...field, maxWidth: 140, fontSize: 12 }}
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: '1px solid var(--glass-border-2)',
+                  color:
+                    p.status === 'completed' ? 'var(--text-tertiary)' : 'var(--accent-teal)',
+                  background: 'var(--glass-1)',
+                }}
               >
-                <option value="active">Aktiv</option>
-                <option value="completed">Abgeschlossen</option>
-              </select>
+                {p.status === 'completed' ? 'Abgeschlossen' : 'Aktiv'}
+              </span>
             </div>
-
-            <div className="mb-2">
-              <label
-                className="font-mono mb-1 block"
-                style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-              >
-                Client-Referenz (Kontakt)
-              </label>
-              <select
-                value={p.client_contact_id ?? ''}
-                onChange={(e) =>
-                  patchProject(p.id, {
-                    client_contact_id:
-                      e.target.value === '' ? null : e.target.value,
-                  })
-                }
-                style={field}
-              >
-                <option value="">— kein Kontakt —</option>
-                {contacts.items.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {contactLabel(c)}
-                  </option>
-                ))}
-              </select>
+            <div className="font-mono mb-2" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Fortschritt · {DELIVER_STAGE_LABEL[p.internal_stage]}
             </div>
-
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <div>
-                <label
-                  className="font-mono mb-1 block"
-                  style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-                >
-                  Interner Bereich
-                </label>
-                <textarea
-                  value={p.internal_notes}
-                  onChange={(e) =>
-                    patchProject(p.id, { internal_notes: e.target.value })
-                  }
-                  rows={3}
-                  style={{ ...field, resize: 'vertical' }}
-                />
-              </div>
-              <div>
-                <label
-                  className="font-mono mb-1 block"
-                  style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-                >
-                  Kundenbereich
-                </label>
-                <textarea
-                  value={p.client_area_notes}
-                  onChange={(e) =>
-                    patchProject(p.id, { client_area_notes: e.target.value })
-                  }
-                  rows={3}
-                  style={{ ...field, resize: 'vertical' }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="font-mono mt-3"
-              style={{
-                fontSize: 11,
-                padding: '6px 12px',
-                borderRadius: 10,
-                border: '1px solid var(--accent-coral)',
-                color: 'var(--accent-coral)',
-              }}
-              onClick={() => removeProject(p.id)}
-            >
-              Projekt entfernen
-            </button>
-          </motion.div>
+            <StageDots stage={p.internal_stage} />
+          </motion.button>
         ))}
       </div>
     </motion.div>
