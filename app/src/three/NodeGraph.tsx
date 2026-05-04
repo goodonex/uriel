@@ -1,7 +1,7 @@
 import { Html } from '@react-three/drei'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
-import { Suspense, useLayoutEffect, useRef, useState } from 'react'
-import { useMatch, useNavigate } from 'react-router-dom'
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLocation, useMatch, useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import type { Brand } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -46,6 +46,7 @@ function applyMeshOpacity(root: THREE.Object3D | null, ambient: boolean) {
 export function NodeGraph() {
   const { brands, loading, error } = useBrands()
   const navigate = useNavigate()
+  const location = useLocation()
   const brandAmbient = useMatch({ path: '/brand/:slug', end: false })
   const ambient = brandAmbient != null
 
@@ -53,6 +54,14 @@ export function NodeGraph() {
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
   const nodesGroupRef = useRef<THREE.Group>(null)
+
+  /* Tunnel-Zustand zurücksetzen nach Navigation — sonst bleibt FOV/Position im „Flug“ und ein Node wirkt riesig. */
+  useEffect(() => {
+    if (location.pathname === '/') {
+      setTunnelTarget(null)
+      setPendingSlug(null)
+    }
+  }, [location.pathname])
 
   useLayoutEffect(() => {
     applyMeshOpacity(nodesGroupRef.current, ambient)
@@ -80,7 +89,10 @@ export function NodeGraph() {
   }
 
   const handleTunnelComplete = () => {
-    if (pendingSlug) navigate(`/brand/${pendingSlug}`)
+    const slug = pendingSlug
+    setTunnelTarget(null)
+    setPendingSlug(null)
+    if (slug) navigate(`/brand/${slug}`)
   }
 
   return (

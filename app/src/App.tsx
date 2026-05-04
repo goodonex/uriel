@@ -28,6 +28,8 @@ function App() {
           width: '100%',
           height: '100%',
           background: 'transparent',
+          display: 'block',
+          outline: 'none',
         }}
       >
         <Suspense fallback={null}>
@@ -43,6 +45,8 @@ function App() {
           zIndex: 1,
           pointerEvents: 'none',
           overflow: 'hidden',
+          outline: 'none',
+          border: 'none',
         }}
       >
         <main
@@ -57,6 +61,8 @@ function App() {
             maxHeight: '100vh',
             overflowY: 'auto',
             WebkitOverflowScrolling: 'touch',
+            outline: 'none',
+            border: 'none',
           }}
         >
           <Routes>
