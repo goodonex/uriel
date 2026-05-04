@@ -17,14 +17,11 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { useCallback, useRef, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Drawer } from '../../components/Drawer'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
-import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContacts } from '../../hooks/useContacts'
-import { useContentPieces } from '../../hooks/useContentPieces'
-import type { Campaign, Contact, ContentPiece, PipelineStage } from '../../types/db'
+import type { Contact, PipelineStage } from '../../types/db'
 
 const STAGES: PipelineStage[] = [
   'first_contact',
@@ -93,10 +90,12 @@ function DroppableStageColumn({
 
 function SortableContactCard({
   contact,
+  slug,
   onSelect,
   onCreateDeliverProject,
 }: {
   contact: Contact
+  slug: string
   onSelect: () => void
   onCreateDeliverProject: () => void
 }) {
@@ -155,6 +154,23 @@ function SortableContactCard({
           Überfällig
         </span>
       ) : null}
+      <Link
+        to={`/brand/${slug}/sales/${contact.id}`}
+        className="font-mono"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          top: 6,
+          left: 6,
+          fontSize: 9,
+          color: 'var(--accent-blue)',
+          textDecoration: 'none',
+          zIndex: 2,
+        }}
+      >
+        Vollmaske ↗
+      </Link>
       <div
         className="font-display"
         style={{
@@ -162,6 +178,8 @@ function SortableContactCard({
           fontWeight: 600,
           color: 'var(--text-primary)',
           paddingRight: overdue ? 56 : 0,
+          paddingLeft: 76,
+          paddingTop: 2,
         }}
       >
         {contact.name}
@@ -208,11 +226,13 @@ function SortableContactCard({
 
 function PipelineBoard({
   contacts,
+  slug,
   onMoveToStage,
   onSelectContact,
   onCreateDeliverProject,
 }: {
   contacts: Contact[]
+  slug: string
   onMoveToStage: (contactId: string, stage: PipelineStage) => void
   onSelectContact: (id: string) => void
   onCreateDeliverProject: (contact: Contact) => void
@@ -285,6 +305,7 @@ function PipelineBoard({
                   <SortableContactCard
                     key={c.id}
                     contact={c}
+                    slug={slug}
                     onSelect={() => {
                       if (skipClickRef.current) return
                       onSelectContact(c.id)
@@ -326,12 +347,7 @@ export function SalesMode() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
-  const pieces = useContentPieces(slug)
-  const campaigns = useCampaigns(slug)
   const deliver = useDeliverProjects(slug)
-
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const selected = contacts.items.find((c) => c.id === selectedId) ?? null
 
   const handleCreateDeliverFromContact = useCallback(
     (contact: Contact) => {
@@ -353,7 +369,7 @@ export function SalesMode() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      style={{ background: 'transparent' }}
+      style={{ background: 'transparent', pointerEvents: 'auto' }}
     >
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -395,7 +411,7 @@ export function SalesMode() {
             }}
             onClick={() => {
               const c = contacts.create()
-              setSelectedId(c.id)
+              navigate(`/brand/${slug}/sales/${c.id}`)
             }}
           >
             + Kontakt
@@ -431,248 +447,14 @@ export function SalesMode() {
       {!contacts.loading && !contacts.error ? (
         <PipelineBoard
           contacts={contacts.items}
+          slug={slug!}
           onMoveToStage={(id, stage) =>
             contacts.update(id, { pipeline_stage: stage })
           }
-          onSelectContact={setSelectedId}
+          onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
           onCreateDeliverProject={handleCreateDeliverFromContact}
         />
       ) : null}
-
-      <Drawer
-        open={selected !== null}
-        onClose={() => setSelectedId(null)}
-        title={selected?.name ?? 'Kontakt'}
-        width={460}
-      >
-        {selected ? (
-          <ContactEditor
-            contact={selected}
-            pieces={pieces.items}
-            campaigns={campaigns.items}
-            onPatch={(patch) => contacts.update(selected.id, patch)}
-            onDelete={() => {
-              contacts.remove(selected.id)
-              setSelectedId(null)
-            }}
-          />
-        ) : null}
-      </Drawer>
     </motion.div>
-  )
-}
-
-function ContactEditor({
-  contact,
-  pieces,
-  campaigns,
-  onPatch,
-  onDelete,
-}: {
-  contact: Contact
-  pieces: ContentPiece[]
-  campaigns: Campaign[]
-  onPatch: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
-  onDelete: () => void
-}) {
-  const field = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    background: 'var(--glass-1)',
-    border: '1px solid var(--glass-border-1)',
-    color: 'var(--text-primary)',
-    fontSize: 13,
-  } as const
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          Name
-        </label>
-        <input
-          type="text"
-          value={contact.name}
-          onChange={(e) => onPatch({ name: e.target.value })}
-          style={field}
-        />
-      </div>
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          E-Mail
-        </label>
-        <input
-          type="email"
-          value={contact.email}
-          onChange={(e) => onPatch({ email: e.target.value })}
-          style={field}
-        />
-      </div>
-
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          Pipeline
-        </label>
-        <select
-          value={contact.pipeline_stage}
-          onChange={(e) =>
-            onPatch({ pipeline_stage: e.target.value as PipelineStage })
-          }
-          style={field}
-        >
-          {STAGES.map((s) => (
-            <option key={s} value={s}>
-              {STAGE_LABEL[s]}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label
-            className="font-mono mb-1 block"
-            style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-          >
-            Letzter Kontakt
-          </label>
-          <input
-            type="date"
-            value={
-              contact.last_contact_at
-                ? contact.last_contact_at.slice(0, 10)
-                : ''
-            }
-            onChange={(e) =>
-              onPatch({
-                last_contact_at:
-                  e.target.value === ''
-                    ? null
-                    : new Date(e.target.value).toISOString(),
-              })
-            }
-            style={field}
-          />
-        </div>
-        <div>
-          <label
-            className="font-mono mb-1 block"
-            style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-          >
-            Nächster Follow-up
-          </label>
-          <input
-            type="date"
-            value={
-              contact.next_follow_up_at
-                ? contact.next_follow_up_at.slice(0, 10)
-                : ''
-            }
-            onChange={(e) =>
-              onPatch({
-                next_follow_up_at:
-                  e.target.value === ''
-                    ? null
-                    : new Date(e.target.value).toISOString(),
-              })
-            }
-            style={field}
-          />
-        </div>
-      </div>
-
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          Quelle — Content-Piece
-        </label>
-        <select
-          value={contact.source_content_piece_id ?? ''}
-          onChange={(e) =>
-            onPatch({
-              source_content_piece_id:
-                e.target.value === '' ? null : e.target.value,
-            })
-          }
-          style={field}
-        >
-          <option value="">— keine —</option>
-          {pieces.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          Quelle — Kampagne
-        </label>
-        <select
-          value={contact.source_campaign_id ?? ''}
-          onChange={(e) =>
-            onPatch({
-              source_campaign_id:
-                e.target.value === '' ? null : e.target.value,
-            })
-          }
-          style={field}
-        >
-          <option value="">— keine —</option>
-          {campaigns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
-        >
-          Notizen
-        </label>
-        <textarea
-          value={contact.notes}
-          onChange={(e) => onPatch({ notes: e.target.value })}
-          rows={4}
-          style={{ ...field, resize: 'vertical' }}
-        />
-      </div>
-
-      <button
-        type="button"
-        className="font-mono"
-        style={{
-          alignSelf: 'flex-start',
-          fontSize: 11,
-          padding: '8px 14px',
-          borderRadius: 10,
-          border: '1px solid var(--accent-coral)',
-          color: 'var(--accent-coral)',
-        }}
-        onClick={onDelete}
-      >
-        Kontakt löschen
-      </button>
-    </div>
   )
 }
