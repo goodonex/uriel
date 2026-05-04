@@ -81,7 +81,8 @@ function DroppableStageColumn({
       ref={setNodeRef}
       className="glass-2 shrink-0"
       style={{
-        width: 200,
+        width: 'min(200px, calc(100vw - 48px))',
+        minWidth: 'min(200px, calc(100vw - 48px))',
         borderRadius: 14,
         padding: 10,
         border: isOver
@@ -333,7 +334,10 @@ function PipelineBoard({
         setActiveDrag(null)
       }}
     >
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div
+        className="flex gap-2 overflow-x-auto pb-2 overscroll-x-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {STAGES.map((stage) => {
           const list = contacts.filter((c) => c.pipeline_stage === stage)
           return (

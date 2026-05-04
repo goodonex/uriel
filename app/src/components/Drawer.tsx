@@ -33,7 +33,8 @@ export function Drawer({ open, onClose, title, children, width = 380 }: DrawerPr
           aria-label={title}
           className="fixed top-4 right-4 bottom-4 z-50"
           style={{
-            width,
+            width: `min(${width}px, calc(100vw - 24px))`,
+            maxWidth: '100%',
             background: 'var(--glass-3)',
             backdropFilter: 'blur(28px)',
             WebkitBackdropFilter: 'blur(28px)',

@@ -114,7 +114,7 @@ export function ModeNav() {
   const navigate = useNavigate()
 
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
       {MODES.map((mode, idx) => (
         <motion.button
           key={mode.key}

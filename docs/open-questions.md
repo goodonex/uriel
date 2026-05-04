@@ -62,6 +62,14 @@ Echte OAuth-Flows und Token-Speicherung sind bewusst nicht Teil der aktuellen UI
 - Welche Konten pro Brand (Business Manager / Org Pages)?
 - Rate Limits und Batch-Sync-Intervalle?
 
+## Mobile (&lt; 768px) — Basis
+
+- `AppHeader`: Brand-Switcher in **horizontal scroll** (`flex-1` + `overflow-x-auto`), Buttons `w-max` / `nowrap`.
+- `ModeNav`: **2 Spalten** bis `md`, dann 3 / 6.
+- Sales-**Pipeline**: Spaltenbreite `min(200px, 100vw - 48px)`, Board mit Touch-Scroll / `overscroll-x-contain`.
+- `App`-`main`: engere horizontale Padding-Klassen auf kleinen Screens.
+- `Drawer`: Breite `min(380px, 100vw - 24px)` — keine Überlagerung am Rand.
+
 ## Discovery Cron (Supabase Edge Functions)
 
 Scheduling, Retry und Benachrichtigung bei Feed-Fehlern — erst nach Backend-Entscheid.

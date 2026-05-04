@@ -35,7 +35,7 @@ export function BrandSwitcher() {
   }
 
   return (
-    <div className="flex gap-1.5">
+    <div className="flex w-max flex-nowrap gap-1.5">
       {brands.map((brand) => {
         const active = brand.slug === slug
         return (

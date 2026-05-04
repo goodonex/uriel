@@ -8,7 +8,7 @@ export function AppHeader() {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="glass-2 mb-8 flex items-center justify-between"
+      className="glass-2 mb-8 flex min-w-0 items-center gap-3"
       style={{
         padding: '14px 20px',
         borderRadius: 16,
@@ -16,7 +16,7 @@ export function AppHeader() {
     >
       <Link
         to="/"
-        className="font-display"
+        className="font-display shrink-0"
         style={{
           fontSize: 17,
           fontWeight: 600,
@@ -27,9 +27,14 @@ export function AppHeader() {
         Brand OS
       </Link>
 
-      <BrandSwitcher />
+      <div
+        className="min-h-0 min-w-0 flex-1 overflow-x-auto overscroll-x-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <BrandSwitcher />
+      </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <div
           className="flex items-center justify-center"
           style={{
