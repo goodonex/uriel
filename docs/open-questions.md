@@ -38,6 +38,10 @@ Offen nach Umstellung auf Auth/RLS:
 
 - Server-Kontakte mit leeren Namen/Feldern werden beim Merge mit **localStorage** angereichert (Demo-Daten bleiben sichtbar, bis echte Daten in Supabase gepflegt sind).
 
+## Deliver / Projektliste
+
+- `DeliverMode`: leerer State mit zentralem CTA; bei Daten **2-Spalten-Grid** mit Glass-Cards; neues Projekt per **Drawer** (Name, Kontakt-Dropdown, Status).
+
 ## Kundenportal (`/portal/:projectId`)
 
 - UI: Brand-Name + Projektname, Fortschrittsbalken (5 Stages), Willkommenstext, Dokumente &amp; Links, **Updates** aus `team_notes` (Absätze getrennt). Heller Glass-Hintergrund zur Abgrenzung vom internen Bereich.
