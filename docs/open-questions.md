@@ -12,6 +12,7 @@ Im Supabase SQL Editor **der Reihe nach** ausführen:
 | `0004_sales.sql` | `contacts` |
 | `0005_building.sql` | `assets`, `sops`, `foundation_business_models` |
 | `0006_discovery.sql` | `discovery_foundation`, `discovery_feed_items`, `discovery_settings` |
+| `0007_auth.sql` | `user_roles` (Rollen `owner` / `client`, optional `client_slug` → `brands.slug`) |
 
 Offen nach Umstellung auf Auth/RLS:
 

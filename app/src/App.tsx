@@ -1,17 +1,32 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Outlet, Route, Routes } from 'react-router-dom'
 import { Background } from './components/Background'
 import { ModeNav } from './components/ModeNav'
+import { RequireAuthShell } from './components/RequireAuthShell'
+import { RequireClientGate } from './components/RequireClientGate'
+import { RequireOwnerGate } from './components/RequireOwnerGate'
 import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
+import { LoginPage } from './pages/LoginPage'
+import { ClientPortal } from './pages/portal/ClientPortal'
 import { PromoMode } from './pages/promo/PromoMode'
 import { SalesMode } from './pages/sales/SalesMode'
 import { NodeGraphPage } from './pages/NodeGraphPage'
 import { NodeGraph } from './three/NodeGraph'
+
+function OwnerWorkspaceShell() {
+  return (
+    <RequireAuthShell>
+      <RequireOwnerGate>
+        <Outlet />
+      </RequireOwnerGate>
+    </RequireAuthShell>
+  )
+}
 
 function App() {
   return (
@@ -66,14 +81,27 @@ function App() {
           }}
         >
           <Routes>
-            <Route path="/" element={<NodeGraphPage />} />
-            <Route path="/brand/:slug" element={<BrandPage />}>
-              <Route index element={<ModeNav />} />
-              <Route path="building" element={<BuildingMode />} />
-              <Route path="discovery" element={<DiscoveryMode />} />
-              <Route path="promo" element={<PromoMode />} />
-              <Route path="sales" element={<SalesMode />} />
-              <Route path="intelligence" element={<IntelligenceMode />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/portal/:clientSlug"
+              element={
+                <RequireAuthShell>
+                  <RequireClientGate>
+                    <ClientPortal />
+                  </RequireClientGate>
+                </RequireAuthShell>
+              }
+            />
+            <Route element={<OwnerWorkspaceShell />}>
+              <Route path="/" element={<NodeGraphPage />} />
+              <Route path="/brand/:slug" element={<BrandPage />}>
+                <Route index element={<ModeNav />} />
+                <Route path="building" element={<BuildingMode />} />
+                <Route path="discovery" element={<DiscoveryMode />} />
+                <Route path="promo" element={<PromoMode />} />
+                <Route path="sales" element={<SalesMode />} />
+                <Route path="intelligence" element={<IntelligenceMode />} />
+              </Route>
             </Route>
           </Routes>
         </main>
