@@ -42,7 +42,7 @@ export function DeliverMode() {
       status: formStatus,
     })
     setDrawerOpen(false)
-    navigate(`/brand/${slug}/deliver/${p.id}`)
+    navigate(`/brand/${slug}/deliver/${p.id}`, { state: { showClientInvite: true } })
   }
 
   const clientDisplay = (p: DeliverProject) => {

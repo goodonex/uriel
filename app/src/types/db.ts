@@ -279,6 +279,8 @@ export const DELIVER_STAGE_ORDER: DeliverProjectStage[] = [
 export interface ClientDocumentLink {
   label: string
   url: string
+  /** Optional — Kurzbeschreibung im Kundenportal */
+  description?: string
 }
 
 export interface DeliverProject {

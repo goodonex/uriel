@@ -160,12 +160,24 @@ internal_notes_doc   jsonb  -- Tiptap
 internal_file_links  text[]
 team_notes           text
 client_welcome_text  text
-client_documents     jsonb  -- [{ label, url }]
+client_documents     jsonb  -- [{ label, url, description? }]
 internal_notes       text   -- Legacy-Spalte aus 0008
 client_area_notes    text   -- Legacy
 updated_at           timestamptz
 ```
 Migration `0010_deliver_projects.sql` ergänzt die erweiterten Spalten; UI sync über `useDeliverProjects`.
+
+`client_documents` (JSONB): Array von `{ label, url, description? }` für das Kundenportal.
+
+### user_roles (Auth / Rollen)
+```sql
+user_id      uuid PK FK auth.users
+role         text  -- 'owner' | 'client'
+client_slug  text FK brands.slug nullable  -- optional Reporting / Deep-Link
+project_id   uuid FK deliver_projects.id nullable  -- für role=client: exakt ein sichtbares Projekt
+```
+
+Migration **`0012_client_access.sql`**: `project_id`, RLS `deliver_projects_client_read_own`, `brands_client_read_via_project`.
 
 ---
 

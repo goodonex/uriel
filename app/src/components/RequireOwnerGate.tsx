@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 
 /** Workspace nur für eingeloggte Owner (nicht Client-Rolle). */
 export function RequireOwnerGate({ children }: { children: ReactNode }) {
-  const { user, role, clientSlug, loading } = useAuth()
+  const { user, role, clientProjectId, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -28,8 +28,22 @@ export function RequireOwnerGate({ children }: { children: ReactNode }) {
   }
 
   if (role === 'client') {
-    const slug = clientSlug ?? 'workspace'
-    return <Navigate to={`/portal/${slug}`} replace />
+    if (!clientProjectId) {
+      return (
+        <div
+          className="font-mono"
+          style={{
+            pointerEvents: 'auto',
+            padding: 24,
+            color: 'var(--accent-coral)',
+            fontSize: 13,
+          }}
+        >
+          Deinem Konto ist kein Projekt zugeordnet. Bitte den Studio-Inhaber kontaktieren.
+        </div>
+      )
+    }
+    return <Navigate to={`/portal/${clientProjectId}`} replace />
   }
 
   return <>{children}</>

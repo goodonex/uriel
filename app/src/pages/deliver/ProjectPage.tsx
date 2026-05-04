@@ -2,7 +2,9 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Drawer } from '../../components/Drawer'
+import { useToast } from '../../components/Toast'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import { readDeliverProjectsLocal, useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { ClientDocumentLink, DeliverProjectStage } from '../../types/db'
@@ -110,7 +112,21 @@ function StageKanban({
 
 export function ProjectPage() {
   const { slug, projectId } = useParams<{ slug: string; projectId: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { show } = useToast()
   const projects = useDeliverProjects(slug)
+
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+
+  useEffect(() => {
+    const s = location.state as { showClientInvite?: boolean } | undefined
+    if (s?.showClientInvite) {
+      setInviteOpen(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, location.pathname, navigate])
 
   const project = useMemo(() => {
     const fromList = projects.items.find((p) => p.id === projectId) ?? null
@@ -151,7 +167,7 @@ export function ProjectPage() {
   const debouncedDocs = useDebouncedCallback((next: ClientDocumentLink[]) => {
     if (!projectId) return
     projects.update(projectId, { client_documents: next })
-  }, 450)
+  }, 250)
 
   const patchDocs = useCallback(
     (next: ClientDocumentLink[]) => {
@@ -238,7 +254,53 @@ export function ProjectPage() {
             {project.name}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => setInviteOpen(true)}
+            style={{
+              fontSize: 11,
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--glass-3)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            Kunden einladen
+          </button>
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => {
+              const origin =
+                typeof window !== 'undefined' ? window.location.origin : ''
+              const url = `${origin}/portal/${project.id}`
+              if (!navigator.clipboard) {
+                show('Clipboard nicht verfügbar', 'error')
+                return
+              }
+              void navigator.clipboard.writeText(url).then(
+                () =>
+                  show(
+                    'Link kopiert — teile ihn mit deinem Kunden.',
+                    'success',
+                  ),
+                () => show('Kopieren fehlgeschlagen', 'error'),
+              )
+            }}
+            style={{
+              fontSize: 11,
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--accent-teal)',
+              background: 'color-mix(in srgb, var(--accent-teal) 12%, transparent)',
+              color: 'var(--accent-teal)',
+            }}
+          >
+            Portal-Link kopieren
+          </button>
           {(['internal', 'client'] as const).map((t) => (
             <button
               key={t}
@@ -357,56 +419,140 @@ export function ProjectPage() {
                   border: '1px solid var(--glass-border-2)',
                   color: 'var(--accent-teal)',
                 }}
-                onClick={() => patchDocs([...docs, { label: 'Neu', url: '' }])}
+                onClick={() =>
+                  patchDocs([
+                    ...docs,
+                    { label: 'Neu', url: '', description: undefined },
+                  ])
+                }
               >
                 + Zeile
               </button>
             </div>
             <div className="flex flex-col gap-2">
               {docs.map((row, i) => (
-                <div key={i} className="flex flex-wrap gap-2">
+                <div key={i} className="flex flex-col gap-2 rounded-xl p-3" style={{ border: '1px solid var(--glass-border-2)' }}>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={row.label}
+                      onChange={(e) => {
+                        const next = docs.slice()
+                        next[i] = { ...row, label: e.target.value }
+                        patchDocs(next)
+                      }}
+                      style={{ ...FIELD, flex: 1, minWidth: 120 }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="https://…"
+                      value={row.url}
+                      onChange={(e) => {
+                        const next = docs.slice()
+                        next[i] = { ...row, url: e.target.value }
+                        patchDocs(next)
+                      }}
+                      style={{ ...FIELD, flex: 2, minWidth: 160 }}
+                    />
+                    <button
+                      type="button"
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        padding: '8px 10px',
+                        color: 'var(--accent-coral)',
+                        border: '1px solid var(--accent-coral)',
+                        borderRadius: 8,
+                      }}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            'Dieses Dokument aus dem Kundenportal entfernen?',
+                          )
+                        )
+                          return
+                        patchDocs(docs.filter((_, j) => j !== i))
+                      }}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    placeholder="Bezeichnung"
-                    value={row.label}
+                    placeholder="Optionale Beschreibung (nur Kundenportal)"
+                    value={row.description ?? ''}
                     onChange={(e) => {
                       const next = docs.slice()
-                      next[i] = { ...row, label: e.target.value }
+                      const v = e.target.value.trim()
+                      next[i] = {
+                        ...row,
+                        description: v ? v : undefined,
+                      }
                       patchDocs(next)
                     }}
-                    style={{ ...FIELD, flex: 1, minWidth: 120 }}
+                    style={{ ...FIELD, width: '100%' }}
                   />
-                  <input
-                    type="text"
-                    placeholder="https://…"
-                    value={row.url}
-                    onChange={(e) => {
-                      const next = docs.slice()
-                      next[i] = { ...row, url: e.target.value }
-                      patchDocs(next)
-                    }}
-                    style={{ ...FIELD, flex: 2, minWidth: 160 }}
-                  />
-                  <button
-                    type="button"
-                    className="font-mono"
-                    style={{
-                      fontSize: 10,
-                      padding: '8px 10px',
-                      color: 'var(--accent-coral)',
-                      border: '1px solid var(--accent-coral)',
-                      borderRadius: 8,
-                    }}
-                    onClick={() => patchDocs(docs.filter((_, j) => j !== i))}
-                  >
-                    ✕
-                  </button>
                 </div>
               ))}
             </div>
           </div>
         </div>
       )}
+
+      <Drawer
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title="Kunden einladen"
+        width={400}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+            Wir legen einen Supabase-Auth-Account an — der Kunde bekommt eine E-Mail. Noch nicht
+            angebunden: siehe TODO in{' '}
+            <code style={{ fontSize: 11 }}>supabase/functions/invite-client/index.ts</code>.
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              E-Mail des Kunden
+            </span>
+            <input
+              type="email"
+              autoComplete="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="kunde@firma.de"
+              style={FIELD}
+            />
+          </label>
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--accent-teal)',
+              background: 'color-mix(in srgb, var(--accent-teal) 18%, transparent)',
+              color: 'var(--accent-teal)',
+            }}
+            onClick={() => {
+              // TODO: Edge Function invite-client — admin.createUser + user_roles insert
+              if (!inviteEmail.trim()) {
+                show('Bitte eine E-Mail eingeben.', 'error')
+                return
+              }
+              show(
+                'Einladungs-Flow folgt per Edge Function (invite-client).',
+                'success',
+              )
+              setInviteOpen(false)
+            }}
+          >
+            Einladung vorbereiten
+          </button>
+        </div>
+      </Drawer>
     </motion.div>
   )
 }

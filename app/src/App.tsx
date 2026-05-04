@@ -13,7 +13,7 @@ import { ProjectPage } from './pages/deliver/ProjectPage'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
-import { ClientPortal } from './pages/portal/ClientPortal'
+import { PortalRoute } from './pages/portal/PortalRoute'
 import { PromoMode } from './pages/promo/PromoMode'
 import { ContactPage } from './pages/sales/ContactPage'
 import { SalesMode } from './pages/sales/SalesMode'
@@ -33,11 +33,13 @@ function OwnerWorkspaceShell() {
 function App() {
   const location = useLocation()
   const canvasPointerEvents = location.pathname === '/' ? 'auto' : 'none'
+  const hideCanvas = location.pathname.startsWith('/portal')
 
   return (
     <ToastProvider>
       <Background />
       {/* Persistenter 3D-Hintergrund — Router als fixes DOM-Overlay (zuverlässiger als drei Html fullscreen). */}
+      {!hideCanvas ? (
       <Canvas
         gl={{ alpha: true, antialias: true }}
         camera={{ position: [0, 0, 11], fov: 35 }}
@@ -57,6 +59,7 @@ function App() {
           <NodeGraph />
         </Suspense>
       </Canvas>
+      ) : null}
 
       <div
         id="app-ui-overlay"
@@ -87,14 +90,7 @@ function App() {
         >
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/portal/:projectId"
-              element={
-                <RequireAuthShell>
-                  <ClientPortal />
-                </RequireAuthShell>
-              }
-            />
+            <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route element={<OwnerWorkspaceShell />}>
               <Route path="/" element={<NodeGraphPage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>

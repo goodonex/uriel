@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
 export function LoginPage() {
-  const { user, role, clientSlug, loading, signIn } = useAuth()
+  const { user, role, clientProjectId, loading, signIn } = useAuth()
   const location = useLocation()
   const from = useMemo(() => {
     const st = location.state as { from?: string } | undefined
@@ -56,9 +56,37 @@ export function LoginPage() {
 
   if (!loading && user) {
     if (role === 'client') {
-      return (
-        <Navigate to={`/portal/${clientSlug ?? 'workspace'}`} replace />
-      )
+      if (!clientProjectId) {
+        return (
+          <div
+            style={{
+              pointerEvents: 'auto',
+              minHeight: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <div
+              className="glass-2 font-mono"
+              style={{
+                maxWidth: 400,
+                borderRadius: 16,
+                padding: 24,
+                border: '1px solid var(--glass-border-1)',
+                fontSize: 13,
+                color: 'var(--accent-coral)',
+              }}
+            >
+              Deinem Konto ist kein Deliver-Projekt zugeordnet. Bitte den Anbieter kontaktieren —
+              in Supabase braucht dein User in <code>user_roles</code> ein gesetztes{' '}
+              <code>project_id</code>.
+            </div>
+          </div>
+        )
+      }
+      return <Navigate to={`/portal/${clientProjectId}`} replace />
     }
     return <Navigate to={from} replace />
   }

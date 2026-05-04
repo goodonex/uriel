@@ -120,6 +120,14 @@ Drei Ebenen:
 
 ---
 
+## Kundenportal (Deliver)
+- Öffentliche Route `/portal/:projectId` — eigenes Layout (`--bg-base`), ohne 3D-Canvas / AppHeader / ModeNav.
+- **Client:** Supabase User mit `user_roles.role = 'client'` und gesetztem `project_id` → Login-Redirect ins Portal; RLS erlaubt nur dieses `deliver_projects`-Row (+ zugehörige Brand lesen).
+- **Owner:** In `ProjectPage` Kundenbereich befüllen; „Portal-Link kopieren“ gibt die volle URL aus.
+- **Dev-Vorschau:** `?preview=true` lädt das Projekt aus **localStorage** ohne Auth (kein Ersatz für Produktion).
+
+---
+
 ## Notification-System (Phase 3)
 - Push oder täglicher Morning Brief
 - Triggers: Follow-up überfällig, Content-Pause zu lang, Muster erkannt

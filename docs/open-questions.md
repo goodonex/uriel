@@ -26,13 +26,16 @@ Im Supabase SQL Editor **der Reihe nach** ausführen:
 | `0009_rls.sql` | Row Level Security für alle App-Tabellen inkl. `deliver_projects` |
 | `0010_deliver_projects.sql` | `deliver_projects`: Stages, Tiptap-Doc, Dateilinks, Kundeninhalt |
 | `0011_contacts_extended.sql` | `contacts`: Profilfelder + `activity_log` |
+| `0012_client_access.sql` | `user_roles.project_id`; RLS Client lesen eigenes `deliver_projects` + Brand |
 
-**Reihenfolge:** `0001` … `0008`, **`0010_deliver_projects.sql`**, **`0011_contacts_extended.sql`** (Spalten-Erweiterungen), danach **`0009_rls.sql`** falls noch nicht ausgeführt.
+**Reihenfolge:** `0001` … `0008`, **`0010_deliver_projects.sql`**, **`0011_contacts_extended.sql`**, **`0012_client_access.sql`**, danach **`0009_rls.sql`** ergänzen/aktualisieren (oder `0009` vor `0012` wenn Policies idempotent per `drop policy if exists` — empfohlen: **`0012` nach `0009` ausführen**, da neue Policies auf bestehendem RLS aufsetzen).
+
+**Hinweis:** Nach `0012` existieren zusätzliche Policies; bei bestehendem `0009` einfach `0012` im SQL Editor ausführen.
 
 Offen nach Umstellung auf Auth/RLS:
 
-- Client-Rolle: welche Tabellen/Zeilen dürfen `role = client` lesen (Portal)?
-- `user_roles.client_slug` vs. spätere Zuordnung Brand↔Client.
+- Client-Einladung: Edge Function `invite-client` (Placeholder im Repo) — `admin.createUser` + Zeile in `user_roles`.
+- `user_roles.client_slug` vs. spätere Zuordnung Brand↔Client (weiterhin optional).
 
 ### Sales / Pipeline
 
@@ -45,10 +48,10 @@ Offen nach Umstellung auf Auth/RLS:
 
 ## Kundenportal (`/portal/:projectId`)
 
-- UI: Brand-Name + Projektname, Fortschrittsbalken (5 Stages), Willkommenstext, Dokumente &amp; Links, **Updates** aus `team_notes` (Absätze getrennt). Heller Glass-Hintergrund zur Abgrenzung vom internen Bereich.
-- Willkommenstext bearbeitet der **Owner** in `ProjectPage`; Portal ist read-only.
-- Shell unter `ClientPortal.tsx`; vorerst **jede eingeloggte Session** (Owner testet mit Projekt-UUID).
-- Daten kommen aus **localStorage** `deliver-projects` über alle Brand-Slugs; später Supabase + Policies für `role = client`.
+- **Produktion:** Nur **`role = client`** mit gesetztem **`user_roles.project_id`** (UUID des Deliver-Projekts). Daten aus **Supabase** (`deliver_projects`); RLS siehe `0012_client_access.sql`. Nach Login Redirect `/portal/{project_id}`.
+- **Owner** wird vom Portal ausgeschlossen (Redirect `/`) — Vorschau nur mit **`?preview=true`** (localStorage-Scan, Entwicklung).
+- UI: eigenes Layout (`--bg-base`), Fortschritt in **Teal**, Willkommen (`client_welcome_text`), **Dein Projektstatus** (Timeline), **Dokumente &amp; Links** (optional `description`). Kein `team_notes`-Block mehr im Portal.
+- **Portal-Link:** `ProjectPage` kopiert `origin/portal/{id}`; Toast-Bestätigung.
 
 ## Context Export (`buildContextMarkdown`)
 

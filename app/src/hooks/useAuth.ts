@@ -8,8 +8,10 @@ export type AppUserRole = 'owner' | 'client'
 export interface UseAuthResult {
   user: User | null
   role: AppUserRole | null
-  /** Nur gesetzt wenn role = client; optionaler Deep-Link ins Portal */
+  /** Nur gesetzt wenn role = client; optionaler Deep-Link / Reporting */
   clientSlug: string | null
+  /** Deliver-Projekt-UUID für roll=client — Login-Redirect /portal/:id */
+  clientProjectId: string | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -18,16 +20,17 @@ export interface UseAuthResult {
 async function fetchRoleRow(userId: string): Promise<{
   role: AppUserRole
   client_slug: string | null
+  project_id: string | null
 } | null> {
   if (!supabase) return null
   const { data, error } = await supabase
     .from('user_roles')
-    .select('role, client_slug')
+    .select('role, client_slug, project_id')
     .eq('user_id', userId)
     .maybeSingle()
   if (error) {
     if (isMissingSupabaseTableError(error.message)) {
-      return { role: 'owner' as const, client_slug: null }
+      return { role: 'owner' as const, client_slug: null, project_id: null }
     }
     return null
   }
@@ -35,6 +38,7 @@ async function fetchRoleRow(userId: string): Promise<{
   return {
     role: data.role as AppUserRole,
     client_slug: data.client_slug as string | null,
+    project_id: (data.project_id as string | null) ?? null,
   }
 }
 
@@ -47,6 +51,7 @@ async function ensureOwnerRow(userId: string): Promise<void> {
     user_id: userId,
     role: 'owner',
     client_slug: null,
+    project_id: null,
   })
   if (error && !isMissingSupabaseTableError(error.message)) {
     console.warn('[useAuth] user_roles Insert (owner) übersprungen:', error.message)
@@ -57,6 +62,7 @@ export function useAuth(): UseAuthResult {
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<AppUserRole | null>(null)
   const [clientSlug, setClientSlug] = useState<string | null>(null)
+  const [clientProjectId, setClientProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const applySession = useCallback(async (u: User | null) => {
@@ -64,6 +70,7 @@ export function useAuth(): UseAuthResult {
     if (!u) {
       setRole(null)
       setClientSlug(null)
+      setClientProjectId(null)
       return
     }
     let row = await fetchRoleRow(u.id)
@@ -74,9 +81,11 @@ export function useAuth(): UseAuthResult {
     if (row) {
       setRole(row.role)
       setClientSlug(row.client_slug)
+      setClientProjectId(row.project_id)
     } else {
       setRole(null)
       setClientSlug(null)
+      setClientProjectId(null)
     }
   }, [])
 
@@ -121,5 +130,5 @@ export function useAuth(): UseAuthResult {
     await supabase.auth.signOut()
   }, [])
 
-  return { user, role, clientSlug, loading, signIn, signOut }
+  return { user, role, clientSlug, clientProjectId, loading, signIn, signOut }
 }

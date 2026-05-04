@@ -27,7 +27,16 @@ function parseClientDocuments(raw: unknown): ClientDocumentLink[] {
     const o = x as Record<string, unknown>
     const label = typeof o.label === 'string' ? o.label : ''
     const url = typeof o.url === 'string' ? o.url : ''
-    if (label || url) out.push({ label: label || url || 'Link', url: url || '#' })
+    const description =
+      typeof o.description === 'string' && o.description.trim()
+        ? o.description.trim()
+        : undefined
+    if (label || url)
+      out.push({
+        label: label || url || 'Link',
+        url: url || '#',
+        ...(description ? { description } : {}),
+      })
   }
   return out
 }
@@ -142,6 +151,34 @@ export function findDeliverProjectInStorage(
     }
   }
   return null
+}
+
+const LS_PREFIX = 'brand-os:'
+const LS_SUFFIX = ':deliver-projects'
+
+/** Alle Brand-Slugs, für die es lokale Deliver-Listen gibt (Preview ohne Login). */
+export function listDeliverStorageSlugsFromLocalStorage(): string[] {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return []
+  }
+  const slugs = new Set<string>()
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i)
+    if (!key?.startsWith(LS_PREFIX) || !key.endsWith(LS_SUFFIX)) continue
+    const mid = key.slice(LS_PREFIX.length, key.length - LS_SUFFIX.length)
+    if (!mid || mid.includes(':')) continue
+    slugs.add(mid)
+  }
+  return [...slugs]
+}
+
+export function findDeliverProjectAcrossLocalStorage(
+  projectId: string,
+): { slug: string; project: DeliverProject } | null {
+  return findDeliverProjectInStorage(
+    projectId,
+    listDeliverStorageSlugsFromLocalStorage(),
+  )
 }
 
 export function findDeliverProjectForPortal(
