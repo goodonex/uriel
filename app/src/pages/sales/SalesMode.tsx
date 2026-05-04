@@ -128,12 +128,19 @@ function SortableContactCard({
   }
 
   return (
-    <button
+    <div
       ref={setNodeRef}
-      type="button"
       style={style}
       {...listeners}
       {...attributes}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
       onClick={onSelect}
     >
       {overdue ? (
@@ -220,7 +227,7 @@ function SortableContactCard({
           Projekt anlegen
         </button>
       ) : null}
-    </button>
+    </div>
   )
 }
 
@@ -363,6 +370,10 @@ export function SalesMode() {
     [deliver, navigate, slug],
   )
 
+  if (!slug) {
+    return null
+  }
+
   return (
     <motion.div
       key={slug}
@@ -447,7 +458,7 @@ export function SalesMode() {
       {!contacts.loading && !contacts.error ? (
         <PipelineBoard
           contacts={contacts.items}
-          slug={slug!}
+          slug={slug}
           onMoveToStage={(id, stage) =>
             contacts.update(id, { pipeline_stage: stage })
           }

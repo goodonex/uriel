@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
-import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { readDeliverProjectsLocal, useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { ClientDocumentLink, DeliverProjectStage } from '../../types/db'
 import { DELIVER_STAGE_ORDER } from '../../types/db'
 import { DELIVER_STAGE_LABEL } from './stageLabels'
@@ -112,10 +112,12 @@ export function ProjectPage() {
   const { slug, projectId } = useParams<{ slug: string; projectId: string }>()
   const projects = useDeliverProjects(slug)
 
-  const project = useMemo(
-    () => projects.items.find((p) => p.id === projectId) ?? null,
-    [projects.items, projectId],
-  )
+  const project = useMemo(() => {
+    const fromList = projects.items.find((p) => p.id === projectId) ?? null
+    if (fromList) return fromList
+    if (!slug || !projectId) return null
+    return readDeliverProjectsLocal(slug).find((p) => p.id === projectId) ?? null
+  }, [projects.items, projectId, slug])
 
   const [tab, setTab] = useState<'internal' | 'client'>('internal')
 

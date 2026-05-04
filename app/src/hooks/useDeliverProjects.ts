@@ -29,6 +29,21 @@ interface UseDeliverProjectsResult {
 
 const STORAGE_KEY = 'deliver-projects' as const
 
+function parseDeliverLocalList(brandSlug: string): {
+  raw: unknown[]
+  items: DeliverProject[]
+} {
+  const raw = loadList<unknown>([brandSlug, STORAGE_KEY])
+  const items = raw
+    .map((x) => coerceStoredDeliverItem(x, brandSlug))
+    .filter((x): x is DeliverProject => x != null)
+  return { raw, items }
+}
+
+export function readDeliverProjectsLocal(brandSlug: string): DeliverProject[] {
+  return parseDeliverLocalList(brandSlug).items
+}
+
 export function useDeliverProjects(brandSlug: string | undefined): UseDeliverProjectsResult {
   const brandId = useBrandId(brandSlug)
   const [items, setItems] = useState<DeliverProject[]>([])
@@ -40,10 +55,7 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
 
   const loadLocal = useCallback(() => {
     if (!brandSlug) return
-    const raw = loadList<unknown>([brandSlug, STORAGE_KEY])
-    const next = raw
-      .map((x) => coerceStoredDeliverItem(x, brandSlug))
-      .filter((x): x is DeliverProject => x != null)
+    const { raw, items: next } = parseDeliverLocalList(brandSlug)
     setItems(next)
     try {
       if (JSON.stringify(raw) !== JSON.stringify(next)) {
@@ -92,13 +104,41 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
     }
     if (err) {
       setError(err.message)
-      setItems([])
+      const { items: localRows } = parseDeliverLocalList(brandSlug)
+      if (localRows.length > 0) {
+        console.warn('[useDeliverProjects] Supabase-Fehler — zeige localStorage')
+        localOnlyRef.current = true
+        setItems(localRows)
+      } else {
+        setItems([])
+      }
       setLoading(false)
       return
     }
+    const serverRows = (data ?? []).map((r) =>
+      rowRecordToDeliverProject(r as Record<string, unknown>),
+    )
+    const { items: localRows } = parseDeliverLocalList(brandSlug)
+
+    if (serverRows.length === 0 && localRows.length > 0) {
+      console.warn(
+        '[useDeliverProjects] Supabase liefert 0 Zeilen — nutze localStorage (leere DB / RLS / noch nicht migriert).',
+      )
+      localOnlyRef.current = true
+      setItems(localRows)
+      setLoading(false)
+      return
+    }
+
     localOnlyRef.current = false
     setError(null)
-    setItems((data ?? []).map((r) => rowRecordToDeliverProject(r as Record<string, unknown>)))
+    const byId = new Map<string, DeliverProject>()
+    for (const l of localRows) byId.set(l.id, l)
+    for (const r of serverRows) byId.set(r.id, r)
+    const merged = Array.from(byId.values()).sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at),
+    )
+    setItems(merged)
     setLoading(false)
   }, [brandId, brandSlug, loadLocal])
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { generateId } from '../../lib/storage'
 import { useCampaigns } from '../../hooks/useCampaigns'
-import { useContacts } from '../../hooks/useContacts'
+import { readContactsLocal, useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import type { Contact, PipelineStage } from '../../types/db'
@@ -53,10 +53,12 @@ export function ContactPage() {
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
 
-  const contact = useMemo(
-    () => contacts.items.find((c) => c.id === contactId) ?? null,
-    [contacts.items, contactId],
-  )
+  const contact = useMemo(() => {
+    const fromList = contacts.items.find((c) => c.id === contactId) ?? null
+    if (fromList) return fromList
+    if (!slug || !contactId) return null
+    return readContactsLocal(slug).find((c) => c.id === contactId) ?? null
+  }, [contacts.items, contactId, slug])
 
   const [draft, setDraft] = useState<Contact | null>(null)
 

@@ -109,6 +109,14 @@ function contactToRow(
 
 const STORAGE_KEY = 'contacts' as const
 
+export function readContactsLocal(brandSlug: string): Contact[] {
+  const raw = loadList<Partial<Contact> & { id: string; brand_id: string }>([
+    brandSlug,
+    STORAGE_KEY,
+  ])
+  return raw.map((r) => normalizeContact(r as Contact))
+}
+
 export function useContacts(brandSlug: string | undefined): UseContactsResult {
   const brandId = useBrandId(brandSlug)
   const [items, setItems] = useState<Contact[]>([])
@@ -120,11 +128,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
 
   const loadLocal = useCallback(() => {
     if (!brandSlug) return
-    const raw = loadList<Partial<Contact> & { id: string; brand_id: string }>([
-      brandSlug,
-      STORAGE_KEY,
-    ])
-    setItems(raw.map((r) => normalizeContact(r as Contact)))
+    setItems(readContactsLocal(brandSlug))
     setError(null)
   }, [brandSlug])
 
@@ -165,13 +169,39 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     }
     if (err) {
       setError(err.message)
-      setItems([])
+      const localRows = readContactsLocal(brandSlug)
+      if (localRows.length > 0) {
+        console.warn('[useContacts] Supabase-Fehler — zeige localStorage')
+        localOnlyRef.current = true
+        setItems(localRows)
+      } else {
+        setItems([])
+      }
       setLoading(false)
       return
     }
+    const serverRows = (data ?? []).map(rowToContact)
+    const localRows = readContactsLocal(brandSlug)
+
+    if (serverRows.length === 0 && localRows.length > 0) {
+      console.warn(
+        '[useContacts] Supabase liefert 0 Zeilen — nutze localStorage (leere DB / RLS / noch nicht migriert).',
+      )
+      localOnlyRef.current = true
+      setItems(localRows)
+      setLoading(false)
+      return
+    }
+
     localOnlyRef.current = false
     setError(null)
-    setItems((data ?? []).map(rowToContact))
+    const byId = new Map<string, Contact>()
+    for (const l of localRows) byId.set(l.id, l)
+    for (const r of serverRows) byId.set(r.id, r)
+    const merged = Array.from(byId.values()).sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at),
+    )
+    setItems(merged)
     setLoading(false)
   }, [brandId, brandSlug, loadLocal])
 
