@@ -1,13 +1,19 @@
 import { motion } from 'framer-motion'
 import { useParams } from 'react-router-dom'
 import { SectionLabel } from '../../components/SectionLabel'
+import { useBusinessModel } from '../../hooks/useBusinessModel'
+import { useAssets } from '../../hooks/useAssets'
 import { useBrands } from '../../hooks/useBrands'
 import { useICPs } from '../../hooks/useICPs'
 import { usePositioning } from '../../hooks/usePositioning'
+import { useSOPs } from '../../hooks/useSOPs'
 import { useWordBank } from '../../hooks/useWordBank'
+import { AssetsSection } from './AssetsSection'
+import { BusinessModelSection } from './BusinessModelSection'
 import { ContextExportButton } from './ContextExportButton'
 import { ICPSection } from './ICPSection'
 import { PositioningSection } from './PositioningSection'
+import { SOPSection } from './SOPSection'
 import { WordBankSection } from './WordBankSection'
 
 export function BuildingMode() {
@@ -18,6 +24,9 @@ export function BuildingMode() {
   const icps = useICPs(slug)
   const wordBank = useWordBank(slug)
   const positioning = usePositioning(slug)
+  const businessModel = useBusinessModel(slug)
+  const assets = useAssets(slug)
+  const sops = useSOPs(slug)
 
   return (
     <motion.div
@@ -86,6 +95,34 @@ export function BuildingMode() {
         loading={positioning.loading}
         error={positioning.error}
         onSave={positioning.save}
+      />
+
+      <SectionLabel>Business Model</SectionLabel>
+      <BusinessModelSection
+        item={businessModel.item}
+        loading={businessModel.loading}
+        error={businessModel.error}
+        onSave={businessModel.save}
+      />
+
+      <SectionLabel>Assets</SectionLabel>
+      <AssetsSection
+        items={assets.items}
+        loading={assets.loading}
+        error={assets.error}
+        onCreate={() => assets.create()}
+        onUpdate={assets.update}
+        onRemove={assets.remove}
+      />
+
+      <SectionLabel>SOPs — Prozesse &amp; Vorlagen</SectionLabel>
+      <SOPSection
+        items={sops.items}
+        loading={sops.loading}
+        error={sops.error}
+        onCreate={() => sops.create()}
+        onUpdate={sops.update}
+        onDelete={sops.remove}
       />
     </motion.div>
   )

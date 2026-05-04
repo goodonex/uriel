@@ -1,4 +1,42 @@
-export type ModeKey = 'building' | 'promo' | 'sales' | 'intelligence'
+export type ModeKey =
+  | 'building'
+  | 'promo'
+  | 'sales'
+  | 'intelligence'
+  | 'discovery'
+
+export type AssetType = 'website' | 'instagram' | 'linkedin' | 'document'
+
+export interface Asset {
+  id: string
+  brand_id: string
+  name: string
+  type: AssetType
+  url: string
+  embed: boolean
+  updated_at: string
+}
+
+export interface SOP {
+  id: string
+  brand_id: string
+  title: string
+  content: Record<string, unknown>
+  category: string
+  updated_at: string
+}
+
+/** Standalone Business Model doc (localStorage key …:businessmodel). */
+export interface BusinessModelDoc {
+  id: string
+  brand_id: string
+  who: string
+  what: string
+  how: string
+  for_whom: string
+  revenue: string
+  updated_at: string
+}
 
 export interface Brand {
   id: string

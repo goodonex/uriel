@@ -25,6 +25,17 @@ function App() {
             <Route index element={<ModeNav />} />
             <Route path="building" element={<BuildingMode />} />
             <Route
+              path="discovery"
+              element={
+                <ModePlaceholder
+                  mode="discovery"
+                  title="Discovery Mode"
+                  phase="Phase 3"
+                  description="Außenperspektive: Markt, Wettbewerber, Trends. Discovery Foundation und Feed informieren Building und Intelligence."
+                />
+              }
+            />
+            <Route
               path="promo"
               element={
                 <ModePlaceholder

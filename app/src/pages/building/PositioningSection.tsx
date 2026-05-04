@@ -23,7 +23,7 @@ export function PositioningSection({
   useEffect(() => {
     setStatement(item?.statement ?? '')
     setTone(item?.tone_of_voice ?? '')
-  }, [item?.id])
+  }, [item?.id, item?.statement, item?.tone_of_voice])
 
   const debouncedStatement = useDebouncedCallback((v: string) =>
     onSave({ statement: v }),
@@ -168,7 +168,7 @@ export function PositioningSection({
             lineHeight: 1.5,
           }}
         >
-          Wer · Was · Wie · Für wen · Womit — kommt in Phase 2 Session 2.
+          Wer · Was · Wie · Für wen · Womit — im Abschnitt Business Model unten.
         </p>
       </div>
     </section>

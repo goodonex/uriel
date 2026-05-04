@@ -14,6 +14,7 @@ const MODE_VAR: Record<ModeKey, string> = {
   promo: '--mode-promo',
   sales: '--mode-sales',
   intelligence: '--mode-intelligence',
+  discovery: '--accent-coral',
 }
 
 export function ModePlaceholder({

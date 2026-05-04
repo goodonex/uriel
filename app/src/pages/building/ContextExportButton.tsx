@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useToast } from '../../components/Toast'
 import { buildContextMarkdown } from '../../lib/contextExport'
+import { useAssets } from '../../hooks/useAssets'
+import { useBusinessModel } from '../../hooks/useBusinessModel'
 import type { Brand, ICP, Positioning, WordBankEntry } from '../../types/db'
 
 interface ContextExportButtonProps {
@@ -16,6 +19,9 @@ export function ContextExportButton({
   icps,
   wordBank,
 }: ContextExportButtonProps) {
+  const { slug } = useParams<{ slug: string }>()
+  const businessModel = useBusinessModel(slug)
+  const assets = useAssets(slug)
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
 
@@ -23,7 +29,14 @@ export function ContextExportButton({
     if (!brand) return
     setBusy(true)
     try {
-      const md = buildContextMarkdown({ brand, positioning, icps, wordBank })
+      const md = buildContextMarkdown({
+        brand,
+        positioning,
+        icps,
+        wordBank,
+        businessModel: businessModel.item,
+        assets: assets.items,
+      })
       if (!navigator.clipboard) {
         show('Clipboard nicht verfügbar', 'error')
         return

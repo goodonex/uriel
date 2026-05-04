@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  HERRMANN_POSITIONING_STATEMENT,
+  HERRMANN_TONE_OF_VOICE,
+  isLegacyHerrmannPositioning,
+} from '../data/defaultCopy'
 import { generateId, loadOne, saveOne } from '../lib/storage'
 import type { Positioning } from '../types/db'
 
@@ -15,6 +20,17 @@ function emptyPositioning(brandSlug: string): Positioning {
     brand_id: brandSlug,
     statement: '',
     tone_of_voice: '',
+    business_model: null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+function herrmannSeedPositioning(): Positioning {
+  return {
+    id: generateId(),
+    brand_id: 'herrmann',
+    statement: HERRMANN_POSITIONING_STATEMENT,
+    tone_of_voice: HERRMANN_TONE_OF_VOICE,
     business_model: null,
     updated_at: new Date().toISOString(),
   }
@@ -38,7 +54,24 @@ export function usePositioning(
     setLoading(true)
     const timer = window.setTimeout(() => {
       try {
-        setItem(loadOne<Positioning>([brandSlug, 'positioning']))
+        let next = loadOne<Positioning>([brandSlug, 'positioning'])
+
+        if (brandSlug === 'herrmann') {
+          if (!next) {
+            next = herrmannSeedPositioning()
+            saveOne([brandSlug, 'positioning'], next)
+          } else if (isLegacyHerrmannPositioning(next.statement)) {
+            next = {
+              ...next,
+              statement: HERRMANN_POSITIONING_STATEMENT,
+              tone_of_voice: HERRMANN_TONE_OF_VOICE,
+              updated_at: new Date().toISOString(),
+            }
+            saveOne([brandSlug, 'positioning'], next)
+          }
+        }
+
+        setItem(next)
         setError(null)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unbekannter Fehler')

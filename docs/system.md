@@ -7,11 +7,19 @@ Kein Projektmanagement-Tool. Kein Miro. Ein Raum in dem das Business lebt.
 Drei Kernprinzipien:
 1. Alles an einem Ort — kein Tab-Wechsel, keine verstreuten Tools
 2. Strategie und Content hängen sichtbar zusammen
-3. Das System lernt und optimiert sich selbst zurück auf die Foundation
+3. Das System lernt und optimiert sich selbst — von außen nach innen
 
 ---
 
-## Die 5 Schichten
+## Der Fluss
+Discovery → Building → Promo → Sales → Intelligence → (zurück zu Building)
+
+Discovery informiert Building. Building informiert Promo. Promo informiert Sales.
+Sales + Promo informieren Intelligence. Intelligence optimiert Foundation zurück.
+
+---
+
+## Die 6 Modi
 
 ### Focus (KI-Schicht, immer sichtbar)
 - Zeigt täglich 3 nächste Moves mit höchstem Impact
@@ -19,6 +27,25 @@ Drei Kernprinzipien:
 - Lernt aus Verhalten (was wird verschoben, was erledigt)
 - Sendet Notifications wenn etwas stockt (später: Morning Brief)
 - Schlägt Foundation-Anpassungen vor wenn Performance-Daten es rechtfertigen
+
+### Discovery (Außenperspektive, automatisch aktualisiert)
+Schaut aktiv nach außen. Zwei Parts:
+
+**Discovery Foundation** — einmalig, manuell gestartet.
+- Du gibst Markt, Wettbewerber, Nische ein
+- Agent analysiert tief und baut strukturierten Ausgangspunkt
+- Ergebnis fließt als Vorschlag direkt in Building: ICP-Entwürfe, Word-Bank-Vorschläge, Positioning-Ideen
+- Du entscheidest was übernommen wird
+
+**Discovery Feed** — automatisch, alle X Tage.
+- Was machen Wettbewerber gerade
+- Welche Formate performen in deiner Nische
+- Was suchen deine ICPs gerade (Trends, Fragen, Schmerzpunkte)
+- Neue Plattformen, Formate, Tools die relevant sein könnten
+- Alles mit Timestamp — Verlauf sichtbar (Woche 1, Woche 3, Woche 7...)
+- Wenn Signal stark genug: Vorschlag → Word Bank aktualisieren, ICP-Schmerzpunkt ergänzen
+
+Discovery füttert Intelligence. Discovery-Signale + Performance-Daten = vollständiger Loop.
 
 ### Building
 Infrastruktur und Fundament. Was die Brand ist und wie sie läuft.

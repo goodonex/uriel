@@ -58,6 +58,43 @@ const MODES: ModeDef[] = [
       </svg>
     ),
   },
+  {
+    key: 'discovery',
+    name: 'Discovery',
+    desc: 'Markt, Wettbewerb, Trends. Automatisch aktualisiert.',
+    cssVar: '--accent-coral',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+        <circle
+          cx="8"
+          cy="8"
+          r="6"
+          stroke="var(--accent-coral)"
+          strokeWidth="1.5"
+        />
+        <circle
+          cx="8"
+          cy="8"
+          r="2"
+          stroke="var(--accent-coral)"
+          strokeWidth="1.2"
+        />
+        <path
+          d="M8 8 L13.5 4.5"
+          stroke="var(--accent-coral)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8 2 A 6 6 0 0 1 14 8"
+          stroke="var(--accent-coral)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          opacity={0.35}
+        />
+      </svg>
+    ),
+  },
 ]
 
 export function ModeNav() {
@@ -65,7 +102,7 @@ export function ModeNav() {
   const navigate = useNavigate()
 
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
       {MODES.map((mode, idx) => (
         <motion.button
           key={mode.key}
