@@ -112,10 +112,32 @@ export interface DiscoveryWordSuggestion {
   cluster: string
 }
 
+export type DiscoveryAnalysisStatus =
+  | 'idle'
+  | 'running'
+  | 'complete'
+  | 'error'
+
+export interface DiscoveryContentFormatInsight {
+  format_name: string
+  rationale: string
+}
+
+export interface DiscoveryCompetitorInsightBrief {
+  headline: string
+  detail: string
+}
+
 export interface DiscoveryAnalysis {
   icp_drafts: DiscoveryIcpDraft[]
   word_bank_suggestions: DiscoveryWordSuggestion[]
   positioning_ideas: string[]
+  /** Aus Claude-Analyse */
+  content_formats?: DiscoveryContentFormatInsight[]
+  competitor_insights?: DiscoveryCompetitorInsightBrief[]
+  tone_of_voice?: string
+  /** Gekürzte Perplexity-Auszüge (optional) */
+  research_snippets?: string[]
 }
 
 export interface DiscoveryFoundationDoc {
@@ -126,6 +148,7 @@ export interface DiscoveryFoundationDoc {
   niche: string
   analysis: DiscoveryAnalysis | null
   analysis_run_at: string | null
+  analysis_status?: DiscoveryAnalysisStatus
   updated_at: string
 }
 
@@ -137,6 +160,7 @@ export interface DiscoveryFeedItem {
   summary: string
   signal_strength: 'low' | 'medium' | 'high'
   recorded_at: string
+  archived_at?: string | null
 }
 
 export type DiscoveryFeedIntervalDays = 1 | 7 | 14

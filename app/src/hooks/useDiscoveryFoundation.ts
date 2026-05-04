@@ -12,6 +12,7 @@ interface UseDiscoveryFoundationResult {
   save: (
     patch: Partial<Omit<DiscoveryFoundationDoc, 'id' | 'brand_id'>>,
   ) => void
+  reload: () => Promise<void>
 }
 
 const STORAGE_PART = 'discovery-foundation' as const
@@ -25,6 +26,7 @@ function emptyDoc(brandKey: string): DiscoveryFoundationDoc {
     niche: '',
     analysis: null,
     analysis_run_at: null,
+    analysis_status: 'idle',
     updated_at: new Date().toISOString(),
   }
 }
@@ -127,6 +129,7 @@ export function useDiscoveryFoundation(
             niche: next.niche,
             analysis: next.analysis,
             analysis_run_at: next.analysis_run_at,
+            analysis_status: next.analysis_status,
             updated_at: next.updated_at,
           },
           { onConflict: 'brand_id' },
@@ -146,5 +149,5 @@ export function useDiscoveryFoundation(
     [brandId, brandSlug, reload],
   )
 
-  return { item, loading, error, save }
+  return { item, loading, error, save, reload }
 }

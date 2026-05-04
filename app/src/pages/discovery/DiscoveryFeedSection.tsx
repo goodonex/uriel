@@ -37,7 +37,7 @@ interface DiscoveryFeedSectionProps {
   settings: DiscoverySettingsDoc | null
   settingsLoading: boolean
   onIntervalChange: (days: DiscoveryFeedIntervalDays) => void
-  onRefreshFeed: () => void
+  onRefreshFeed: () => void | Promise<void>
 }
 
 export function DiscoveryFeedSection({

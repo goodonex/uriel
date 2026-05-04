@@ -31,19 +31,14 @@ Sales + Promo informieren Intelligence. Intelligence optimiert Foundation zurüc
 ### Discovery (Außenperspektive, automatisch aktualisiert)
 Schaut aktiv nach außen. Zwei Parts:
 
-**Discovery Foundation** — einmalig, manuell gestartet.
+**Discovery Foundation** — manuell gestartet (Button in der App).
 - Du gibst Markt, Wettbewerber, Nische ein
-- Agent analysiert tief und baut strukturierten Ausgangspunkt
-- Ergebnis fließt als Vorschlag direkt in Building: ICP-Entwürfe, Word-Bank-Vorschläge, Positioning-Ideen
-- Du entscheidest was übernommen wird
+- Edge Function **`discovery-agent`**: Web-Recherche (**Perplexity** `sonar`), strukturierte Analyse (**Claude**), Speicherung in `discovery_foundation` und neue Einträge in `discovery_feed_items`
+- Ergebnis: ICP-Entwürfe, Word-Bank-Vorschläge (Ja/Nein), Positioning, Content-Formate, Wettbewerber-Insights, Tone of Voice — Übernahme in Building pro Sektion
+- Secrets: siehe `docs/open-questions.md` (`PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY`, …)
 
-**Discovery Feed** — automatisch, alle X Tage.
-- Was machen Wettbewerber gerade
-- Welche Formate performen in deiner Nische
-- Was suchen deine ICPs gerade (Trends, Fragen, Schmerzpunkte)
-- Neue Plattformen, Formate, Tools die relevant sein könnten
-- Alles mit Timestamp — Verlauf sichtbar (Woche 1, Woche 3, Woche 7...)
-- Wenn Signal stark genug: Vorschlag → Word Bank aktualisieren, ICP-Schmerzpunkt ergänzen
+**Discovery Feed** — automatisch per Cron empfohlen (7 Tage), manuell aus der App auslösbar.
+- Edge Function **`discovery-feed-refresh`**: aktuelle Trends, Wettbewerber-Signale, Content-Formate (**Perplexity**); Einträge älter als 90 Tage werden archiviert (`archived_at`)
 
 Discovery füttert Intelligence. Discovery-Signale + Performance-Daten = vollständiger Loop.
 

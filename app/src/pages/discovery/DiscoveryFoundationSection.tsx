@@ -21,6 +21,12 @@ const FIELD_STYLE = {
   borderRadius: 12,
 }
 
+const PHASE_LABELS = [
+  'Markt wird analysiert…',
+  'Muster werden erkannt…',
+  'Ergebnisse werden gespeichert…',
+]
+
 interface DiscoveryFoundationSectionProps {
   item: DiscoveryFoundationDoc | null
   loading: boolean
@@ -28,10 +34,21 @@ interface DiscoveryFoundationSectionProps {
   onSave: (
     patch: Partial<Omit<DiscoveryFoundationDoc, 'id' | 'brand_id'>>,
   ) => void
-  onRunAnalysis: () => void
+  onRunAnalysis: (payload: {
+    market: string
+    competitors: string
+    niche: string
+  }) => void | Promise<void>
+  analysisRunBusy: boolean
+  analysisRunPhase: number
+  analysisRunError: string | null
+  onDismissAnalysisError: () => void
   onApplyIcpDraft: (draft: DiscoveryIcpDraft) => void
+  onApplyAllIcpDrafts: (drafts: DiscoveryIcpDraft[]) => void
   onApplyWord: (s: DiscoveryWordSuggestion) => void
+  onApplyAllWords: (list: DiscoveryWordSuggestion[]) => void
   onApplyPositioningIdea: (idea: string) => void
+  onApplyToneOfVoice: (text: string) => void
 }
 
 function formatAnalysisTime(iso: string | null): string {
@@ -46,19 +63,73 @@ function formatAnalysisTime(iso: string | null): string {
   }
 }
 
+function AnalysisRunProgress({
+  phaseIndex,
+  busy,
+}: {
+  phaseIndex: number
+  busy: boolean
+}) {
+  if (!busy) return null
+  const p = Math.min(Math.max(phaseIndex, 0), 2)
+  const pct = ((p + 1) / 3) * 100
+  return (
+    <div style={{ width: '100%', maxWidth: 420, marginTop: 12 }}>
+      <div
+        className="font-mono"
+        style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}
+      >
+        {PHASE_LABELS[p]}
+      </div>
+      <div
+        style={{
+          height: 6,
+          borderRadius: 999,
+          background: 'var(--glass-1)',
+          border: '1px solid var(--glass-border-1)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            borderRadius: 999,
+            background: 'linear-gradient(90deg, var(--accent-teal), var(--accent-coral))',
+            transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function AnalysisPanel({
   analysis,
   analysisRunAt,
   onApplyIcpDraft,
+  onApplyAllIcpDrafts,
   onApplyWord,
+  onApplyAllWords,
   onApplyPositioningIdea,
+  onApplyToneOfVoice,
 }: {
   analysis: DiscoveryAnalysis
   analysisRunAt: string | null
   onApplyIcpDraft: (draft: DiscoveryIcpDraft) => void
+  onApplyAllIcpDrafts: (drafts: DiscoveryIcpDraft[]) => void
   onApplyWord: (s: DiscoveryWordSuggestion) => void
+  onApplyAllWords: (list: DiscoveryWordSuggestion[]) => void
   onApplyPositioningIdea: (idea: string) => void
+  onApplyToneOfVoice: (text: string) => void
 }) {
+  const icpDrafts = analysis.icp_drafts ?? []
+  const wordSuggestions = analysis.word_bank_suggestions ?? []
+  const positioningIdeas = analysis.positioning_ideas ?? []
+  const comps = analysis.competitor_insights ?? []
+  const formats = analysis.content_formats ?? []
+  const tone = analysis.tone_of_voice?.trim()
+
   return (
     <div
       style={{
@@ -79,7 +150,7 @@ function AnalysisPanel({
             color: 'var(--accent-coral)',
           }}
         >
-          Analyse (Mock)
+          Analyse
         </span>
         {analysisRunAt ? (
           <span
@@ -99,23 +170,154 @@ function AnalysisPanel({
           marginBottom: 16,
         }}
       >
-        Vorschläge für Building. Später ersetzt ein Agent diese Auswertung.
+        Aus Web-Research (Perplexity) und Strukturierung (Claude). Übernehme nach Bedarf in
+        Building.
       </p>
 
-      <div
-        className="font-mono"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--text-tertiary)',
-          marginBottom: 8,
-        }}
-      >
-        ICP-Entwürfe
+      {comps.length ? (
+        <>
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            Wettbewerber-Insights
+          </div>
+          <ul className="flex flex-col gap-2" style={{ marginBottom: 20 }}>
+            {comps.slice(0, 6).map((c, i) => (
+              <li
+                key={i}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: 'var(--glass-1)',
+                  border: '1px solid var(--glass-border-1)',
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <div
+                  className="font-display"
+                  style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}
+                >
+                  {c.headline}
+                </div>
+                {c.detail ? <p style={{ margin: 0 }}>{c.detail}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {formats.length ? (
+        <>
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            Content-Formate (performant)
+          </div>
+          <ul className="flex flex-col gap-2" style={{ marginBottom: 20 }}>
+            {formats.map((f, i) => (
+              <li
+                key={i}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: 'var(--glass-1)',
+                  border: '1px solid var(--glass-border-1)',
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <strong style={{ color: 'var(--text-primary)' }}>{f.format_name}</strong>
+                {f.rationale ? (
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>
+                    {f.rationale}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {tone ? (
+        <div style={{ marginBottom: 20 }}>
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            Tone of Voice
+          </div>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>{tone}</p>
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 11,
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: 'var(--glass-3)',
+              border: '1px solid var(--glass-border-2)',
+              color: 'var(--accent-coral)',
+            }}
+            onClick={() => onApplyToneOfVoice(tone)}
+          >
+            In Building übernehmen
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-2" style={{ marginBottom: 8 }}>
+        <div
+          className="font-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          ICP-Entwürfe
+        </div>
+        {icpDrafts.length ? (
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--glass-border-1)',
+              color: 'var(--accent-teal)',
+              background: 'transparent',
+            }}
+            onClick={() => onApplyAllIcpDrafts(icpDrafts)}
+          >
+            Alle ICPs übernehmen
+          </button>
+        ) : null}
       </div>
       <ul className="flex flex-col gap-3" style={{ marginBottom: 20 }}>
-        {analysis.icp_drafts.map((d, i) => (
+        {icpDrafts.map((d, i) => (
           <li
             key={i}
             style={{
@@ -137,9 +339,7 @@ function AnalysisPanel({
               {d.name}
             </div>
             {d.pain_hint ? (
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                {d.pain_hint}
-              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{d.pain_hint}</p>
             ) : null}
             <button
               type="button"
@@ -155,26 +355,44 @@ function AnalysisPanel({
               }}
               onClick={() => onApplyIcpDraft(d)}
             >
-              Als ICP in Building anlegen
+              Übernehmen
             </button>
           </li>
         ))}
       </ul>
 
-      <div
-        className="font-mono"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--text-tertiary)',
-          marginBottom: 8,
-        }}
-      >
-        Word Bank
+      <div className="flex flex-wrap items-center justify-between gap-2" style={{ marginBottom: 8 }}>
+        <div
+          className="font-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          Word Bank
+        </div>
+        {wordSuggestions.length ? (
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--glass-border-1)',
+              color: 'var(--accent-teal)',
+              background: 'transparent',
+            }}
+            onClick={() => onApplyAllWords(wordSuggestions)}
+          >
+            Alle Wörter übernehmen
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-2" style={{ marginBottom: 20 }}>
-        {analysis.word_bank_suggestions.map((s, i) => (
+        {wordSuggestions.map((s, i) => (
           <div
             key={i}
             className="flex items-center gap-2"
@@ -201,9 +419,7 @@ function AnalysisPanel({
             >
               {s.type === 'yes' ? 'Ja' : 'Nein'}
             </span>
-            <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>
-              {s.word}
-            </span>
+            <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{s.word}</span>
             <button
               type="button"
               className="font-mono"
@@ -233,10 +449,10 @@ function AnalysisPanel({
           marginBottom: 8,
         }}
       >
-        Positioning-Ideen
+        Positioning
       </div>
       <ul className="flex flex-col gap-2">
-        {analysis.positioning_ideas.map((idea, i) => (
+        {positioningIdeas.map((idea, i) => (
           <li
             key={i}
             style={{
@@ -260,7 +476,7 @@ function AnalysisPanel({
               }}
               onClick={() => onApplyPositioningIdea(idea)}
             >
-              Statement setzen / kopieren
+              Übernehmen
             </button>
           </li>
         ))}
@@ -275,9 +491,16 @@ export function DiscoveryFoundationSection({
   error,
   onSave,
   onRunAnalysis,
+  analysisRunBusy,
+  analysisRunPhase,
+  analysisRunError,
+  onDismissAnalysisError,
   onApplyIcpDraft,
+  onApplyAllIcpDrafts,
   onApplyWord,
+  onApplyAllWords,
   onApplyPositioningIdea,
+  onApplyToneOfVoice,
 }: DiscoveryFoundationSectionProps) {
   const [market, setMarket] = useState(item?.market ?? '')
   const [competitors, setCompetitors] = useState(item?.competitors ?? '')
@@ -289,15 +512,11 @@ export function DiscoveryFoundationSection({
     setNiche(item?.niche ?? '')
   }, [item?.id, item?.market, item?.competitors, item?.niche])
 
-  const debouncedMarket = useDebouncedCallback((v: string) =>
-    onSave({ market: v }),
-  )
+  const debouncedMarket = useDebouncedCallback((v: string) => onSave({ market: v }))
   const debouncedCompetitors = useDebouncedCallback((v: string) =>
     onSave({ competitors: v }),
   )
-  const debouncedNiche = useDebouncedCallback((v: string) =>
-    onSave({ niche: v }),
-  )
+  const debouncedNiche = useDebouncedCallback((v: string) => onSave({ niche: v }))
 
   if (loading) {
     return (
@@ -315,10 +534,7 @@ export function DiscoveryFoundationSection({
 
   if (error) {
     return (
-      <div
-        className="font-mono"
-        style={{ fontSize: 12, color: 'var(--accent-coral)' }}
-      >
+      <div className="font-mono" style={{ fontSize: 12, color: 'var(--accent-coral)' }}>
         Discovery Foundation konnte nicht geladen werden: {error}
       </div>
     )
@@ -328,25 +544,63 @@ export function DiscoveryFoundationSection({
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 520 }}>
-          Markt, Wettbewerb und Nische — einmal sauber festhalten. Die Analyse
-          liefert Vorschläge für ICPs, Word Bank und Positioning.
+          Markt, Wettbewerb und Nische — einmal sauber festhalten. Die Analyse nutzt Web-Research
+          und ein KI-Modell für strukturierte Vorschläge (ICPs, Word Bank, Positioning).
         </p>
-        <button
-          type="button"
-          className="font-mono shrink-0"
-          style={{
-            fontSize: 12,
-            padding: '10px 16px',
-            borderRadius: 12,
-            background: 'var(--glass-3)',
-            border: '1px solid var(--glass-border-2)',
-            color: 'var(--accent-coral)',
-          }}
-          onClick={onRunAnalysis}
-        >
-          Analyse ausführen
-        </button>
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          <button
+            type="button"
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              padding: '10px 16px',
+              borderRadius: 12,
+              background: 'var(--glass-3)',
+              border: '1px solid var(--glass-border-2)',
+              color: 'var(--accent-coral)',
+              opacity: analysisRunBusy ? 0.65 : 1,
+              pointerEvents: analysisRunBusy ? 'none' : 'auto',
+            }}
+            disabled={analysisRunBusy}
+            onClick={() =>
+              void onRunAnalysis({ market, competitors, niche })
+            }
+          >
+            {analysisRunBusy ? 'Analyse läuft…' : 'Analyse ausführen'}
+          </button>
+          <AnalysisRunProgress phaseIndex={analysisRunPhase} busy={analysisRunBusy} />
+        </div>
       </div>
+
+      {analysisRunError ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 14,
+            borderRadius: 12,
+            background: 'rgba(249, 115, 22, 0.08)',
+            border: '1px solid rgba(249, 115, 22, 0.35)',
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          <div className="flex justify-between gap-2">
+            <span className="font-mono" style={{ color: 'var(--accent-coral)', fontSize: 11 }}>
+              Fehler
+            </span>
+            <button
+              type="button"
+              className="font-mono"
+              style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+              onClick={onDismissAnalysisError}
+            >
+              Schließen
+            </button>
+          </div>
+          <p style={{ margin: '8px 0 0' }}>{analysisRunError}</p>
+        </div>
+      ) : null}
 
       <label className="mt-6 block" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
         Markt / Kontext
@@ -398,8 +652,11 @@ export function DiscoveryFoundationSection({
           analysis={item.analysis}
           analysisRunAt={item.analysis_run_at}
           onApplyIcpDraft={onApplyIcpDraft}
+          onApplyAllIcpDrafts={onApplyAllIcpDrafts}
           onApplyWord={onApplyWord}
+          onApplyAllWords={onApplyAllWords}
           onApplyPositioningIdea={onApplyPositioningIdea}
+          onApplyToneOfVoice={onApplyToneOfVoice}
         />
       ) : (
         <p

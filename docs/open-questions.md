@@ -27,10 +27,11 @@ Im Supabase SQL Editor **der Reihe nach** ausführen:
 | `0010_deliver_projects.sql` | `deliver_projects`: Stages, Tiptap-Doc, Dateilinks, Kundeninhalt |
 | `0011_contacts_extended.sql` | `contacts`: Profilfelder + `activity_log` |
 | `0012_client_access.sql` | `user_roles.project_id`; RLS Client lesen eigenes `deliver_projects` + Brand |
+| `0013_discovery_agent.sql` | `discovery_foundation.analysis_status`, `discovery_feed_items.archived_at` (Agent + Feed-Archiv) |
 
-**Reihenfolge:** `0001` … `0008`, **`0010_deliver_projects.sql`**, **`0011_contacts_extended.sql`**, **`0012_client_access.sql`**, danach **`0009_rls.sql`** ergänzen/aktualisieren (oder `0009` vor `0012` wenn Policies idempotent per `drop policy if exists` — empfohlen: **`0012` nach `0009` ausführen**, da neue Policies auf bestehendem RLS aufsetzen).
+**Reihenfolge:** `0001` … `0008`, **`0010_deliver_projects.sql`**, **`0011_contacts_extended.sql`**, **`0012_client_access.sql`**, **`0013_discovery_agent.sql`**, danach **`0009_rls.sql`** ergänzen/aktualisieren (oder `0009` vor `0012` wenn Policies idempotent per `drop policy if exists` — empfohlen: **`0012` nach `0009` ausführen**, da neue Policies auf bestehendem RLS aufsetzen).
 
-**Hinweis:** Nach `0012` existieren zusätzliche Policies; bei bestehendem `0009` einfach `0012` im SQL Editor ausführen.
+**Hinweis:** Nach `0012` / `0013` existieren zusätzliche Tabellen-Spalten; bei bestehendem `0009` die neuen Migrationen im SQL Editor ausführen.
 
 Offen nach Umstellung auf Auth/RLS:
 
@@ -73,6 +74,23 @@ Echte OAuth-Flows und Token-Speicherung sind bewusst nicht Teil der aktuellen UI
 - `App`-`main`: engere horizontale Padding-Klassen auf kleinen Screens.
 - `Drawer`: Breite `min(380px, 100vw - 24px)` — keine Überlagerung am Rand.
 
+## Discovery — Edge Functions & Secrets
+
+Die Discovery-Pipeline **läuft erst produktiv**, wenn folgende Secrets im Supabase-Dashboard gesetzt sind: **Settings → Edge Functions → Secrets** (Projekt).
+
+| Secret | Quelle | Verwendung |
+|--------|--------|------------|
+| `PERPLEXITY_API_KEY` | [perplexity.ai](https://www.perplexity.ai/) API | `discovery-agent` (Web-Research), `discovery-feed-refresh` (Signale) |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) | `discovery-agent` (JSON-Analyse / Claude) |
+| `ANTHROPIC_MODEL` | optional | Standard im Code: `claude-sonnet-4-20250514` |
+| `DISCOVERY_CRON_SECRET` | beliebig (z. B. UUID), nur für Cron | `discovery-feed-refresh`: Header `x-discovery-cron-secret` muss exakt matchen |
+
+**Fehlende Keys:** Die Functions antworten mit **HTTP 500** und JSON `code: "MISSING_API_KEYS"` — die App zeigt eine konkrete Meldung mit Verweis auf diese Datei.
+
+**Manueller Feed-Refresh (App):** `discovery-feed-refresh` mit User-JWT und Body `{ "brand_id": "<uuid>" }` (ohne Cron-Secret). Voraussetzung: `PERPLEXITY_API_KEY` gesetzt.
+
+**Geplanter Refresh (7 Tage):** Supabase **Scheduled Functions** oder `pg_cron` + HTTP POST auf `discovery-feed-refresh` mit Header `x-discovery-cron-secret: <DISCOVERY_CRON_SECRET>`. Nach dem Lauf werden Feed-Einträge älter als **90 Tage** mit `archived_at` versehen (weiterhin in der DB, UI blendet sie aus).
+
 ## Discovery Cron (Supabase Edge Functions)
 
-Scheduling, Retry und Benachrichtigung bei Feed-Fehlern — erst nach Backend-Entscheid.
+Scheduling, Retry und Benachrichtigung bei Feed-Fehlern — Cron-URL und Secret siehe Abschnitt **Discovery — Edge Functions & Secrets** oben.

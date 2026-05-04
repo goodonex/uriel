@@ -1,0 +1,7 @@
+# Brand OS — lokale Edge-Function-Defaults (Deploy: Supabase CLI / Dashboard)
+
+[functions.discovery-agent]
+verify_jwt = true
+
+[functions.discovery-feed-refresh]
+verify_jwt = false

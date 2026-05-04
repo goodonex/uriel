@@ -10,6 +10,7 @@ interface UseDiscoveryFeedResult {
   loading: boolean
   error: string | null
   prepend: (batch: DiscoveryFeedItem[]) => void
+  reload: () => Promise<void>
 }
 
 function rowToItem(row: Record<string, unknown>): DiscoveryFeedItem {
@@ -21,6 +22,7 @@ function rowToItem(row: Record<string, unknown>): DiscoveryFeedItem {
     summary: row.summary as string,
     signal_strength: row.signal_strength as DiscoveryFeedItem['signal_strength'],
     recorded_at: row.recorded_at as string,
+    archived_at: (row.archived_at as string | null) ?? null,
   }
 }
 
@@ -69,6 +71,7 @@ export function useDiscoveryFeed(
       .from('discovery_feed_items')
       .select('*')
       .eq('brand_id', brandId)
+      .is('archived_at', null)
       .order('recorded_at', { ascending: false })
 
     if (err && isMissingSupabaseTableError(err.message)) {
@@ -134,5 +137,5 @@ export function useDiscoveryFeed(
     [brandId, brandSlug, persistLocal, reload],
   )
 
-  return { items, loading, error, prepend }
+  return { items, loading, error, prepend, reload }
 }
