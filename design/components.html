@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand OS — Glass UI Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-void:        #080810;
+    --bg-base:        #0d0d1a;
+    --glass-1: rgba(255,255,255,0.04);
+    --glass-2: rgba(255,255,255,0.07);
+    --glass-3: rgba(255,255,255,0.11);
+    --glass-4: rgba(255,255,255,0.15);
+    --border-1: rgba(255,255,255,0.06);
+    --border-2: rgba(255,255,255,0.12);
+    --border-3: rgba(255,255,255,0.22);
+    --blur-md: blur(16px);
+    --blur-lg: blur(28px);
+    --text-primary:   rgba(255,255,255,0.92);
+    --text-secondary: rgba(255,255,255,0.52);
+    --text-tertiary:  rgba(255,255,255,0.28);
+    --accent-blue:   #4f7fff;
+    --accent-purple: #8b5cf6;
+    --accent-teal:   #2dd4bf;
+    --accent-amber:  #f59e0b;
+    --font-display: 'Syne', sans-serif;
+    --font-body:    'DM Sans', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-void);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background orbs — depth atmosphere */
+  .orbs {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(80px); opacity: 0.18;
+  }
+  .orb-1 { width: 600px; height: 600px; background: #4f7fff; top: -200px; left: -100px; }
+  .orb-2 { width: 500px; height: 500px; background: #8b5cf6; bottom: -150px; right: -100px; }
+  .orb-3 { width: 300px; height: 300px; background: #2dd4bf; top: 40%; left: 50%; }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
+
+  /* ---- Section label ---- */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-tertiary); margin-bottom: 16px; margin-top: 48px;
+  }
+  .label:first-child { margin-top: 0; }
+
+  /* ---- App header ---- */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; margin-bottom: 32px;
+    background: var(--glass-2);
+    backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+    border: 1px solid var(--border-1);
+    border-radius: 16px;
+  }
+  .app-name {
+    font-family: var(--font-display); font-size: 17px; font-weight: 600;
+    letter-spacing: -.3px;
+  }
+  .brand-switcher {
+    display: flex; gap: 6px;
+  }
+  .brand-pill {
+    font-size: 11px; font-weight: 500; padding: 5px 12px;
+    border-radius: 999px; cursor: pointer; transition: all 200ms var(--ease-out);
+    border: 1px solid var(--border-2); background: var(--glass-1);
+    color: var(--text-secondary);
+  }
+  .brand-pill.active {
+    background: var(--glass-4); border-color: var(--border-3);
+    color: var(--text-primary);
+  }
+
+  /* ---- Focus strip ---- */
+  .focus-strip {
+    background: var(--glass-2);
+    backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+    border: 1px solid var(--border-1);
+    border-radius: 16px; padding: 20px 24px; margin-bottom: 12px;
+  }
+  .focus-meta {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  }
+  .focus-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-amber); }
+  .focus-heading { font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: .02em; }
+  .task-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .task-card {
+    background: var(--glass-1);
+    border: 1px solid var(--border-1); border-radius: 12px;
+    padding: 14px 16px; cursor: pointer;
+    transition: background 200ms, border-color 200ms;
+  }
+  .task-card:hover { background: var(--glass-3); border-color: var(--border-2); }
+  .task-brand { font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+  .task-text { font-size: 13px; color: var(--text-primary); line-height: 1.45; margin-bottom: 8px; }
+  .task-reason { font-size: 11px; color: var(--text-tertiary); line-height: 1.4; }
+  .impact-badge {
+    display: inline-block; font-size: 10px; font-weight: 500;
+    padding: 2px 8px; border-radius: 999px; margin-top: 8px;
+  }
+  .impact-high { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+  .impact-mid  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+
+  /* ---- Mode nav ---- */
+  .mode-nav { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .mode-card {
+    background: var(--glass-2);
+    backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+    border: 1px solid var(--border-1); border-radius: 16px;
+    padding: 20px 18px; cursor: pointer;
+    transition: all 250ms var(--ease-out); position: relative; overflow: hidden;
+  }
+  .mode-card::before {
+    content: ''; position: absolute; inset: 0; opacity: 0;
+    transition: opacity 300ms;
+  }
+  .mode-card:hover { border-color: var(--border-2); transform: translateY(-1px); }
+  .mode-card:hover::before { opacity: 1; }
+  .mode-card.building::before { background: radial-gradient(ellipse at top left, rgba(79,127,255,0.08), transparent 70%); }
+  .mode-card.promo::before   { background: radial-gradient(ellipse at top left, rgba(139,92,246,0.08), transparent 70%); }
+  .mode-card.sales::before   { background: radial-gradient(ellipse at top left, rgba(45,212,191,0.08), transparent 70%); }
+  .mode-card.intel::before   { background: radial-gradient(ellipse at top left, rgba(245,158,11,0.08), transparent 70%); }
+  .mode-icon { width: 32px; height: 32px; border-radius: 8px; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; }
+  .mode-icon svg { width: 16px; height: 16px; }
+  .ic-building { background: rgba(79,127,255,0.15); }
+  .ic-promo    { background: rgba(139,92,246,0.15); }
+  .ic-sales    { background: rgba(45,212,191,0.15); }
+  .ic-intel    { background: rgba(245,158,11,0.15); }
+  .mode-name { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .mode-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ---- Glass drawer (side panel) ---- */
+  .drawer-demo { display: grid; grid-template-columns: 1fr 340px; gap: 10px; align-items: start; }
+  .canvas-placeholder {
+    background: var(--glass-1); border: 1px solid var(--border-1); border-radius: 16px;
+    height: 280px; display: flex; align-items: center; justify-content: center;
+  }
+  .canvas-label { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); }
+  .drawer {
+    background: var(--glass-3);
+    backdrop-filter: var(--blur-lg); -webkit-backdrop-filter: var(--blur-lg);
+    border: 1px solid var(--border-2); border-radius: 16px;
+    padding: 20px;
+  }
+  .drawer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .drawer-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+  .drawer-close {
+    width: 28px; height: 28px; border-radius: 8px; background: var(--glass-2);
+    border: 1px solid var(--border-1); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-secondary); font-size: 14px;
+  }
+  .field { margin-bottom: 16px; }
+  .field-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; font-family: var(--font-mono); letter-spacing: .06em; }
+  .field-value { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: var(--glass-2); border: 1px solid var(--border-2);
+    color: var(--text-secondary);
+  }
+  .divider { height: 1px; background: var(--border-1); margin: 16px 0; }
+
+  /* ---- Context export card ---- */
+  .export-card {
+    background: var(--glass-2);
+    backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+    border: 1px solid var(--border-1); border-radius: 16px; padding: 20px 24px;
+  }
+  .export-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .export-title { font-size: 13px; font-weight: 500; }
+  .copy-btn {
+    font-family: var(--font-mono); font-size: 10px; padding: 5px 12px;
+    border-radius: 8px; background: var(--glass-3); border: 1px solid var(--border-2);
+    color: var(--text-secondary); cursor: pointer; transition: all 150ms;
+  }
+  .copy-btn:hover { background: var(--glass-4); color: var(--text-primary); }
+  .export-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .export-item {
+    background: var(--glass-1); border: 1px solid var(--border-1); border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .export-key { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px; }
+  .export-val { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+
+  /* ---- Node embed preview ---- */
+  .embed-card {
+    background: var(--glass-2);
+    backdrop-filter: var(--blur-md); -webkit-backdrop-filter: var(--blur-md);
+    border: 1px solid var(--border-1); border-radius: 16px; overflow: hidden;
+  }
+  .embed-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border-1);
+    background: var(--glass-1);
+  }
+  .embed-dots { display: flex; gap: 5px; }
+  .embed-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-2); }
+  .embed-url { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+  .embed-body { height: 120px; display: flex; align-items: center; justify-content: center; }
+  .embed-hint { font-size: 11px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+<div class="orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="app-header">
+    <span class="app-name">Brand OS</span>
+    <div class="brand-switcher">
+      <div class="brand-pill active">Herrmann & Co.</div>
+      <div class="brand-pill">Offmarketbude</div>
+      <div class="brand-pill">Homeflower</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--glass-3);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500">K</div>
+    </div>
+  </div>
+
+  <!-- Focus -->
+  <div class="label">Focus — KI-Schicht</div>
+  <div class="focus-strip">
+    <div class="focus-meta">
+      <div class="focus-dot"></div>
+      <span class="focus-heading">3 nächste Moves · heute</span>
+    </div>
+    <div class="task-grid">
+      <div class="task-card">
+        <div class="task-brand" style="color:var(--accent-blue)">Offmarketbude</div>
+        <div class="task-text">ICP #1 Schmerzpunkt ergänzen</div>
+        <div class="task-reason">Letzte 3 Ads 40% unter Schnitt. Benefit-Sprache funktioniert nicht.</div>
+        <span class="impact-badge impact-high">Hoher Impact</span>
+      </div>
+      <div class="task-card">
+        <div class="task-brand" style="color:var(--accent-teal)">Homeflower</div>
+        <div class="task-text">4 Sales-Kontakte follow-uppen</div>
+        <div class="task-reason">14 Tage keine Bewegung. Pipeline stockt bei "Gespräch".</div>
+        <span class="impact-badge impact-high">Hoher Impact</span>
+      </div>
+      <div class="task-card">
+        <div class="task-brand" style="color:var(--accent-purple)">Herrmann & Co.</div>
+        <div class="task-text">LinkedIn-Post — Fallbeispiel-Format</div>
+        <div class="task-reason">18 Tage Pause. Dieses Format konvertiert 3× besser.</div>
+        <span class="impact-badge impact-mid">Mittlerer Impact</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modes -->
+  <div class="label">Modi</div>
+  <div class="mode-nav">
+    <div class="mode-card building">
+      <div class="mode-icon ic-building">
+        <svg viewBox="0 0 16 16" fill="none" stroke="#4f7fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="3"/><path d="M5 8h6M5 5.5h4M5 10.5h3"/></svg>
+      </div>
+      <div class="mode-name">Building</div>
+      <div class="mode-desc">Foundation, Assets, SOPs. Was deine Brand ist und wie sie läuft.</div>
+    </div>
+    <div class="mode-card promo">
+      <div class="mode-icon ic-promo">
+        <svg viewBox="0 0 16 16" fill="none" stroke="#8b5cf6" stroke-width="1.5"><path d="M3 12 L7 6 L10 9 L13 4"/><circle cx="13" cy="4" r="1.5" fill="#8b5cf6" stroke="none"/></svg>
+      </div>
+      <div class="mode-name">Promo</div>
+      <div class="mode-desc">Content, Kampagnen, Performance. Getagt und messbar von Tag 1.</div>
+    </div>
+    <div class="mode-card sales">
+      <div class="mode-icon ic-sales">
+        <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14c0-2.76 2.24-5 5-5s5 2.24 5 5"/></svg>
+      </div>
+      <div class="mode-name">Sales</div>
+      <div class="mode-desc">Leichtes CRM. Pipeline, Kontakte, Follow-ups — verbunden mit Promo.</div>
+    </div>
+    <div class="mode-card intel">
+      <div class="mode-icon ic-intel">
+        <svg viewBox="0 0 16 16" fill="none" stroke="#f59e0b" stroke-width="1.5"><path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z"/></svg>
+      </div>
+      <div class="mode-name">Intelligence</div>
+      <div class="mode-desc">Lernschicht. Muster erkennen, Foundation optimieren, ICP anpassen.</div>
+    </div>
+  </div>
+
+  <!-- Drawer -->
+  <div class="label">Node-Drawer (öffnet ohne 3D-Ansicht zu verlassen)</div>
+  <div class="drawer-demo">
+    <div class="canvas-placeholder">
+      <span class="canvas-label">← 3D Node Graph (Three.js)</span>
+    </div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <span class="drawer-title">ICP #1</span>
+        <div class="drawer-close">×</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Name</div>
+        <div class="field-value">Urban Professional</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Alter & Ort</div>
+        <div class="field-value">28–42 · Hamburg, Berlin, München</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Schmerzpunkt</div>
+        <div class="field-value" style="color:var(--text-secondary)">Noch nicht definiert — KI-Vorschlag verfügbar</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Word Bank Cluster</div>
+        <div class="tag-row">
+          <span class="tag">Ritual</span>
+          <span class="tag">Qualität</span>
+          <span class="tag">Zuhause</span>
+          <span class="tag">bewusst</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <div class="field-label">Verknüpfte Assets</div>
+        <div class="tag-row">
+          <span class="tag">Website Hero</span>
+          <span class="tag">IG Bio</span>
+          <span class="tag">Ad #3</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Export -->
+  <div class="label">Second Brain — Context Export</div>
+  <div class="export-card">
+    <div class="export-header">
+      <span class="export-title">Homeflower · Brand Context</span>
+      <button class="copy-btn">Copy for Claude ↗</button>
+    </div>
+    <div class="export-grid">
+      <div class="export-item">
+        <div class="export-key">Positioning</div>
+        <div class="export-val">Premium Cannabis-Lifestyle, kein Kiffer-Klischee</div>
+      </div>
+      <div class="export-item">
+        <div class="export-key">ICP Primary</div>
+        <div class="export-val">Urban Professional · 28–42 · HH/B/M</div>
+      </div>
+      <div class="export-item">
+        <div class="export-key">Tone</div>
+        <div class="export-val">Warm, direkt, bewusst — nie überheblich</div>
+      </div>
+      <div class="export-item">
+        <div class="export-key">Word Bank ✓</div>
+        <div class="export-val">Zuhause · Ritual · Qualität · Genuss</div>
+      </div>
+      <div class="export-item">
+        <div class="export-key">Word Bank ✗</div>
+        <div class="export-val">High · Stoner · billig · Party</div>
+      </div>
+      <div class="export-item">
+        <div class="export-key">Aktueller Fokus</div>
+        <div class="export-val">Shop-Launch · Räume als Kategorien</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Embed Preview -->
+  <div class="label">Asset-Node — Embedded (kein Tab-Wechsel)</div>
+  <div class="embed-card">
+    <div class="embed-bar">
+      <div class="embed-dots">
+        <div class="embed-dot"></div>
+        <div class="embed-dot"></div>
+        <div class="embed-dot"></div>
+      </div>
+      <span class="embed-url">homeflower.de — live preview</span>
+    </div>
+    <div class="embed-body">
+      <span class="embed-hint">Website · Instagram · LinkedIn embedded hier</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
