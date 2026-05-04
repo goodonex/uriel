@@ -1,6 +1,6 @@
 # Brand OS — Offene Produkt-/Tech-Fragen
 
-## Supabase Migrationen 0001–0006 (manuell im Dashboard ausführen)
+## Supabase Migrationen (manuell im Dashboard ausführen)
 
 Im Supabase SQL Editor **der Reihe nach** ausführen:
 
@@ -13,6 +13,10 @@ Im Supabase SQL Editor **der Reihe nach** ausführen:
 | `0005_building.sql` | `assets`, `sops`, `foundation_business_models` |
 | `0006_discovery.sql` | `discovery_foundation`, `discovery_feed_items`, `discovery_settings` |
 | `0007_auth.sql` | `user_roles` (Rollen `owner` / `client`, optional `client_slug` → `brands.slug`) |
+| `0008_deliver.sql` | `deliver_projects` |
+| `0009_rls.sql` | Row Level Security für alle App-Tabellen inkl. `deliver_projects` |
+
+**Reihenfolge:** `0001` … `0008`, danach **`0009_rls.sql`**.
 
 Offen nach Umstellung auf Auth/RLS:
 
