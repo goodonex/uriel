@@ -34,10 +34,9 @@ function App() {
         <Html
           fullscreen
           style={{
+            /* Nicht width/height 100% setzen — überschreibt dreis Fullscreen-Maße und kollabiert ohne Parent-Höhe. */
             pointerEvents: 'none',
             zIndex: 1,
-            width: '100%',
-            height: '100%',
           }}
         >
           <main
