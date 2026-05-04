@@ -4,6 +4,7 @@ import { ModeNav } from './components/ModeNav'
 import { ToastProvider } from './components/Toast'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
+import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { ModePlaceholder } from './pages/ModePlaceholder'
 import { NodeGraphPage } from './pages/NodeGraphPage'
 
@@ -24,17 +25,7 @@ function App() {
           <Route path="/brand/:slug" element={<BrandPage />}>
             <Route index element={<ModeNav />} />
             <Route path="building" element={<BuildingMode />} />
-            <Route
-              path="discovery"
-              element={
-                <ModePlaceholder
-                  mode="discovery"
-                  title="Discovery Mode"
-                  phase="Phase 3"
-                  description="Außenperspektive: Markt, Wettbewerber, Trends. Discovery Foundation und Feed informieren Building und Intelligence."
-                />
-              }
-            />
+            <Route path="discovery" element={<DiscoveryMode />} />
             <Route
               path="promo"
               element={

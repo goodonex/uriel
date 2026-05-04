@@ -89,3 +89,59 @@ export interface Positioning {
   business_model: BusinessModel | null
   updated_at: string
 }
+
+/* --- Discovery Mode (Phase 3) --- */
+
+export type DiscoveryFeedCategory =
+  | 'competitor'
+  | 'format'
+  | 'trend'
+  | 'icp_search'
+
+export interface DiscoveryIcpDraft {
+  name: string
+  age_range: string
+  location: string
+  pain_hint: string
+}
+
+export interface DiscoveryWordSuggestion {
+  word: string
+  type: WordBankType
+  cluster: string
+}
+
+export interface DiscoveryAnalysis {
+  icp_drafts: DiscoveryIcpDraft[]
+  word_bank_suggestions: DiscoveryWordSuggestion[]
+  positioning_ideas: string[]
+}
+
+export interface DiscoveryFoundationDoc {
+  id: string
+  brand_id: string
+  market: string
+  competitors: string
+  niche: string
+  analysis: DiscoveryAnalysis | null
+  analysis_run_at: string | null
+  updated_at: string
+}
+
+export interface DiscoveryFeedItem {
+  id: string
+  brand_id: string
+  category: DiscoveryFeedCategory
+  title: string
+  summary: string
+  signal_strength: 'low' | 'medium' | 'high'
+  recorded_at: string
+}
+
+export type DiscoveryFeedIntervalDays = 1 | 7 | 14
+
+export interface DiscoverySettingsDoc {
+  feed_interval_days: DiscoveryFeedIntervalDays
+  last_feed_generated_at: string | null
+  updated_at: string
+}
