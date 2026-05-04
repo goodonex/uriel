@@ -37,6 +37,7 @@ Offen nach Umstellung auf Auth/RLS:
 ### Sales / Pipeline
 
 - Server-Kontakte mit leeren Namen/Feldern werden beim Merge mit **localStorage** angereichert (Demo-Daten bleiben sichtbar, bis echte Daten in Supabase gepflegt sind).
+- **Schnell-Deal** (Drawer): Name, Telefon oder E-Mail, erste Notiz → Kontakt in **Erstkontakt** + Sprung zur Vollmaske.
 
 ## Deliver / Projektliste
 

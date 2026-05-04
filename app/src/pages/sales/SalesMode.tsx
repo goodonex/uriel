@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Drawer } from '../../components/Drawer'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useContacts } from '../../hooks/useContacts'
@@ -389,6 +390,18 @@ export function SalesMode() {
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
 
+  const [quickOpen, setQuickOpen] = useState(false)
+  const [qdName, setQdName] = useState('')
+  const [qdReach, setQdReach] = useState('')
+  const [qdNote, setQdNote] = useState('')
+
+  const openQuickDeal = useCallback(() => {
+    setQdName('')
+    setQdReach('')
+    setQdNote('')
+    setQuickOpen(true)
+  }, [])
+
   const handleCreateDeliverFromContact = useCallback(
     (contact: Contact) => {
       if (!slug) return
@@ -415,7 +428,7 @@ export function SalesMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent', pointerEvents: 'auto' }}
     >
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div
             className="font-mono"
@@ -442,24 +455,41 @@ export function SalesMode() {
           </h2>
         </div>
         {!contacts.loading && !contacts.error ? (
-          <button
-            type="button"
-            className="font-mono"
-            style={{
-              fontSize: 12,
-              padding: '10px 16px',
-              borderRadius: 12,
-              border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-3)',
-              color: 'var(--mode-sales)',
-            }}
-            onClick={() => {
-              const c = contacts.create()
-              navigate(`/brand/${slug}/sales/${c.id}`)
-            }}
-          >
-            + Kontakt
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="font-mono"
+              style={{
+                fontSize: 12,
+                padding: '10px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--mode-sales)',
+                background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
+                color: 'var(--mode-sales)',
+              }}
+              onClick={openQuickDeal}
+            >
+              Schnell-Deal
+            </button>
+            <button
+              type="button"
+              className="font-mono"
+              style={{
+                fontSize: 12,
+                padding: '10px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-3)',
+                color: 'var(--mode-sales)',
+              }}
+              onClick={() => {
+                const c = contacts.create()
+                navigate(`/brand/${slug}/sales/${c.id}`)
+              }}
+            >
+              + Kontakt
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -499,6 +529,97 @@ export function SalesMode() {
           onCreateDeliverProject={handleCreateDeliverFromContact}
         />
       ) : null}
+
+      <Drawer
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        title="Schnell-Deal"
+        width={360}
+      >
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Name
+            </span>
+            <input
+              value={qdName}
+              onChange={(e) => setQdName(e.target.value)}
+              className="font-mono rounded-lg px-3 py-2"
+              style={{
+                fontSize: 13,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-1)',
+                color: 'var(--text-primary)',
+              }}
+              placeholder="Firma oder Person"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Telefon oder E-Mail
+            </span>
+            <input
+              value={qdReach}
+              onChange={(e) => setQdReach(e.target.value)}
+              className="font-mono rounded-lg px-3 py-2"
+              style={{
+                fontSize: 13,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-1)',
+                color: 'var(--text-primary)',
+              }}
+              placeholder="+49 … oder name@…"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Erste Notiz
+            </span>
+            <textarea
+              value={qdNote}
+              onChange={(e) => setQdNote(e.target.value)}
+              rows={3}
+              className="font-mono rounded-lg px-3 py-2"
+              style={{
+                fontSize: 13,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-1)',
+                color: 'var(--text-primary)',
+                resize: 'vertical',
+              }}
+              placeholder="Kontext, Quelle, nächster Schritt…"
+            />
+          </label>
+          <button
+            type="button"
+            className="font-mono mt-1"
+            style={{
+              fontSize: 13,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--mode-sales)',
+              background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
+              color: 'var(--mode-sales)',
+            }}
+            onClick={() => {
+              const reach = qdReach.trim()
+              const email = reach.includes('@') ? reach : ''
+              const phone = email ? '' : reach
+              const c = contacts.create({
+                name: qdName.trim() || 'Neuer Kontakt',
+                email,
+                phone,
+                pipeline_stage: 'first_contact',
+                notes: qdNote.trim(),
+              })
+              setQuickOpen(false)
+              navigate(`/brand/${slug}/sales/${c.id}`)
+            }}
+          >
+            Speichern &amp; öffnen
+          </button>
+        </div>
+      </Drawer>
     </motion.div>
   )
 }
