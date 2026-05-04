@@ -17,9 +17,10 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { useCallback, useRef, useState, type ReactNode } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
 import { SectionLabel } from '../../components/SectionLabel'
+import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
@@ -93,9 +94,11 @@ function DroppableStageColumn({
 function SortableContactCard({
   contact,
   onSelect,
+  onCreateDeliverProject,
 }: {
   contact: Contact
   onSelect: () => void
+  onCreateDeliverProject: () => void
 }) {
   const {
     attributes,
@@ -163,6 +166,12 @@ function SortableContactCard({
       >
         {contact.name}
       </div>
+      <div
+        className="font-mono mt-1"
+        style={{ fontSize: 10, color: 'var(--text-tertiary)', wordBreak: 'break-all' }}
+      >
+        {contact.email || '—'}
+      </div>
       {contact.next_follow_up_at ? (
         <div
           className="font-mono mt-1"
@@ -170,6 +179,28 @@ function SortableContactCard({
         >
           Next: {contact.next_follow_up_at.slice(0, 10)}
         </div>
+      ) : null}
+      {contact.pipeline_stage === 'deal' ? (
+        <button
+          type="button"
+          className="font-mono mt-2"
+          style={{
+            fontSize: 10,
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '1px solid var(--accent-teal)',
+            color: 'var(--accent-teal)',
+            background: 'var(--glass-2)',
+            width: '100%',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCreateDeliverProject()
+          }}
+        >
+          Projekt anlegen
+        </button>
       ) : null}
     </button>
   )
@@ -179,10 +210,12 @@ function PipelineBoard({
   contacts,
   onMoveToStage,
   onSelectContact,
+  onCreateDeliverProject,
 }: {
   contacts: Contact[]
   onMoveToStage: (contactId: string, stage: PipelineStage) => void
   onSelectContact: (id: string) => void
+  onCreateDeliverProject: (contact: Contact) => void
 }) {
   const skipClickRef = useRef(false)
   const markSkipClick = useCallback(() => {
@@ -256,6 +289,7 @@ function PipelineBoard({
                       if (skipClickRef.current) return
                       onSelectContact(c.id)
                     }}
+                    onCreateDeliverProject={() => onCreateDeliverProject(c)}
                   />
                 ))}
               </SortableContext>
@@ -290,12 +324,28 @@ function PipelineBoard({
 
 export function SalesMode() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
   const contacts = useContacts(slug)
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
+  const deliver = useDeliverProjects(slug)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = contacts.items.find((c) => c.id === selectedId) ?? null
+
+  const handleCreateDeliverFromContact = useCallback(
+    (contact: Contact) => {
+      if (!slug) return
+      deliver.create({
+        name: `Projekt · ${contact.name}`,
+        client_name: contact.name,
+        client_contact_id: contact.id,
+        status: 'active',
+      })
+      navigate(`/brand/${slug}/deliver`)
+    },
+    [deliver, navigate, slug],
+  )
 
   return (
     <motion.div
@@ -385,6 +435,7 @@ export function SalesMode() {
             contacts.update(id, { pipeline_stage: stage })
           }
           onSelectContact={setSelectedId}
+          onCreateDeliverProject={handleCreateDeliverFromContact}
         />
       ) : null}
 
