@@ -39,6 +39,25 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   paused: 'Pause',
 }
 
+/** Linker Rand der Pipeline-Card = Stage-Farbe */
+const STAGE_ACCENT: Record<PipelineStage, string> = {
+  first_contact: 'var(--mode-sales)',
+  conversation: 'var(--accent-blue)',
+  proposal: 'var(--accent-teal)',
+  deal: '#4ade80',
+  paused: 'var(--text-tertiary)',
+}
+
+function contactCardTitle(c: Contact): string {
+  const n = c.name?.trim()
+  if (n) return n
+  const em = c.email?.trim()
+  if (em) return em
+  const ph = c.phone?.trim()
+  if (ph) return ph
+  return 'Unbenannt'
+}
+
 /** Vergleicht Kalendertag (YYYY-MM-DD) mit heute — Follow-up heute oder früher = überfällig. */
 function isFollowUpOverdue(nextFollowUpAt: string | null): boolean {
   if (!nextFollowUpAt) return false
@@ -109,17 +128,25 @@ function SortableContactCard({
   } = useSortable({ id: contact.id })
 
   const overdue = isFollowUpOverdue(contact.next_follow_up_at)
+  const stageColor = STAGE_ACCENT[contact.pipeline_stage]
+  const title = contactCardTitle(contact)
+  const subtitle =
+    contact.email?.trim() ||
+    contact.phone?.trim() ||
+    '—'
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.35 : 1,
     padding: 10,
+    paddingLeft: 12,
     borderRadius: 10,
     background: 'var(--glass-1)',
     border: overdue
-      ? '2px solid var(--accent-coral)'
+      ? '1px solid var(--accent-coral)'
       : '1px solid var(--glass-border-2)',
+    borderLeft: `4px solid ${stageColor}`,
     position: 'relative' as const,
     width: '100%',
     textAlign: 'left' as const,
@@ -164,38 +191,44 @@ function SortableContactCard({
       <Link
         to={`/brand/${slug}/sales/${contact.id}`}
         className="font-mono"
+        title="Vollmaske"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
           top: 6,
-          left: 6,
-          fontSize: 9,
+          right: overdue ? 64 : 6,
+          fontSize: 11,
+          lineHeight: 1,
           color: 'var(--accent-blue)',
           textDecoration: 'none',
           zIndex: 2,
+          opacity: 0.85,
         }}
       >
-        Vollmaske ↗
+        ↗
       </Link>
       <div
         className="font-display"
         style={{
-          fontSize: 13,
-          fontWeight: 600,
+          fontSize: 14,
+          fontWeight: 700,
           color: 'var(--text-primary)',
-          paddingRight: overdue ? 56 : 0,
-          paddingLeft: 76,
+          paddingRight: 28,
           paddingTop: 2,
         }}
       >
-        {contact.name}
+        {title}
       </div>
       <div
         className="font-mono mt-1"
-        style={{ fontSize: 10, color: 'var(--text-tertiary)', wordBreak: 'break-all' }}
+        style={{
+          fontSize: 10,
+          color: 'var(--text-tertiary)',
+          wordBreak: 'break-all',
+        }}
       >
-        {contact.email || '—'}
+        {subtitle}
       </div>
       {contact.next_follow_up_at ? (
         <div

@@ -82,6 +82,31 @@ function rowToContact(row: Record<string, unknown>): Contact {
   })
 }
 
+function enrichContactFromLocal(
+  server: Contact,
+  local: Contact | undefined,
+): Contact {
+  if (!local) return normalizeContact(server)
+  const blank = (s: string | null | undefined) => !s || !String(s).trim()
+  return normalizeContact({
+    ...server,
+    name: blank(server.name) ? local.name : server.name,
+    email: blank(server.email) ? local.email : server.email,
+    phone: blank(server.phone) ? local.phone : server.phone,
+    website: blank(server.website) ? local.website : server.website,
+    instagram: blank(server.instagram) ? local.instagram : server.instagram,
+    linkedin: blank(server.linkedin) ? local.linkedin : server.linkedin,
+    company: blank(server.company) ? local.company : server.company,
+    notes: blank(server.notes) ? local.notes : server.notes,
+    activity_log:
+      server.activity_log.length === 0 && local.activity_log.length > 0
+        ? local.activity_log
+        : server.activity_log,
+    next_follow_up_at: server.next_follow_up_at ?? local.next_follow_up_at,
+    last_contact_at: server.last_contact_at ?? local.last_contact_at,
+  })
+}
+
 function contactToRow(
   c: Contact,
   brandId: string,
@@ -196,8 +221,13 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     localOnlyRef.current = false
     setError(null)
     const byId = new Map<string, Contact>()
-    for (const l of localRows) byId.set(l.id, l)
-    for (const r of serverRows) byId.set(r.id, r)
+    for (const r of serverRows) {
+      const local = localRows.find((l) => l.id === r.id)
+      byId.set(r.id, enrichContactFromLocal(r, local))
+    }
+    for (const l of localRows) {
+      if (!byId.has(l.id)) byId.set(l.id, l)
+    }
     const merged = Array.from(byId.values()).sort((a, b) =>
       b.updated_at.localeCompare(a.updated_at),
     )

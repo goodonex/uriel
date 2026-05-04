@@ -34,7 +34,11 @@ Offen nach Umstellung auf Auth/RLS:
 - Client-Rolle: welche Tabellen/Zeilen dürfen `role = client` lesen (Portal)?
 - `user_roles.client_slug` vs. spätere Zuordnung Brand↔Client.
 
-### Kundenportal (`/portal/:projectId`)
+### Sales / Pipeline
+
+- Server-Kontakte mit leeren Namen/Feldern werden beim Merge mit **localStorage** angereichert (Demo-Daten bleiben sichtbar, bis echte Daten in Supabase gepflegt sind).
+
+## Kundenportal (`/portal/:projectId`)
 
 - Shell unter `ClientPortal.tsx`; vorerst **jede eingeloggte Session** (Owner testet mit Projekt-UUID).
 - Daten kommen aus **localStorage** `deliver-projects` über alle Brand-Slugs; später Supabase + Policies für `role = client`.
