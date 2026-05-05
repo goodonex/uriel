@@ -8,8 +8,8 @@ import { useAuth } from './useAuth'
 const DEFAULT_BRANDS: Omit<Brand, 'id' | 'user_id' | 'created_at'>[] = [
   { name: 'Herrmann & Co.', slug: 'herrmann', color: 'var(--accent-blue)' },
   { name: 'Wertavio', slug: 'wertavio', color: '#C8A97A' },
-  { name: 'Homeflower', slug: 'homeflower', color: 'var(--accent-teal)' },
   { name: 'Eversmell', slug: 'eversmell', color: '#F5C518' },
+  { name: 'Homeflower', slug: 'homeflower', color: 'var(--accent-teal)' },
 ]
 
 /** Wenn die DB-Migrationen noch nicht laufen: gleiche Slugs wie später in Supabase, damit Navigation stimmt. */
@@ -31,19 +31,19 @@ const FALLBACK_BRANDS: Brand[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: 'local-fallback-homeflower',
-    user_id: null,
-    name: 'Homeflower',
-    slug: 'homeflower',
-    color: 'var(--accent-teal)',
-    created_at: new Date().toISOString(),
-  },
-  {
     id: 'local-fallback-eversmell',
     user_id: null,
     name: 'Eversmell',
     slug: 'eversmell',
     color: '#F5C518',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'local-fallback-homeflower',
+    user_id: null,
+    name: 'Homeflower',
+    slug: 'homeflower',
+    color: 'var(--accent-teal)',
     created_at: new Date().toISOString(),
   },
 ]
@@ -178,6 +178,19 @@ function mapBrand(row: {
   }
 }
 
+/** Header + 3D-Nodes: Homeflower zuletzt (rechts); unbekannte Slugs ans Ende. */
+const BRAND_DISPLAY_ORDER = ['herrmann', 'wertavio', 'eversmell', 'homeflower'] as const
+
+function sortBrandsForDisplay(brands: Brand[]): Brand[] {
+  const rank = (slug: string) => {
+    const i = (BRAND_DISPLAY_ORDER as readonly string[]).indexOf(slug)
+    return i === -1 ? 999 : i
+  }
+  return [...brands].sort(
+    (a, b) => rank(a.slug) - rank(b.slug) || a.name.localeCompare(b.name),
+  )
+}
+
 /**
  * Bestehende Supabase-Zeilen an die aktuellen Default-Slugs anpassen (einmal pro Reload, wenn nötig).
  * Damit wirken Änderungen an DEFAULT_BRANDS auch, wenn die Tabelle schon ältere Seeds hat.
@@ -267,7 +280,7 @@ export function useBrands(): UseBrandsResult {
           err.message,
         )
         setError(null)
-        setBrands(FALLBACK_BRANDS)
+        setBrands(sortBrandsForDisplay(FALLBACK_BRANDS))
       } else {
         setError(err.message)
         setBrands([])
@@ -286,7 +299,7 @@ export function useBrands(): UseBrandsResult {
           rawRows = again
         }
       }
-      setBrands(rawRows.map(mapBrand))
+      setBrands(sortBrandsForDisplay(rawRows.map(mapBrand)))
     }
     setLoading(false)
   }, [user?.id])
@@ -317,7 +330,7 @@ export function useBrands(): UseBrandsResult {
             '[useBrands] Seed übersprungen (keine Tabelle) — Fallback-Nodes.',
             insErr.message,
           )
-          setBrands(FALLBACK_BRANDS)
+          setBrands(sortBrandsForDisplay(FALLBACK_BRANDS))
           setError(null)
         } else {
           console.warn('[useBrands] Standard-Brands:', insErr.message)
