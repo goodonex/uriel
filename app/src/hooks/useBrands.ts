@@ -178,6 +178,64 @@ function mapBrand(row: {
   }
 }
 
+/**
+ * Bestehende Supabase-Zeilen an die aktuellen Default-Slugs anpassen (einmal pro Reload, wenn nötig).
+ * Damit wirken Änderungen an DEFAULT_BRANDS auch, wenn die Tabelle schon ältere Seeds hat.
+ */
+async function syncCanonicalBrandsForUser(
+  userId: string,
+  rows: Array<{
+    id: string
+    user_id: string | null
+    name: string
+    slug: string
+    color: string | null
+    created_at: string
+  }>,
+): Promise<boolean> {
+  if (!supabase) return false
+
+  const mine = rows.filter((r) => r.user_id === userId)
+  const bySlug = (slug: string) => mine.find((r) => r.slug === slug)
+
+  let changed = false
+
+  const offmarket = bySlug('offmarketbude')
+  const wertavio = bySlug('wertavio')
+
+  if (offmarket && !wertavio) {
+    const { error } = await supabase
+      .from('brands')
+      .update({
+        name: 'Wertavio',
+        slug: 'wertavio',
+        color: '#C8A97A',
+      })
+      .eq('id', offmarket.id)
+      .eq('user_id', userId)
+    if (!error) changed = true
+  }
+
+  const eversmell = bySlug('eversmell')
+  if (!eversmell) {
+    const { error } = await supabase.from('brands').insert({
+      user_id: userId,
+      name: 'Eversmell',
+      slug: 'eversmell',
+      color: '#F5C518',
+    })
+    if (!error) changed = true
+    else if (
+      !error.message.includes('duplicate') &&
+      !error.message.includes('unique')
+    ) {
+      console.warn('[useBrands] Eversmell einfügen:', error.message)
+    }
+  }
+
+  return changed
+}
+
 export function useBrands(): UseBrandsResult {
   const { user } = useAuth()
   const [brands, setBrands] = useState<Brand[]>([])
@@ -216,7 +274,19 @@ export function useBrands(): UseBrandsResult {
       }
     } else {
       setError(null)
-      setBrands((data ?? []).map(mapBrand))
+      let rawRows = data ?? []
+      const migrated = await syncCanonicalBrandsForUser(user.id, rawRows)
+      if (migrated) {
+        const { data: again, error: err2 } = await supabase
+          .from('brands')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+        if (!err2 && again) {
+          rawRows = again
+        }
+      }
+      setBrands(rawRows.map(mapBrand))
     }
     setLoading(false)
   }, [user?.id])

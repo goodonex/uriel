@@ -18,9 +18,10 @@ const NODE_POSITIONS: [number, number, number][] = [
   [-2.35, 0.65, 0],
   [-0.52, -0.88, 0],
   [2.28, 0.52, 0],
+  [0.55, 0.95, 0],
 ]
 
-const COLOR_FALLBACK = ['#4f7fff', '#8b5cf6', '#2dd4bf']
+const COLOR_FALLBACK = ['#4f7fff', '#8b5cf6', '#2dd4bf', '#c8a97a']
 
 function resolveColor(brand: Brand, idx: number): string {
   if (!brand.color || brand.color.startsWith('var(')) {
