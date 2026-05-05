@@ -15,15 +15,19 @@ const CORNER_NODES_OFFSET: [number, number, number] = [5.15, -3.45, 0]
 const CORNER_SCALE_CAP = 0.2
 const CORNER_SCALE_MIN = 0.11
 const NODE_POSITIONS: [number, number, number][] = [
-  [-2.35, 0.65, 0],
-  [-0.52, -0.88, 0],
-  [0.55, 0.95, 0],
-  [2.28, 0.52, 0],
+  [-2.45, 0.55, 0],
+  [-1.2, -0.82, 0],
+  [0.05, 0.92, 0],
+  [1.2, -0.72, 0],
+  [2.35, 0.48, 0],
 ]
 
-const COLOR_FALLBACK = ['#4f7fff', '#8b5cf6', '#2dd4bf', '#c8a97a']
+const COLOR_FALLBACK = ['#4f7fff', '#8b5cf6', '#2dd4bf', '#c8a97a', '#e0593e']
 
 function resolveColor(brand: Brand, idx: number): string {
+  if (brand.color === 'var(--accent-ember)') {
+    return '#e0593e'
+  }
   if (!brand.color || brand.color.startsWith('var(')) {
     return COLOR_FALLBACK[idx % COLOR_FALLBACK.length]
   }

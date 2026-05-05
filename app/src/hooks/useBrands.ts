@@ -9,6 +9,7 @@ import { useAuth } from './useAuth'
 const DEFAULT_BRANDS: Omit<Brand, 'id' | 'user_id' | 'created_at'>[] = [
   { name: 'Herrmann & Co.', slug: 'herrmann', color: 'var(--accent-blue)' },
   { name: 'Wertavio', slug: 'wertavio', color: '#C8A97A' },
+  { name: 'Culturefit', slug: 'culturefit', color: 'var(--accent-ember)' },
   { name: 'Eversmell', slug: 'eversmell', color: '#F5C518' },
   { name: 'Homeflower', slug: 'homeflower', color: 'var(--accent-teal)' },
 ]
@@ -29,6 +30,14 @@ const FALLBACK_BRANDS: Brand[] = [
     name: 'Wertavio',
     slug: 'wertavio',
     color: '#C8A97A',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'local-fallback-culturefit',
+    user_id: null,
+    name: 'Culturefit',
+    slug: 'culturefit',
+    color: 'var(--accent-ember)',
     created_at: new Date().toISOString(),
   },
   {
@@ -287,7 +296,13 @@ function mapBrand(row: {
 }
 
 /** Header + 3D-Nodes: Homeflower zuletzt (rechts); unbekannte Slugs ans Ende. */
-const BRAND_DISPLAY_ORDER = ['herrmann', 'wertavio', 'eversmell', 'homeflower'] as const
+const BRAND_DISPLAY_ORDER = [
+  'herrmann',
+  'wertavio',
+  'culturefit',
+  'eversmell',
+  'homeflower',
+] as const
 
 function sortBrandsForDisplay(brands: Brand[]): Brand[] {
   const rank = (slug: string) => {
@@ -338,6 +353,23 @@ async function syncCanonicalBrandsForUser(
   }
 
   const eversmell = bySlug('eversmell')
+  const culturefit = bySlug('culturefit')
+  if (!culturefit) {
+    const { error } = await supabase.from('brands').insert({
+      user_id: userId,
+      name: 'Culturefit',
+      slug: 'culturefit',
+      color: 'var(--accent-ember)',
+    })
+    if (!error) changed = true
+    else if (
+      !error.message.includes('duplicate') &&
+      !error.message.includes('unique')
+    ) {
+      console.warn('[useBrands] Culturefit einfügen:', error.message)
+    }
+  }
+
   if (!eversmell) {
     const { error } = await supabase.from('brands').insert({
       user_id: userId,

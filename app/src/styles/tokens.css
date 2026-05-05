@@ -50,6 +50,7 @@
   --accent-teal:    #2dd4bf;
   --accent-amber:   #f59e0b;
   --accent-coral:   #f97316;
+  --accent-ember:   #e0593e;
 
   /* --- Glow colors (for 3D nodes + active states) --- */
   --glow-blue:   rgba(79, 127, 255, 0.35);
