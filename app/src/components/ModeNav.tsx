@@ -24,53 +24,6 @@ const MODES: ModeDef[] = [
     ),
   },
   {
-    key: 'promo',
-    name: 'Promo',
-    desc: 'Content, Kampagnen, Performance. Getagt und messbar von Tag 1.',
-    cssVar: '--mode-promo',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none" stroke="#8b5cf6" strokeWidth="1.5">
-        <path d="M3 12 L7 6 L10 9 L13 4" />
-        <circle cx="13" cy="4" r="1.5" fill="#8b5cf6" stroke="none" />
-      </svg>
-    ),
-  },
-  {
-    key: 'sales',
-    name: 'Sales',
-    desc: 'Leichtes CRM. Pipeline, Kontakte, Follow-ups — verbunden mit Promo.',
-    cssVar: '--mode-sales',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" strokeWidth="1.5">
-        <circle cx="8" cy="6" r="3" />
-        <path d="M3 14c0-2.76 2.24-5 5-5s5 2.24 5 5" />
-      </svg>
-    ),
-  },
-  {
-    key: 'intelligence',
-    name: 'Intelligence',
-    desc: 'Lernschicht. Muster erkennen, Foundation optimieren, ICP anpassen.',
-    cssVar: '--mode-intelligence',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none" stroke="#f59e0b" strokeWidth="1.5">
-        <path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z" />
-      </svg>
-    ),
-  },
-  {
-    key: 'deliver',
-    name: 'Deliver',
-    desc: 'Kundenprojekte — interner Bereich und Kundenfläche pro Projekt.',
-    cssVar: '--accent-teal',
-    icon: (
-      <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" strokeWidth="1.5">
-        <path d="M3 13 L8 3 L13 13 Z M8 7 L8 10" strokeLinecap="round" />
-        <circle cx="8" cy="11.5" r="0.75" fill="#2dd4bf" stroke="none" />
-      </svg>
-    ),
-  },
-  {
     key: 'discovery',
     name: 'Discovery',
     desc: 'Markt, Wettbewerb, Trends. Automatisch aktualisiert.',
@@ -104,6 +57,53 @@ const MODES: ModeDef[] = [
           strokeLinecap="round"
           opacity={0.35}
         />
+      </svg>
+    ),
+  },
+  {
+    key: 'promo',
+    name: 'Promo',
+    desc: 'Content, Kampagnen, Performance. Getagt und messbar von Tag 1.',
+    cssVar: '--mode-promo',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" stroke="#8b5cf6" strokeWidth="1.5">
+        <path d="M3 12 L7 6 L10 9 L13 4" />
+        <circle cx="13" cy="4" r="1.5" fill="#8b5cf6" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    key: 'sales',
+    name: 'Sales',
+    desc: 'Leichtes CRM. Pipeline, Kontakte, Follow-ups — verbunden mit Promo.',
+    cssVar: '--mode-sales',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" strokeWidth="1.5">
+        <circle cx="8" cy="6" r="3" />
+        <path d="M3 14c0-2.76 2.24-5 5-5s5 2.24 5 5" />
+      </svg>
+    ),
+  },
+  {
+    key: 'deliver',
+    name: 'Deliver',
+    desc: 'Kundenprojekte — interner Bereich und Kundenfläche pro Projekt.',
+    cssVar: '--accent-teal',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" stroke="#2dd4bf" strokeWidth="1.5">
+        <path d="M3 13 L8 3 L13 13 Z M8 7 L8 10" strokeLinecap="round" />
+        <circle cx="8" cy="11.5" r="0.75" fill="#2dd4bf" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    key: 'intelligence',
+    name: 'Intelligence',
+    desc: 'Lernschicht. Muster erkennen, Foundation optimieren, ICP anpassen.',
+    cssVar: '--mode-intelligence',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" stroke="#f59e0b" strokeWidth="1.5">
+        <path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z" />
       </svg>
     ),
   },
