@@ -11,6 +11,7 @@ import { useCallLogs, useEmailLogs } from '../../hooks/useSalesPro'
 import { useContacts } from '../../hooks/useContacts'
 import { useTasks } from '../../hooks/useTasks'
 import { useBrandId } from '../../hooks/useBrandId'
+import { useViewport } from '../../hooks/useViewport'
 import { logActivity } from '../../lib/activityLog'
 import { generateId } from '../../lib/storage'
 import type {
@@ -100,6 +101,7 @@ export function ContactOverviewPanel({
   const calls = useCallLogs(brandSlug, { contactId: contact.id })
   const mails = useEmailLogs(brandSlug, { contactId: contact.id })
   const { show } = useToast()
+  const { isMobile } = useViewport()
 
   const [action, setAction] = useState<ActionType | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
@@ -255,8 +257,18 @@ export function ContactOverviewPanel({
   }
 
   return (
-    <div className="grid gap-6" style={{ gridTemplateColumns: 'minmax(300px, 360px) 1fr' }}>
-      <IdentityCard contact={contact} onField={onField} onDelete={handleDelete} />
+    <div
+      className="grid gap-4"
+      style={{
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 360px) 1fr',
+      }}
+    >
+      <IdentityCard
+        contact={contact}
+        onField={onField}
+        onDelete={handleDelete}
+        compact={isMobile}
+      />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <DocumenterCard
           contact={contact}
@@ -303,10 +315,12 @@ function IdentityCard({
   contact,
   onField,
   onDelete,
+  compact = false,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   onDelete: () => void
+  compact?: boolean
 }) {
   const c = contact
   const initials = initialsOf(c.name)
@@ -367,13 +381,13 @@ function IdentityCard({
         background: 'var(--glass-1)',
         border: '1px solid var(--glass-border-1)',
         borderRadius: 16,
-        padding: 18,
+        padding: compact ? 14 : 18,
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        gap: compact ? 12 : 16,
         height: 'fit-content',
-        position: 'sticky',
-        top: 24,
+        position: compact ? 'static' : 'sticky',
+        top: compact ? undefined : 24,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
