@@ -13,6 +13,7 @@ import { ProjectPage } from './pages/deliver/ProjectPage'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { PortalRoute } from './pages/portal/PortalRoute'
 import { PromoMode } from './pages/promo/PromoMode'
 import { CallModePage } from './pages/sales/CallModePage'
@@ -100,6 +101,7 @@ function App() {
         >
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/onboarding/:brandId" element={<OnboardingPublicPage />} />
             <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route element={<OwnerWorkspaceShell />}>

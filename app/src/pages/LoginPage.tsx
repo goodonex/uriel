@@ -17,6 +17,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   if (!supabase || !isSupabaseConfigured) {
@@ -94,11 +95,59 @@ export function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setInfo(null)
     setBusy(true)
     try {
       await signIn(email.trim(), password)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login fehlgeschlagen')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleMagicLink() {
+    if (!supabase) return
+    const addr = email.trim()
+    if (!addr) {
+      setError('Bitte zuerst die E-Mail-Adresse eingeben.')
+      return
+    }
+    setError(null)
+    setInfo(null)
+    setBusy(true)
+    try {
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
+        email: addr,
+        options: { emailRedirectTo: window.location.origin },
+      })
+      if (otpErr) throw otpErr
+      setInfo('Magic Link gesendet. Prüf dein E-Mail-Postfach.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Magic Link konnte nicht gesendet werden.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!supabase) return
+    const addr = email.trim()
+    if (!addr) {
+      setError('Bitte zuerst die E-Mail-Adresse eingeben.')
+      return
+    }
+    setError(null)
+    setInfo(null)
+    setBusy(true)
+    try {
+      const { error: resErr } = await supabase.auth.resetPasswordForEmail(addr, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (resErr) throw resErr
+      setInfo('Recovery-E-Mail gesendet. Folge dem Link, um ein neues Passwort zu setzen.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Recovery konnte nicht gesendet werden.')
     } finally {
       setBusy(false)
     }
@@ -200,6 +249,12 @@ export function LoginPage() {
             </p>
           ) : null}
 
+          {info ? (
+            <p className="font-mono" style={{ fontSize: 12, color: 'var(--accent-teal)' }}>
+              {info}
+            </p>
+          ) : null}
+
           <button
             type="submit"
             disabled={busy || loading}
@@ -216,6 +271,59 @@ export function LoginPage() {
             }}
           >
             {busy ? '…' : 'Einloggen'}
+          </button>
+
+          <div
+            className="flex items-center gap-3"
+            style={{
+              marginTop: 4,
+              fontSize: 10,
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            <span style={{ flex: 1, height: 1, background: 'var(--glass-border-1)' }} />
+            <span className="font-mono" style={{ letterSpacing: '0.12em' }}>
+              ODER
+            </span>
+            <span style={{ flex: 1, height: 1, background: 'var(--glass-border-1)' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleMagicLink()}
+            disabled={busy || loading}
+            className="font-mono"
+            style={{
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--glass-border-1)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              opacity: busy || loading ? 0.6 : 1,
+            }}
+          >
+            Magic Link per E-Mail senden
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleForgotPassword()}
+            disabled={busy || loading}
+            className="font-mono"
+            style={{
+              alignSelf: 'center',
+              padding: '6px 8px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-tertiary)',
+              fontSize: 11,
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              opacity: busy || loading ? 0.6 : 1,
+            }}
+          >
+            Passwort vergessen?
           </button>
         </form>
       </div>
