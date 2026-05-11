@@ -19,8 +19,14 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
+import { useSalesPipelines } from '../../hooks/useSalesPro'
+import { EmailTemplatesDrawer } from '../../components/sales/EmailTemplatesDrawer'
+import { PipelineSwitcher } from '../../components/sales/PipelineSwitcher'
+import { SalesGoalsDrawer } from '../../components/sales/SalesGoalsDrawer'
+import { SalesImportDrawer } from '../../components/sales/SalesImportDrawer'
+import { SalesMeetingLinkDrawer } from '../../components/sales/SalesMeetingLinkDrawer'
 import { SectionLabel } from '../../components/SectionLabel'
+import { useToast } from '../../components/Toast'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useContacts } from '../../hooks/useContacts'
 import type { Contact, PipelineStage } from '../../types/db'
@@ -209,9 +215,16 @@ function PipelineFilterBar({
     cursor: 'pointer' as const,
   })
 
+  // Anzahl gesetzter Filter
+  const activeCount =
+    (stage !== 'all' ? 1 : 0) +
+    (follow !== 'all' ? 1 : 0) +
+    (potenzial !== 'all' ? 1 : 0)
+  const [open, setOpen] = useState(activeCount > 0)
+
   return (
     <div
-      className="glass-2 mb-4 flex flex-col gap-3 rounded-2xl p-4"
+      className="glass-2 mb-3 flex flex-col gap-2 rounded-2xl p-3"
       style={{ border: '1px solid var(--glass-border-1)' }}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -219,8 +232,8 @@ function PipelineFilterBar({
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Suche: Name, Firma, E-Mail…"
-          className="font-mono min-w-[200px] flex-1 rounded-xl px-3 py-2"
+          placeholder="Suche: Name, Firma, E-Mail …"
+          className="font-mono min-w-[200px] flex-1 rounded-lg px-3 py-2"
           style={{
             fontSize: 12,
             border: '1px solid var(--glass-border-2)',
@@ -228,6 +241,48 @@ function PipelineFilterBar({
             color: 'var(--text-primary)',
           }}
         />
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="font-mono inline-flex items-center gap-1.5"
+          style={{
+            fontSize: 11,
+            padding: '8px 12px',
+            borderRadius: 10,
+            border: activeCount > 0
+              ? '1px solid var(--mode-sales)'
+              : '1px solid var(--glass-border-2)',
+            background: activeCount > 0
+              ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
+              : 'var(--glass-3)',
+            color: activeCount > 0 ? 'var(--mode-sales)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+            <path d="M2 4 L14 4 L10 9 L10 14 L6 12 L6 9 Z" />
+          </svg>
+          Filter
+          {activeCount > 0 ? (
+            <span
+              style={{
+                marginLeft: 2,
+                padding: '0 6px',
+                borderRadius: 999,
+                background: 'var(--mode-sales)',
+                color: '#000',
+                fontSize: 9,
+                fontWeight: 700,
+                lineHeight: 1.6,
+              }}
+            >
+              {activeCount}
+            </span>
+          ) : null}
+          <span style={{ fontSize: 8, marginLeft: 2, opacity: 0.65 }}>
+            {open ? '▲' : '▼'}
+          </span>
+        </button>
         {filtersActive ? (
           <button
             type="button"
@@ -246,6 +301,8 @@ function PipelineFilterBar({
           </button>
         ) : null}
       </div>
+      {open ? (
+      <>
       <div>
         <div className="font-mono mb-1.5" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
           STAGE
@@ -333,6 +390,8 @@ function PipelineFilterBar({
           })}
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   )
 }
@@ -773,6 +832,8 @@ function PipelineBoard({
 export function SalesMode() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  // brandId wird in den Hooks (useBrandId) intern verwendet; hier nicht mehr direkt nötig.
+  const { show: showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const salesTab: 'pipeline' | 'listen' =
     searchParams.get('tab') === 'listen' ? 'listen' : 'pipeline'
@@ -949,6 +1010,16 @@ export function SalesMode() {
   const [qdEmail, setQdEmail] = useState('')
   const [qdNote, setQdNote] = useState('')
 
+  // Sales-Pro Drawer
+  // Auto-seed default pipeline (Hook initialisiert sie selbst, wenn keine existiert)
+  useSalesPipelines(slug)
+  const [activePipelineSlug, setActivePipelineSlug] = useState<string | null>(null)
+  const [tplDrawerOpen, setTplDrawerOpen] = useState(false)
+  const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
+  const [importDrawerOpen, setImportDrawerOpen] = useState(false)
+  const [meetingDrawerOpen, setMeetingDrawerOpen] = useState(false)
+  const [bulkTagInput, setBulkTagInput] = useState('')
+
   const openQuickDeal = useCallback(() => {
     setQdName('')
     setQdPhone('')
@@ -1011,6 +1082,18 @@ export function SalesMode() {
     setSelectedIds(new Set())
   }, [contacts, selectedContactList])
 
+  const applyBulkTag = useCallback(() => {
+    const tag = bulkTagInput.trim()
+    if (!tag) return
+    for (const c of selectedContactList) {
+      const existing = Array.isArray(c.tags) ? c.tags : []
+      if (existing.includes(tag)) continue
+      contacts.update(c.id, { tags: [...existing, tag] })
+    }
+    setBulkTagInput('')
+    showToast(`Tag "${tag}" gesetzt`, 'success')
+  }, [bulkTagInput, contacts, selectedContactList, showToast])
+
   const pipelineTotal = contacts.items.length
   const pipelineFilteredCount = filteredPipeline.length
 
@@ -1026,7 +1109,6 @@ export function SalesMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent', pointerEvents: 'auto' }}
     >
-      <ModeContextStrip slug={slug} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div
@@ -1052,6 +1134,15 @@ export function SalesMode() {
           >
             Pipeline &amp; Kontakte ({pipelineFilteredCount} von {pipelineTotal})
           </h2>
+          {slug ? (
+            <div className="mt-3">
+              <PipelineSwitcher
+                brandSlug={slug}
+                selectedSlug={activePipelineSlug}
+                onChange={setActivePipelineSlug}
+              />
+            </div>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             {(['pipeline', 'listen'] as const).map((t) => {
               const on = salesTab === t
@@ -1113,6 +1204,42 @@ export function SalesMode() {
               onClick={openQuickDeal}
             >
               Schnell-Deal
+            </button>
+            <button
+              type="button"
+              onClick={() => setTplDrawerOpen(true)}
+              className="font-mono"
+              style={proSettingsBtn}
+              title="E-Mail-Templates verwalten"
+            >
+              ✉ Templates
+            </button>
+            <button
+              type="button"
+              onClick={() => setGoalsDrawerOpen(true)}
+              className="font-mono"
+              style={proSettingsBtn}
+              title="Wochenziele setzen"
+            >
+              ◎ Ziele
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportDrawerOpen(true)}
+              className="font-mono"
+              style={proSettingsBtn}
+              title="CSV-Import"
+            >
+              ⇪ Import
+            </button>
+            <button
+              type="button"
+              onClick={() => setMeetingDrawerOpen(true)}
+              className="font-mono"
+              style={proSettingsBtn}
+              title="Buchungslink konfigurieren"
+            >
+              📅 Buchungslink
             </button>
             <button
               type="button"
@@ -1324,6 +1451,44 @@ export function SalesMode() {
                 }}
               >
                 Follow-up setzen
+              </button>
+              <input
+                type="text"
+                value={bulkTagInput}
+                onChange={(e) => setBulkTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    applyBulkTag()
+                  }
+                }}
+                placeholder="Tag …"
+                style={{
+                  fontSize: 11,
+                  padding: '6px 8px',
+                  width: 90,
+                  borderRadius: 8,
+                  border: '1px solid var(--glass-border-2)',
+                  background: 'var(--glass-1)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={applyBulkTag}
+                disabled={!bulkTagInput.trim()}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--glass-border-2)',
+                  background: 'var(--glass-1)',
+                  color: 'var(--text-secondary)',
+                  cursor: bulkTagInput.trim() ? 'pointer' : 'not-allowed',
+                  opacity: bulkTagInput.trim() ? 1 : 0.5,
+                }}
+              >
+                + Tag
               </button>
               <button
                 type="button"
@@ -1600,6 +1765,37 @@ export function SalesMode() {
           </button>
         </div>
       </Drawer>
+
+      <EmailTemplatesDrawer
+        open={tplDrawerOpen}
+        onClose={() => setTplDrawerOpen(false)}
+        brandSlug={slug}
+      />
+      <SalesGoalsDrawer
+        open={goalsDrawerOpen}
+        onClose={() => setGoalsDrawerOpen(false)}
+        brandSlug={slug}
+      />
+      <SalesImportDrawer
+        open={importDrawerOpen}
+        onClose={() => setImportDrawerOpen(false)}
+        brandSlug={slug}
+      />
+      <SalesMeetingLinkDrawer
+        open={meetingDrawerOpen}
+        onClose={() => setMeetingDrawerOpen(false)}
+        brandSlug={slug}
+      />
     </motion.div>
   )
+}
+
+const proSettingsBtn: React.CSSProperties = {
+  fontSize: 11,
+  padding: '8px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--glass-border-2)',
+  background: 'var(--glass-2)',
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
 }

@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { useToast } from '../../components/Toast'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import { readDeliverProjectsLocal, useDeliverProjects } from '../../hooks/useDeliverProjects'
@@ -258,7 +257,6 @@ export function ProjectPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ pointerEvents: 'auto', background: 'transparent' }}
     >
-      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="mb-5">
         <Link
           to={`/brand/${slug}/deliver`}
@@ -336,6 +334,48 @@ export function ProjectPage() {
           >
             Portal-Link kopieren
           </button>
+          {project.brand_id ? (
+            <button
+              type="button"
+              className="font-mono inline-flex items-center gap-1.5"
+              onClick={() => {
+                const origin =
+                  typeof window !== 'undefined' ? window.location.origin : ''
+                const url = `${origin}/onboarding/${project.brand_id}`
+                if (!navigator.clipboard) {
+                  show('Clipboard nicht verfügbar', 'error')
+                  return
+                }
+                void navigator.clipboard.writeText(url).then(
+                  () => show('Fragebogen-Link kopiert', 'success'),
+                  () => show('Kopieren fehlgeschlagen', 'error'),
+                )
+              }}
+              title="Onboarding-Fragebogen für den Kunden"
+              style={{
+                fontSize: 11,
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-2)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <svg
+                width={12}
+                height={12}
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path d="M7 9.5 L4.5 12 a2 2 0 0 1 -2.8 -2.8 L4 7" />
+                <path d="M9 6.5 L11.5 4 a2 2 0 0 1 2.8 2.8 L12 9" />
+                <path d="M6 10 L10 6" />
+              </svg>
+              Fragebogen-Link
+            </button>
+          ) : null}
           {(['internal', 'client'] as const).map((t) => (
             <button
               key={t}

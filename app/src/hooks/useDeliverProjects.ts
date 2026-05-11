@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { logActivity } from '../lib/activityLog'
 import {
   coerceStoredDeliverItem,
   deliverProjectToInsertRow,
@@ -193,6 +194,14 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
           }
         }
       })
+      logActivity({
+        brand_id: brandId,
+        entity_type: 'project',
+        entity_id: item.id,
+        action: 'created',
+        summary: `Neues Projekt: ${item.name}${item.client_name ? ' · ' + item.client_name : ''}`,
+        metadata: { stage: item.internal_stage },
+      })
       return item
     },
     [brandId, brandSlug, persistLocal, reload],
@@ -228,6 +237,33 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
             }
           }
         })
+
+      if (
+        patch.internal_stage &&
+        patch.internal_stage !== prev.internal_stage &&
+        brandId
+      ) {
+        logActivity({
+          brand_id: brandId,
+          entity_type: 'project',
+          entity_id: id,
+          action: 'stage_changed',
+          summary: `${prev.name}: ${prev.internal_stage.replace(/_/g, ' ')} → ${patch.internal_stage.replace(/_/g, ' ')}`,
+          metadata: {
+            from: prev.internal_stage,
+            to: patch.internal_stage,
+          },
+        })
+      }
+      if (patch.status && patch.status !== prev.status && brandId) {
+        logActivity({
+          brand_id: brandId,
+          entity_type: 'project',
+          entity_id: id,
+          action: patch.status === 'completed' ? 'completed' : 'updated',
+          summary: `${prev.name} ${patch.status === 'completed' ? 'abgeschlossen' : 'reaktiviert'}`,
+        })
+      }
     },
     [brandId, brandSlug, persistLocal, reload],
   )

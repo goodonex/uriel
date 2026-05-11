@@ -1,16 +1,17 @@
-import { motion } from 'framer-motion'
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
-import { useBrandWorkspaceMetrics } from '../hooks/useBrandDashboard'
 import { useBrands } from '../hooks/useBrands'
+import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
+import { useCommandPalette } from '../lib/commandPaletteContext'
+import { NotificationBell } from './NotificationBell'
 
 const LS_COLLAPSE = 'brand-os-sidebar-collapsed'
 
-/** Schmaler für mehr Content-Breite */
-const EXPANDED_W = 204
-const COLLAPSED_W = 64
+const EXPANDED_W = 196
+const COLLAPSED_W = 60
 
 interface NavItem {
   section: BrandNavSection
@@ -96,7 +97,7 @@ function modeCssVar(m: ModeKey): string {
     case 'intelligence':
       return '--mode-intelligence'
     default:
-      return '--text-accent'
+      return '--brand-accent'
   }
 }
 
@@ -127,24 +128,46 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
     }
   }, [collapsed])
 
-  const stats = useBrandWorkspaceMetrics(slug)
   const w = collapsed ? COLLAPSED_W : EXPANDED_W
-
-  const fmt = useCallback((n: number | null) => (n === null ? '—' : String(n)), [])
 
   const base = `/brand/${slug}`
 
   const salesBranchActive = active === 'sales' || active === 'sales_lists'
-  const otherBrands = brands.filter((b) => b.slug !== slug)
+
+  const deliverProjects = useDeliverProjects(slug)
+  const params = useParams<{ projectId?: string }>()
+  const activeProjectId = params.projectId ?? null
+
+  const activeDeliverProjects = useMemo(
+    () =>
+      deliverProjects.items
+        .filter((p) => p.status === 'active')
+        .slice()
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    [deliverProjects.items],
+  )
+
+  const [hoveredSection, setHoveredSection] = useState<BrandNavSection | null>(null)
+  const { openPalette } = useCommandPalette()
+  const platformShortcut = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl K'
+  const deliverSectionActive = active === 'deliver'
+  const showDeliverSubmenu =
+    !collapsed &&
+    activeDeliverProjects.length > 0 &&
+    (hoveredSection === 'deliver' || deliverSectionActive)
 
   return (
     <motion.aside
       initial={false}
       animate={{ width: w }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="font-body flex h-screen shrink-0 flex-col"
+      className="font-body flex shrink-0 flex-col"
       style={{
         pointerEvents: 'auto',
+        position: 'sticky',
+        top: 0,
+        alignSelf: 'flex-start',
+        height: '100vh',
         borderRight: '1px solid var(--glass-border-1)',
         background: 'color-mix(in srgb, var(--bg-base) 82%, transparent)',
         backdropFilter: 'var(--blur-md)',
@@ -156,32 +179,50 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
         className="flex min-h-0 flex-1 flex-col"
         style={{ padding: collapsed ? '10px 8px' : '14px 12px' }}
       >
-        <div className="mb-3 flex items-center justify-between gap-1">
-          <Link
-            to="/"
-            className="font-display shrink-0"
-            title="Universe"
-            style={{
-              fontSize: collapsed ? 11 : 13,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-            }}
-          >
-            {collapsed ? 'B' : 'Brand OS'}
-          </Link>
+        <div
+          className="mb-3 flex items-center gap-2"
+          style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
+        >
+          {!collapsed ? (
+            <Link
+              to={`${base}/dashboard`}
+              className="font-display min-w-0 flex-1 truncate"
+              title={current?.name ?? slug}
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                borderLeft: `2px solid ${accentColor}`,
+                paddingLeft: 8,
+                lineHeight: 1.15,
+              }}
+            >
+              {current?.name ?? slug}
+            </Link>
+          ) : (
+            <div
+              title={current?.name ?? slug}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: accentColor,
+                boxShadow: `0 0 10px ${accentColor}`,
+              }}
+            />
+          )}
           <button
             type="button"
             title={collapsed ? 'Sidebar öffnen' : 'Sidebar einklappen'}
             onClick={() => setCollapsed((c) => !c)}
-            className="font-mono shrink-0 rounded-lg transition-colors"
+            className="font-mono shrink-0 rounded-md transition-colors"
             style={{
-              fontSize: 9,
-              letterSpacing: '0.08em',
-              padding: '5px 7px',
+              fontSize: 10,
+              padding: '3px 6px',
               border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-1)',
+              background: 'transparent',
               color: 'var(--text-tertiary)',
               cursor: 'pointer',
             }}
@@ -190,175 +231,203 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
           </button>
         </div>
 
-        {!collapsed ? (
-          <div
-            className="mb-4 rounded-xl px-3 py-2.5"
+        <div
+          className="mb-3 flex items-center gap-1.5"
+          style={{ flexDirection: collapsed ? 'column' : 'row' }}
+        >
+          <button
+            type="button"
+            onClick={openPalette}
+            title={`Suche · ${platformShortcut}`}
+            className="font-mono flex min-w-0 items-center gap-2 rounded-lg transition-colors"
             style={{
-              borderLeft: `2px solid ${accentColor}`,
+              flex: 1,
+              height: 30,
+              padding: collapsed ? 0 : '0 8px',
+              width: collapsed ? '100%' : undefined,
+              border: '1px solid var(--glass-border-2)',
               background: 'var(--glass-1)',
-              border: '1px solid var(--glass-border-1)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              justifyContent: collapsed ? 'center' : 'flex-start',
             }}
           >
-            <div
-              className="font-display leading-tight"
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-              }}
+            <svg
+              width={11}
+              height={11}
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              style={{ flexShrink: 0 }}
             >
-              {current?.name ?? slug}
-            </div>
-            <div
-              className="font-mono mt-2"
-              style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}
-            >
-              Brand
-            </div>
-            {otherBrands.length > 0 ? (
-              <div
-                className="mt-2 flex min-h-0 flex-wrap gap-1"
-                style={{ maxHeight: 56, overflowY: 'auto' }}
-              >
-                {otherBrands.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className="font-mono rounded-full truncate"
-                    style={{
-                      fontSize: 9,
-                      maxWidth: '100%',
-                      padding: '4px 8px',
-                      border: '1px solid var(--glass-border-2)',
-                      background: 'var(--glass-2)',
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => navigate(`/brand/${b.slug}/dashboard`)}
-                  >
-                    {b.name}
-                  </button>
-                ))}
-              </div>
+              <circle cx="7" cy="7" r="4" />
+              <path d="M10 10 L13 13" strokeLinecap="round" />
+            </svg>
+            {!collapsed ? (
+              <>
+                <span style={{ fontSize: 11, flex: 1, textAlign: 'left' }}>Suchen</span>
+                <span
+                  className="shrink-0"
+                  style={{
+                    fontSize: 9,
+                    padding: '1px 5px',
+                    borderRadius: 4,
+                    border: '1px solid var(--glass-border-2)',
+                    color: 'var(--text-tertiary)',
+                  }}
+                >
+                  {platformShortcut}
+                </span>
+              </>
             ) : null}
-          </div>
-        ) : (
-          <div
-            className="mb-3 flex justify-center"
-            title={current?.name ?? slug}
-            style={{
-              width: '100%',
-              height: 4,
-              borderRadius: 2,
-              background: accentColor,
-              opacity: 0.85,
-            }}
-          />
-        )}
-
-        {!collapsed ? (
-          <div
-            className="mb-4 rounded-xl px-3 py-2"
-            style={{
-              background: 'var(--glass-1)',
-              border: '1px solid var(--glass-border-1)',
-            }}
-          >
-            <div
-              className="font-mono"
-              style={{ fontSize: 8, letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}
-            >
-              QUICK STATS
-            </div>
-            <div className="mt-1.5 grid grid-cols-3 gap-1">
-              {(
-                [
-                  ['Pipeline', stats.pipeline],
-                  ['Content', stats.contentMonth],
-                  ['Projekte', stats.deliverActive],
-                ] as const
-              ).map(([label, val]) => (
-                <div key={label}>
-                  <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>{label}</div>
-                  <div className="font-display" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                    {stats.loading ? '…' : fmt(val)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="mb-3 flex flex-col gap-1.5">
-            {[stats.pipeline, stats.contentMonth, stats.deliverActive].map((v, i) => (
-              <div
-                key={i}
-                className="font-mono text-center"
-                style={{
-                  fontSize: 9,
-                  padding: '3px 0',
-                  borderRadius: 6,
-                  backgroundColor: 'var(--glass-1)',
-                  color: 'var(--text-secondary)',
-                }}
-                title={['Pipeline', 'Content', 'Projekte'][i]}
-              >
-                {stats.loading ? '·' : fmt(v)}
-              </div>
-            ))}
-          </div>
-        )}
+          </button>
+          <NotificationBell slug={slug} collapsed={collapsed} />
+        </div>
 
         <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto" style={{ marginRight: -4 }}>
           {NAV.map((item) => {
             const isActive = item.section === 'sales' ? salesBranchActive : active === item.section
             const to = `${base}/${item.path}`
-            const accent = item.mono ? modeCssVar(item.mono) : '--text-accent'
+            const accent = item.mono ? modeCssVar(item.mono) : '--brand-accent'
+
+            const isDeliverItem = item.section === 'deliver'
+            const submenuVisibleHere = isDeliverItem && showDeliverSubmenu
 
             return (
-              <Link
+              <div
                 key={item.path}
-                to={to}
-                title={collapsed ? item.label : undefined}
-                className="group flex items-center rounded-xl transition-all duration-200"
-                style={{
-                  textDecoration: 'none',
-                  padding: collapsed ? '9px 0' : '9px 10px',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  gap: 10,
-                  background: isActive ? 'var(--glass-3)' : 'transparent',
-                  border: `1px solid ${isActive ? 'var(--glass-border-3)' : 'transparent'}`,
-                  boxShadow: isActive
-                    ? `0 0 16px color-mix(in srgb, var(${accent}) 10%, transparent)`
-                    : undefined,
-                }}
+                onMouseEnter={() => setHoveredSection(item.section)}
+                onMouseLeave={() =>
+                  setHoveredSection((curr) => (curr === item.section ? null : curr))
+                }
               >
-                <span
-                  className="flex shrink-0 items-center justify-center"
+                <Link
+                  to={to}
+                  title={collapsed ? item.label : undefined}
+                  className="group flex items-center rounded-xl transition-all duration-200"
                   style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    color: isActive ? `var(${accent})` : 'var(--text-secondary)',
-                    background: isActive
-                      ? `color-mix(in srgb, var(${accent}) 16%, transparent)`
-                      : 'var(--glass-1)',
+                    textDecoration: 'none',
+                    padding: collapsed ? '9px 0' : '9px 10px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    gap: 10,
+                    background: isActive ? 'var(--glass-3)' : 'transparent',
+                    border: `1px solid ${isActive ? 'var(--glass-border-3)' : 'transparent'}`,
+                    boxShadow: isActive
+                      ? `0 0 16px color-mix(in srgb, var(${accent}) 10%, transparent)`
+                      : undefined,
                   }}
                 >
-                  {navIcon(item.section)}
-                </span>
-                {!collapsed ? (
                   <span
-                    className="font-display min-w-0 truncate"
+                    className="flex shrink-0 items-center justify-center"
                     style={{
-                      fontSize: 12,
-                      fontWeight: isActive ? 600 : 500,
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      color: isActive ? `var(${accent})` : 'var(--text-secondary)',
+                      background: isActive
+                        ? `color-mix(in srgb, var(${accent}) 16%, transparent)`
+                        : 'var(--glass-1)',
                     }}
                   >
-                    {item.label}
+                    {navIcon(item.section)}
                   </span>
-                ) : null}
-              </Link>
+                  {!collapsed ? (
+                    <span
+                      className="font-display min-w-0 flex-1 truncate"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                  ) : null}
+                  {isDeliverItem &&
+                  !collapsed &&
+                  activeDeliverProjects.length > 0 ? (
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 9,
+                        padding: '2px 7px',
+                        borderRadius: 999,
+                        background: isActive
+                          ? 'color-mix(in srgb, var(--accent-teal) 22%, transparent)'
+                          : 'var(--glass-1)',
+                        color: 'var(--accent-teal)',
+                        border: '1px solid var(--glass-border-2)',
+                      }}
+                    >
+                      {activeDeliverProjects.length}
+                    </span>
+                  ) : null}
+                </Link>
+
+                <AnimatePresence initial={false}>
+                  {submenuVisibleHere ? (
+                    <motion.ul
+                      key="deliver-submenu"
+                      initial={{ opacity: 0, height: 0, y: -4 }}
+                      animate={{ opacity: 1, height: 'auto', y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: -4 }}
+                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col gap-0.5 overflow-hidden"
+                      style={{
+                        marginLeft: 18,
+                        paddingLeft: 10,
+                        borderLeft: '1px solid var(--glass-border-1)',
+                        marginTop: 2,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {activeDeliverProjects.map((p) => {
+                        const projectActive = activeProjectId === p.id
+                        return (
+                          <li key={p.id}>
+                            <Link
+                              to={`${base}/deliver/${p.id}`}
+                              title={p.name}
+                              className="flex items-center gap-2 rounded-lg truncate transition-colors"
+                              style={{
+                                textDecoration: 'none',
+                                padding: '5px 8px',
+                                fontSize: 11,
+                                color: projectActive
+                                  ? 'var(--accent-teal)'
+                                  : 'var(--text-secondary)',
+                                background: projectActive ? 'var(--glass-2)' : 'transparent',
+                                border: `1px solid ${
+                                  projectActive ? 'var(--glass-border-2)' : 'transparent'
+                                }`,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 4,
+                                  height: 4,
+                                  borderRadius: '50%',
+                                  background: projectActive
+                                    ? 'var(--accent-teal)'
+                                    : 'var(--text-tertiary)',
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span
+                                className="truncate"
+                                style={{ fontWeight: projectActive ? 600 : 400 }}
+                              >
+                                {p.name}
+                              </span>
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </motion.ul>
+                  ) : null}
+                </AnimatePresence>
+              </div>
             )
           })}
         </nav>

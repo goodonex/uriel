@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../components/Drawer'
-import { ModeContextStrip } from '../components/ModeContextStrip'
+import { EmptyState } from '../components/EmptyState'
 import { SectionLabel } from '../components/SectionLabel'
 import { useContacts } from '../hooks/useContacts'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
@@ -72,7 +72,6 @@ export function DeliverMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent', pointerEvents: 'auto' }}
     >
-      <ModeContextStrip slug={slug} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div
@@ -141,32 +140,15 @@ export function DeliverMode() {
       ) : null}
 
       {!projects.loading && !projects.error && projects.items.length === 0 ? (
-        <div
-          className="mt-8 flex flex-col items-center justify-center py-16"
-          style={{ minHeight: 280 }}
-        >
-          <p
-            className="font-mono mb-6 text-center"
-            style={{ fontSize: 13, color: 'var(--text-tertiary)', maxWidth: 320 }}
-          >
-            Noch keine Projekte — lege das erste an, um Deliver &amp; Kundenportal zu nutzen.
-          </p>
-          <button
-            type="button"
-            className="font-mono"
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              padding: '14px 28px',
-              borderRadius: 14,
-              border: '1px solid var(--accent-teal)',
-              background: 'color-mix(in srgb, var(--accent-teal) 18%, transparent)',
-              color: 'var(--accent-teal)',
-            }}
-            onClick={openNewDrawer}
-          >
-            + Neues Projekt
-          </button>
+        <div className="mt-8">
+          <EmptyState
+            icon="◇"
+            title="Noch keine Projekte"
+            description="Lege das erste Kundenprojekt an, um Deliver und das Kundenportal zu nutzen."
+            actionLabel="+ Neues Projekt"
+            onAction={openNewDrawer}
+            accent="var(--accent-teal)"
+          />
         </div>
       ) : null}
 

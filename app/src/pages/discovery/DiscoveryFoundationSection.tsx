@@ -1,25 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
+import { InlineEditableCard } from '../../components/InlineEditableCard'
 import type {
   DiscoveryAnalysis,
   DiscoveryFoundationDoc,
   DiscoveryIcpDraft,
   DiscoveryWordSuggestion,
 } from '../../types/db'
-
-const FIELD_STYLE = {
-  fontFamily: 'var(--font-body)',
-  fontSize: 14,
-  lineHeight: 1.5,
-  padding: '10px 12px',
-  background: 'var(--glass-1)',
-  border: '1px solid var(--glass-border-1)',
-  color: 'var(--text-primary)',
-  resize: 'vertical' as const,
-  width: '100%' as const,
-  minHeight: 88,
-  borderRadius: 12,
-}
 
 const PHASE_LABELS = [
   'Markt wird analysiert…',
@@ -49,6 +35,7 @@ interface DiscoveryFoundationSectionProps {
   onApplyAllWords: (list: DiscoveryWordSuggestion[]) => void
   onApplyPositioningIdea: (idea: string) => void
   onApplyToneOfVoice: (text: string) => void
+  onSyncFromBuilding: () => void
 }
 
 function formatAnalysisTime(iso: string | null): string {
@@ -501,6 +488,7 @@ export function DiscoveryFoundationSection({
   onApplyAllWords,
   onApplyPositioningIdea,
   onApplyToneOfVoice,
+  onSyncFromBuilding,
 }: DiscoveryFoundationSectionProps) {
   const [market, setMarket] = useState(item?.market ?? '')
   const [competitors, setCompetitors] = useState(item?.competitors ?? '')
@@ -511,12 +499,6 @@ export function DiscoveryFoundationSection({
     setCompetitors(item?.competitors ?? '')
     setNiche(item?.niche ?? '')
   }, [item?.id, item?.market, item?.competitors, item?.niche])
-
-  const debouncedMarket = useDebouncedCallback((v: string) => onSave({ market: v }))
-  const debouncedCompetitors = useDebouncedCallback((v: string) =>
-    onSave({ competitors: v }),
-  )
-  const debouncedNiche = useDebouncedCallback((v: string) => onSave({ niche: v }))
 
   if (loading) {
     return (
@@ -547,7 +529,31 @@ export function DiscoveryFoundationSection({
           Markt, Wettbewerb und Nische — einmal sauber festhalten. Die Analyse nutzt Web-Research
           und ein KI-Modell für strukturierte Vorschläge (ICPs, Word Bank, Positioning).
         </p>
-        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+          <button
+            type="button"
+            className="font-mono inline-flex items-center gap-1.5"
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.04em',
+              padding: '9px 14px',
+              borderRadius: 10,
+              background: 'var(--glass-2)',
+              border: '1px solid var(--glass-border-2)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+            onClick={onSyncFromBuilding}
+            title="Felder mit Daten aus dem Building-Modus vorbefüllen"
+          >
+            <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M3 8 a5 5 0 0 1 9 -3 L13 6" strokeLinecap="round" />
+              <path d="M13 8 a5 5 0 0 1 -9 3 L3 10" strokeLinecap="round" />
+              <path d="M11 3 L13 6 L10 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 13 L3 10 L6 10" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Aus Building übernehmen
+          </button>
           <button
             type="button"
             className="font-mono"
@@ -602,50 +608,44 @@ export function DiscoveryFoundationSection({
         </div>
       ) : null}
 
-      <label className="mt-6 block" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-        Markt / Kontext
-        <textarea
+      <div className="mt-6 flex flex-col gap-3">
+        <InlineEditableCard
+          label="Markt / Kontext"
+          hint="Wo spielt diese Brand?"
           value={market}
-          onChange={(e) => {
-            setMarket(e.target.value)
-            debouncedMarket(e.target.value)
-          }}
           placeholder="z. B. B2B SaaS DACH, lokale Dienstleister, Premium-Consumer …"
-          rows={4}
-          className="mt-2 block"
-          style={FIELD_STYLE}
+          onSave={(v) => {
+            setMarket(v)
+            onSave({ market: v })
+          }}
+          accent="var(--accent-coral)"
+          toast="Markt gespeichert"
         />
-      </label>
-
-      <label className="mt-4 block" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-        Wettbewerber (Freitext)
-        <textarea
+        <InlineEditableCard
+          label="Wettbewerber"
+          hint="Namen · Links · Beobachtungen"
           value={competitors}
-          onChange={(e) => {
-            setCompetitors(e.target.value)
-            debouncedCompetitors(e.target.value)
-          }}
           placeholder="Namen, Links oder Beobachtungen — was dir im Feed auffällt."
-          rows={4}
-          className="mt-2 block"
-          style={FIELD_STYLE}
-        />
-      </label>
-
-      <label className="mt-4 block" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-        Nische / Schwerpunkt
-        <textarea
-          value={niche}
-          onChange={(e) => {
-            setNiche(e.target.value)
-            debouncedNiche(e.target.value)
+          onSave={(v) => {
+            setCompetitors(v)
+            onSave({ competitors: v })
           }}
-          placeholder="Worin du dich von „alle machen das gleiche“ abhebst."
-          rows={4}
-          className="mt-2 block"
-          style={FIELD_STYLE}
+          accent="var(--accent-coral)"
+          toast="Wettbewerber gespeichert"
         />
-      </label>
+        <InlineEditableCard
+          label="Nische / Schwerpunkt"
+          hint="Worin hebt ihr euch ab?"
+          value={niche}
+          placeholder="Worin du dich von „alle machen das gleiche“ abhebst."
+          onSave={(v) => {
+            setNiche(v)
+            onSave({ niche: v })
+          }}
+          accent="var(--accent-coral)"
+          toast="Nische gespeichert"
+        />
+      </div>
 
       {item?.analysis ? (
         <AnalysisPanel

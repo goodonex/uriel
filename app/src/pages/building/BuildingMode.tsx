@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
+import { BrandTemplatePicker } from '../../components/BrandTemplatePicker'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useAssets } from '../../hooks/useAssets'
@@ -17,8 +18,7 @@ import { PositioningSection } from './PositioningSection'
 import { SOPSection } from './SOPSection'
 import { WordBankSection } from './WordBankSection'
 import { BuildingHealthCard } from './BuildingHealthCard'
-import { useBrandId } from '../../hooks/useBrandId'
-import { useToast } from '../../components/Toast'
+import { BrandFoundationProvider } from '../../lib/brandFoundationContext'
 
 export function BuildingMode() {
   const { slug } = useParams<{ slug: string }>()
@@ -31,15 +31,16 @@ export function BuildingMode() {
   const businessModel = useBusinessModel(slug)
   const assets = useAssets(slug)
   const sops = useSOPs(slug)
-  const brandId = useBrandId(slug)
-  const { show } = useToast()
-
-  const onboardingUrl =
-    typeof window !== 'undefined' && brandId
-      ? `${window.location.origin}/onboarding/${brandId}`
-      : ''
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   return (
+    <BrandFoundationProvider
+      brandName={brand?.name ?? slug ?? ''}
+      positioning={positioning.item}
+      icps={icps.items}
+      wordBank={wordBank.items}
+      businessModel={businessModel.item}
+    >
     <motion.div
       key={slug}
       initial={{ opacity: 0, y: 8 }}
@@ -47,7 +48,6 @@ export function BuildingMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
-      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
           <div>
@@ -75,12 +75,35 @@ export function BuildingMode() {
               Foundation
             </h2>
           </div>
-          <ContextExportButton
-            brand={brand}
-            positioning={positioning.item}
-            icps={icps.items}
-            wordBank={wordBank.items}
-          />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTemplatePickerOpen(true)}
+              className="font-mono inline-flex items-center gap-1.5 rounded-lg"
+              style={{
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                padding: '7px 12px',
+                border: '1px solid var(--mode-building)',
+                background: 'color-mix(in srgb, var(--mode-building) 14%, transparent)',
+                color: 'var(--mode-building)',
+                cursor: 'pointer',
+              }}
+            >
+              <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path d="M3 4 L13 4 L13 13 L3 13 Z" />
+                <path d="M3 7 L13 7" />
+                <path d="M6 4 L6 7 M10 4 L10 7" />
+              </svg>
+              Template
+            </button>
+            <ContextExportButton
+              brand={brand}
+              positioning={positioning.item}
+              icps={icps.items}
+              wordBank={wordBank.items}
+            />
+          </div>
         </div>
         {slug ? (
           <BuildingHealthCard
@@ -94,55 +117,13 @@ export function BuildingMode() {
         ) : null}
       </div>
 
-      {brandId ? (
-        <div
-          className="glass-2 mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3"
-          style={{
-            border: '1px solid var(--glass-border-1)',
-            backdropFilter: 'var(--blur-sm)',
-            WebkitBackdropFilter: 'var(--blur-sm)',
-          }}
-        >
-          <div className="min-w-0 flex-1">
-            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Kunden-Fragebogen
-            </div>
-            <div className="mt-1 font-mono truncate" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-              {onboardingUrl}
-            </div>
-            <p className="mt-2" style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-              Schick diesen Link an deinen Kunden. Die Antworten landen direkt in der Foundation
-              (Positioning &amp; ICPs).
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="font-mono"
-              onClick={() => {
-                if (!onboardingUrl || !navigator.clipboard) {
-                  show('Link konnte nicht kopiert werden.', 'error')
-                  return
-                }
-                void navigator.clipboard.writeText(onboardingUrl).then(
-                  () => show('Fragebogen-Link kopiert.', 'success'),
-                  () => show('Kopieren fehlgeschlagen.', 'error'),
-                )
-              }}
-              style={{
-                fontSize: 11,
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: '1px solid var(--accent-teal)',
-                background: 'color-mix(in srgb, var(--accent-teal) 12%, transparent)',
-                color: 'var(--accent-teal)',
-              }}
-            >
-              Link kopieren
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <SectionLabel>Business Model — Wer · Was · Wie · Für wen · Womit</SectionLabel>
+      <BusinessModelSection
+        item={businessModel.item}
+        loading={businessModel.loading}
+        error={businessModel.error}
+        onSave={businessModel.save}
+      />
 
       <SectionLabel>ICPs — Zielgruppen</SectionLabel>
       <ICPSection
@@ -155,6 +136,14 @@ export function BuildingMode() {
         onDelete={icps.remove}
       />
 
+      <SectionLabel>Positioning &amp; Tone</SectionLabel>
+      <PositioningSection
+        item={positioning.item}
+        loading={positioning.loading}
+        error={positioning.error}
+        onSave={positioning.save}
+      />
+
       <SectionLabel>Word Bank — Ja / Nein</SectionLabel>
       <WordBankSection
         items={wordBank.items}
@@ -164,41 +153,63 @@ export function BuildingMode() {
         onRemove={wordBank.remove}
       />
 
-      <SectionLabel>Positioning &amp; Tone</SectionLabel>
-      <PositioningSection
-        item={positioning.item}
-        loading={positioning.loading}
-        error={positioning.error}
-        onSave={positioning.save}
-      />
+      <div
+        style={{
+          marginTop: 36,
+          paddingTop: 22,
+          borderTop: '1px dashed var(--glass-border-2)',
+        }}
+      >
+        <div
+          className="font-mono mb-4 flex items-center gap-3"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: 'var(--mode-building)',
+              boxShadow: '0 0 8px var(--mode-building)',
+            }}
+          />
+          Library — Assets &amp; Prozesse
+        </div>
 
-      <SectionLabel>Business Model</SectionLabel>
-      <BusinessModelSection
-        item={businessModel.item}
-        loading={businessModel.loading}
-        error={businessModel.error}
-        onSave={businessModel.save}
-      />
+        <SectionLabel>Assets</SectionLabel>
+        <AssetsSection
+          items={assets.items}
+          loading={assets.loading}
+          error={assets.error}
+          onCreate={() => assets.create()}
+          onUpdate={assets.update}
+          onRemove={assets.remove}
+        />
 
-      <SectionLabel>Assets</SectionLabel>
-      <AssetsSection
-        items={assets.items}
-        loading={assets.loading}
-        error={assets.error}
-        onCreate={() => assets.create()}
-        onUpdate={assets.update}
-        onRemove={assets.remove}
-      />
+        <SectionLabel>SOPs — Prozesse &amp; Vorlagen</SectionLabel>
+        <SOPSection
+          items={sops.items}
+          loading={sops.loading}
+          error={sops.error}
+          onCreate={() => sops.create()}
+          onUpdate={sops.update}
+          onDelete={sops.remove}
+        />
+      </div>
 
-      <SectionLabel>SOPs — Prozesse &amp; Vorlagen</SectionLabel>
-      <SOPSection
-        items={sops.items}
-        loading={sops.loading}
-        error={sops.error}
-        onCreate={() => sops.create()}
-        onUpdate={sops.update}
-        onDelete={sops.remove}
-      />
+      {slug ? (
+        <BrandTemplatePicker
+          slug={slug}
+          open={templatePickerOpen}
+          onClose={() => setTemplatePickerOpen(false)}
+        />
+      ) : null}
     </motion.div>
+    </BrandFoundationProvider>
   )
 }

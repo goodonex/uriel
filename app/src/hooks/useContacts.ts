@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { logActivity } from '../lib/activityLog'
 import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
@@ -112,6 +113,12 @@ function normalizeContact(
     potenzial_typ: normalizePotenzialTyp(c.potenzial_typ),
     potenzial_notiz: c.potenzial_notiz ?? '',
     custom_fields: parseCustomFields(c.custom_fields),
+    pipeline_id: c.pipeline_id ?? null,
+    tags: Array.isArray(c.tags) ? (c.tags as string[]) : [],
+    stage_changed_at: c.stage_changed_at ?? null,
+    won_at: c.won_at ?? null,
+    lost_at: c.lost_at ?? null,
+    lost_reason: c.lost_reason ?? '',
     updated_at: c.updated_at ?? now,
   }
 }
@@ -160,6 +167,12 @@ function rowToContact(row: Record<string, unknown>): Contact {
     potenzial_typ: normalizePotenzialTyp(row.potenzial_typ),
     potenzial_notiz: (row.potenzial_notiz as string | undefined) ?? '',
     custom_fields: parseCustomFields(row.custom_fields),
+    pipeline_id: (row.pipeline_id as string | null) ?? null,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    stage_changed_at: (row.stage_changed_at as string | null) ?? null,
+    won_at: (row.won_at as string | null) ?? null,
+    lost_at: (row.lost_at as string | null) ?? null,
+    lost_reason: (row.lost_reason as string | undefined) ?? '',
     updated_at: row.updated_at as string,
   })
 }
@@ -398,12 +411,15 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       })
       if (localOnlyRef.current || !supabase || !brandId) {
         const next = [...itemsRef.current, item]
+        itemsRef.current = next
         setItems(next)
         persistLocal(next)
         return { ok: true, contact: item }
       }
       const row = contactToRow(item, brandId)
-      setItems([...itemsRef.current, item])
+      const optimisticNext = [...itemsRef.current, item]
+      itemsRef.current = optimisticNext
+      setItems(optimisticNext)
       void supabase.from('contacts').insert(row).then(({ error: insErr }) => {
         if (insErr) {
           if (isMissingSupabaseTableError(insErr.message)) {
@@ -416,6 +432,14 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
             void reload()
           }
         }
+      })
+      logActivity({
+        brand_id: brandId,
+        entity_type: 'contact',
+        entity_id: item.id,
+        action: 'created',
+        summary: `Neuer Kontakt: ${item.name || item.email || 'Unbenannt'}`,
+        metadata: { stage: item.pipeline_stage },
       })
       return { ok: true, contact: item }
     },
@@ -435,8 +459,16 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
           ...patch.custom_fields,
         } as Contact['custom_fields']
       }
+      // Win/Loss-Stamping bei Stage-Wechsel
+      if (patch.pipeline_stage && patch.pipeline_stage !== prev.pipeline_stage) {
+        if (patch.pipeline_stage === 'deal' && !prev.won_at) {
+          basePatch.won_at = now
+          basePatch.lost_at = null
+        }
+      }
       const merged = normalizeContact({ ...prev, ...basePatch, updated_at: now })
       const next = itemsRef.current.map((c) => (c.id === id ? merged : c))
+      itemsRef.current = next
       setItems(next)
       if (localOnlyRef.current || !supabase || !brandId) {
         persistLocal(next)
@@ -458,6 +490,24 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
             }
           }
         })
+
+      if (
+        patch.pipeline_stage &&
+        patch.pipeline_stage !== prev.pipeline_stage &&
+        brandId
+      ) {
+        logActivity({
+          brand_id: brandId,
+          entity_type: 'contact',
+          entity_id: id,
+          action: 'stage_changed',
+          summary: `${merged.name || merged.email || 'Kontakt'}: ${prev.pipeline_stage} → ${patch.pipeline_stage}`,
+          metadata: {
+            from: prev.pipeline_stage,
+            to: patch.pipeline_stage,
+          },
+        })
+      }
     },
     [brandId, brandSlug, persistLocal, reload],
   )
@@ -466,6 +516,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     (id: string) => {
       if (!brandSlug) return
       const next = itemsRef.current.filter((c) => c.id !== id)
+      itemsRef.current = next
       setItems(next)
       if (localOnlyRef.current || !supabase || !brandId) {
         persistLocal(next)

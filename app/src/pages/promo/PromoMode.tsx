@@ -2,7 +2,6 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
 import { useBrands } from '../../hooks/useBrands'
@@ -14,6 +13,7 @@ import { useWordBank } from '../../hooks/useWordBank'
 import type { ContentFormat, ContentPiece } from '../../types/db'
 import { CampaignsSection } from './CampaignsSection'
 import { ContentPieceEditor } from './ContentPieceEditor'
+import { MailFlowsPanel } from './MailFlowsPanel'
 import { PromoEmailPanel } from './PromoEmailPanel'
 import { PromoIdeasPanel } from './PromoIdeasPanel'
 import { PromoSequencesPanel } from './PromoSequencesPanel'
@@ -113,7 +113,7 @@ export function PromoMode() {
   const positioning = usePositioning(slug)
   const brand = brands.find((b) => b.slug === slug)
 
-  const [promoTab, setPromoTab] = useState<'kalender' | 'ideen' | 'sequenzen' | 'email'>('kalender')
+  const [promoTab, setPromoTab] = useState<'kalender' | 'ideen' | 'sequenzen' | 'email' | 'flows'>('kalender')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = pieces.items.find((p) => p.id === selectedId) ?? null
 
@@ -166,7 +166,6 @@ export function PromoMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
-      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
         <div>
           <div
@@ -197,8 +196,9 @@ export function PromoMode() {
               [
                 ['kalender', 'Kalender'],
                 ['ideen', 'Ideen'],
-                ['sequenzen', 'Sequenzen'],
-                ['email', 'E-Mail'],
+                ['sequenzen', 'Content-Sequenzen'],
+                ['email', 'E-Mail-Plan'],
+                ['flows', 'Mail-Flows'],
               ] as const
             ).map(([t, label]) => {
               const on = promoTab === t
@@ -604,10 +604,15 @@ export function PromoMode() {
           <SectionLabel accent="var(--mode-promo)">Sequenzen</SectionLabel>
           {slug ? <PromoSequencesPanel slug={slug} /> : null}
         </>
-      ) : (
+      ) : promoTab === 'email' ? (
         <>
           <SectionLabel accent="var(--accent-blue)">E-Mail-Sequenzen</SectionLabel>
           {slug ? <PromoEmailPanel slug={slug} /> : null}
+        </>
+      ) : (
+        <>
+          <SectionLabel accent="var(--accent-blue)">Mail-Flows</SectionLabel>
+          {slug ? <MailFlowsPanel slug={slug} /> : null}
         </>
       )}
     </motion.div>

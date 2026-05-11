@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { InlineEditableCard } from '../../components/InlineEditableCard'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import type { ICP, ICPPriority, WordBankEntry } from '../../types/db'
 
@@ -35,7 +36,6 @@ export function ICPEditor({ icp, wordBank, onChange, onDelete }: ICPEditorProps)
   const debouncedLocation = useDebouncedCallback((v: string) =>
     onChange({ location: v }),
   )
-  const debouncedNotes = useDebouncedCallback((v: string) => onChange({ notes: v }))
 
   const clusters = useMemo(() => {
     const set = new Set<string>()
@@ -235,36 +235,20 @@ export function ICPEditor({ icp, wordBank, onChange, onDelete }: ICPEditorProps)
         )}
       </Field>
 
-      <Field label="Notes">
-        <textarea
-          value={notes}
-          onChange={(e) => {
-            setNotes(e.target.value)
-            debouncedNotes(e.target.value)
-          }}
-          rows={4}
-          placeholder="Kontext, Beobachtungen, Hypothesen…"
-          className="w-full rounded-lg outline-none transition-colors"
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            lineHeight: 1.5,
-            padding: '10px 12px',
-            background: 'var(--glass-1)',
-            border: '1px solid var(--glass-border-1)',
-            color: 'var(--text-primary)',
-            resize: 'vertical',
-          }}
-        />
-      </Field>
-
-      <div
-        style={{
-          height: 1,
-          background: 'var(--glass-border-1)',
-          margin: '8px 0 4px',
+      <InlineEditableCard
+        label="Notes"
+        hint="Kontext · Beobachtungen · Hypothesen"
+        value={notes}
+        placeholder="Kontext, Beobachtungen, Hypothesen…"
+        onSave={(v) => {
+          setNotes(v)
+          onChange({ notes: v })
         }}
+        accent="var(--mode-building)"
+        toast="Notes gespeichert"
+        aiField="icp_notes"
       />
+
       <button
         type="button"
         onClick={() => {

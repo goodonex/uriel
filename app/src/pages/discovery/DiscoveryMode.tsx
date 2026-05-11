@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useParams } from 'react-router-dom'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
 import { useBrandId } from '../../hooks/useBrandId'
+import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useDiscoveryFeed } from '../../hooks/useDiscoveryFeed'
 import { useDiscoveryFoundation } from '../../hooks/useDiscoveryFoundation'
 import { useDiscoverySettings } from '../../hooks/useDiscoverySettings'
@@ -52,6 +52,7 @@ export function DiscoveryMode() {
   const icps = useICPs(slug)
   const wordBank = useWordBank(slug)
   const positioning = usePositioning(slug)
+  const businessModel = useBusinessModel(slug)
 
   const [analysisRunBusy, setAnalysisRunBusy] = useState(false)
   const [analysisRunPhase, setAnalysisRunPhase] = useState(0)
@@ -262,6 +263,61 @@ export function DiscoveryMode() {
     [positioning, show],
   )
 
+  const syncFromBuilding = useCallback(() => {
+    const bm = businessModel.item
+    const pos = positioning.item
+    const icpList = icps.items
+
+    const marketParts: string[] = []
+    if (bm?.for_whom) marketParts.push(`Zielgruppe: ${bm.for_whom.trim()}`)
+    if (bm?.who) marketParts.push(`Eigene Rolle: ${bm.who.trim()}`)
+    if (icpList.length) {
+      const icpSummary = icpList
+        .slice()
+        .sort((a, b) => a.priority - b.priority)
+        .map((i) => {
+          const head = [i.name, i.age_range, i.location]
+            .filter((x) => x && x.trim())
+            .join(' · ')
+          return `• ${head || 'ICP'}`
+        })
+        .join('\n')
+      marketParts.push(`ICPs:\n${icpSummary}`)
+    }
+
+    const competitorsParts: string[] = []
+    if (pos?.statement) competitorsParts.push(`Wir positionieren uns als: ${pos.statement.trim()}`)
+    const painSamples = icpList
+      .flatMap((i) => i.pain_points)
+      .slice(0, 6)
+    if (painSamples.length) {
+      competitorsParts.push(
+        `Kunden-Pains (aus ICPs):\n${painSamples.map((p) => `• ${p}`).join('\n')}`,
+      )
+    }
+    competitorsParts.push(
+      '↳ Wettbewerber-Namen, Profile, Websites hier ergänzen — die Analyse durchsucht den Markt darauf basierend.',
+    )
+
+    const nicheParts: string[] = []
+    if (pos?.statement) nicheParts.push(pos.statement.trim())
+    if (bm?.what) nicheParts.push(`Angebot: ${bm.what.trim()}`)
+    if (bm?.how) nicheParts.push(`So machen wir es anders: ${bm.how.trim()}`)
+    if (pos?.tone_of_voice) nicheParts.push(`Sprache: ${pos.tone_of_voice.trim()}`)
+
+    const market = marketParts.join('\n\n').trim()
+    const competitors = competitorsParts.join('\n\n').trim()
+    const niche = nicheParts.join('\n\n').trim()
+
+    if (!market && !competitors && !niche) {
+      show('Building ist noch leer — erst dort Foundation ausfüllen.', 'info')
+      return
+    }
+
+    foundation.save({ market, competitors, niche })
+    show('Aus Building übernommen', 'success')
+  }, [businessModel.item, positioning.item, icps.items, foundation, show])
+
   const applyToneOfVoice = useCallback(
     (text: string) => {
       const t = text.trim()
@@ -287,7 +343,6 @@ export function DiscoveryMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
-      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
         <div>
           <div
@@ -335,6 +390,7 @@ export function DiscoveryMode() {
         onApplyAllWords={applyWordSuggestionsBatch}
         onApplyPositioningIdea={applyPositioningIdea}
         onApplyToneOfVoice={applyToneOfVoice}
+        onSyncFromBuilding={syncFromBuilding}
       />
 
       <SectionLabel accent="var(--accent-coral)">Discovery Feed</SectionLabel>

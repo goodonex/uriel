@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
+import { InlineEditableCard } from '../../components/InlineEditableCard'
+import type { FoundationField } from '../../lib/foundationAi'
 import type { BusinessModelDoc } from '../../types/db'
 
 interface BusinessModelSectionProps {
@@ -9,15 +9,57 @@ interface BusinessModelSectionProps {
   onSave: (patch: Partial<Omit<BusinessModelDoc, 'id' | 'brand_id'>>) => void
 }
 
-const FIELD_STYLE = {
-  fontFamily: 'var(--font-body)',
-  fontSize: 14,
-  lineHeight: 1.5,
-  padding: '10px 12px',
-  background: 'var(--glass-1)',
-  border: '1px solid var(--glass-border-1)',
-  color: 'var(--text-primary)',
-  resize: 'vertical' as const,
+type FieldKey = 'who' | 'what' | 'how' | 'for_whom' | 'revenue'
+interface FieldDef {
+  key: FieldKey
+  label: string
+  hint: string
+  placeholder: string
+  aiField: FoundationField
+}
+
+/** Linke Spalte: Subjekt-Achse — Wer bist du, für wen ist es. */
+const LEFT_COLUMN: FieldDef[] = [
+  {
+    key: 'who',
+    label: 'Wer',
+    hint: 'Wer seid ihr / wer bist du?',
+    placeholder: 'Setup, Team-Größe, Rolle im Markt …',
+    aiField: 'business_model_who',
+  },
+  {
+    key: 'for_whom',
+    label: 'Für wen',
+    hint: 'Zielgruppe · ICP-Beschreibung',
+    placeholder: 'Für wen ist das gedacht?',
+    aiField: 'business_model_for_whom',
+  },
+]
+
+/** Rechte Spalte: Produkt-Achse — Was bietest du, wie lieferst du es. */
+const RIGHT_COLUMN: FieldDef[] = [
+  {
+    key: 'what',
+    label: 'Was',
+    hint: 'Produkte · Pakete · Services',
+    placeholder: 'Welche Angebote bietet ihr?',
+    aiField: 'business_model_what',
+  },
+  {
+    key: 'how',
+    label: 'Wie',
+    hint: 'Prozess · Delivery · Alleinstellung',
+    placeholder: 'Wie arbeitet ihr — was macht ihr anders?',
+    aiField: 'business_model_how',
+  },
+]
+
+const REVENUE: FieldDef = {
+  key: 'revenue',
+  label: 'Womit',
+  hint: 'Preise · Modelle · Margen · Akquise',
+  placeholder: 'Womit verdient ihr — Pakete, Retainer, Akquise?',
+  aiField: 'business_model_revenue',
 }
 
 export function BusinessModelSection({
@@ -26,48 +68,22 @@ export function BusinessModelSection({
   error,
   onSave,
 }: BusinessModelSectionProps) {
-  const [who, setWho] = useState(item?.who ?? '')
-  const [what, setWhat] = useState(item?.what ?? '')
-  const [how, setHow] = useState(item?.how ?? '')
-  const [forWhom, setForWhom] = useState(item?.for_whom ?? '')
-  const [revenue, setRevenue] = useState(item?.revenue ?? '')
-
-  useEffect(() => {
-    setWho(item?.who ?? '')
-    setWhat(item?.what ?? '')
-    setHow(item?.how ?? '')
-    setForWhom(item?.for_whom ?? '')
-    setRevenue(item?.revenue ?? '')
-  }, [
-    item?.id,
-    item?.who,
-    item?.what,
-    item?.how,
-    item?.for_whom,
-    item?.revenue,
-  ])
-
-  const debouncedWho = useDebouncedCallback((v: string) => onSave({ who: v }))
-  const debouncedWhat = useDebouncedCallback((v: string) => onSave({ what: v }))
-  const debouncedHow = useDebouncedCallback((v: string) => onSave({ how: v }))
-  const debouncedForWhom = useDebouncedCallback((v: string) =>
-    onSave({ for_whom: v }),
-  )
-  const debouncedRevenue = useDebouncedCallback((v: string) =>
-    onSave({ revenue: v }),
-  )
-
   if (loading) {
     return (
-      <div
-        className="animate-pulse"
-        style={{
-          minHeight: 200,
-          borderRadius: 16,
-          background: 'var(--glass-1)',
-          border: '1px solid var(--glass-border-1)',
-        }}
-      />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="animate-pulse"
+            style={{
+              height: 110,
+              borderRadius: 16,
+              background: 'var(--glass-1)',
+              border: '1px solid var(--glass-border-1)',
+            }}
+          />
+        ))}
+      </div>
     )
   }
 
@@ -82,88 +98,26 @@ export function BusinessModelSection({
     )
   }
 
-  return (
-    <section className="glass-2" style={{ borderRadius: 16, padding: 20 }}>
-      <Field
-        label="Wer"
-        value={who}
-        onChange={(v) => {
-          setWho(v)
-          debouncedWho(v)
-        }}
-        placeholder="Wer seid ihr / wer bist du?"
-      />
-      <Field
-        label="Was"
-        value={what}
-        onChange={(v) => {
-          setWhat(v)
-          debouncedWhat(v)
-        }}
-        placeholder="Was bietet ihr an?"
-      />
-      <Field
-        label="Wie"
-        value={how}
-        onChange={(v) => {
-          setHow(v)
-          debouncedHow(v)
-        }}
-        placeholder="Wie arbeitet ihr — Prozess, Delivery, Alleinstellung."
-      />
-      <Field
-        label="Für wen"
-        value={forWhom}
-        onChange={(v) => {
-          setForWhom(v)
-          debouncedForWhom(v)
-        }}
-        placeholder="Für wen ist das gedacht — Zielgruppe / ICP."
-      />
-      <Field
-        label="Womit"
-        value={revenue}
-        onChange={(v) => {
-          setRevenue(v)
-          debouncedRevenue(v)
-        }}
-        placeholder="Womit verdient ihr — Modelle, Produkte, Services."
-      />
-    </section>
+  const renderField = (f: FieldDef) => (
+    <InlineEditableCard
+      key={f.key}
+      label={f.label}
+      hint={f.hint}
+      value={item?.[f.key] ?? ''}
+      placeholder={f.placeholder}
+      onSave={(v) => onSave({ [f.key]: v })}
+      toast={`${f.label} gespeichert`}
+      aiField={f.aiField}
+    />
   )
-}
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-}) {
   return (
-    <div className="mb-4 last:mb-0">
-      <label
-        className="font-mono mb-1 block"
-        style={{
-          fontSize: 11,
-          letterSpacing: '0.06em',
-          color: 'var(--text-tertiary)',
-        }}
-      >
-        {label}
-      </label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        placeholder={placeholder}
-        className="w-full rounded-lg outline-none transition-colors"
-        style={FIELD_STYLE}
-      />
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">{LEFT_COLUMN.map(renderField)}</div>
+        <div className="flex flex-col gap-3">{RIGHT_COLUMN.map(renderField)}</div>
+      </div>
+      {renderField(REVENUE)}
     </div>
   )
 }

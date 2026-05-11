@@ -313,6 +313,13 @@ export interface Contact {
   potenzial_notiz: string
   /** Konfigurierbare Felder, key = Feld-id */
   custom_fields: Record<string, string | number | boolean>
+  /** Sales-Pro */
+  pipeline_id?: string | null
+  tags?: string[]
+  stage_changed_at?: string | null
+  won_at?: string | null
+  lost_at?: string | null
+  lost_reason?: string
   updated_at: string
 }
 
@@ -488,5 +495,254 @@ export interface FocusTask {
   impact: FocusTaskImpact
   source: FocusTaskSource
   related_ids: string[]
+  created_at: string
+}
+
+export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled'
+export type TaskPriority = 1 | 2 | 3
+export type TaskSource = 'manual' | 'follow_up' | 'system' | 'onboarding'
+
+export interface Task {
+  id: string
+  brand_id: string
+  contact_id: string | null
+  project_id: string | null
+  title: string
+  notes: string
+  due_at: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  source: TaskSource
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ===== Sales-Pro =====
+
+export interface PipelineStageDef {
+  key: string
+  label: string
+  accent?: string
+  won?: boolean
+  lost?: boolean
+}
+
+export interface SalesPipeline {
+  id: string
+  brand_id: string
+  name: string
+  slug: string
+  stages: PipelineStageDef[]
+  is_default: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SalesEmailTemplate {
+  id: string
+  brand_id: string
+  name: string
+  subject: string
+  body: string
+  stage: string | null
+  variables: string[]
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type SalesEmailDirection = 'outbound' | 'inbound'
+
+export interface SalesEmailLog {
+  id: string
+  brand_id: string
+  contact_id: string
+  template_id: string | null
+  direction: SalesEmailDirection
+  subject: string
+  body_preview: string
+  sent_at: string
+  opened_at: string | null
+  replied_at: string | null
+  bounced_at: string | null
+  tracking_id: string | null
+  resend_id: string
+  from_email: string
+  from_name: string
+  to_email: string
+  sequence_id: string | null
+  enrollment_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+// =================================================================
+// E-Mail-Sequenzen (Whiteboard-Builder + Auto-Send)
+// =================================================================
+
+export type SequenceNodeType = 'start' | 'wait' | 'email' | 'condition' | 'end'
+
+export type SequenceConditionCheck =
+  | 'opened'
+  | 'replied'
+  | 'not_opened'
+  | 'not_replied'
+
+export interface SequenceNodeConfig {
+  delay_days?: number
+  delay_hours?: number
+  template_id?: string | null
+  subject?: string
+  body?: string
+  check?: SequenceConditionCheck
+  within_days?: number
+  label?: string
+}
+
+export interface SequenceNode {
+  id: string
+  type: SequenceNodeType
+  position: { x: number; y: number }
+  config: SequenceNodeConfig
+  next?: string | null
+  next_no?: string | null
+}
+
+export interface EmailSequence {
+  id: string
+  brand_id: string
+  name: string
+  slug: string
+  description: string
+  nodes: SequenceNode[]
+  active: boolean
+  from_email: string
+  from_name: string
+  created_at: string
+  updated_at: string
+}
+
+export type SequenceEnrollmentStatus =
+  | 'active'
+  | 'paused'
+  | 'completed'
+  | 'stopped'
+  | 'error'
+
+export interface SequenceEnrollment {
+  id: string
+  sequence_id: string
+  contact_id: string
+  brand_id: string
+  status: SequenceEnrollmentStatus
+  current_node_id: string
+  next_run_at: string
+  started_at: string
+  completed_at: string | null
+  last_error: string
+  history: Array<{ node_id: string; at: string; result?: string }>
+}
+
+export type SalesCallOutcome =
+  | 'connected'
+  | 'no_pickup'
+  | 'voicemail'
+  | 'wrong_number'
+  | 'callback_requested'
+
+export interface SalesCallLog {
+  id: string
+  brand_id: string
+  contact_id: string
+  outcome: SalesCallOutcome
+  duration_seconds: number | null
+  notes: string
+  called_at: string
+  created_at: string
+}
+
+export type SalesGoalPeriod = 'week' | 'month'
+
+export interface SalesGoal {
+  id: string
+  brand_id: string
+  period: SalesGoalPeriod
+  period_start: string
+  calls_target: number
+  mails_target: number
+  meetings_target: number
+  deals_target: number
+  linkedin_target: number
+  qualifications_target: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SalesViewFilter {
+  stage?: string | null
+  pipelineId?: string | null
+  potential?: string | null
+  follow?: string | null
+  tags?: string[]
+  search?: string
+}
+
+export interface SalesView {
+  id: string
+  brand_id: string
+  name: string
+  filter: SalesViewFilter
+  is_pinned: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AvailabilitySlot {
+  from: string // 'HH:MM'
+  to: string
+}
+
+export interface AvailabilityWeek {
+  mon?: AvailabilitySlot[]
+  tue?: AvailabilitySlot[]
+  wed?: AvailabilitySlot[]
+  thu?: AvailabilitySlot[]
+  fri?: AvailabilitySlot[]
+  sat?: AvailabilitySlot[]
+  sun?: AvailabilitySlot[]
+}
+
+export interface SalesMeetingLink {
+  id: string
+  brand_id: string
+  slug: string
+  title: string
+  description: string
+  duration_minutes: number
+  availability: AvailabilityWeek
+  buffer_minutes: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type SalesBookingStatus = 'confirmed' | 'cancelled' | 'no_show' | 'done'
+
+export interface SalesBooking {
+  id: string
+  brand_id: string
+  meeting_link_id: string | null
+  contact_id: string | null
+  name: string
+  email: string
+  phone: string
+  message: string
+  starts_at: string
+  ends_at: string
+  status: SalesBookingStatus
+  cancelled_at: string | null
   created_at: string
 }

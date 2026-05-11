@@ -2,7 +2,14 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
-import { ModeContextStrip } from '../../components/ModeContextStrip'
+import { useToast } from '../../components/Toast'
+import {
+  ContactTaskCounter,
+  ContactTasksTab,
+} from '../../components/tasks/ContactTasksTab'
+import { ContactCallsTab } from '../../components/sales/ContactCallsTab'
+import { ContactEmailsTab } from '../../components/sales/ContactEmailsTab'
+import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
 import { generateId } from '../../lib/storage'
 import { annualEuroForPotenzial, formatEuroDe } from '../../lib/salesPipelineFilters'
 import { useCampaigns } from '../../hooks/useCampaigns'
@@ -94,6 +101,7 @@ function patchCfgField(
 export function ContactPage() {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
   const navigate = useNavigate()
+  const toast = useToast()
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
   const pieces = useContentPieces(slug)
@@ -176,7 +184,7 @@ export function ContactPage() {
 
   const d = draft ?? contact
   const [contactTab, setContactTab] = useState<
-    'overview' | 'erstgespraech' | 'qualifikation' | 'notes'
+    'overview' | 'details' | 'erstgespraech' | 'qualifikation' | 'tasks' | 'emails' | 'calls' | 'notes'
   >('overview')
 
   const emailKey = useMemo(() => (d?.email ?? '').trim().toLowerCase(), [d?.email])
@@ -235,7 +243,6 @@ export function ContactPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ pointerEvents: 'auto', background: 'transparent' }}
     >
-      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
           to={`/brand/${slug}/sales`}
@@ -317,17 +324,46 @@ export function ContactPage() {
       >
         Sales · Kontakt
       </div>
-      <h1
-        className="font-display mb-4"
-        style={{
-          fontSize: 24,
-          fontWeight: 600,
-          color: 'var(--text-primary)',
-          letterSpacing: '-0.3px',
-        }}
+      <div
+        className="mb-4"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}
       >
-        {d.name || 'Kontakt'}
-      </h1>
+        <h1
+          className="font-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.3px',
+          }}
+        >
+          {d.name || 'Kontakt'}
+        </h1>
+        <button
+          type="button"
+          onClick={() => {
+            if (!contactId || !slug) return
+            const base = draft ?? contact
+            if (!base) return
+            // Persistiere alle aktuellen Felder sofort (umgeht den Debounce)
+            contacts.update(contactId, base)
+            toast.show('Gespeichert', 'success')
+          }}
+          className="font-mono"
+          style={{
+            fontSize: 11,
+            padding: '8px 14px',
+            borderRadius: 10,
+            border: '1px solid var(--mode-sales)',
+            background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
+            color: 'var(--mode-sales)',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          ✓ Speichern
+        </button>
+      </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {(
@@ -335,7 +371,11 @@ export function ContactPage() {
             { key: 'overview', label: 'Übersicht' },
             { key: 'erstgespraech', label: 'Erstgespräch', gear: true },
             { key: 'qualifikation', label: 'Qualifikation', gear: true },
-            { key: 'notes', label: 'Notes & Log' },
+            { key: 'tasks', label: 'Tasks', counter: true },
+            { key: 'emails', label: 'E-Mails' },
+            { key: 'calls', label: 'Anrufe' },
+            { key: 'details', label: 'Felder' },
+            { key: 'notes', label: 'Log' },
           ] as const
         ).map((t) => {
           const on = contactTab === t.key
@@ -355,9 +395,15 @@ export function ContactPage() {
                     : 'var(--glass-2)',
                   color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
                 {t.label}
+                {'counter' in t && t.counter && slug && contactId ? (
+                  <ContactTaskCounter slug={slug} contactId={contactId} />
+                ) : null}
               </button>
               {'gear' in t && t.gear ? (
                 <button
@@ -393,6 +439,14 @@ export function ContactPage() {
       ) : null}
 
       {contactTab === 'overview' ? (
+        slug ? (
+          <ContactOverviewPanel
+            brandSlug={slug}
+            contact={d}
+            onField={onField}
+          />
+        ) : null
+      ) : contactTab === 'details' ? (
         <div className="flex max-w-4xl flex-col gap-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
@@ -676,6 +730,7 @@ export function ContactPage() {
               }}
               onClick={() => {
                 if (!contactId || !slug) return
+                if (!window.confirm(`Kontakt „${d.name || d.email || 'unbenannt'}" wirklich löschen?`)) return
                 contacts.remove(contactId)
                 navigate(`/brand/${slug}/sales`)
               }}
@@ -928,6 +983,20 @@ export function ContactPage() {
             />
           </div>
         </div>
+      ) : contactTab === 'tasks' ? (
+        slug && contactId ? (
+          <ContactTasksTab
+            slug={slug}
+            contactId={contactId}
+            contactName={d.name || d.email || 'Kontakt'}
+            nextFollowUpAt={d.next_follow_up_at}
+            onClearFollowUp={() => onField({ next_follow_up_at: null })}
+          />
+        ) : null
+      ) : contactTab === 'emails' ? (
+        slug ? <ContactEmailsTab brandSlug={slug} contact={d} /> : null
+      ) : contactTab === 'calls' ? (
+        slug ? <ContactCallsTab brandSlug={slug} contact={d} /> : null
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <div className="flex flex-col gap-3">

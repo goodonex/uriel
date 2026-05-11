@@ -376,6 +376,37 @@ export function contactsDueToday(contacts: Contact[]): Contact[] {
   })
 }
 
+export function contactsOverdue(contacts: Contact[]): Contact[] {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return contacts.filter((c) => {
+    if (!c.next_follow_up_at) return false
+    if (c.pipeline_stage === 'deal' || c.pipeline_stage === 'paused') return false
+    try {
+      const d = new Date(c.next_follow_up_at)
+      return d.getTime() < todayStart.getTime()
+    } catch {
+      return false
+    }
+  })
+}
+
+export function contactsThisWeek(contacts: Contact[]): Contact[] {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const in7 = new Date(todayStart)
+  in7.setDate(in7.getDate() + 7)
+  return contacts.filter((c) => {
+    if (!c.next_follow_up_at) return false
+    try {
+      const d = new Date(c.next_follow_up_at)
+      return d.getTime() >= todayStart.getTime() && d.getTime() < in7.getTime()
+    } catch {
+      return false
+    }
+  })
+}
+
 export function stageHistogram(contacts: Contact[]): Record<string, number> {
   const o: Record<string, number> = {}
   for (const c of contacts) {

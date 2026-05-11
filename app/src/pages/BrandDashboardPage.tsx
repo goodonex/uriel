@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BrandPresenceShowcase } from '../components/BrandPresenceShowcase'
+import { GoalsCard } from '../components/dashboard/GoalsCard'
+import { TasksSection } from '../components/dashboard/TasksSection'
+import { TodaySection } from '../components/dashboard/TodaySection'
 import {
   contactsDueToday,
   deliverStageProgress,
@@ -101,6 +104,17 @@ export function BrandDashboardPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {slug ? (
+        <TodaySection slug={slug} contacts={dash.contacts} loading={dash.loading} />
+      ) : null}
+
+      {slug ? (
+        <div className="mb-6 grid gap-4 lg:grid-cols-2">
+          <TasksSection slug={slug} />
+          <GoalsCard slug={slug} />
+        </div>
+      ) : null}
+
       <div
         className="font-mono"
         style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--text-tertiary)' }}
