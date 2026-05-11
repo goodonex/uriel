@@ -1,47 +1,34 @@
 import { motion } from 'framer-motion'
 import { Outlet, useParams } from 'react-router-dom'
-import { AppHeader } from '../components/AppHeader'
-import { useBrands } from '../hooks/useBrands'
+import { BrandWorkspaceSidebar } from '../components/BrandWorkspaceSidebar'
 
 export function BrandPage() {
-  const { slug } = useParams<{ slug: string }>()
-  const { brands, loading } = useBrands()
-  const current = brands.find((b) => b.slug === slug)
+  const { slug = '' } = useParams<{ slug: string }>()
 
   return (
-    <div style={{ pointerEvents: 'auto', background: 'transparent' }}>
-      <AppHeader />
+    <div
+      className="flex min-h-0 w-full"
+      style={{
+        pointerEvents: 'auto',
+        background: 'transparent',
+        minHeight: '100vh',
+      }}
+    >
+      <BrandWorkspaceSidebar slug={slug} />
       <motion.div
         key={slug}
+        className="min-h-0 min-w-0 flex-1"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        style={{ background: 'transparent' }}
+        style={{
+          background: 'transparent',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '20px 24px 48px',
+          WebkitOverflowScrolling: 'touch',
+        }}
       >
-        <div className="mb-4 flex items-baseline justify-between">
-          <h1
-            className="font-display"
-            style={{
-              fontSize: 26,
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.4px',
-            }}
-          >
-            {loading ? 'Lade…' : (current?.name ?? slug)}
-          </h1>
-          <span
-            className="font-mono"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--text-tertiary)',
-            }}
-          >
-            Modi
-          </span>
-        </div>
         <Outlet />
       </motion.div>
     </div>

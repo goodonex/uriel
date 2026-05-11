@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useBrands } from '../../hooks/useBrands'
 import { useCampaigns } from '../../hooks/useCampaigns'
@@ -12,6 +13,7 @@ import { useICPs } from '../../hooks/useICPs'
 import { useWordBank } from '../../hooks/useWordBank'
 import { computeFocusTasks } from '../../lib/mockFocusEngine'
 import { buildIntelligenceSnapshot } from '../../lib/mockIntelligence'
+import { MorningBriefSection } from './MorningBriefSection'
 
 export function IntelligenceMode() {
   const { slug } = useParams<{ slug: string }>()
@@ -84,6 +86,8 @@ export function IntelligenceMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {slug ? <ModeContextStrip slug={slug} /> : null}
+      {slug ? <MorningBriefSection slug={slug} /> : null}
       <div className="mb-6">
         <div
           className="font-mono"

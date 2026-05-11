@@ -1,6 +1,7 @@
 import { loadList } from './storage'
 import type {
   ClientDocumentLink,
+  DeliverableItem,
   DeliverProject,
   DeliverProjectStage,
 } from '../types/db'
@@ -17,6 +18,26 @@ function validStage(v: unknown): DeliverProjectStage {
     return v as DeliverProjectStage
   }
   return 'onboarding'
+}
+
+function parseDeliverables(raw: unknown): DeliverableItem[] {
+  if (!Array.isArray(raw)) return []
+  const out: DeliverableItem[] = []
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue
+    const o = x as Record<string, unknown>
+    const title = typeof o.title === 'string' ? o.title.trim() : ''
+    if (!title) continue
+    const st = o.status
+    const status: DeliverableItem['status'] =
+      st === 'fertig' || st === 'in_arbeit' || st === 'geplant' ? st : 'geplant'
+    const updated_at =
+      typeof o.updated_at === 'string' && o.updated_at
+        ? o.updated_at
+        : new Date().toISOString()
+    out.push({ title, status, updated_at })
+  }
+  return out
 }
 
 function parseClientDocuments(raw: unknown): ClientDocumentLink[] {
@@ -59,6 +80,7 @@ export function normalizeDeliverProject(
     brand_id: input.brand_id ?? brandKey,
     name: input.name ?? 'Projekt',
     client_name: input.client_name ?? '',
+    client_email: input.client_email ?? '',
     client_contact_id: input.client_contact_id ?? null,
     status: input.status === 'completed' ? 'completed' : 'active',
     internal_stage: validStage(input.internal_stage),
@@ -70,6 +92,8 @@ export function normalizeDeliverProject(
     team_notes: input.team_notes ?? '',
     client_welcome_text: input.client_welcome_text ?? '',
     client_documents: parseClientDocuments(input.client_documents),
+    deliverables: parseDeliverables(input.deliverables),
+    booking_url: input.booking_url ?? '',
     updated_at: input.updated_at ?? now,
   }
 }
@@ -89,6 +113,7 @@ export function coerceStoredDeliverItem(
         brand_id: typeof o.brand_id === 'string' ? o.brand_id : brandSlug,
         name: typeof o.name === 'string' ? o.name : 'Projekt',
         client_name: typeof o.client_name === 'string' ? o.client_name : '',
+        client_email: typeof o.client_email === 'string' ? o.client_email : '',
         client_contact_id:
           o.client_contact_id === null || typeof o.client_contact_id === 'string'
             ? (o.client_contact_id as string | null)
@@ -102,6 +127,8 @@ export function coerceStoredDeliverItem(
         client_welcome_text:
           typeof o.client_welcome_text === 'string' ? o.client_welcome_text : '',
         client_documents: o.client_documents as ClientDocumentLink[] | undefined,
+        deliverables: parseDeliverables(o.deliverables),
+        booking_url: typeof o.booking_url === 'string' ? o.booking_url : '',
         updated_at: typeof o.updated_at === 'string' ? o.updated_at : undefined,
       },
       brandSlug,
@@ -127,6 +154,7 @@ export function coerceStoredDeliverItem(
     {
       id: o.id,
       name: typeof o.name === 'string' ? o.name : 'Projekt',
+      client_email: typeof o.client_email === 'string' ? o.client_email : '',
       client_contact_id:
         o.client_contact_id === null || typeof o.client_contact_id === 'string'
           ? (o.client_contact_id as string | null)
@@ -134,6 +162,8 @@ export function coerceStoredDeliverItem(
       status: o.status === 'completed' ? 'completed' : 'active',
       internal_notes_doc: doc,
       client_welcome_text: clientArea,
+      deliverables: parseDeliverables(o.deliverables),
+      booking_url: typeof o.booking_url === 'string' ? o.booking_url : '',
     },
     brandSlug,
   )
@@ -198,6 +228,7 @@ export function rowRecordToDeliverProject(
       brand_id: owner,
       name: (row.name as string) ?? '',
       client_name: (row.client_name as string) ?? '',
+      client_email: (row.client_email as string) ?? '',
       client_contact_id: (row.client_contact_id as string | null) ?? null,
       status: row.status === 'completed' ? 'completed' : 'active',
       internal_stage: validStage(row.internal_stage),
@@ -211,6 +242,8 @@ export function rowRecordToDeliverProject(
       team_notes: (row.team_notes as string) ?? '',
       client_welcome_text: (row.client_welcome_text as string) ?? '',
       client_documents: parseClientDocuments(row.client_documents),
+      deliverables: parseDeliverables(row.deliverables),
+      booking_url: (row.booking_url as string) ?? '',
       updated_at: (row.updated_at as string) ?? new Date().toISOString(),
     },
     owner,
@@ -230,6 +263,7 @@ export function deliverProjectToInsertRow(
     internal_notes: '',
     client_area_notes: '',
     client_name: p.client_name,
+    client_email: p.client_email,
     internal_stage: p.internal_stage,
     client_stage: p.client_stage,
     internal_notes_doc: p.internal_notes_doc,
@@ -237,6 +271,8 @@ export function deliverProjectToInsertRow(
     team_notes: p.team_notes,
     client_welcome_text: p.client_welcome_text,
     client_documents: p.client_documents,
+    deliverables: p.deliverables,
+    booking_url: p.booking_url,
     updated_at: p.updated_at,
   }
 }
@@ -249,6 +285,7 @@ export function deliverProjectToUpdateRow(
   const keys = [
     'name',
     'client_name',
+    'client_email',
     'client_contact_id',
     'status',
     'internal_stage',
@@ -258,6 +295,8 @@ export function deliverProjectToUpdateRow(
     'team_notes',
     'client_welcome_text',
     'client_documents',
+    'deliverables',
+    'booking_url',
   ] as const
   for (const k of keys) {
     if (patch[k] !== undefined) out[k] = patch[k]

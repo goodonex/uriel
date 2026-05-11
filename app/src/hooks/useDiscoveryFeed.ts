@@ -67,11 +67,12 @@ export function useDiscoveryFeed(
       return
     }
     setLoading(true)
+    const nowIso = new Date().toISOString()
     const { data, error: err } = await supabase
       .from('discovery_feed_items')
       .select('*')
       .eq('brand_id', brandId)
-      .is('archived_at', null)
+      .or(`archived_at.is.null,archived_at.gt.${nowIso}`)
       .order('recorded_at', { ascending: false })
 
     if (err && isMissingSupabaseTableError(err.message)) {
@@ -138,4 +139,104 @@ export function useDiscoveryFeed(
   )
 
   return { items, loading, error, prepend, reload }
+}
+
+export interface AllBrandsFeedRow extends DiscoveryFeedItem {
+  brand_name: string
+  brand_slug: string
+  brand_color: string | null
+}
+
+interface UseAllBrandsDiscoveryFeedResult {
+  items: AllBrandsFeedRow[]
+  loading: boolean
+  error: string | null
+  reload: () => Promise<void>
+}
+
+function rowToAllBrandItem(
+  row: Record<string, unknown>,
+  brandsNested: Record<string, unknown> | null,
+): AllBrandsFeedRow | null {
+  if (!brandsNested) return null
+  return {
+    id: row.id as string,
+    brand_id: row.brand_id as string,
+    category: row.category as DiscoveryFeedItem['category'],
+    title: row.title as string,
+    summary: row.summary as string,
+    signal_strength: row.signal_strength as DiscoveryFeedItem['signal_strength'],
+    recorded_at: row.recorded_at as string,
+    archived_at: (row.archived_at as string | null) ?? null,
+    brand_name: brandsNested.name as string,
+    brand_slug: brandsNested.slug as string,
+    brand_color: (brandsNested.color as string | null) ?? null,
+  }
+}
+
+/** Letzte Feed-Items über alle Brands des eingeloggten Users (RLS). */
+export function useAllBrandsDiscoveryFeed(): UseAllBrandsDiscoveryFeedResult {
+  const [items, setItems] = useState<AllBrandsFeedRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const reload = useCallback(async () => {
+    if (!supabase) {
+      setItems([])
+      setLoading(false)
+      setError(null)
+      return
+    }
+    setLoading(true)
+    const nowIso = new Date().toISOString()
+    const { data, error: err } = await supabase
+      .from('discovery_feed_items')
+      .select(
+        `
+        id,
+        brand_id,
+        category,
+        title,
+        summary,
+        signal_strength,
+        recorded_at,
+        archived_at,
+        brands!inner(name, slug, color)
+      `,
+      )
+      .or(`archived_at.is.null,archived_at.gt.${nowIso}`)
+      .order('recorded_at', { ascending: false })
+      .limit(3)
+
+    if (err && isMissingSupabaseTableError(err.message)) {
+      console.warn('[useAllBrandsDiscoveryFeed] → leer', err.message)
+      setItems([])
+      setError(null)
+      setLoading(false)
+      return
+    }
+    if (err) {
+      setError(err.message)
+      setItems([])
+      setLoading(false)
+      return
+    }
+
+    const mapped: AllBrandsFeedRow[] = []
+    for (const raw of data ?? []) {
+      const row = raw as Record<string, unknown>
+      const b = row.brands as Record<string, unknown> | undefined
+      const item = rowToAllBrandItem(row, b ?? null)
+      if (item) mapped.push(item)
+    }
+    setError(null)
+    setItems(mapped)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  return { items, loading, error, reload }
 }

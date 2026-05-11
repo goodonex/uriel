@@ -1,6 +1,6 @@
 /**
- * Discovery Agent — Perplexity (Web) + Claude (Strukturierung)
- * Secrets: PERPLEXITY_API_KEY, ANTHROPIC_API_KEY, optional ANTHROPIC_MODEL
+ * Discovery Agent — Claude (Web-Suche + Strukturierung)
+ * Secrets: ANTHROPIC_API_KEY, optional ANTHROPIC_MODEL
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1"
@@ -25,26 +25,64 @@ function json(status: number, body: Record<string, unknown>) {
   })
 }
 
-async function perplexityQuery(apiKey: string, userMessage: string): Promise<string> {
-  const res = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+const WEB_SEARCH_TOOLS = [{ type: "web_search_20250305", name: "web_search" }]
+
+async function claudeWebSearchQuery(
+  apiKey: string,
+  model: string,
+  userMessage: string,
+): Promise<string> {
+  const messages: Array<{ role: "user" | "assistant"; content: unknown }> = [
+    {
+      role: "user",
+      content:
+        `Nutze die Web-Suche für aktuelle Informationen (DACH, Stand 2026 wo relevant). Antworte ausführlich auf Deutsch mit konkreten Beobachtungen.\n\nRecherche-Auftrag:\n${userMessage}`,
     },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [{ role: "user", content: userMessage }],
-    }),
-  })
-  if (!res.ok) {
-    const t = await res.text()
-    throw new Error(`Perplexity ${res.status}: ${t.slice(0, 500)}`)
+  ]
+
+  const collected: string[] = []
+
+  for (let turn = 0; turn < 10; turn++) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 8192,
+        messages,
+        tools: WEB_SEARCH_TOOLS,
+      }),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(`Claude web search ${res.status}: ${t.slice(0, 500)}`)
+    }
+    const data = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>
+      stop_reason?: string | null
+    }
+
+    const blocks = data.content ?? []
+    for (const block of blocks) {
+      if (block.type === "text" && typeof block.text === "string") {
+        collected.push(block.text)
+      }
+    }
+
+    if (data.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: blocks })
+      messages.push({ role: "user", content: "Continue." })
+      continue
+    }
+
+    return collected.join("\n").trim()
   }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>
-  }
-  return data.choices?.[0]?.message?.content?.trim() ?? ""
+
+  throw new Error("Claude web search: pause_turn limit exceeded")
 }
 
 async function claudeJson<T>(apiKey: string, model: string, userPrompt: string): Promise<T> {
@@ -235,17 +273,16 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders })
   }
 
-  const perplexityKey = Deno.env.get("PERPLEXITY_API_KEY")?.trim()
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")?.trim()
   const anthropicModel =
     Deno.env.get("ANTHROPIC_MODEL")?.trim() || "claude-sonnet-4-20250514"
 
-  if (!perplexityKey || !anthropicKey) {
+  if (!anthropicKey) {
     return json(500, {
       ok: false,
       code: "MISSING_API_KEYS",
       message:
-        "API Keys fehlen — bitte PERPLEXITY_API_KEY und ANTHROPIC_API_KEY in Supabase Edge Functions Secrets eintragen.",
+        "API Keys fehlen — bitte ANTHROPIC_API_KEY in Supabase Edge Functions Secrets eintragen.",
       docsPath: "docs/open-questions.md",
     })
   }
@@ -306,14 +343,14 @@ Deno.serve(async (req) => {
   const researchSnippets: string[] = []
   try {
     for (const q of searches) {
-      const ans = await perplexityQuery(perplexityKey, q)
+      const ans = await claudeWebSearchQuery(anthropicKey, anthropicModel, q)
       researchSnippets.push(`### ${q}\n${ans}`)
     }
   } catch (e) {
     return json(502, {
       ok: false,
-      code: "PERPLEXITY_ERROR",
-      message: e instanceof Error ? e.message : "Perplexity failed",
+      code: "WEB_SEARCH_ERROR",
+      message: e instanceof Error ? e.message : "Web research failed",
     })
   }
 

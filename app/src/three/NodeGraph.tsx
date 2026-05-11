@@ -111,7 +111,7 @@ export function NodeGraph() {
     const slug = pendingSlug
     setTunnelTarget(null)
     setPendingSlug(null)
-    if (slug) navigate(`/brand/${slug}`)
+    if (slug) navigate(`/brand/${slug}/dashboard`)
   }
 
   return (
@@ -135,6 +135,7 @@ export function NodeGraph() {
           {brands.map((brand, idx) => (
             <BrandNode
               key={brand.id}
+              slug={brand.slug}
               position={NODE_POSITIONS[idx % NODE_POSITIONS.length]}
               color={resolveColor(brand, idx)}
               label={brand.name}

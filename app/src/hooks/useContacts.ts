@@ -2,21 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
-import type { Contact, ContactActivityEntry, PipelineStage } from '../types/db'
+import type {
+  Contact,
+  ContactActivityEntry,
+  PipelineStage,
+  PotenzialTyp,
+} from '../types/db'
 import { useBrandId } from './useBrandId'
 
-interface UseContactsResult {
-  items: Contact[]
-  loading: boolean
-  error: string | null
-  create: (
-    partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
-  ) => Contact
-  update: (
-    id: string,
-    patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
-  ) => void
-  remove: (id: string) => void
+export type CreateContactResult =
+  | { ok: true; contact: Contact }
+  | { ok: false; duplicate: Contact }
+
+export type CreateContactOptions = {
+  /** Wenn true: Duplikat-Check (E-Mail / Name) überspringen */
+  skipDuplicateCheck?: boolean
 }
 
 function parseActivityLog(raw: unknown): ContactActivityEntry[] {
@@ -33,10 +33,50 @@ function parseActivityLog(raw: unknown): ContactActivityEntry[] {
   return out
 }
 
+function parseCustomFields(raw: unknown): Record<string, string | number | boolean> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, string | number | boolean> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out[k] = v
+  }
+  return out
+}
+
+function normalizePotenzialTyp(raw: unknown): PotenzialTyp {
+  const s = typeof raw === 'string' ? raw.toLowerCase() : ''
+  if (s === 'monatlich' || s === 'jährlich' || s === 'jaehrlich') {
+    return s === 'monatlich' ? 'monatlich' : 'jährlich'
+  }
+  return 'einmalig'
+}
+
+/** Vor create: gleiche Brand-Liste (items) nach Dubletten durchsuchen */
+export function findDuplicateInContacts(
+  items: Contact[],
+  partial: Partial<Pick<Contact, 'name' | 'email'>>,
+): Contact | null {
+  const email = (partial.email ?? '').trim().toLowerCase()
+  if (email.length > 0) {
+    const hit = items.find((c) => (c.email ?? '').trim().toLowerCase() === email)
+    if (hit) return hit
+  }
+  const name = (partial.name ?? '').trim().toLowerCase()
+  if (name.length >= 2) {
+    const hit = items.find((c) => (c.name ?? '').trim().toLowerCase() === name)
+    if (hit) return hit
+  }
+  return null
+}
+
 function normalizeContact(
   c: Partial<Contact> & Pick<Contact, 'id' | 'brand_id'>,
 ): Contact {
   const now = new Date().toISOString()
+  const prob = Number(c.abschluss_wahrscheinlichkeit)
+  const clampedProb =
+    Number.isFinite(prob) ? Math.max(0, Math.min(100, Math.round(prob))) : 0
+  const potRaw = Number(c.potenzial_betrag)
+  const potenzial_betrag = Number.isFinite(potRaw) ? Math.max(0, Math.round(potRaw)) : 0
   return {
     id: c.id,
     brand_id: c.brand_id,
@@ -53,14 +93,40 @@ function normalizeContact(
     last_contact_at: c.last_contact_at ?? null,
     next_follow_up_at: c.next_follow_up_at ?? null,
     notes: c.notes ?? '',
+    call_notes: c.call_notes ?? '',
     activity_log: Array.isArray(c.activity_log)
       ? parseActivityLog(c.activity_log)
       : [],
+    bedarf: c.bedarf ?? '',
+    ansprechpartner: c.ansprechpartner ?? '',
+    aktuelle_situation: c.aktuelle_situation ?? '',
+    hauptproblem: c.hauptproblem ?? '',
+    timeline: c.timeline ?? '',
+    budget: c.budget ?? '',
+    ist_entscheider: Boolean(c.ist_entscheider),
+    entscheider_name: c.entscheider_name ?? '',
+    einwaende: c.einwaende ?? '',
+    naechste_schritte: c.naechste_schritte ?? '',
+    abschluss_wahrscheinlichkeit: clampedProb,
+    potenzial_betrag,
+    potenzial_typ: normalizePotenzialTyp(c.potenzial_typ),
+    potenzial_notiz: c.potenzial_notiz ?? '',
+    custom_fields: parseCustomFields(c.custom_fields),
     updated_at: c.updated_at ?? now,
   }
 }
 
 function rowToContact(row: Record<string, unknown>): Contact {
+  const probRaw = row.abschluss_wahrscheinlichkeit
+  const prob =
+    typeof probRaw === 'number'
+      ? probRaw
+      : typeof probRaw === 'string'
+        ? Number(probRaw)
+        : 0
+  const potRaw = row.potenzial_betrag
+  const pot =
+    typeof potRaw === 'number' ? potRaw : potRaw != null ? Number(potRaw) : 0
   return normalizeContact({
     id: row.id as string,
     brand_id: row.brand_id as string,
@@ -77,7 +143,23 @@ function rowToContact(row: Record<string, unknown>): Contact {
     last_contact_at: (row.last_contact_at as string | null) ?? null,
     next_follow_up_at: (row.next_follow_up_at as string | null) ?? null,
     notes: row.notes as string,
+    call_notes: ((row.call_notes as string | undefined) ?? ''),
     activity_log: parseActivityLog(row.activity_log),
+    bedarf: (row.bedarf as string | undefined) ?? '',
+    ansprechpartner: (row.ansprechpartner as string | undefined) ?? '',
+    aktuelle_situation: (row.aktuelle_situation as string | undefined) ?? '',
+    hauptproblem: (row.hauptproblem as string | undefined) ?? '',
+    timeline: (row.timeline as string | undefined) ?? '',
+    budget: (row.budget as string | undefined) ?? '',
+    ist_entscheider: Boolean(row.ist_entscheider),
+    entscheider_name: (row.entscheider_name as string | undefined) ?? '',
+    einwaende: (row.einwaende as string | undefined) ?? '',
+    naechste_schritte: (row.naechste_schritte as string | undefined) ?? '',
+    abschluss_wahrscheinlichkeit: Number.isFinite(prob) ? prob : 0,
+    potenzial_betrag: Number.isFinite(pot) ? Math.max(0, Math.round(pot)) : 0,
+    potenzial_typ: normalizePotenzialTyp(row.potenzial_typ),
+    potenzial_notiz: (row.potenzial_notiz as string | undefined) ?? '',
+    custom_fields: parseCustomFields(row.custom_fields),
     updated_at: row.updated_at as string,
   })
 }
@@ -88,6 +170,7 @@ function enrichContactFromLocal(
 ): Contact {
   if (!local) return normalizeContact(server)
   const blank = (s: string | null | undefined) => !s || !String(s).trim()
+  const cfMerge = { ...server.custom_fields, ...local.custom_fields }
   return normalizeContact({
     ...server,
     name: blank(server.name) ? local.name : server.name,
@@ -98,6 +181,28 @@ function enrichContactFromLocal(
     linkedin: blank(server.linkedin) ? local.linkedin : server.linkedin,
     company: blank(server.company) ? local.company : server.company,
     notes: blank(server.notes) ? local.notes : server.notes,
+    call_notes: blank(server.call_notes) ? local.call_notes : server.call_notes,
+    bedarf: blank(server.bedarf) ? local.bedarf : server.bedarf,
+    ansprechpartner: blank(server.ansprechpartner) ? local.ansprechpartner : server.ansprechpartner,
+    aktuelle_situation: blank(server.aktuelle_situation)
+      ? local.aktuelle_situation
+      : server.aktuelle_situation,
+    hauptproblem: blank(server.hauptproblem) ? local.hauptproblem : server.hauptproblem,
+    timeline: blank(server.timeline) ? local.timeline : server.timeline,
+    budget: blank(server.budget) ? local.budget : server.budget,
+    entscheider_name: blank(server.entscheider_name)
+      ? local.entscheider_name
+      : server.entscheider_name,
+    einwaende: blank(server.einwaende) ? local.einwaende : server.einwaende,
+    naechste_schritte: blank(server.naechste_schritte)
+      ? local.naechste_schritte
+      : server.naechste_schritte,
+    potenzial_betrag:
+      (server.potenzial_betrag ?? 0) === 0 && (local.potenzial_betrag ?? 0) > 0
+        ? local.potenzial_betrag
+        : server.potenzial_betrag,
+    potenzial_notiz: blank(server.potenzial_notiz) ? local.potenzial_notiz : server.potenzial_notiz,
+    custom_fields: cfMerge,
     activity_log:
       server.activity_log.length === 0 && local.activity_log.length > 0
         ? local.activity_log
@@ -127,12 +232,44 @@ function contactToRow(
     last_contact_at: c.last_contact_at,
     next_follow_up_at: c.next_follow_up_at,
     notes: c.notes,
+    call_notes: c.call_notes,
     activity_log: c.activity_log,
+    bedarf: c.bedarf,
+    ansprechpartner: c.ansprechpartner,
+    aktuelle_situation: c.aktuelle_situation,
+    hauptproblem: c.hauptproblem,
+    timeline: c.timeline,
+    budget: c.budget,
+    ist_entscheider: c.ist_entscheider,
+    entscheider_name: c.entscheider_name,
+    einwaende: c.einwaende,
+    naechste_schritte: c.naechste_schritte,
+    abschluss_wahrscheinlichkeit: c.abschluss_wahrscheinlichkeit,
+    potenzial_betrag: c.potenzial_betrag,
+    potenzial_typ: c.potenzial_typ,
+    potenzial_notiz: c.potenzial_notiz,
+    custom_fields: c.custom_fields,
     updated_at: c.updated_at,
   }
 }
 
 const STORAGE_KEY = 'contacts' as const
+
+interface UseContactsResult {
+  items: Contact[]
+  loading: boolean
+  error: string | null
+  reload: () => Promise<void>
+  create: (
+    partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
+    options?: CreateContactOptions,
+  ) => CreateContactResult
+  update: (
+    id: string,
+    patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
+  ) => void
+  remove: (id: string) => void
+}
 
 export function readContactsLocal(brandSlug: string): Contact[] {
   const raw = loadList<Partial<Contact> & { id: string; brand_id: string }>([
@@ -242,8 +379,16 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
   const create = useCallback(
     (
       partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
-    ): Contact => {
+      options?: CreateContactOptions,
+    ): CreateContactResult => {
       if (!brandSlug) throw new Error('Kein Brand-Slug')
+      if (!options?.skipDuplicateCheck) {
+        const dup = findDuplicateInContacts(itemsRef.current, {
+          name: partial?.name,
+          email: partial?.email,
+        })
+        if (dup) return { ok: false, duplicate: dup }
+      }
       const now = new Date().toISOString()
       const item = normalizeContact({
         id: generateId(),
@@ -255,7 +400,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         const next = [...itemsRef.current, item]
         setItems(next)
         persistLocal(next)
-        return item
+        return { ok: true, contact: item }
       }
       const row = contactToRow(item, brandId)
       setItems([...itemsRef.current, item])
@@ -272,7 +417,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
           }
         }
       })
-      return item
+      return { ok: true, contact: item }
     },
     [brandId, brandSlug, persistLocal, reload],
   )
@@ -283,7 +428,14 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       const now = new Date().toISOString()
       const prev = itemsRef.current.find((c) => c.id === id)
       if (!prev) return
-      const merged = normalizeContact({ ...prev, ...patch, updated_at: now })
+      const basePatch = { ...patch }
+      if (patch.custom_fields && prev.custom_fields) {
+        basePatch.custom_fields = {
+          ...prev.custom_fields,
+          ...patch.custom_fields,
+        } as Contact['custom_fields']
+      }
+      const merged = normalizeContact({ ...prev, ...basePatch, updated_at: now })
       const next = itemsRef.current.map((c) => (c.id === id ? merged : c))
       setItems(next)
       if (localOnlyRef.current || !supabase || !brandId) {
@@ -292,7 +444,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       }
       void supabase
         .from('contacts')
-        .update({ ...patch, updated_at: now })
+        .update({ ...basePatch, updated_at: now })
         .eq('id', id)
         .eq('brand_id', brandId)
         .then(({ error: updErr }) => {
@@ -339,5 +491,5 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     [brandId, brandSlug, persistLocal, reload],
   )
 
-  return { items, loading, error, create, update, remove }
+  return { items, loading, error, reload, create, update, remove }
 }

@@ -326,6 +326,93 @@ export function ClientPortal({ preview = false }: { preview?: boolean }) {
                 <StatusTimeline activeIdx={rawIdx} />
               </section>
 
+              <section
+                className="glass-3 mb-6 rounded-2xl p-5"
+                style={{
+                  border: '1px solid var(--glass-border-2)',
+                  backdropFilter: 'var(--blur-md)',
+                  WebkitBackdropFilter: 'var(--blur-md)',
+                }}
+              >
+                <h2
+                  className="font-display mb-3"
+                  style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
+                >
+                  Was ist fertig?
+                </h2>
+                {project.deliverables.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
+                    Sobald dein Team Deliverables definiert, siehst du den Status hier.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {project.deliverables.map((d, i) => (
+                      <li
+                        key={`${d.title}-${i}`}
+                        className="flex items-start gap-3 rounded-xl px-3 py-2"
+                        style={{ border: '1px solid var(--glass-border-2)' }}
+                      >
+                        <span className="mt-0.5 font-mono" style={{ fontSize: 14 }}>
+                          {d.status === 'fertig' ? (
+                            <span style={{ color: '#22c55e' }}>✓</span>
+                          ) : d.status === 'in_arbeit' ? (
+                            <span style={{ color: '#f97316' }}>⟳</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-tertiary)' }}>○</span>
+                          )}
+                        </span>
+                        <div>
+                          <div className="font-display" style={{ fontSize: 14, fontWeight: 500 }}>
+                            {d.title}
+                          </div>
+                          <div className="font-mono" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                            {d.status === 'fertig'
+                              ? 'Fertig'
+                              : d.status === 'in_arbeit'
+                                ? 'In Arbeit'
+                                : 'Geplant'}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {project.booking_url.trim() ? (
+                <section
+                  className="glass-3 mb-6 rounded-2xl p-5"
+                  style={{
+                    border: '1px solid var(--glass-border-2)',
+                    backdropFilter: 'var(--blur-md)',
+                    WebkitBackdropFilter: 'var(--blur-md)',
+                  }}
+                >
+                  <h2
+                    className="font-display mb-3"
+                    style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
+                  >
+                    Termin buchen
+                  </h2>
+                  <button
+                    type="button"
+                    className="font-mono"
+                    onClick={() => window.open(project.booking_url, '_blank', 'noopener,noreferrer')}
+                    style={{
+                      fontSize: 12,
+                      padding: '12px 18px',
+                      borderRadius: 12,
+                      border: '1px solid var(--accent-teal)',
+                      background: 'color-mix(in srgb, var(--accent-teal) 16%, transparent)',
+                      color: 'var(--accent-teal)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Termin buchen
+                  </button>
+                </section>
+              ) : null}
+
               <section>
                 <h2
                   className="font-display mb-4"

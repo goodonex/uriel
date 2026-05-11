@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useParams } from 'react-router-dom'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
 import { useBrandId } from '../../hooks/useBrandId'
@@ -286,6 +287,7 @@ export function DiscoveryMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
         <div>
           <div

@@ -42,7 +42,7 @@ export function BrandSwitcher() {
           <button
             key={brand.id}
             type="button"
-            onClick={() => navigate(`/brand/${brand.slug}`)}
+            onClick={() => navigate(`/brand/${brand.slug}/dashboard`)}
             className="rounded-full transition-all duration-200 ease-out"
             style={{
               fontSize: 11,

@@ -4,10 +4,11 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { useToast } from '../../components/Toast'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import { readDeliverProjectsLocal, useDeliverProjects } from '../../hooks/useDeliverProjects'
-import type { ClientDocumentLink, DeliverProjectStage } from '../../types/db'
+import type { ClientDocumentLink, DeliverableItem, DeliverProjectStage } from '../../types/db'
 import { DELIVER_STAGE_ORDER } from '../../types/db'
 import { DELIVER_STAGE_LABEL } from './stageLabels'
 
@@ -179,12 +180,16 @@ export function ProjectPage() {
 
   const [teamLocal, setTeamLocal] = useState('')
   const [welcomeLocal, setWelcomeLocal] = useState('')
+  const [deliverablesLocal, setDeliverablesLocal] = useState<DeliverableItem[]>([])
+  const [bookingLocal, setBookingLocal] = useState('')
   useEffect(() => {
     if (project) {
       setTeamLocal(project.team_notes)
       setWelcomeLocal(project.client_welcome_text)
+      setDeliverablesLocal(project.deliverables)
+      setBookingLocal(project.booking_url)
     }
-  }, [project?.id, project?.team_notes, project?.client_welcome_text])
+  }, [project?.id, project?.team_notes, project?.client_welcome_text, project?.deliverables, project?.booking_url])
 
   const debouncedTeamNotes = useDebouncedCallback((id: string, v: string) => {
     projects.update(id, { team_notes: v })
@@ -193,6 +198,35 @@ export function ProjectPage() {
   const debouncedWelcome = useDebouncedCallback((id: string, v: string) => {
     projects.update(id, { client_welcome_text: v })
   }, 450)
+
+  const debouncedDeliverables = useDebouncedCallback(
+    (id: string, list: DeliverableItem[]) => {
+      projects.update(id, { deliverables: list })
+    },
+    450,
+  )
+
+  const debouncedBookingUrl = useDebouncedCallback((id: string, v: string) => {
+    projects.update(id, { booking_url: v })
+  }, 450)
+
+  const patchDeliverables = useCallback(
+    (next: DeliverableItem[]) => {
+      setDeliverablesLocal(next)
+      if (!projectId) return
+      debouncedDeliverables(projectId, next)
+    },
+    [debouncedDeliverables, projectId],
+  )
+
+  const onBookingChange = useCallback(
+    (v: string) => {
+      setBookingLocal(v)
+      if (!projectId) return
+      debouncedBookingUrl(projectId, v)
+    },
+    [debouncedBookingUrl, projectId],
+  )
 
   if (!slug || !projectId) return <Navigate to="/" replace />
 
@@ -224,6 +258,7 @@ export function ProjectPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ pointerEvents: 'auto', background: 'transparent' }}
     >
+      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="mb-5">
         <Link
           to={`/brand/${slug}/deliver`}
@@ -375,6 +410,109 @@ export function ProjectPage() {
               }}
               rows={4}
               style={{ ...FIELD, resize: 'vertical' }}
+            />
+          </div>
+
+          <div>
+            <div className="font-mono mb-2" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+              Deliverables (Kundenportal: „Was ist fertig?“)
+            </div>
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                className="font-mono"
+                style={{
+                  fontSize: 10,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--glass-border-2)',
+                  color: 'var(--accent-teal)',
+                }}
+                onClick={() =>
+                  patchDeliverables([
+                    ...deliverablesLocal,
+                    {
+                      title: 'Neues Deliverable',
+                      status: 'geplant',
+                      updated_at: new Date().toISOString(),
+                    },
+                  ])
+                }
+              >
+                + Position
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {deliverablesLocal.map((row, i) => (
+                <div
+                  key={`${row.title}-${i}`}
+                  className="flex flex-col gap-2 rounded-xl p-3"
+                  style={{ border: '1px solid var(--glass-border-2)' }}
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={row.title}
+                      onChange={(e) => {
+                        const next = deliverablesLocal.slice()
+                        next[i] = {
+                          ...row,
+                          title: e.target.value,
+                          updated_at: new Date().toISOString(),
+                        }
+                        patchDeliverables(next)
+                      }}
+                      style={{ ...FIELD, flex: 2, minWidth: 120 }}
+                    />
+                    <select
+                      value={row.status}
+                      onChange={(e) => {
+                        const next = deliverablesLocal.slice()
+                        next[i] = {
+                          ...row,
+                          status: e.target.value as DeliverableItem['status'],
+                          updated_at: new Date().toISOString(),
+                        }
+                        patchDeliverables(next)
+                      }}
+                      style={{ ...FIELD, flex: 1, minWidth: 120 }}
+                    >
+                      <option value="geplant">Geplant</option>
+                      <option value="in_arbeit">In Arbeit</option>
+                      <option value="fertig">Fertig</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        padding: '8px 10px',
+                        color: 'var(--accent-coral)',
+                        border: '1px solid var(--accent-coral)',
+                        borderRadius: 8,
+                      }}
+                      onClick={() => {
+                        patchDeliverables(deliverablesLocal.filter((_, j) => j !== i))
+                      }}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Calendly oder Buchungs-Link (Kundenportal)
+            </label>
+            <input
+              type="url"
+              value={bookingLocal}
+              onChange={(e) => onBookingChange(e.target.value)}
+              placeholder="https://…"
+              style={FIELD}
             />
           </div>
         </div>

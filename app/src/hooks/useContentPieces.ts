@@ -48,6 +48,7 @@ interface UseContentPiecesResult {
   items: ContentPiece[]
   loading: boolean
   error: string | null
+  reload: () => Promise<void>
   create: (
     partial?: Partial<Omit<ContentPiece, 'id' | 'brand_id' | 'updated_at'>>,
   ) => ContentPiece
@@ -277,5 +278,5 @@ export function useContentPieces(
     [brandId, brandSlug, persistLocal, reload],
   )
 
-  return { items, loading, error, create, update, remove }
+  return { items, loading, error, reload, create, update, remove }
 }

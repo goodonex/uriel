@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useParams } from 'react-router-dom'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useAssets } from '../../hooks/useAssets'
@@ -15,6 +16,9 @@ import { ICPSection } from './ICPSection'
 import { PositioningSection } from './PositioningSection'
 import { SOPSection } from './SOPSection'
 import { WordBankSection } from './WordBankSection'
+import { BuildingHealthCard } from './BuildingHealthCard'
+import { useBrandId } from '../../hooks/useBrandId'
+import { useToast } from '../../components/Toast'
 
 export function BuildingMode() {
   const { slug } = useParams<{ slug: string }>()
@@ -27,6 +31,13 @@ export function BuildingMode() {
   const businessModel = useBusinessModel(slug)
   const assets = useAssets(slug)
   const sops = useSOPs(slug)
+  const brandId = useBrandId(slug)
+  const { show } = useToast()
+
+  const onboardingUrl =
+    typeof window !== 'undefined' && brandId
+      ? `${window.location.origin}/onboarding/${brandId}`
+      : ''
 
   return (
     <motion.div
@@ -36,39 +47,102 @@ export function BuildingMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
-      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-        <div>
-          <div
-            className="font-mono"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--mode-building)',
-              marginBottom: 6,
-            }}
-          >
-            Building Mode
+      {slug ? <ModeContextStrip slug={slug} /> : null}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+          <div>
+            <div
+              className="font-mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--mode-building)',
+                marginBottom: 6,
+              }}
+            >
+              Building Mode
+            </div>
+            <h2
+              className="font-display"
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.3px',
+              }}
+            >
+              Foundation
+            </h2>
           </div>
-          <h2
-            className="font-display"
-            style={{
-              fontSize: 22,
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.3px',
-            }}
-          >
-            Foundation
-          </h2>
+          <ContextExportButton
+            brand={brand}
+            positioning={positioning.item}
+            icps={icps.items}
+            wordBank={wordBank.items}
+          />
         </div>
-        <ContextExportButton
-          brand={brand}
-          positioning={positioning.item}
-          icps={icps.items}
-          wordBank={wordBank.items}
-        />
+        {slug ? (
+          <BuildingHealthCard
+            slug={slug}
+            positioning={positioning.item}
+            icps={icps.items}
+            wordBank={wordBank.items}
+            businessModel={businessModel.item}
+            assets={assets.items}
+          />
+        ) : null}
       </div>
+
+      {brandId ? (
+        <div
+          className="glass-2 mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3"
+          style={{
+            border: '1px solid var(--glass-border-1)',
+            backdropFilter: 'var(--blur-sm)',
+            WebkitBackdropFilter: 'var(--blur-sm)',
+          }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Kunden-Fragebogen
+            </div>
+            <div className="mt-1 font-mono truncate" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+              {onboardingUrl}
+            </div>
+            <p className="mt-2" style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+              Schick diesen Link an deinen Kunden. Die Antworten landen direkt in der Foundation
+              (Positioning &amp; ICPs).
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="font-mono"
+              onClick={() => {
+                if (!onboardingUrl || !navigator.clipboard) {
+                  show('Link konnte nicht kopiert werden.', 'error')
+                  return
+                }
+                void navigator.clipboard.writeText(onboardingUrl).then(
+                  () => show('Fragebogen-Link kopiert.', 'success'),
+                  () => show('Kopieren fehlgeschlagen.', 'error'),
+                )
+              }}
+              style={{
+                fontSize: 11,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--accent-teal)',
+                background: 'color-mix(in srgb, var(--accent-teal) 12%, transparent)',
+                color: 'var(--accent-teal)',
+              }}
+            >
+              Link kopieren
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <SectionLabel>ICPs — Zielgruppen</SectionLabel>
       <ICPSection

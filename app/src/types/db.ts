@@ -6,7 +6,15 @@ export type ModeKey =
   | 'discovery'
   | 'deliver'
 
-export type AssetType = 'website' | 'instagram' | 'linkedin' | 'document'
+export type AssetType = 'website' | 'instagram' | 'linkedin' | 'document' | 'social'
+
+export type SocialPlatform =
+  | 'linkedin'
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'youtube'
+  | 'twitter'
 
 export interface Asset {
   id: string
@@ -15,6 +23,9 @@ export interface Asset {
   type: AssetType
   url: string
   embed: boolean
+  notes: string
+  social_platform?: SocialPlatform | null
+  created_at: string
   updated_at: string
 }
 
@@ -263,6 +274,8 @@ export interface ContactActivityEntry {
   at: string
 }
 
+export type PotenzialTyp = 'einmalig' | 'monatlich' | 'jährlich'
+
 export interface Contact {
   id: string
   brand_id: string
@@ -279,11 +292,139 @@ export interface Contact {
   last_contact_at: string | null
   next_follow_up_at: string | null
   notes: string
+  call_notes: string
   activity_log: ContactActivityEntry[]
+  /** Erstgespräch */
+  bedarf: string
+  ansprechpartner: string
+  aktuelle_situation: string
+  hauptproblem: string
+  timeline: string
+  /** Qualifikation */
+  budget: string
+  ist_entscheider: boolean
+  entscheider_name: string
+  einwaende: string
+  naechste_schritte: string
+  abschluss_wahrscheinlichkeit: number
+  /** Geschätzter Auftragswert EUR */
+  potenzial_betrag: number
+  potenzial_typ: PotenzialTyp
+  potenzial_notiz: string
+  /** Konfigurierbare Felder, key = Feld-id */
+  custom_fields: Record<string, string | number | boolean>
   updated_at: string
 }
 
-/* --- Deliver Mode — Kundenprojekte (Notion-Portal-Stages) --- */
+export type SalesFieldType = 'textarea' | 'text' | 'number' | 'toggle'
+
+export interface SalesFieldItem {
+  id: string
+  label: string
+  placeholder: string
+  type: SalesFieldType
+  required: boolean
+  order: number
+  /** contacts-Spalte oder Key in custom_fields */
+  db_key: string
+}
+
+export interface SalesFieldConfigRow {
+  id: string
+  brand_id: string
+  tab: 'erstgespraech' | 'qualifikation'
+  fields: SalesFieldItem[]
+  created_at: string
+  updated_at: string
+}
+
+/** Promo: Ideen-Tabelle (Migration 0020) */
+export type ContentIdeaFormat =
+  | 'post'
+  | 'reel'
+  | 'story'
+  | 'mail'
+  | 'artikel'
+  | 'karussell'
+  | 'ad'
+
+export type ContentIdeaStatus = 'idee' | 'skript' | 'produktion' | 'fertig'
+
+export interface ContentIdea {
+  id: string
+  brand_id: string
+  title: string
+  hook: string
+  a_roll: string
+  b_roll: string
+  skript: string
+  format: string
+  kanal: string
+  status: string
+  woche: number | null
+  created_at: string
+}
+
+export interface ContentSequencePlanPiece {
+  format: string
+  titel: string
+  kanal: string
+}
+
+export interface ContentSequencePlanWeek {
+  woche: number
+  thema: string
+  pieces: ContentSequencePlanPiece[]
+}
+
+export interface ContentSequence {
+  id: string
+  brand_id: string
+  name: string
+  description: string
+  wochen: number
+  plan: ContentSequencePlanWeek[]
+  status: string
+  /** 'content' = Social/Kalender, 'email' = E-Mail-Sequenzen */
+  sequence_kind: 'content' | 'email'
+  created_at: string
+}
+
+export type ContactListItemStatus =
+  | 'offen'
+  | 'angerufen'
+  | 'kein_interesse'
+  | 'in_pipeline'
+
+export interface ContactList {
+  id: string
+  brand_id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+export interface ContactListItem {
+  id: string
+  list_id: string
+  name: string
+  email: string
+  phone: string
+  company: string
+  linkedin_url: string
+  notes: string
+  status: ContactListItemStatus
+  called_at: string | null
+  created_at: string
+}
+
+export type DeliverableStatus = 'geplant' | 'in_arbeit' | 'fertig'
+
+export interface DeliverableItem {
+  title: string
+  status: DeliverableStatus
+  updated_at: string
+}
 
 export type DeliverProjectStage =
   | 'onboarding'
@@ -312,6 +453,7 @@ export interface DeliverProject {
   brand_id: string
   name: string
   client_name: string
+  client_email: string
   client_contact_id: string | null
   status: 'active' | 'completed'
   internal_stage: DeliverProjectStage
@@ -322,6 +464,8 @@ export interface DeliverProject {
   team_notes: string
   client_welcome_text: string
   client_documents: ClientDocumentLink[]
+  deliverables: DeliverableItem[]
+  booking_url: string
   updated_at: string
 }
 

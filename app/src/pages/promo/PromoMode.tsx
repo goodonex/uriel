@@ -2,15 +2,21 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
+import { useBrands } from '../../hooks/useBrands'
 import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useICPs } from '../../hooks/useICPs'
+import { usePositioning } from '../../hooks/usePositioning'
 import { useWordBank } from '../../hooks/useWordBank'
 import type { ContentFormat, ContentPiece } from '../../types/db'
 import { CampaignsSection } from './CampaignsSection'
 import { ContentPieceEditor } from './ContentPieceEditor'
+import { PromoEmailPanel } from './PromoEmailPanel'
+import { PromoIdeasPanel } from './PromoIdeasPanel'
+import { PromoSequencesPanel } from './PromoSequencesPanel'
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
@@ -103,7 +109,11 @@ export function PromoMode() {
   const campaigns = useCampaigns(slug)
   const icps = useICPs(slug)
   const wordBank = useWordBank(slug)
+  const { brands } = useBrands()
+  const positioning = usePositioning(slug)
+  const brand = brands.find((b) => b.slug === slug)
 
+  const [promoTab, setPromoTab] = useState<'kalender' | 'ideen' | 'sequenzen' | 'email'>('kalender')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = pieces.items.find((p) => p.id === selectedId) ?? null
 
@@ -156,6 +166,7 @@ export function PromoMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
         <div>
           <div
@@ -181,9 +192,46 @@ export function PromoMode() {
           >
             Content &amp; Kampagnen
           </h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(
+              [
+                ['kalender', 'Kalender'],
+                ['ideen', 'Ideen'],
+                ['sequenzen', 'Sequenzen'],
+                ['email', 'E-Mail'],
+              ] as const
+            ).map(([t, label]) => {
+              const on = promoTab === t
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className="font-mono"
+                  onClick={() => setPromoTab(t)}
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    border: on ? '1px solid var(--mode-promo)' : '1px solid var(--glass-border-2)',
+                    background: on
+                      ? 'color-mix(in srgb, var(--mode-promo) 16%, transparent)'
+                      : 'var(--glass-2)',
+                    color: on ? 'var(--mode-promo)' : 'var(--text-tertiary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
+      {promoTab === 'kalender' ? (
+        <>
       <SectionLabel accent="var(--mode-promo)" tight>
         Kalender
       </SectionLabel>
@@ -509,6 +557,9 @@ export function PromoMode() {
                 campaigns={campaigns.items}
                 icps={icps.items}
                 wordBank={wordBank.items}
+                brandName={brand?.name ?? slug ?? ''}
+                positioningStatement={positioning.item?.statement ?? ''}
+                toneOfVoice={positioning.item?.tone_of_voice ?? ''}
                 onPatch={(patch) => pieces.update(selected.id, patch)}
                 onAutoTagged={() =>
                   show('Tags aus Foundation ergänzt', 'success')
@@ -533,6 +584,32 @@ export function PromoMode() {
         onUpdate={campaigns.update}
         onDelete={removeCampaign}
       />
+        </>
+      ) : promoTab === 'ideen' ? (
+        <>
+          <SectionLabel accent="var(--mode-promo)">Ideen</SectionLabel>
+          {slug ? (
+            <PromoIdeasPanel
+              slug={slug}
+              brandName={brand?.name ?? slug}
+              positioningStatement={positioning.item?.statement ?? ''}
+              toneOfVoice={positioning.item?.tone_of_voice ?? ''}
+              icps={icps.items}
+              wordBank={wordBank.items}
+            />
+          ) : null}
+        </>
+      ) : promoTab === 'sequenzen' ? (
+        <>
+          <SectionLabel accent="var(--mode-promo)">Sequenzen</SectionLabel>
+          {slug ? <PromoSequencesPanel slug={slug} /> : null}
+        </>
+      ) : (
+        <>
+          <SectionLabel accent="var(--accent-blue)">E-Mail-Sequenzen</SectionLabel>
+          {slug ? <PromoEmailPanel slug={slug} /> : null}
+        </>
+      )}
     </motion.div>
   )
 }

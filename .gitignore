@@ -36,3 +36,6 @@ coverage/
 
 # ESLint cache
 .eslintcache
+
+# Supabase CLI cache
+supabase/.temp/

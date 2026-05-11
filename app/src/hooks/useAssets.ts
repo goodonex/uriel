@@ -9,12 +9,15 @@ interface UseAssetsResult {
   items: Asset[]
   loading: boolean
   error: string | null
-  create: (partial?: Partial<Omit<Asset, 'id' | 'brand_id' | 'updated_at'>>) => Asset
+  create: (
+    partial?: Partial<Omit<Asset, 'id' | 'brand_id' | 'updated_at' | 'created_at'>>,
+  ) => Asset
   update: (id: string, patch: Partial<Omit<Asset, 'id' | 'brand_id'>>) => void
   remove: (id: string) => void
 }
 
 function rowToAsset(row: Record<string, unknown>): Asset {
+  const updatedAt = row.updated_at as string
   return {
     id: row.id as string,
     brand_id: row.brand_id as string,
@@ -22,7 +25,10 @@ function rowToAsset(row: Record<string, unknown>): Asset {
     type: row.type as AssetType,
     url: row.url as string,
     embed: row.embed as boolean,
-    updated_at: row.updated_at as string,
+    notes: (row.notes as string) ?? '',
+    social_platform: (row.social_platform as Asset['social_platform']) ?? null,
+    created_at: (row.created_at as string) ?? updatedAt,
+    updated_at: updatedAt,
   }
 }
 
@@ -39,7 +45,13 @@ export function useAssets(brandSlug: string | undefined): UseAssetsResult {
 
   const loadLocal = useCallback(() => {
     if (!brandSlug) return
-    setItems(loadList<Asset>([brandSlug, STORAGE_KEY]))
+    const raw = loadList<Asset>([brandSlug, STORAGE_KEY])
+    setItems(raw.map((a) => ({
+      ...a,
+      notes: a.notes ?? '',
+      created_at: a.created_at ?? a.updated_at ?? new Date().toISOString(),
+      social_platform: a.social_platform ?? null,
+    })))
     setError(null)
   }, [brandSlug])
 
@@ -95,7 +107,9 @@ export function useAssets(brandSlug: string | undefined): UseAssetsResult {
   }, [reload])
 
   const create = useCallback(
-    (partial?: Partial<Omit<Asset, 'id' | 'brand_id' | 'updated_at'>>): Asset => {
+    (
+      partial?: Partial<Omit<Asset, 'id' | 'brand_id' | 'updated_at' | 'created_at'>>,
+    ): Asset => {
       if (!brandSlug) throw new Error('Kein Brand-Slug')
       const now = new Date().toISOString()
       const item: Asset = {
@@ -105,6 +119,9 @@ export function useAssets(brandSlug: string | undefined): UseAssetsResult {
         type: (partial?.type as AssetType) ?? 'website',
         url: partial?.url ?? '',
         embed: partial?.embed ?? false,
+        notes: partial?.notes ?? '',
+        social_platform: partial?.social_platform ?? null,
+        created_at: now,
         updated_at: now,
       }
       if (localOnlyRef.current || !supabase || !brandId) {
@@ -120,6 +137,9 @@ export function useAssets(brandSlug: string | undefined): UseAssetsResult {
         type: item.type,
         url: item.url,
         embed: item.embed,
+        notes: item.notes,
+        social_platform: item.social_platform,
+        created_at: now,
         updated_at: now,
       }
       setItems([...itemsRef.current, item])

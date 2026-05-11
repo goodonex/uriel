@@ -1,7 +1,13 @@
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
+import {
+  buildFoundationPromptParts,
+  buildTipTapFromIdeaTexts,
+  generateAnthropicContent,
+  getAnthropicApiKey,
+} from '../../lib/promoContentAi'
 import {
   mergeTagsIntoPieceTags,
   suggestContentTags,
@@ -21,6 +27,9 @@ interface ContentPieceEditorProps {
   campaigns: Campaign[]
   icps: ICP[]
   wordBank: WordBankEntry[]
+  brandName?: string
+  positioningStatement?: string
+  toneOfVoice?: string
   onPatch: (patch: Partial<Omit<ContentPiece, 'id' | 'brand_id'>>) => void
   onDelete: () => void
   onAutoTagged?: () => void
@@ -83,11 +92,16 @@ export function ContentPieceEditor({
   campaigns,
   icps,
   wordBank,
+  brandName = '',
+  positioningStatement = '',
+  toneOfVoice = '',
   onPatch,
   onDelete,
   onAutoTagged,
 }: ContentPieceEditorProps) {
   const [title, setTitle] = useState(piece.title)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiErr, setAiErr] = useState<string | null>(null)
   const [imp, setImp] = useState(() =>
     String(piece.performance_manual.impressions ?? ''),
   )
@@ -202,19 +216,121 @@ export function ContentPieceEditor({
     onAutoTagged?.()
   }
 
+  const hasAiKey = Boolean(getAnthropicApiKey())
+
+  const runContentAi = useCallback(async () => {
+    if (!hasAiKey || !editor) return
+    setAiBusy(true)
+    setAiErr(null)
+    try {
+      const yesWords = wordBank.filter((w) => w.type === 'yes')
+      const { icpNamesAndPainpoints, jaWoerter } = buildFoundationPromptParts({
+        brandName: brandName || 'Brand',
+        positioningStatement,
+        toneOfVoice,
+        icps,
+        wordBankYes: yesWords,
+      })
+      const gen = await generateAnthropicContent({
+        brandName: brandName || 'Brand',
+        positioningStatement,
+        toneOfVoice,
+        icpNamesAndPainpoints,
+        jaWoerter,
+        format: piece.tags.format,
+        kanal: piece.tags.channel,
+        titelHint: title,
+      })
+      const hashtags = gen.hashtags.filter(Boolean)
+      const doc = buildTipTapFromIdeaTexts({
+        hook: gen.hook,
+        skript: gen.haupttext,
+        cta: gen.cta,
+        hashtags,
+      })
+      const inner = [...((doc.content as Record<string, unknown>[]) ?? [])]
+      if (gen.a_roll?.trim()) {
+        inner.push({
+          type: 'paragraph',
+          content: [{ type: 'text', text: `A-Roll: ${gen.a_roll.trim()}` }],
+        })
+      }
+      if (gen.b_roll?.trim()) {
+        inner.push({
+          type: 'paragraph',
+          content: [{ type: 'text', text: `B-Roll: ${gen.b_roll.trim()}` }],
+        })
+      }
+      const fullDoc = { ...doc, content: inner }
+      const nextTitle =
+        title.trim() || (gen.hook ? gen.hook.slice(0, 96) : 'Neuer Content')
+      setTitle(nextTitle)
+      debouncedTitle(nextTitle)
+      editor.commands.setContent(fullDoc, { emitUpdate: false })
+      debouncedContent(fullDoc)
+      onPatch({ title: nextTitle, content: fullDoc })
+    } catch (e) {
+      setAiErr(e instanceof Error ? e.message : 'KI-Fehler')
+    } finally {
+      setAiBusy(false)
+    }
+  }, [
+    brandName,
+    debouncedContent,
+    debouncedTitle,
+    editor,
+    hasAiKey,
+    icps,
+    onPatch,
+    piece.tags.channel,
+    piece.tags.format,
+    positioningStatement,
+    title,
+    toneOfVoice,
+    wordBank,
+  ])
+
   return (
     <div className="flex flex-col gap-4">
+      {aiErr ? (
+        <p className="font-mono" style={{ fontSize: 11, color: 'var(--accent-coral)' }}>
+          {aiErr}
+        </p>
+      ) : null}
       <div>
-        <label
-          className="font-mono mb-1 block"
-          style={{
-            fontSize: 11,
-            letterSpacing: '0.06em',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          Titel
-        </label>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <label
+            className="font-mono block"
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.06em',
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            Titel
+          </label>
+          <button
+            type="button"
+            disabled={!hasAiKey || aiBusy}
+            title={!hasAiKey ? 'API Key fehlt' : undefined}
+            className="font-mono"
+            onClick={() => void runContentAi()}
+            style={{
+              fontSize: 10,
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--accent-teal)',
+              background: hasAiKey
+                ? 'color-mix(in srgb, var(--accent-teal) 12%, transparent)'
+                : 'var(--glass-3)',
+              color: hasAiKey ? 'var(--accent-teal)' : 'var(--text-tertiary)',
+              opacity: !hasAiKey || aiBusy ? 0.55 : 1,
+              cursor: !hasAiKey || aiBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {aiBusy ? 'KI denkt…' : 'KI generieren'}
+          </button>
+        </div>
         <input
           type="text"
           value={title}

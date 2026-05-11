@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../components/Drawer'
+import { ModeContextStrip } from '../components/ModeContextStrip'
 import { SectionLabel } from '../components/SectionLabel'
 import { useContacts } from '../hooks/useContacts'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
@@ -71,6 +72,7 @@ export function DeliverMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent', pointerEvents: 'auto' }}
     >
+      <ModeContextStrip slug={slug} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div

@@ -1,12 +1,21 @@
 import { motion } from 'framer-motion'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Drawer } from '../../components/Drawer'
+import { ModeContextStrip } from '../../components/ModeContextStrip'
 import { generateId } from '../../lib/storage'
+import { annualEuroForPotenzial, formatEuroDe } from '../../lib/salesPipelineFilters'
 import { useCampaigns } from '../../hooks/useCampaigns'
+import {
+  getDefaultFieldsForTab,
+  KNOWN_CONTACT_DB_KEYS,
+  useContactFieldConfig,
+} from '../../hooks/useContactFieldConfig'
 import { readContactsLocal, useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
-import type { Contact, PipelineStage } from '../../types/db'
+import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import type { Contact, PipelineStage, PotenzialTyp, SalesFieldItem } from '../../types/db'
 
 const STAGES: PipelineStage[] = [
   'first_contact',
@@ -46,12 +55,67 @@ const FIELD = {
   fontSize: 13,
 } as const
 
+function readCfgField(d: Contact, f: SalesFieldItem): string | number | boolean {
+  if (KNOWN_CONTACT_DB_KEYS.has(f.db_key)) {
+    const v = (d as unknown as Record<string, unknown>)[f.db_key]
+    if (typeof v === 'boolean') return v
+    if (typeof v === 'number') return v
+    if (typeof v === 'string') return v
+    return ''
+  }
+  const cf = d.custom_fields[f.id]
+  if (typeof cf === 'boolean') return cf
+  if (typeof cf === 'number') return cf
+  if (typeof cf === 'string') return cf
+  return ''
+}
+
+function patchCfgField(
+  d: Contact,
+  f: SalesFieldItem,
+  next: string | number | boolean,
+): Partial<Omit<Contact, 'id' | 'brand_id'>> {
+  if (KNOWN_CONTACT_DB_KEYS.has(f.db_key)) {
+    if (f.db_key === 'abschluss_wahrscheinlichkeit') {
+      const n = typeof next === 'number' ? next : Number(next)
+      const v = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0
+      return { abschluss_wahrscheinlichkeit: v }
+    }
+    return { [f.db_key]: next } as Partial<Omit<Contact, 'id' | 'brand_id'>>
+  }
+  return {
+    custom_fields: {
+      ...d.custom_fields,
+      [f.id]: next,
+    } as Contact['custom_fields'],
+  }
+}
+
 export function ContactPage() {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
+  const deliver = useDeliverProjects(slug)
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
+  const fieldCfgErst = useContactFieldConfig(slug, 'erstgespraech')
+  const fieldCfgQual = useContactFieldConfig(slug, 'qualifikation')
+  const [fieldDrawer, setFieldDrawer] = useState<
+    null | 'erstgespraech' | 'qualifikation'
+  >(null)
+  const [editFields, setEditFields] = useState<SalesFieldItem[]>([])
+
+  useEffect(() => {
+    if (fieldDrawer === 'erstgespraech') setEditFields([...fieldCfgErst.fields])
+    if (fieldDrawer === 'qualifikation') setEditFields([...fieldCfgQual.fields])
+  }, [fieldDrawer, fieldCfgErst.fields, fieldCfgQual.fields])
+
+  const activeFieldCfg =
+    fieldDrawer === 'erstgespraech'
+      ? fieldCfgErst
+      : fieldDrawer === 'qualifikation'
+        ? fieldCfgQual
+        : null
 
   const contact = useMemo(() => {
     const fromList = contacts.items.find((c) => c.id === contactId) ?? null
@@ -75,6 +139,12 @@ export function ContactPage() {
   )
 
   const debouncedPush = useDebouncedCallback(pushPatch, 450)
+
+  const lastCallNotes = useRef('')
+
+  useEffect(() => {
+    if (contact) lastCallNotes.current = contact.call_notes ?? ''
+  }, [contact?.id, contact?.call_notes])
 
   const onField = useCallback(
     (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => {
@@ -105,9 +175,31 @@ export function ContactPage() {
   }, [contact, draft, newNote, pushPatch])
 
   const d = draft ?? contact
+  const [contactTab, setContactTab] = useState<
+    'overview' | 'erstgespraech' | 'qualifikation' | 'notes'
+  >('overview')
+
+  const emailKey = useMemo(() => (d?.email ?? '').trim().toLowerCase(), [d?.email])
+  const duplicateProject = useMemo(() => {
+    if (!emailKey) return null
+    return (
+      deliver.items.find((p) => (p.client_email ?? '').trim().toLowerCase() === emailKey) ??
+      null
+    )
+  }, [deliver.items, emailKey])
   const previewUrl = d ? normalizeWebsiteUrl(d.website) : ''
   const mailto = d?.email?.trim() ? `mailto:${d.email.trim()}` : ''
   const phoneHref = d ? telHref(d.phone) : ''
+
+  const potenzialAnnualHint = useMemo(() => {
+    if (!d) return ''
+    const b = d.potenzial_betrag ?? 0
+    if (b <= 0) return ''
+    const typ = d.potenzial_typ ?? 'einmalig'
+    if (typ === 'einmalig') return ''
+    const y = annualEuroForPotenzial(b, typ)
+    return `= ${formatEuroDe(y)} / Jahr`
+  }, [d])
 
   if (!slug || !contactId) {
     return <Navigate to="/" replace />
@@ -143,6 +235,7 @@ export function ContactPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ pointerEvents: 'auto', background: 'transparent' }}
     >
+      {slug ? <ModeContextStrip slug={slug} /> : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
           to={`/brand/${slug}/sales`}
@@ -225,7 +318,7 @@ export function ContactPage() {
         Sales · Kontakt
       </div>
       <h1
-        className="font-display mb-6"
+        className="font-display mb-4"
         style={{
           fontSize: 24,
           fontWeight: 600,
@@ -236,14 +329,71 @@ export function ContactPage() {
         {d.name || 'Kontakt'}
       </h1>
 
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {(
+          [
+            { key: 'overview', label: 'Übersicht' },
+            { key: 'erstgespraech', label: 'Erstgespräch', gear: true },
+            { key: 'qualifikation', label: 'Qualifikation', gear: true },
+            { key: 'notes', label: 'Notes & Log' },
+          ] as const
+        ).map((t) => {
+          const on = contactTab === t.key
+          return (
+            <div key={t.key} className="flex items-center gap-0.5">
+              <button
+                type="button"
+                className="font-mono"
+                onClick={() => setContactTab(t.key)}
+                style={{
+                  fontSize: 11,
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: on ? '1px solid var(--mode-sales)' : '1px solid var(--glass-border-2)',
+                  background: on
+                    ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
+                    : 'var(--glass-2)',
+                  color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                }}
+              >
+                {t.label}
+              </button>
+              {'gear' in t && t.gear ? (
+                <button
+                  type="button"
+                  className="font-mono"
+                  title="Felder anpassen"
+                  aria-label="Felder anpassen"
+                  onClick={() =>
+                    setFieldDrawer(t.key as 'erstgespraech' | 'qualifikation')
+                  }
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1,
+                    padding: '4px 6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-tertiary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⚙
+                </button>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
       {contacts.error ? (
         <p className="font-mono" style={{ fontSize: 12, color: 'var(--accent-coral)' }}>
           {contacts.error}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
-          <div className="flex flex-col gap-4">
+      {contactTab === 'overview' ? (
+        <div className="flex max-w-4xl flex-col gap-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
@@ -433,6 +583,61 @@ export function ContactPage() {
               />
             </div>
 
+            {d.pipeline_stage === 'deal' ? (
+              <div
+                className="rounded-2xl p-4"
+                style={{
+                  border: '1px solid color-mix(in srgb, var(--accent-teal) 35%, var(--glass-border-2))',
+                  background: 'color-mix(in srgb, var(--accent-teal) 8%, var(--glass-1))',
+                }}
+              >
+                <div className="font-mono mb-2" style={{ fontSize: 10, color: 'var(--accent-teal)' }}>
+                  Deliver
+                </div>
+                {duplicateProject ? (
+                  <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Projekt bereits vorhanden.{' '}
+                    <Link
+                      to={`/brand/${slug}/deliver/${duplicateProject.id}`}
+                      style={{ color: 'var(--accent-teal)' }}
+                    >
+                      Zum Projekt
+                    </Link>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className="font-mono"
+                    onClick={() => {
+                      if (!slug) return
+                      const proj = deliver.create({
+                        name: `${d.name || 'Kontakt'} — Projekt`,
+                        client_name: d.name || '',
+                        client_email: d.email?.trim() ?? '',
+                        client_contact_id: d.id,
+                        internal_stage: 'onboarding',
+                        client_stage: 'onboarding',
+                        status: 'active',
+                      })
+                      navigate(`/brand/${slug}/deliver/${proj.id}`)
+                    }}
+                    style={{
+                      fontSize: 12,
+                      padding: '12px 18px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: 'var(--accent-teal)',
+                      color: '#0a0a12',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Projekt erstellen
+                  </button>
+                )}
+              </div>
+            ) : null}
+
             {previewUrl ? (
               <div>
                 <div className="font-mono mb-2" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
@@ -477,6 +682,281 @@ export function ContactPage() {
             >
               Kontakt löschen
             </button>
+        </div>
+      ) : contactTab === 'erstgespraech' ? (
+        <div className="flex max-w-4xl flex-col gap-4">
+          {fieldCfgErst.fields.map((f) => {
+            const val = readCfgField(d, f)
+            const apply = (next: string | number | boolean) =>
+              onField(patchCfgField(d, f, next))
+            return (
+              <div key={f.id}>
+                <label
+                  className="font-mono mb-1 block"
+                  style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+                >
+                  {f.label}
+                  {f.required ? ' *' : ''}
+                </label>
+                {f.type === 'textarea' ? (
+                  <textarea
+                    value={String(val)}
+                    onChange={(e) => apply(e.target.value)}
+                    rows={6}
+                    placeholder={f.placeholder}
+                    style={{ ...FIELD, resize: 'vertical', minHeight: 120 }}
+                  />
+                ) : f.type === 'toggle' ? (
+                  <button
+                    type="button"
+                    className="font-mono"
+                    onClick={() => apply(!Boolean(val))}
+                    style={{
+                      fontSize: 11,
+                      padding: '8px 16px',
+                      borderRadius: 10,
+                      border: '1px solid var(--glass-border-2)',
+                      background: val
+                        ? 'color-mix(in srgb, var(--mode-sales) 18%, transparent)'
+                        : 'var(--glass-2)',
+                      color: val ? 'var(--mode-sales)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {val ? 'Ja' : 'Nein'}
+                  </button>
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    value={String(val)}
+                    onChange={(e) =>
+                      apply(
+                        f.type === 'number' ? Number(e.target.value) : e.target.value,
+                      )
+                    }
+                    placeholder={f.placeholder}
+                    style={FIELD}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : contactTab === 'qualifikation' ? (
+        <div className="flex max-w-4xl flex-col gap-4">
+          {fieldCfgQual.fields.map((f) => {
+            if (f.db_key === 'entscheider_name' && d.ist_entscheider) return null
+            const val = readCfgField(d, f)
+            const apply = (next: string | number | boolean) =>
+              onField(patchCfgField(d, f, next))
+            return (
+              <div key={f.id}>
+                <label
+                  className="font-mono mb-1 block"
+                  style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+                >
+                  {f.label}
+                  {f.required ? ' *' : ''}
+                </label>
+                {f.type === 'textarea' ? (
+                  <textarea
+                    value={String(val)}
+                    onChange={(e) => apply(e.target.value)}
+                    rows={5}
+                    placeholder={f.placeholder}
+                    style={{ ...FIELD, resize: 'vertical' }}
+                  />
+                ) : f.type === 'toggle' ? (
+                  <button
+                    type="button"
+                    className="font-mono"
+                    onClick={() => apply(!Boolean(val))}
+                    style={{
+                      fontSize: 11,
+                      padding: '8px 16px',
+                      borderRadius: 10,
+                      border: '1px solid var(--glass-border-2)',
+                      background: val
+                        ? 'color-mix(in srgb, var(--mode-sales) 18%, transparent)'
+                        : 'var(--glass-2)',
+                      color: val ? 'var(--mode-sales)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {val ? 'Ja' : 'Nein'}
+                  </button>
+                ) : f.type === 'number' && f.db_key === 'abschluss_wahrscheinlichkeit' ? (
+                  <div className="flex flex-wrap items-center gap-4">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Number(val)}
+                      onChange={(e) => apply(Number(e.target.value))}
+                      style={{
+                        flex: '1 1 200px',
+                        maxWidth: 360,
+                        accentColor:
+                          Number(val) <= 30
+                            ? 'var(--accent-coral)'
+                            : Number(val) <= 60
+                              ? 'var(--accent-amber)'
+                              : '#4ade80',
+                      }}
+                    />
+                    <span
+                      className="font-display"
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color:
+                          Number(val) <= 30
+                            ? 'var(--accent-coral)'
+                            : Number(val) <= 60
+                              ? 'var(--accent-amber)'
+                              : '#4ade80',
+                        minWidth: 48,
+                      }}
+                    >
+                      {Number(val)}%
+                    </span>
+                  </div>
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    value={String(val)}
+                    onChange={(e) =>
+                      apply(
+                        f.type === 'number' ? Number(e.target.value) : e.target.value,
+                      )
+                    }
+                    placeholder={f.placeholder}
+                    style={FIELD}
+                  />
+                )}
+              </div>
+            )
+          })}
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              border: '1px solid color-mix(in srgb, var(--accent-teal) 30%, var(--glass-border-2))',
+              background: 'color-mix(in srgb, var(--accent-teal) 6%, var(--glass-1))',
+            }}
+          >
+            <div className="font-mono mb-3" style={{ fontSize: 11, color: 'var(--accent-teal)' }}>
+              Potenzial &amp; Umsatz
+            </div>
+            <div className="mb-3">
+              <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                Betrag
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="font-mono" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                  €
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={d.potenzial_betrag === 0 ? '' : d.potenzial_betrag}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    onField({
+                      potenzial_betrag:
+                        raw === '' ? 0 : Math.max(0, Math.round(Number(raw))),
+                    })
+                  }}
+                  placeholder="0"
+                  style={{ ...FIELD, flex: 1 }}
+                />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                Typ
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {(['einmalig', 'monatlich', 'jährlich'] as PotenzialTyp[]).map((typ) => {
+                  const on = d.potenzial_typ === typ
+                  return (
+                    <button
+                      key={typ}
+                      type="button"
+                      className="font-mono"
+                      onClick={() => onField({ potenzial_typ: typ })}
+                      style={{
+                        fontSize: 10,
+                        padding: '7px 12px',
+                        borderRadius: 999,
+                        border: on
+                          ? '1px solid var(--accent-teal)'
+                          : '1px solid var(--glass-border-2)',
+                        background: on
+                          ? 'color-mix(in srgb, var(--accent-teal) 14%, transparent)'
+                          : 'var(--glass-2)',
+                        color: on ? 'var(--accent-teal)' : 'var(--text-tertiary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {typ === 'einmalig'
+                        ? 'Einmalig'
+                        : typ === 'monatlich'
+                          ? 'Monatlich'
+                          : 'Jährlich'}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {potenzialAnnualHint ? (
+              <div
+                className="font-mono mb-3"
+                style={{ fontSize: 12, color: 'var(--text-secondary)' }}
+              >
+                {potenzialAnnualHint}
+              </div>
+            ) : null}
+            <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Notiz
+            </label>
+            <textarea
+              value={d.potenzial_notiz}
+              onChange={(e) => onField({ potenzial_notiz: e.target.value })}
+              rows={3}
+              placeholder="Wie kommt dieser Wert zustande?"
+              style={{ ...FIELD, resize: 'vertical' }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+          <div className="flex flex-col gap-3">
+            <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Call Notes
+            </label>
+            <textarea
+              value={d.call_notes}
+              onChange={(e) => onField({ call_notes: e.target.value })}
+              onBlur={() => {
+                const v = d.call_notes ?? ''
+                if (v === lastCallNotes.current) return
+                lastCallNotes.current = v
+                const base = draft ?? contact
+                if (!base || !contactId) return
+                const entry = {
+                  id: generateId(),
+                  text: 'Call Notes aktualisiert',
+                  at: new Date().toISOString(),
+                }
+                pushPatch({
+                  call_notes: v,
+                  activity_log: [...base.activity_log, entry],
+                })
+              }}
+              rows={14}
+              placeholder="Datum, Themen, Einwände, nächste Schritte..."
+              style={{ ...FIELD, resize: 'vertical' }}
+            />
           </div>
 
           <div
@@ -494,7 +974,7 @@ export function ContactPage() {
               Aktivitäts-Log
             </div>
             <div
-              className="flex max-h-[280px] flex-col gap-2 overflow-y-auto pr-1"
+              className="flex max-h-[360px] flex-col gap-2 overflow-y-auto pr-1"
               style={{ fontSize: 12 }}
             >
               {[...d.activity_log]
@@ -547,6 +1027,234 @@ export function ContactPage() {
             </button>
           </div>
         </div>
+      )}
+      <Drawer
+        open={fieldDrawer !== null}
+        onClose={() => setFieldDrawer(null)}
+        title="Felder anpassen"
+        width={420}
+      >
+        {activeFieldCfg ? (
+          <div className="flex flex-col gap-3" style={{ pointerEvents: 'auto' }}>
+            {editFields.map((f, i) => (
+              <div
+                key={f.id}
+                className="rounded-xl p-3"
+                style={{
+                  border: '1px solid var(--glass-border-1)',
+                  background: 'var(--glass-1)',
+                }}
+              >
+                <div className="mb-2 flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    className="font-mono"
+                    disabled={i === 0}
+                    onClick={() => {
+                      setEditFields((prev) => {
+                        if (i <= 0) return prev
+                        const next = [...prev]
+                        const a = next[i - 1]!
+                        const b = next[i]!
+                        next[i - 1] = b
+                        next[i] = a
+                        return next.map((x, ord) => ({ ...x, order: ord }))
+                      })
+                    }}
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--glass-border-2)',
+                      opacity: i === 0 ? 0.4 : 1,
+                    }}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="font-mono"
+                    disabled={i >= editFields.length - 1}
+                    onClick={() => {
+                      setEditFields((prev) => {
+                        if (i >= prev.length - 1) return prev
+                        const next = [...prev]
+                        const a = next[i]!
+                        const b = next[i + 1]!
+                        next[i] = b
+                        next[i + 1] = a
+                        return next.map((x, ord) => ({ ...x, order: ord }))
+                      })
+                    }}
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--glass-border-2)',
+                      opacity: i >= editFields.length - 1 ? 0.4 : 1,
+                    }}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="font-mono"
+                    onClick={() =>
+                      setEditFields((prev) =>
+                        prev.filter((x) => x.id !== f.id).map((x, ord) => ({ ...x, order: ord })),
+                      )
+                    }
+                    style={{
+                      fontSize: 11,
+                      marginLeft: 'auto',
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--accent-coral)',
+                      color: 'var(--accent-coral)',
+                      background: 'transparent',
+                    }}
+                  >
+                    Löschen
+                  </button>
+                </div>
+                <label className="font-mono mb-1 block" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                  Label
+                </label>
+                <input
+                  value={f.label}
+                  onChange={(e) =>
+                    setEditFields((prev) =>
+                      prev.map((x) => (x.id === f.id ? { ...x, label: e.target.value } : x)),
+                    )
+                  }
+                  style={{ ...FIELD, marginBottom: 8 }}
+                />
+                <label className="font-mono mb-1 block" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                  Placeholder
+                </label>
+                <input
+                  value={f.placeholder}
+                  onChange={(e) =>
+                    setEditFields((prev) =>
+                      prev.map((x) => (x.id === f.id ? { ...x, placeholder: e.target.value } : x)),
+                    )
+                  }
+                  style={{ ...FIELD, marginBottom: 8 }}
+                />
+                <label className="font-mono mb-1 block" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                  Typ
+                </label>
+                <select
+                  value={f.type}
+                  onChange={(e) =>
+                    setEditFields((prev) =>
+                      prev.map((x) =>
+                        x.id === f.id
+                          ? { ...x, type: e.target.value as SalesFieldItem['type'] }
+                          : x,
+                      ),
+                    )
+                  }
+                  style={{ ...FIELD, marginBottom: 8 }}
+                >
+                  <option value="textarea">Text (mehrzeilig)</option>
+                  <option value="text">Text</option>
+                  <option value="number">Zahl</option>
+                  <option value="toggle">Ja / Nein</option>
+                </select>
+                <label className="font-mono mb-1 block" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                  DB-Schlüssel / Mapping
+                </label>
+                <input
+                  value={f.db_key}
+                  onChange={(e) =>
+                    setEditFields((prev) =>
+                      prev.map((x) => (x.id === f.id ? { ...x, db_key: e.target.value } : x)),
+                    )
+                  }
+                  style={FIELD}
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              className="font-mono"
+              onClick={() =>
+                setEditFields((prev) => [
+                  ...prev,
+                  {
+                    id: generateId(),
+                    label: 'Neues Feld',
+                    placeholder: '',
+                    type: 'text',
+                    required: false,
+                    order: prev.length,
+                    db_key: `custom_${generateId().slice(0, 8)}`,
+                  },
+                ])
+              }
+              style={{
+                fontSize: 11,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px dashed var(--mode-sales)',
+                color: 'var(--mode-sales)',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              + Neues Feld
+            </button>
+            {activeFieldCfg.error ? (
+              <p className="font-mono" style={{ fontSize: 11, color: 'var(--accent-coral)' }}>
+                {activeFieldCfg.error}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="font-mono"
+                onClick={() => {
+                  activeFieldCfg.resetToDefaults()
+                  if (fieldDrawer) {
+                    setEditFields(getDefaultFieldsForTab(fieldDrawer))
+                  }
+                }}
+                style={{
+                  fontSize: 11,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--glass-border-2)',
+                  background: 'var(--glass-2)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                Zurücksetzen
+              </button>
+              <button
+                type="button"
+                className="font-mono"
+                onClick={() => {
+                  void activeFieldCfg.saveFields(editFields)
+                  setFieldDrawer(null)
+                }}
+                style={{
+                  fontSize: 11,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--mode-sales)',
+                  background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
+                  color: 'var(--mode-sales)',
+                  cursor: 'pointer',
+                }}
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Drawer>
     </motion.div>
   )
 }
