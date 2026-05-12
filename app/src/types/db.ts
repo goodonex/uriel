@@ -625,6 +625,50 @@ export interface EmailSequence {
 }
 
 // =================================================================
+// Ads (Builder + Tracking + Lead-Intake)
+// =================================================================
+
+export type AdPlatform = 'linkedin' | 'meta' | 'google' | 'tiktok' | 'other'
+export type AdStatus = 'draft' | 'live' | 'paused' | 'ended'
+
+export interface AdCampaign {
+  id: string
+  brand_id: string
+  name: string
+  platform: AdPlatform
+  status: AdStatus
+  hook: string
+  body: string
+  cta: string
+  target_url: string
+  tracking_url: string
+  utm_source: string
+  utm_medium: string
+  utm_campaign: string
+  utm_content: string
+  budget_total: number
+  budget_spent: number
+  cost_per_lead: number
+  start_date: string | null
+  end_date: string | null
+  clicks_count: number
+  leads_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AdClick {
+  id: string
+  campaign_id: string
+  brand_id: string
+  clicked_at: string
+  referrer: string
+  user_agent: string
+  ip_hash: string
+  utm_content: string
+}
+
+// =================================================================
 // Recruiting (Stellenanzeigen)
 // =================================================================
 

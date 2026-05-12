@@ -21,6 +21,7 @@ import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { PortalRoute } from './pages/portal/PortalRoute'
 import { BookingPublicPage } from './pages/public/BookingPublicPage'
+import { LeadIntakePage } from './pages/public/LeadIntakePage'
 import { PromoMode } from './pages/promo/PromoMode'
 import { CallModePage } from './pages/sales/CallModePage'
 import { ContactListsPage } from './pages/sales/ContactListsPage'
@@ -212,6 +213,7 @@ function App() {
             <Route path="/onboarding/:brandId" element={<OnboardingPublicPage />} />
             <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
+            <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />
             <Route element={<OwnerWorkspaceShell />}>
               <Route path="/" element={<NodeGraphPage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
