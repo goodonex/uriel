@@ -624,6 +624,36 @@ export interface EmailSequence {
   updated_at: string
 }
 
+// =================================================================
+// Recruiting (Stellenanzeigen)
+// =================================================================
+
+export type RecruitingJobStatus = 'draft' | 'active' | 'paused' | 'closed'
+export type RecruitingJobFormat =
+  | 'linkedin_organic'
+  | 'linkedin_ad'
+  | 'culturefit'
+  | 'other'
+
+export interface RecruitingJob {
+  id: string
+  brand_id: string
+  title: string
+  description: string
+  requirements: string
+  benefits: string
+  format: RecruitingJobFormat
+  status: RecruitingJobStatus
+  external_url: string
+  utm_campaign: string
+  utm_source: string
+  utm_medium: string
+  views_count: number
+  applications_count: number
+  created_at: string
+  updated_at: string
+}
+
 export type SequenceEnrollmentStatus =
   | 'active'
   | 'paused'

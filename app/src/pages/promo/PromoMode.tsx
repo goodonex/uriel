@@ -17,6 +17,7 @@ import { MailFlowsPanel } from './MailFlowsPanel'
 import { PromoEmailPanel } from './PromoEmailPanel'
 import { PromoIdeasPanel } from './PromoIdeasPanel'
 import { PromoSequencesPanel } from './PromoSequencesPanel'
+import { RecruitingPanel } from './RecruitingPanel'
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
@@ -113,7 +114,9 @@ export function PromoMode() {
   const positioning = usePositioning(slug)
   const brand = brands.find((b) => b.slug === slug)
 
-  const [promoTab, setPromoTab] = useState<'kalender' | 'ideen' | 'sequenzen' | 'email' | 'flows'>('kalender')
+  const [promoTab, setPromoTab] = useState<
+    'kalender' | 'ideen' | 'sequenzen' | 'email' | 'flows' | 'recruiting'
+  >('kalender')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = pieces.items.find((p) => p.id === selectedId) ?? null
 
@@ -199,6 +202,7 @@ export function PromoMode() {
                 ['sequenzen', 'Content-Sequenzen'],
                 ['email', 'E-Mail-Plan'],
                 ['flows', 'Mail-Flows'],
+                ['recruiting', 'Recruiting'],
               ] as const
             ).map(([t, label]) => {
               const on = promoTab === t
@@ -609,10 +613,15 @@ export function PromoMode() {
           <SectionLabel accent="var(--accent-blue)">E-Mail-Sequenzen</SectionLabel>
           {slug ? <PromoEmailPanel slug={slug} /> : null}
         </>
-      ) : (
+      ) : promoTab === 'flows' ? (
         <>
           <SectionLabel accent="var(--accent-blue)">Mail-Flows</SectionLabel>
           {slug ? <MailFlowsPanel slug={slug} /> : null}
+        </>
+      ) : (
+        <>
+          <SectionLabel accent="var(--accent-teal)">Recruiting</SectionLabel>
+          {slug ? <RecruitingPanel slug={slug} /> : null}
         </>
       )}
     </motion.div>
