@@ -29,7 +29,8 @@ import { ContactPage } from './pages/sales/ContactPage'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { SalesMode } from './pages/sales/SalesMode'
 import { NodeGraphPage } from './pages/NodeGraphPage'
-import { NodeGraph } from './three/NodeGraph'
+import { useWorldCameraSyncFromRoute } from './store/worldCamera'
+import { World } from './three/World'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -40,6 +41,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function OwnerWorkspaceShell() {
+  useWorldCameraSyncFromRoute()
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const navigate = useNavigate()
@@ -171,7 +173,7 @@ function App() {
         }}
       >
         <Suspense fallback={null}>
-          <NodeGraph />
+          <World />
         </Suspense>
       </Canvas>
       ) : null}
