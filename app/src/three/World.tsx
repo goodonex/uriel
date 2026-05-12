@@ -9,6 +9,7 @@
  */
 import { Suspense } from 'react'
 import { useWorldCamera } from '../store/worldCamera'
+import { WorldCameraController } from './WorldCameraController'
 
 export function World() {
   const stage = useWorldCamera((s) => s.stage)
@@ -16,6 +17,7 @@ export function World() {
   return (
     <Suspense fallback={null}>
       <ambientLight intensity={0.3} />
+      <WorldCameraController />
       {/* Stage-bewusste Welt-Inhalte folgen in Phase 3–7. `stage` wird hier
           schon konsumiert damit das Mount-Pattern für späteres Conditional
           Rendering steht (kein React-Render ohne Bezug zur aktuellen Ebene). */}
