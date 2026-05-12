@@ -8,7 +8,6 @@ import type { Brand } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
 import { BrandNode } from './BrandNode'
 import { CameraRig } from './CameraRig'
-import { Connections } from './Connections'
 
 /** Nicht-/: Nodes unten rechts, visuell max. ~20 % Viewport-Breite (Skalierung an Canvas-Breite gekoppelt). */
 const CORNER_NODES_OFFSET: [number, number, number] = [5.15, -3.45, 0]
@@ -123,10 +122,6 @@ export function NodeGraph() {
           onTunnelComplete={handleTunnelComplete}
           brandAmbient={cornerMode}
         />
-        {/* Nur auf Universe: Linien wirken über Glas-Panels wie ein „V zur Mitte“. */}
-        {location.pathname === '/' ? (
-          <Connections positions={NODE_POSITIONS.slice(0, brands.length)} />
-        ) : null}
         <group
           ref={nodesGroupRef}
           position={cornerMode ? CORNER_NODES_OFFSET : [0, 0, 0]}

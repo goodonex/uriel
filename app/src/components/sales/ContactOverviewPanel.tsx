@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useCallLogs, useEmailLogs } from '../../hooks/useSalesPro'
 import { useContacts } from '../../hooks/useContacts'
+import { useContentPieces } from '../../hooks/useContentPieces'
 import { useTasks } from '../../hooks/useTasks'
 import { useBrandId } from '../../hooks/useBrandId'
 import { useViewport } from '../../hooks/useViewport'
@@ -100,6 +101,14 @@ export function ContactOverviewPanel({
   const tasks = useTasks(brandSlug)
   const calls = useCallLogs(brandSlug, { contactId: contact.id })
   const mails = useEmailLogs(brandSlug, { contactId: contact.id })
+  const pieces = useContentPieces(brandSlug)
+  const sourcePiece = useMemo(
+    () =>
+      contact.source_content_piece_id
+        ? pieces.items.find((p) => p.id === contact.source_content_piece_id) ?? null
+        : null,
+    [pieces.items, contact.source_content_piece_id],
+  )
   const { show } = useToast()
   const { isMobile } = useViewport()
 
@@ -268,6 +277,8 @@ export function ContactOverviewPanel({
         onField={onField}
         onDelete={handleDelete}
         compact={isMobile}
+        sourcePiece={sourcePiece ? { id: sourcePiece.id, title: sourcePiece.title } : null}
+        brandSlug={brandSlug}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <DocumenterCard
@@ -316,11 +327,15 @@ function IdentityCard({
   onField,
   onDelete,
   compact = false,
+  sourcePiece,
+  brandSlug,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   onDelete: () => void
   compact?: boolean
+  sourcePiece?: { id: string; title: string } | null
+  brandSlug?: string
 }) {
   const c = contact
   const initials = initialsOf(c.name)
@@ -446,6 +461,34 @@ function IdentityCard({
           />
         </div>
       </div>
+
+      {sourcePiece && brandSlug ? (
+        <a
+          href={`/brand/${brandSlug}/promo`}
+          className="font-mono"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '5px 10px',
+            borderRadius: 999,
+            background: 'color-mix(in srgb, var(--mode-promo) 12%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--mode-promo) 35%, transparent)',
+            color: 'var(--mode-promo)',
+            fontSize: 10,
+            letterSpacing: '0.06em',
+            textDecoration: 'none',
+            width: 'fit-content',
+            maxWidth: '100%',
+          }}
+          title={`Kam über ${sourcePiece.title}`}
+        >
+          <span style={{ opacity: 0.7 }}>↩</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            kam über · {sourcePiece.title}
+          </span>
+        </a>
+      ) : null}
 
       {/* Quick-Action-Icons */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

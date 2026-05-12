@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Brand, ICP, Positioning, WordBankEntry } from '../types/db'
+import type { Brand } from '../types/db'
+import { BRAND_FOUNDATION_SEEDS } from '../data/brandFoundationSeeds'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { isLocalFallbackBrandId } from '../lib/brandResolve'
-import { generateId, loadOne, saveList, saveOne } from '../lib/storage'
+import {
+  seedFoundationLocalStorage,
+  seedFoundationSupabase,
+} from '../lib/seedBrandFoundation'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -57,217 +61,6 @@ const FALLBACK_BRANDS: Brand[] = [
     created_at: new Date().toISOString(),
   },
 ]
-
-const WERTAVIO_SLUG = 'wertavio' as const
-
-/** Erhöhen, wenn sich die Startwerte ändern — triggert erneutes Schreiben von localStorage + ggf. DB-Leerstand. */
-const WERTAVIO_SEED_VERSION = 2
-
-const WERTAVIO_LS_SENTINEL = 'wertavio-foundation-seed' as const
-
-const WERTAVIO_POSITIONING_STATEMENT =
-  'Wertavio verbindet Immobilieneigentümer kostenlos mit dem passenden Makler aus einem kuratierten Netzwerk spezialisierter Profis. Nicht Masse — sondern Match.'
-
-const WERTAVIO_TONE_OF_VOICE =
-  'Vertrauensvoll, klar, persönlich. Kein Immobilien-Slang. Kurze Sätze. Konkrete Aussagen. Wir nehmen dem Eigentümer die Unsicherheit.'
-
-const WERTAVIO_BUSINESS_MODEL: NonNullable<Positioning['business_model']> = {
-  who: 'Wertavio',
-  what: 'Makler-Matching für Eigentümer',
-  how: 'kuratiertes Netzwerk + Ads',
-  for_whom: 'Eigentümer die verkaufen wollen',
-  revenue: 'Makler-Abo 750€/Monat + Setup',
-}
-
-function buildWertavioPositioningDoc(brandKey: string, now: string): Positioning {
-  return {
-    id: generateId(),
-    brand_id: brandKey,
-    statement: WERTAVIO_POSITIONING_STATEMENT,
-    tone_of_voice: WERTAVIO_TONE_OF_VOICE,
-    business_model: WERTAVIO_BUSINESS_MODEL,
-    updated_at: now,
-  }
-}
-
-function buildWertavioIcps(brandKey: string, now: string): ICP[] {
-  return [
-    {
-      id: generateId(),
-      brand_id: brandKey,
-      name: 'Urban Eigentümer',
-      age_range: '45–70',
-      location: 'Deutschland',
-      pain_points: ['Welchem Makler kann ich vertrauen?'],
-      word_clusters: [],
-      priority: 1,
-      notes: '',
-      updated_at: now,
-    },
-    {
-      id: generateId(),
-      brand_id: brandKey,
-      name: 'Wachstums-Makler',
-      age_range: '30–52',
-      location: 'Deutschland',
-      pain_points: ['Keine verlässliche Lead-Quelle'],
-      word_clusters: [],
-      priority: 2,
-      notes: '',
-      updated_at: now,
-    },
-  ]
-}
-
-function buildWertavioWordBank(brandKey: string, now: string): WordBankEntry[] {
-  const yesWords = [
-    'Vertrauen',
-    'passend',
-    'geprüft',
-    'kostenlos',
-    'Spezialist',
-    'bester Preis',
-    'unkompliziert',
-    'Pipeline',
-    'planbar',
-    'exklusiv',
-  ]
-  const noWords = [
-    'Masse',
-    'Portal',
-    'Datenbank',
-    'irgendein Makler',
-    'günstig',
-    'revolutionär',
-    'Spam',
-  ]
-  return [
-    ...yesWords.map((word) => ({
-      id: generateId(),
-      brand_id: brandKey,
-      word,
-      type: 'yes' as const,
-      cluster: 'Wertavio',
-      updated_at: now,
-    })),
-    ...noWords.map((word) => ({
-      id: generateId(),
-      brand_id: brandKey,
-      word,
-      type: 'no' as const,
-      cluster: 'Wertavio',
-      updated_at: now,
-    })),
-  ]
-}
-
-/**
- * localStorage unter `brand-os:wertavio:*` — gleiche Keys wie usePositioning / useICPs / useWordBank.
- * Supabase-Nutzer sehen Building über DB; dafür `seedWertavioFoundationSupabase` (falls Tabellen leer).
- */
-function seedWertavioLocalStorage(): void {
-  if (typeof window === 'undefined') return
-
-  const mark = loadOne<{ v: number }>([WERTAVIO_SLUG, WERTAVIO_LS_SENTINEL])
-  if (mark?.v === WERTAVIO_SEED_VERSION) return
-
-  const now = new Date().toISOString()
-  const key = WERTAVIO_SLUG
-
-  const prevPos = loadOne<Positioning>([key, 'positioning'])
-  const doc = buildWertavioPositioningDoc(key, now)
-  doc.id = prevPos?.id ?? doc.id
-  saveOne([key, 'positioning'], doc)
-
-  saveList([key, 'icps'], buildWertavioIcps(key, now))
-  saveList([key, 'word-bank'], buildWertavioWordBank(key, now))
-
-  saveOne([WERTAVIO_SLUG, WERTAVIO_LS_SENTINEL], {
-    v: WERTAVIO_SEED_VERSION,
-    at: now,
-  })
-}
-
-/** Foundation-Tabellen in Supabase, nur wenn noch keine Inhalte (damit Building mit aktivem Supabase gefüllt ist). */
-async function seedWertavioFoundationSupabase(brandId: string): Promise<void> {
-  if (!supabase) return
-
-  const { data: pos, error: posErr } = await supabase
-    .from('foundation_positioning')
-    .select('id, statement')
-    .eq('brand_id', brandId)
-    .maybeSingle()
-
-  if (posErr && isMissingSupabaseTableError(posErr.message)) return
-  if (posErr) {
-    console.warn('[useBrands] Wertavio foundation_positioning:', posErr.message)
-    return
-  }
-
-  if (!pos?.statement?.trim()) {
-    const now = new Date().toISOString()
-    const row = {
-      id: pos?.id ?? generateId(),
-      brand_id: brandId,
-      statement: WERTAVIO_POSITIONING_STATEMENT,
-      tone_of_voice: WERTAVIO_TONE_OF_VOICE,
-      business_model: WERTAVIO_BUSINESS_MODEL,
-      updated_at: now,
-    }
-    const { error: upErr } = await supabase
-      .from('foundation_positioning')
-      .upsert(row, { onConflict: 'brand_id' })
-    if (upErr && !isMissingSupabaseTableError(upErr.message)) {
-      console.warn('[useBrands] Wertavio positioning upsert:', upErr.message)
-    }
-  }
-
-  const { count: icpCount, error: icpCountErr } = await supabase
-    .from('foundation_icps')
-    .select('*', { count: 'exact', head: true })
-    .eq('brand_id', brandId)
-
-  if (icpCountErr && isMissingSupabaseTableError(icpCountErr.message)) return
-  if (!icpCountErr && (icpCount ?? 0) === 0) {
-    const now = new Date().toISOString()
-    const rows = buildWertavioIcps(brandId, now).map((r) => ({
-      brand_id: brandId,
-      name: r.name,
-      age_range: r.age_range,
-      location: r.location,
-      pain_points: r.pain_points,
-      word_clusters: r.word_clusters,
-      priority: r.priority,
-      notes: r.notes,
-      updated_at: now,
-    }))
-    const { error: insIcp } = await supabase.from('foundation_icps').insert(rows)
-    if (insIcp && !isMissingSupabaseTableError(insIcp.message)) {
-      console.warn('[useBrands] Wertavio icps insert:', insIcp.message)
-    }
-  }
-
-  const { count: wbCount, error: wbCountErr } = await supabase
-    .from('foundation_word_bank')
-    .select('*', { count: 'exact', head: true })
-    .eq('brand_id', brandId)
-
-  if (wbCountErr && isMissingSupabaseTableError(wbCountErr.message)) return
-  if (!wbCountErr && (wbCount ?? 0) === 0) {
-    const now = new Date().toISOString()
-    const rows = buildWertavioWordBank(brandId, now).map((r) => ({
-      brand_id: brandId,
-      word: r.word,
-      type: r.type,
-      cluster: r.cluster,
-      updated_at: now,
-    }))
-    const { error: insWb } = await supabase.from('foundation_word_bank').insert(rows)
-    if (insWb && !isMissingSupabaseTableError(insWb.message)) {
-      console.warn('[useBrands] Wertavio word_bank insert:', insWb.message)
-    }
-  }
-}
 
 interface UseBrandsResult {
   brands: Brand[]
@@ -395,25 +188,29 @@ export function useBrands(): UseBrandsResult {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const seedAttemptedRef = useRef(false)
-  const wertavioSupabaseSeedRef = useRef(false)
+  const foundationSeedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    seedWertavioLocalStorage()
+    for (const seed of BRAND_FOUNDATION_SEEDS) {
+      seedFoundationLocalStorage(seed)
+    }
   }, [])
 
   useEffect(() => {
     if (!user?.id) {
-      wertavioSupabaseSeedRef.current = false
+      foundationSeedRef.current = new Set()
       return
     }
     if (!supabase || loading) return
-    const w = brands.find((b) => b.slug === WERTAVIO_SLUG)
-    if (!w || isLocalFallbackBrandId(w.id)) return
-    if (wertavioSupabaseSeedRef.current) return
-    wertavioSupabaseSeedRef.current = true
-    void seedWertavioFoundationSupabase(w.id).catch(() => {
-      wertavioSupabaseSeedRef.current = false
-    })
+    for (const seed of BRAND_FOUNDATION_SEEDS) {
+      const brand = brands.find((b) => b.slug === seed.slug)
+      if (!brand || isLocalFallbackBrandId(brand.id)) continue
+      if (foundationSeedRef.current.has(brand.id)) continue
+      foundationSeedRef.current.add(brand.id)
+      void seedFoundationSupabase(brand.id, seed).catch(() => {
+        foundationSeedRef.current.delete(brand.id)
+      })
+    }
   }, [user?.id, brands, loading])
 
   const reload = useCallback(async () => {

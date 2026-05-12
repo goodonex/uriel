@@ -4,6 +4,7 @@ import { BrandPresenceShowcase } from '../components/BrandPresenceShowcase'
 import { GoalsCard } from '../components/dashboard/GoalsCard'
 import { TasksSection } from '../components/dashboard/TasksSection'
 import { TodaySection } from '../components/dashboard/TodaySection'
+import { EmptyState } from '../components/EmptyState'
 import {
   contactsDueToday,
   deliverStageProgress,
@@ -104,16 +105,29 @@ export function BrandDashboardPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {/* HERO — Mein Tag heute */}
       {slug ? (
-        <TodaySection slug={slug} contacts={dash.contacts} loading={dash.loading} />
+        <div style={{ paddingBottom: 4 }}>
+          <TodaySection slug={slug} contacts={dash.contacts} loading={dash.loading} />
+        </div>
       ) : null}
 
       {slug ? (
-        <div className="mb-6 grid gap-4 lg:grid-cols-2">
+        <div className="mb-10 grid gap-4 lg:grid-cols-2">
           <TasksSection slug={slug} />
           <GoalsCard slug={slug} />
         </div>
       ) : null}
+
+      {/* Trennlinie zwischen Hero-Bereich und Übersicht — dezent */}
+      <div
+        style={{
+          margin: '4px 0 24px',
+          height: 1,
+          background:
+            'linear-gradient(90deg, transparent, var(--glass-border-1), transparent)',
+        }}
+      />
 
       <div
         className="font-mono"
@@ -123,7 +137,12 @@ export function BrandDashboardPage() {
       </div>
       <h2
         className="font-display mb-6 mt-1"
-        style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          letterSpacing: '-0.2px',
+        }}
       >
         Brand als zusammenhängender Flow
       </h2>
@@ -303,9 +322,12 @@ export function BrandDashboardPage() {
             </button>
           </div>
           {activeDeliver.length === 0 ? (
-            <div className="font-body" style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-              Keine aktiven Projekte.
-            </div>
+            <EmptyState
+              compact
+              title="Noch kein Projekt aktiv."
+              description="Kommt automatisch, wenn du einen Deal abschließt."
+              accent="var(--accent-teal)"
+            />
           ) : (
             <ul className="list-none space-y-3 p-0">
               {activeDeliver.map((p: DeliverProject) => {
@@ -377,9 +399,14 @@ export function BrandDashboardPage() {
             </button>
           </div>
           {dash.feedItems.length === 0 ? (
-            <div className="font-body" style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-              Noch keine Signale — Discovery starten.
-            </div>
+            <EmptyState
+              compact
+              title="Noch keine Signale."
+              description="Brand OS analysiert Markt und Wettbewerb für dich."
+              actionLabel="Analyse starten"
+              onAction={() => navigate(`/brand/${slug}/discovery`)}
+              accent="var(--accent-coral)"
+            />
           ) : (
             <ul className="list-none space-y-2 p-0">
               {dash.feedItems.slice(0, 5).map((it) => (

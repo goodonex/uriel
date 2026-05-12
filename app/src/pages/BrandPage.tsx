@@ -188,7 +188,17 @@ export function BrandPage() {
           </header>
         ) : null}
         <div style={{ padding: isMobile ? '12px 14px 80px' : 0 }}>
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </div>
       </motion.div>
 

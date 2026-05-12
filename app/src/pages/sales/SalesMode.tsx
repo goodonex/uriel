@@ -487,24 +487,32 @@ function SortableContactCard({
   const noteRight = overdue ? 110 : 52
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.35 : 1,
+    transform: isDragging
+      ? `${CSS.Transform.toString(transform) ?? ''} scale(1.02)`
+      : CSS.Transform.toString(transform),
+    transition: isDragging ? 'box-shadow 160ms ease' : transition,
+    opacity: isDragging ? 0.95 : 1,
     padding: 10,
     paddingLeft: 12,
     borderRadius: 10,
-    background: 'var(--glass-1)',
+    background: isDragging ? 'var(--glass-3)' : 'var(--glass-1)',
     border: overdue
       ? '1px solid var(--accent-coral)'
       : selected
         ? '1px solid var(--accent-teal)'
-        : '1px solid var(--glass-border-2)',
+        : isDragging
+          ? '1px solid var(--glass-border-3)'
+          : '1px solid var(--glass-border-2)',
     borderLeft: `4px solid ${stageColor}`,
     position: 'relative' as const,
     width: '100%',
     textAlign: 'left' as const,
-    cursor: 'grab',
+    cursor: isDragging ? 'grabbing' : 'grab',
     touchAction: 'none' as const,
+    boxShadow: isDragging
+      ? '0 18px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25)'
+      : undefined,
+    zIndex: isDragging ? 50 : undefined,
   }
 
   return (

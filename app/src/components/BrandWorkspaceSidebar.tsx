@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
+import { useSidebarSignals } from '../hooks/useSidebarSignals'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
 import { useCommandPalette } from '../lib/commandPaletteContext'
 import { NotificationBell } from './NotificationBell'
@@ -148,6 +149,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
   )
 
   const [hoveredSection, setHoveredSection] = useState<BrandNavSection | null>(null)
+  const signals = useSidebarSignals(slug)
   const { openPalette } = useCommandPalette()
   const platformShortcut = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl K'
   const deliverSectionActive = active === 'deliver'
@@ -239,6 +241,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
             type="button"
             onClick={openPalette}
             title={`Suche · ${platformShortcut}`}
+            data-no-scale
             className="font-mono flex min-w-0 items-center gap-2 rounded-lg transition-colors"
             style={{
               flex: 1,
@@ -305,29 +308,40 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                 <Link
                   to={to}
                   title={collapsed ? item.label : undefined}
-                  className="group flex items-center rounded-xl transition-all duration-200"
+                  data-no-scale
+                  className="group relative flex items-center rounded-lg"
                   style={{
                     textDecoration: 'none',
-                    padding: collapsed ? '9px 0' : '9px 10px',
+                    padding: collapsed ? '8px 0' : '8px 10px',
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     gap: 10,
-                    background: isActive ? 'var(--glass-3)' : 'transparent',
-                    border: `1px solid ${isActive ? 'var(--glass-border-3)' : 'transparent'}`,
-                    boxShadow: isActive
-                      ? `0 0 16px color-mix(in srgb, var(${accent}) 10%, transparent)`
-                      : undefined,
+                    background: 'transparent',
+                    border: '1px solid transparent',
                   }}
                 >
+                  {/* Aktiv-Markierung: dünner vertikaler Balken links */}
+                  {isActive ? (
+                    <motion.span
+                      layoutId="sidebar-active-indicator"
+                      style={{
+                        position: 'absolute',
+                        left: collapsed ? 4 : 0,
+                        top: 8,
+                        bottom: 8,
+                        width: 2,
+                        borderRadius: 999,
+                        background: `var(${accent})`,
+                        boxShadow: `0 0 8px color-mix(in srgb, var(${accent}) 50%, transparent)`,
+                      }}
+                      transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                    />
+                  ) : null}
                   <span
                     className="flex shrink-0 items-center justify-center"
                     style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 8,
-                      color: isActive ? `var(${accent})` : 'var(--text-secondary)',
-                      background: isActive
-                        ? `color-mix(in srgb, var(${accent}) 16%, transparent)`
-                        : 'var(--glass-1)',
+                      width: 26,
+                      height: 26,
+                      color: isActive ? `var(${accent})` : 'var(--text-tertiary)',
                     }}
                   >
                     {navIcon(item.section)}
@@ -336,7 +350,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                     <span
                       className="font-display min-w-0 flex-1 truncate"
                       style={{
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: isActive ? 600 : 500,
                         color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                       }}
@@ -344,6 +358,25 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                       {item.label}
                     </span>
                   ) : null}
+                  {(() => {
+                    const hasSignal =
+                      (item.section === 'discovery' && signals.discoveryNew) ||
+                      (item.section === 'sales' && signals.salesDue) ||
+                      (item.section === 'deliver' && signals.deliverProgress)
+                    if (!hasSignal) return null
+                    return (
+                      <span
+                        className="dot-pulse"
+                        title="Neue Aktivität"
+                        style={{
+                          position: collapsed ? 'absolute' : 'static',
+                          top: collapsed ? 6 : undefined,
+                          right: collapsed ? 8 : undefined,
+                          marginLeft: collapsed ? 0 : 4,
+                        }}
+                      />
+                    )
+                  })()}
                   {isDeliverItem &&
                   !collapsed &&
                   activeDeliverProjects.length > 0 ? (
@@ -389,6 +422,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                             <Link
                               to={`${base}/deliver/${p.id}`}
                               title={p.name}
+                              data-no-scale
                               className="flex items-center gap-2 rounded-lg truncate transition-colors"
                               style={{
                                 textDecoration: 'none',
@@ -443,6 +477,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
             type="button"
             onClick={() => navigate('/')}
             title="Zurück zum Universe"
+            data-no-scale
             className="flex w-full items-center font-mono transition-colors"
             style={{
               fontSize: 9,

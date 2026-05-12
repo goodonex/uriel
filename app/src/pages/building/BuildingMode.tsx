@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { BrandTemplatePicker } from '../../components/BrandTemplatePicker'
-import { SectionLabel } from '../../components/SectionLabel'
+import { CollapsibleSection } from '../../components/CollapsibleSection'
 import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useAssets } from '../../hooks/useAssets'
 import { useBrands } from '../../hooks/useBrands'
@@ -32,6 +32,39 @@ export function BuildingMode() {
   const assets = useAssets(slug)
   const sops = useSOPs(slug)
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
+
+  const bm = businessModel.item
+  const bmStatus: 'empty' | 'partial' | 'done' = useMemo(() => {
+    if (!bm) return 'empty'
+    const filled = [bm.who, bm.what, bm.how, bm.for_whom, bm.revenue].filter(
+      (s) => (s ?? '').trim().length > 0,
+    ).length
+    if (filled === 0) return 'empty'
+    if (filled < 5) return 'partial'
+    return 'done'
+  }, [bm])
+  const positioningStatus: 'empty' | 'partial' | 'done' = useMemo(() => {
+    const s = positioning.item?.statement?.trim()
+    const t = positioning.item?.tone_of_voice?.trim()
+    if (!s && !t) return 'empty'
+    if (s && t) return 'done'
+    return 'partial'
+  }, [positioning.item])
+  const icpStatus: 'empty' | 'partial' | 'done' =
+    icps.items.length === 0 ? 'empty' : icps.items.length < 2 ? 'partial' : 'done'
+  const wbStatus: 'empty' | 'partial' | 'done' =
+    wordBank.items.length === 0
+      ? 'empty'
+      : wordBank.items.length < 4
+        ? 'partial'
+        : 'done'
+  const firstEmptyKey = useMemo(() => {
+    if (bmStatus !== 'done') return 'bm'
+    if (icpStatus !== 'done') return 'icp'
+    if (positioningStatus !== 'done') return 'pos'
+    if (wbStatus !== 'done') return 'wb'
+    return null
+  }, [bmStatus, icpStatus, positioningStatus, wbStatus])
 
   return (
     <BrandFoundationProvider
@@ -117,41 +150,63 @@ export function BuildingMode() {
         ) : null}
       </div>
 
-      <SectionLabel>Business Model — Wer · Was · Wie · Für wen · Womit</SectionLabel>
-      <BusinessModelSection
-        item={businessModel.item}
-        loading={businessModel.loading}
-        error={businessModel.error}
-        onSave={businessModel.save}
-      />
+      <CollapsibleSection
+        title="Business Model — Wer · Was · Wie · Für wen · Womit"
+        status={bmStatus}
+        defaultOpen={firstEmptyKey === 'bm'}
+      >
+        <BusinessModelSection
+          item={businessModel.item}
+          loading={businessModel.loading}
+          error={businessModel.error}
+          onSave={businessModel.save}
+        />
+      </CollapsibleSection>
 
-      <SectionLabel>ICPs — Zielgruppen</SectionLabel>
-      <ICPSection
-        icps={icps.items}
-        wordBank={wordBank.items}
-        loading={icps.loading}
-        error={icps.error}
-        onCreate={() => icps.create()}
-        onUpdate={icps.update}
-        onDelete={icps.remove}
-      />
+      <CollapsibleSection
+        title="ICPs — Zielgruppen"
+        meta={icps.items.length > 0 ? `${icps.items.length} angelegt` : undefined}
+        status={icpStatus}
+        defaultOpen={firstEmptyKey === 'icp'}
+      >
+        <ICPSection
+          icps={icps.items}
+          wordBank={wordBank.items}
+          loading={icps.loading}
+          error={icps.error}
+          onCreate={() => icps.create()}
+          onUpdate={icps.update}
+          onDelete={icps.remove}
+        />
+      </CollapsibleSection>
 
-      <SectionLabel>Positioning &amp; Tone</SectionLabel>
-      <PositioningSection
-        item={positioning.item}
-        loading={positioning.loading}
-        error={positioning.error}
-        onSave={positioning.save}
-      />
+      <CollapsibleSection
+        title="Positioning & Tone"
+        status={positioningStatus}
+        defaultOpen={firstEmptyKey === 'pos'}
+      >
+        <PositioningSection
+          item={positioning.item}
+          loading={positioning.loading}
+          error={positioning.error}
+          onSave={positioning.save}
+        />
+      </CollapsibleSection>
 
-      <SectionLabel>Word Bank — Ja / Nein</SectionLabel>
-      <WordBankSection
-        items={wordBank.items}
-        loading={wordBank.loading}
-        error={wordBank.error}
-        onCreate={wordBank.create}
-        onRemove={wordBank.remove}
-      />
+      <CollapsibleSection
+        title="Word Bank — Ja / Nein"
+        meta={wordBank.items.length > 0 ? `${wordBank.items.length} Wörter` : undefined}
+        status={wbStatus}
+        defaultOpen={firstEmptyKey === 'wb'}
+      >
+        <WordBankSection
+          items={wordBank.items}
+          loading={wordBank.loading}
+          error={wordBank.error}
+          onCreate={wordBank.create}
+          onRemove={wordBank.remove}
+        />
+      </CollapsibleSection>
 
       <div
         style={{
@@ -181,25 +236,35 @@ export function BuildingMode() {
           Library — Assets &amp; Prozesse
         </div>
 
-        <SectionLabel>Assets</SectionLabel>
-        <AssetsSection
-          items={assets.items}
-          loading={assets.loading}
-          error={assets.error}
-          onCreate={() => assets.create()}
-          onUpdate={assets.update}
-          onRemove={assets.remove}
-        />
+        <CollapsibleSection
+          title="Assets"
+          meta={assets.items.length > 0 ? `${assets.items.length}` : undefined}
+          defaultOpen={false}
+        >
+          <AssetsSection
+            items={assets.items}
+            loading={assets.loading}
+            error={assets.error}
+            onCreate={() => assets.create()}
+            onUpdate={assets.update}
+            onRemove={assets.remove}
+          />
+        </CollapsibleSection>
 
-        <SectionLabel>SOPs — Prozesse &amp; Vorlagen</SectionLabel>
-        <SOPSection
-          items={sops.items}
-          loading={sops.loading}
-          error={sops.error}
-          onCreate={() => sops.create()}
-          onUpdate={sops.update}
-          onDelete={sops.remove}
-        />
+        <CollapsibleSection
+          title="SOPs — Prozesse & Vorlagen"
+          meta={sops.items.length > 0 ? `${sops.items.length}` : undefined}
+          defaultOpen={false}
+        >
+          <SOPSection
+            items={sops.items}
+            loading={sops.loading}
+            error={sops.error}
+            onCreate={() => sops.create()}
+            onUpdate={sops.update}
+            onDelete={sops.remove}
+          />
+        </CollapsibleSection>
       </div>
 
       {slug ? (

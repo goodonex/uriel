@@ -1,107 +1,154 @@
+/**
+ * Save-Feedback — bewusst leise.
+ *   saving  → minimaler pulsierender Dot
+ *   saved   → kurzer grüner Glow-Puls, fadet weg (~1.2s)
+ *   error   → Coral-Dot + Text (einziger Fall mit Text)
+ */
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useSaveStatus } from '../lib/saveStatusContext'
 
-function formatRelative(ts: number, nowMs: number): string {
-  const diff = Math.max(0, nowMs - ts)
-  const sec = Math.round(diff / 1000)
-  if (sec < 5) return 'gerade eben'
-  if (sec < 60) return `vor ${sec}s`
-  const min = Math.round(sec / 60)
-  if (min < 60) return `vor ${min}m`
-  const hours = Math.round(min / 60)
-  if (hours < 24) return `vor ${hours}h`
-  const days = Math.round(hours / 24)
-  return `vor ${days}d`
-}
-
 export function SaveStatusIndicator() {
   const { state, lastSavedAt, errorMessage } = useSaveStatus()
-  const [now, setNow] = useState(() => Date.now())
+  const [showSaved, setShowSaved] = useState(false)
 
   useEffect(() => {
-    if (state === 'idle' && !lastSavedAt) return
-    const id = window.setInterval(() => setNow(Date.now()), 30000)
-    return () => window.clearInterval(id)
+    if (state === 'saved') {
+      setShowSaved(true)
+      const handle = window.setTimeout(() => setShowSaved(false), 1200)
+      return () => window.clearTimeout(handle)
+    }
+    return undefined
   }, [state, lastSavedAt])
 
-  let visible = state !== 'idle'
-  let label = ''
-  let dotColor = 'rgba(255,255,255,0.6)'
-  let textColor = 'rgba(255,255,255,0.78)'
-  let borderColor = 'rgba(255,255,255,0.10)'
-  let bg = 'rgba(20, 22, 26, 0.78)'
-  let spinning = false
-
-  if (state === 'saving') {
-    label = 'Speichert …'
-    dotColor = 'var(--brand-accent, var(--accent-teal, #5EE7C8))'
-    spinning = true
-  } else if (state === 'saved') {
-    label = lastSavedAt ? `Gespeichert · ${formatRelative(lastSavedAt, now)}` : 'Gespeichert'
-    dotColor = 'var(--brand-accent, var(--accent-teal, #5EE7C8))'
-    textColor = 'rgba(255,255,255,0.85)'
-    borderColor = 'color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 35%, transparent)'
-    bg = 'rgba(15, 22, 24, 0.86)'
-  } else if (state === 'error') {
-    label = errorMessage ?? 'Fehler beim Speichern'
-    dotColor = 'var(--accent-coral, #FF6E6E)'
-    textColor = 'rgba(255, 200, 200, 0.95)'
-    borderColor = 'rgba(255, 110, 110, 0.35)'
-    bg = 'rgba(40, 15, 15, 0.82)'
-    visible = true
-  }
-
   return (
-    <AnimatePresence>
-      {visible ? (
-        <motion.div
-          key="save-status"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          transition={{ duration: 0.2 }}
-          style={{
-            position: 'fixed',
-            right: 18,
-            bottom: 18,
-            zIndex: 900,
-            pointerEvents: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 12px',
-            borderRadius: 999,
-            background: bg,
-            border: `1px solid ${borderColor}`,
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            color: textColor,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            fontSize: 11,
-            letterSpacing: 0.2,
-            boxShadow: '0 12px 32px rgba(0,0,0,0.32)',
-          }}
-        >
-          <motion.span
-            animate={spinning ? { rotate: 360 } : { rotate: 0 }}
-            transition={
-              spinning
-                ? { repeat: Infinity, duration: 1.4, ease: 'linear' }
-                : { duration: 0.2 }
-            }
+    <div
+      style={{
+        position: 'fixed',
+        right: 18,
+        bottom: 18,
+        zIndex: 900,
+        pointerEvents: 'none',
+      }}
+    >
+      <AnimatePresence mode="wait">
+        {state === 'error' ? (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.18 }}
             style={{
-              width: 8,
-              height: 8,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 12px',
               borderRadius: 999,
-              background: dotColor,
-              boxShadow: `0 0 12px ${dotColor}`,
-              display: 'inline-block',
+              background: 'rgba(40, 15, 15, 0.82)',
+              border: '1px solid rgba(255, 110, 110, 0.35)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              color: 'rgba(255, 200, 200, 0.95)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: 11,
+              letterSpacing: 0.2,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.32)',
             }}
-          />
-          <span>{label}</span>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          >
+            <Dot color="var(--accent-coral, #FF6E6E)" />
+            <span>{errorMessage ?? 'Fehler beim Speichern'}</span>
+          </motion.div>
+        ) : state === 'saving' ? (
+          <motion.div
+            key="saving"
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 0.85, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ duration: 0.2 }}
+            style={pillStyle}
+          >
+            <motion.span
+              animate={{ scale: [1, 0.65, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.55)',
+                display: 'inline-block',
+              }}
+            />
+          </motion.div>
+        ) : showSaved ? (
+          <motion.div
+            key="saved"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            style={pillStyle}
+          >
+            <SavedPulse />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   )
 }
+
+function SavedPulse() {
+  const color = 'var(--accent-teal, #5EE7C8)'
+  return (
+    <span style={{ position: 'relative', width: 8, height: 8, display: 'inline-block' }}>
+      <motion.span
+        initial={{ scale: 0.5, opacity: 0.75 }}
+        animate={{ scale: 2.5, opacity: 0 }}
+        transition={{ duration: 0.85, ease: 'easeOut' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 999,
+          background: color,
+        }}
+      />
+      <span
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 999,
+          background: color,
+          boxShadow: `0 0 12px ${color}`,
+        }}
+      />
+    </span>
+  )
+}
+
+function Dot({ color }: { color: string }) {
+  return (
+    <span
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        background: color,
+        boxShadow: `0 0 12px ${color}`,
+        display: 'inline-block',
+      }}
+    />
+  )
+}
+
+const pillStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 8,
+  borderRadius: 999,
+  background: 'rgba(15, 22, 24, 0.5)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+  boxShadow: '0 6px 18px rgba(0,0,0,0.22)',
+} as const
