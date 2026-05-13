@@ -42,28 +42,32 @@ export function ContactSequencesPanel({ brandSlug, contactId }: ContactSequences
         border: '1px solid var(--glass-border-1)',
         borderRadius: 12,
         padding: 14,
+        minWidth: 0,
+        boxSizing: 'border-box',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          marginBottom: 10,
-          gap: 8,
-        }}
-      >
+      <div style={{ marginBottom: 10, minWidth: 0 }}>
         <div
           className="font-mono"
           style={{
             fontSize: 9,
             letterSpacing: '0.14em',
             color: 'var(--text-tertiary)',
+            marginBottom: 8,
           }}
         >
           MAIL-FLOWS
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'stretch',
+            gap: 6,
+            minWidth: 0,
+            width: '100%',
+          }}
+        >
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
@@ -93,6 +97,8 @@ export function ContactSequencesPanel({ brandSlug, contactId }: ContactSequences
               cursor: selected ? 'pointer' : 'not-allowed',
               opacity: selected ? 1 : 0.5,
               fontWeight: 600,
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             + Einbuchen
@@ -198,7 +204,10 @@ const selectStyle: CSSProperties = {
   background: 'var(--glass-2)',
   color: 'var(--text-primary)',
   outline: 'none',
-  maxWidth: 200,
+  minWidth: 0,
+  flex: '1 1 140px',
+  width: '100%',
+  maxWidth: '100%',
 }
 
 function smallBtn(color: string): CSSProperties {
