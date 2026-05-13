@@ -1,17 +1,19 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { Link, Outlet, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
-import { SectionMask } from '../components/SectionMask'
-import { BrandWorkspaceSidebar } from '../components/BrandWorkspaceSidebar'
+import { ModuleRenderer } from '../components/ModuleRenderer'
+import { BrandWorkspaceSidebar, BRAND_FLOAT_SIDEBAR_CLEARANCE_X } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
+import { useRouteModulesSync } from '../hooks/useRouteModulesSync'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useViewport } from '../hooks/useViewport'
 
 const MODE_LABEL: Record<string, string> = {
   dashboard: 'Dashboard',
-  building: 'Building',
-  discovery: 'Discovery',
+  foundation: 'Foundation',
+  building: 'Foundation',
+  discovery: 'Foundation',
   promo: 'Promo',
   sales: 'Sales',
   intelligence: 'Intelligence',
@@ -39,6 +41,14 @@ export function BrandPage() {
   const modeLabel = modeFromPath(pathname)
   const showBrandSystem = isBrandSystemRoute(pathname)
 
+  useRouteModulesSync({
+    slug,
+    pathname,
+    enabled: !showBrandSystem,
+    modeLabel: modeLabel ?? 'Bereich',
+    mobile: isMobile,
+  })
+
   useDocumentTitle([brand?.name ?? slug, modeLabel])
 
   // Route-Wechsel schließt das Drawer automatisch
@@ -61,7 +71,7 @@ export function BrandPage() {
 
   return (
     <div
-      className="flex min-h-0 w-full"
+      className="relative min-h-0 w-full"
       style={
         {
           pointerEvents: 'auto',
@@ -71,8 +81,8 @@ export function BrandPage() {
         } as CSSProperties
       }
     >
-      {/* Desktop Sidebar */}
-      {!isMobile ? <BrandWorkspaceSidebar slug={slug} /> : null}
+      {/* Desktop: schwebendes Sidebar-Glas-Modul (kein Layout-Spalten-Block) */}
+      {!isMobile ? <BrandWorkspaceSidebar slug={slug} layout="float" /> : null}
 
       {/* Mobile Drawer */}
       <AnimatePresence>
@@ -108,7 +118,7 @@ export function BrandPage() {
                 zIndex: 70,
               }}
             >
-              <BrandWorkspaceSidebar slug={slug} />
+              <BrandWorkspaceSidebar slug={slug} layout="drawer" />
             </motion.div>
           </>
         ) : null}
@@ -116,13 +126,14 @@ export function BrandPage() {
 
       <motion.div
         key={slug}
-        className="min-w-0 flex-1"
+        className="min-w-0 w-full"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         style={{
           background: 'transparent',
-          padding: isMobile ? '0' : '20px 24px 48px',
+          padding: 0,
+          paddingLeft: !isMobile ? BRAND_FLOAT_SIDEBAR_CLEARANCE_X : undefined,
           minHeight: '100vh',
         }}
       >
@@ -205,23 +216,7 @@ export function BrandPage() {
               <BrandSystemDashboard slug={slug} />
             </motion.div>
           ) : (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-              >
-                <SectionMask
-                  slug={slug}
-                  modeLabel={modeLabel ?? 'Section'}
-                  mobile={isMobile}
-                >
-                  <Outlet />
-                </SectionMask>
-              </motion.div>
-            </AnimatePresence>
+            <ModuleRenderer slug={slug} mobile={isMobile} />
           )}
         </div>
       </motion.div>

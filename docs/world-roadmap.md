@@ -41,7 +41,7 @@ Funktional bleibt alles erhalten — CRM, Pipeline, Building, Promo, Discovery, 
   - **Intelligence** — Anhöhe mit zentralem Licht, sammelt Linien aus den anderen Regionen.
 - Neue Datensätze wachsen mit Framer-Spring (~800 ms) aus dem Boden.
 
-### Phase 6 — Section-Masken
+### Phase 6 — Section-Masken *(historisch; ersetzt durch Module-System — siehe Ergänzung unten)*
 - Glass-Maske über der Welt (≈ 70 – 80 % Viewport), Welt am Rand sichtbar.
 - Bestehende Mode-Komponenten unverändert reingesetzt — kein AppHeader, kein ModeNav, Sidebar übernimmt die Navigation.
 - ESC oder `Welt`-Button im Maske-Header → Maske schließt, Kamera zoomt zur Brand-System-Ebene zurück.
@@ -57,7 +57,13 @@ Funktional bleibt alles erhalten — CRM, Pipeline, Building, Promo, Discovery, 
 - Alter Node-Graph (`three/NodeGraph.tsx`, `BrandNode.tsx`, `CameraRig.tsx`, `Connections.tsx`) entfernt.
 - Nicht mehr referenzierter `AppHeader` und `ModeNav` entfernt.
 - `/brand/:slug/dashboard` redirected nach `/brand/:slug`.
-- Mobile (`< 1024 px`): Welt deaktiviert, Brand-Liste statt Universe, Section-Masken vollflächig.
+- Mobile (`< 1024 px`): Welt deaktiviert, Brand-Liste statt Universe; Brand-Workspace mit Outlet/Gates (Module-System, vollflächige Inhalte auf schmalen Viewports).
+
+### Ergänzung — Module-System (nach Section-Masken-Rebuild)
+
+- Section-Masken (`SectionMask.tsx`) durch **schwebende Glas-Module** (`ModuleContainer` + `ModuleRenderer`) ersetzt; Modus-Inhalte in Slots / Overlays.
+- **Planet-Regionen** navigieren weiter per Route (`RegionPatch`); **Deliver-Mond** in der Brand-System-3D-Szene (`BrandSystemScene`) löst Navigation zu `/brand/:slug/deliver` aus.
+- Multi-Modul-Sets für **Sales** und **Intelligence** (Desktop); **Promo** zunächst ein Hauptmodul; Building/Discovery/Deliver über Outlet im Haupt-Slot.
 
 ---
 

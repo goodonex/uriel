@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -9,10 +9,8 @@ import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
 import { useCommandPalette } from '../lib/commandPaletteContext'
 import { NotificationBell } from './NotificationBell'
 
-const LS_COLLAPSE = 'brand-os-sidebar-collapsed'
-
-const EXPANDED_W = 196
-const COLLAPSED_W = 60
+const COLLAPSED_W = 64
+const EXPANDED_W = 240
 
 interface NavItem {
   section: BrandNavSection
@@ -31,7 +29,7 @@ const NAV: NavItem[] = [
   { section: 'intelligence', path: 'intelligence', label: 'Intelligence', mono: 'intelligence' },
 ]
 
-function navIcon(section: BrandNavSection): React.ReactNode {
+function navIcon(section: BrandNavSection): ReactNode {
   switch (section) {
     case 'dashboard':
       return (
@@ -102,7 +100,13 @@ function modeCssVar(m: ModeKey): string {
   }
 }
 
-export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
+export interface BrandWorkspaceSidebarProps {
+  slug: string
+  /** `float`: fixed links, Hover expand. `drawer`: im Mobile-Drawer immer breit */
+  layout?: 'float' | 'drawer'
+}
+
+export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspaceSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { brands } = useBrands()
@@ -113,23 +117,12 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
       ? current.color
       : 'var(--accent-teal)'
 
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(LS_COLLAPSE) === '1'
-    } catch {
-      return false
-    }
-  })
+  const isDrawer = layout === 'drawer'
+  const [hoverOpen, setHoverOpen] = useState(false)
+  const [tapPinned, setTapPinned] = useState(false)
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_COLLAPSE, collapsed ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }, [collapsed])
-
-  const w = collapsed ? COLLAPSED_W : EXPANDED_W
+  const expanded = isDrawer || hoverOpen || tapPinned
+  const w = expanded ? EXPANDED_W : COLLAPSED_W
 
   const base = `/brand/${slug}`
 
@@ -154,38 +147,73 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
   const platformShortcut = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl K'
   const deliverSectionActive = active === 'deliver'
   const showDeliverSubmenu =
-    !collapsed &&
+    expanded &&
     activeDeliverProjects.length > 0 &&
     (hoveredSection === 'deliver' || deliverSectionActive)
 
-  return (
+  const floatDockStyle = {
+    position: 'fixed' as const,
+    left: 16,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 45,
+    pointerEvents: 'none' as const,
+  }
+
+  const shellStyle =
+    layout === 'float'
+      ? {
+          /** Positionierung passiert am Dock-Wrapper (vertikal zentriert) */
+          height: 'fit-content',
+          maxHeight: 'calc(100vh - 32px)',
+          borderRadius: 18,
+          border: '1px solid var(--glass-border-1)',
+          background: 'rgba(8, 8, 16, 0.72)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: '8px 0 32px rgba(0,0,0,0.35)',
+          pointerEvents: 'auto' as const,
+          overflowX: 'hidden' as const,
+          overflowY: 'auto' as const,
+        }
+      : {
+          position: 'relative' as const,
+          height: '100%',
+          minHeight: 0,
+          borderRadius: 0,
+          border: 'none',
+          background: 'color-mix(in srgb, var(--bg-base) 88%, transparent)',
+          backdropFilter: 'var(--blur-md)',
+          WebkitBackdropFilter: 'var(--blur-md)',
+          pointerEvents: 'auto' as const,
+          overflow: 'hidden',
+        }
+
+  const aside = (
     <motion.aside
       initial={false}
-      animate={{ width: w }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="font-body flex shrink-0 flex-col"
-      style={{
-        pointerEvents: 'auto',
-        position: 'sticky',
-        top: 0,
-        alignSelf: 'flex-start',
-        height: '100vh',
-        borderRight: '1px solid var(--glass-border-1)',
-        background: 'color-mix(in srgb, var(--bg-base) 82%, transparent)',
-        backdropFilter: 'var(--blur-md)',
-        WebkitBackdropFilter: 'var(--blur-md)',
-        boxShadow: '8px 0 32px rgba(0,0,0,0.25)',
+      animate={{ width: isDrawer ? EXPANDED_W : w }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="font-body flex flex-col"
+      style={shellStyle}
+      onMouseEnter={() => {
+        if (!isDrawer) setHoverOpen(true)
+      }}
+      onMouseLeave={() => {
+        if (!isDrawer) {
+          setHoverOpen(false)
+        }
       }}
     >
       <div
-        className="flex min-h-0 flex-1 flex-col"
-        style={{ padding: collapsed ? '10px 8px' : '14px 12px' }}
+        className="flex flex-col"
+        style={{ padding: expanded ? '14px 12px' : '10px 8px' }}
       >
         <div
           className="mb-3 flex items-center gap-2"
-          style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
+          style={{ justifyContent: expanded ? 'space-between' : 'center' }}
         >
-          {!collapsed ? (
+          {expanded ? (
             <Link
               to={`${base}/dashboard`}
               className="font-display min-w-0 flex-1 truncate"
@@ -215,44 +243,52 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
               }}
             />
           )}
-          <button
-            type="button"
-            title={collapsed ? 'Sidebar öffnen' : 'Sidebar einklappen'}
-            onClick={() => setCollapsed((c) => !c)}
-            className="font-mono shrink-0 rounded-md transition-colors"
-            style={{
-              fontSize: 10,
-              padding: '3px 6px',
-              border: '1px solid var(--glass-border-2)',
-              background: 'transparent',
-              color: 'var(--text-tertiary)',
-              cursor: 'pointer',
-            }}
-          >
-            {collapsed ? '»' : '«'}
-          </button>
+          {!isDrawer ? (
+            <button
+              type="button"
+              title={tapPinned ? 'Ausgeklappt lösen' : 'Ausgeklappt halten'}
+              onClick={(e) => {
+                e.stopPropagation()
+                setTapPinned((p) => !p)
+              }}
+              className="font-mono shrink-0 rounded-md transition-colors"
+              style={{
+                fontSize: 10,
+                padding: '3px 6px',
+                border: '1px solid var(--glass-border-2)',
+                background: tapPinned ? 'var(--glass-2)' : 'transparent',
+                color: 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              {tapPinned ? '●' : '○'}
+            </button>
+          ) : null}
         </div>
 
         <div
           className="mb-3 flex items-center gap-1.5"
-          style={{ flexDirection: collapsed ? 'column' : 'row' }}
+          style={{ flexDirection: expanded ? 'row' : 'column' }}
         >
           <button
             type="button"
-            onClick={openPalette}
+            onClick={(e) => {
+              e.stopPropagation()
+              openPalette()
+            }}
             title={`Suche · ${platformShortcut}`}
             data-no-scale
             className="font-mono flex min-w-0 items-center gap-2 rounded-lg transition-colors"
             style={{
-              flex: 1,
+              flex: expanded ? 1 : undefined,
               height: 30,
-              padding: collapsed ? 0 : '0 8px',
-              width: collapsed ? '100%' : undefined,
+              padding: expanded ? '0 8px' : 0,
+              width: expanded ? undefined : '100%',
               border: '1px solid var(--glass-border-2)',
               background: 'var(--glass-1)',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
-              justifyContent: collapsed ? 'center' : 'flex-start',
+              justifyContent: expanded ? 'flex-start' : 'center',
             }}
           >
             <svg
@@ -267,7 +303,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
               <circle cx="7" cy="7" r="4" />
               <path d="M10 10 L13 13" strokeLinecap="round" />
             </svg>
-            {!collapsed ? (
+            {expanded ? (
               <>
                 <span style={{ fontSize: 11, flex: 1, textAlign: 'left' }}>Suchen</span>
                 <span
@@ -285,10 +321,10 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
               </>
             ) : null}
           </button>
-          <NotificationBell slug={slug} collapsed={collapsed} />
+          <NotificationBell slug={slug} collapsed={!expanded} />
         </div>
 
-        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto" style={{ marginRight: -4 }}>
+        <nav className="space-y-0.5" style={{ marginRight: -4 }}>
           {NAV.map((item) => {
             const isActive = item.section === 'sales' ? salesBranchActive : active === item.section
             const to = `${base}/${item.path}`
@@ -307,25 +343,25 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
               >
                 <Link
                   to={to}
-                  title={collapsed ? item.label : undefined}
+                  title={!expanded ? item.label : undefined}
                   data-no-scale
+                  onClick={(e) => e.stopPropagation()}
                   className="group relative flex items-center rounded-lg"
                   style={{
                     textDecoration: 'none',
-                    padding: collapsed ? '8px 0' : '8px 10px',
-                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    padding: expanded ? '8px 10px' : '8px 0',
+                    justifyContent: expanded ? 'flex-start' : 'center',
                     gap: 10,
                     background: 'transparent',
                     border: '1px solid transparent',
                   }}
                 >
-                  {/* Aktiv-Markierung: dünner vertikaler Balken links */}
                   {isActive ? (
                     <motion.span
                       layoutId="sidebar-active-indicator"
                       style={{
                         position: 'absolute',
-                        left: collapsed ? 4 : 0,
+                        left: expanded ? 0 : 4,
                         top: 8,
                         bottom: 8,
                         width: 2,
@@ -346,7 +382,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                   >
                     {navIcon(item.section)}
                   </span>
-                  {!collapsed ? (
+                  {expanded ? (
                     <span
                       className="font-display min-w-0 flex-1 truncate"
                       style={{
@@ -369,17 +405,15 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                         className="dot-pulse"
                         title="Neue Aktivität"
                         style={{
-                          position: collapsed ? 'absolute' : 'static',
-                          top: collapsed ? 6 : undefined,
-                          right: collapsed ? 8 : undefined,
-                          marginLeft: collapsed ? 0 : 4,
+                          position: !expanded ? 'absolute' : 'static',
+                          top: !expanded ? 6 : undefined,
+                          right: !expanded ? 8 : undefined,
+                          marginLeft: !expanded ? 0 : 4,
                         }}
                       />
                     )
                   })()}
-                  {isDeliverItem &&
-                  !collapsed &&
-                  activeDeliverProjects.length > 0 ? (
+                  {isDeliverItem && expanded && activeDeliverProjects.length > 0 ? (
                     <span
                       className="font-mono"
                       style={{
@@ -423,6 +457,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                               to={`${base}/deliver/${p.id}`}
                               title={p.name}
                               data-no-scale
+                              onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-2 rounded-lg truncate transition-colors"
                               style={{
                                 textDecoration: 'none',
@@ -475,7 +510,10 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
         >
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate('/')
+            }}
             title="Zurück zum Universe"
             data-no-scale
             className="flex w-full items-center font-mono transition-colors"
@@ -483,8 +521,8 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
               fontSize: 9,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              padding: collapsed ? '8px 0' : '8px 10px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
+              padding: expanded ? '8px 10px' : '8px 0',
+              justifyContent: expanded ? 'flex-start' : 'center',
               gap: 8,
               borderRadius: 10,
               border: '1px solid var(--glass-border-2)',
@@ -494,12 +532,23 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
             }}
           >
             <span style={{ fontSize: 13 }}>◎</span>
-            {!collapsed ? <span>Universe</span> : null}
+            {expanded ? <span>Universe</span> : null}
           </button>
         </div>
       </div>
     </motion.aside>
   )
+
+  if (isDrawer) {
+    return aside
+  }
+
+  return (
+    <div style={floatDockStyle}>
+      {aside}
+    </div>
+  )
 }
 
-export { EXPANDED_W as BRAND_SIDEBAR_EXPANDED_WIDTH }
+/** Abstand für Seiteninhalt: links Dock + kollabierte Breite + Luft bis Text */
+export const BRAND_FLOAT_SIDEBAR_CLEARANCE_X = 16 + COLLAPSED_W + 16

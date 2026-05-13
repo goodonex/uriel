@@ -837,7 +837,7 @@ function PipelineBoard({
   )
 }
 
-export function SalesMode() {
+export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = {}) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   // brandId wird in den Hooks (useBrandId) intern verwendet; hier nicht mehr direkt nötig.
@@ -1295,7 +1295,7 @@ export function SalesMode() {
             </div>
           ) : null}
 
-          {!contacts.loading && !contacts.error ? (
+          {!contacts.loading && !contacts.error && panel === 'full' ? (
             <div
               className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
             >
@@ -1622,6 +1622,7 @@ export function SalesMode() {
           ) : null}
 
           {!contacts.loading && !contacts.error &&
+          panel === 'full' &&
           pipelineStats.dueTodayList.length > 0 ? (
             <div
               className="glass-2 mt-6 rounded-2xl p-4"

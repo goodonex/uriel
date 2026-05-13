@@ -1,6 +1,7 @@
 import { Line } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import { createPlanetSurfaceTextures } from './textures/noiseSurface'
 import {
@@ -11,6 +12,7 @@ import {
 } from './worldLayout'
 
 export function BrandSystemScene({ slug }: { slug: string }) {
+  const navigate = useNavigate()
   const planetRef = useRef<THREE.Mesh>(null)
   const moonRef = useRef<THREE.Mesh>(null)
   const orbit = useMemo(
@@ -81,7 +83,20 @@ export function BrandSystemScene({ slug }: { slug: string }) {
         gapSize={0.45}
         lineWidth={1}
       />
-      <mesh ref={moonRef}>
+      <mesh
+        ref={moonRef}
+        onClick={(e) => {
+          e.stopPropagation()
+          navigate(`/brand/${slug}/deliver`)
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = ''
+        }}
+      >
         <sphereGeometry args={[BRAND_MOON_RADIUS, 30, 30]} />
         <meshStandardMaterial
           color="#6d6f79"

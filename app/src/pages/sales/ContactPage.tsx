@@ -98,7 +98,7 @@ function patchCfgField(
   }
 }
 
-export function ContactPage() {
+export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' } = {}) {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
   const navigate = useNavigate()
   const toast = useToast()
@@ -243,30 +243,85 @@ export function ContactPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ pointerEvents: 'auto', background: 'transparent' }}
     >
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to={`/brand/${slug}/sales`}
-          className="font-mono"
-          style={{
-            fontSize: 12,
-            color: 'var(--mode-sales)',
-            textDecoration: 'none',
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: '1px solid var(--glass-border-2)',
-            background: 'var(--glass-2)',
-          }}
-        >
-          ← Zurück zur Pipeline
-        </Link>
-        <div className="flex flex-wrap gap-2">
+      {variant === 'page' ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            to={`/brand/${slug}/sales`}
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              color: 'var(--mode-sales)',
+              textDecoration: 'none',
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--glass-2)',
+            }}
+          >
+            ← Zurück zur Pipeline
+          </Link>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={mailto || undefined}
+              className="font-mono"
+              style={{
+                fontSize: 11,
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-3)',
+                color: mailto ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                pointerEvents: mailto ? 'auto' : 'none',
+                opacity: mailto ? 1 : 0.45,
+              }}
+            >
+              E-Mail schreiben
+            </a>
+            <a
+              href={phoneHref || undefined}
+              className="font-mono"
+              style={{
+                fontSize: 11,
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-3)',
+                color: phoneHref ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                pointerEvents: phoneHref ? 'auto' : 'none',
+                opacity: phoneHref ? 1 : 0.45,
+              }}
+            >
+              Anrufen
+            </a>
+            <a
+              href={previewUrl || undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono"
+              style={{
+                fontSize: 11,
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-3)',
+                color: previewUrl ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                pointerEvents: previewUrl ? 'auto' : 'none',
+                opacity: previewUrl ? 1 : 0.45,
+              }}
+            >
+              Website öffnen
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-3 flex flex-wrap justify-end gap-2">
           <a
             href={mailto || undefined}
             className="font-mono"
             style={{
-              fontSize: 11,
-              padding: '8px 12px',
-              borderRadius: 10,
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
               border: '1px solid var(--glass-border-2)',
               background: 'var(--glass-3)',
               color: mailto ? 'var(--text-primary)' : 'var(--text-tertiary)',
@@ -274,15 +329,15 @@ export function ContactPage() {
               opacity: mailto ? 1 : 0.45,
             }}
           >
-            E-Mail schreiben
+            E-Mail
           </a>
           <a
             href={phoneHref || undefined}
             className="font-mono"
             style={{
-              fontSize: 11,
-              padding: '8px 12px',
-              borderRadius: 10,
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
               border: '1px solid var(--glass-border-2)',
               background: 'var(--glass-3)',
               color: phoneHref ? 'var(--text-primary)' : 'var(--text-tertiary)',
@@ -290,7 +345,7 @@ export function ContactPage() {
               opacity: phoneHref ? 1 : 0.45,
             }}
           >
-            Anrufen
+            Anruf
           </a>
           <a
             href={previewUrl || undefined}
@@ -298,9 +353,9 @@ export function ContactPage() {
             rel="noreferrer"
             className="font-mono"
             style={{
-              fontSize: 11,
-              padding: '8px 12px',
-              borderRadius: 10,
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
               border: '1px solid var(--glass-border-2)',
               background: 'var(--glass-3)',
               color: previewUrl ? 'var(--text-primary)' : 'var(--text-tertiary)',
@@ -308,10 +363,10 @@ export function ContactPage() {
               opacity: previewUrl ? 1 : 0.45,
             }}
           >
-            Website öffnen
+            Web
           </a>
         </div>
-      </div>
+      )}
 
       <div
         className="font-mono mb-2"
@@ -331,7 +386,7 @@ export function ContactPage() {
         <h1
           className="font-display"
           style={{
-            fontSize: 24,
+            fontSize: variant === 'module' ? 19 : 24,
             fontWeight: 600,
             color: 'var(--text-primary)',
             letterSpacing: '-0.3px',
@@ -998,7 +1053,13 @@ export function ContactPage() {
       ) : contactTab === 'calls' ? (
         slug ? <ContactCallsTab brandSlug={slug} contact={d} /> : null
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+        <div
+          className={
+            variant === 'module'
+              ? 'grid grid-cols-1 gap-6'
+              : 'grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]'
+          }
+        >
           <div className="flex flex-col gap-3">
             <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
               Call Notes

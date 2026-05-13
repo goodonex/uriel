@@ -15,19 +15,19 @@ import { BuildingMode } from './pages/building/BuildingMode'
 import { DeliverMode } from './pages/DeliverMode'
 import { ProjectPage } from './pages/deliver/ProjectPage'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
-import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
+import { IntelligenceDefaultRouteGate } from './pages/intelligence/IntelligenceDefaultRouteGate'
 import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { PortalRoute } from './pages/portal/PortalRoute'
 import { BookingPublicPage } from './pages/public/BookingPublicPage'
 import { LeadIntakePage } from './pages/public/LeadIntakePage'
-import { PromoMode } from './pages/promo/PromoMode'
+import { PromoDefaultRouteGate } from './pages/promo/PromoDefaultRouteGate'
 import { useViewport } from './hooks/useViewport'
 import { CallModePage } from './pages/sales/CallModePage'
 import { ContactListsPage } from './pages/sales/ContactListsPage'
-import { ContactPage } from './pages/sales/ContactPage'
+import { SalesContactRouteGate } from './pages/sales/SalesContactRouteGate'
+import { SalesDefaultRouteGate } from './pages/sales/SalesDefaultRouteGate'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
-import { SalesMode } from './pages/sales/SalesMode'
 import { UniversePage } from './pages/UniversePage'
 import { useWorldCameraSyncFromRoute } from './store/worldCamera'
 import { World } from './three/World'
@@ -226,13 +226,13 @@ function App() {
                 <Route path="dashboard" element={<Navigate to=".." replace />} />
                 <Route path="building" element={<BuildingMode />} />
                 <Route path="discovery" element={<DiscoveryMode />} />
-                <Route path="promo" element={<PromoMode />} />
+                <Route path="promo" element={<PromoDefaultRouteGate />} />
                 <Route path="sales/lists" element={<ContactListsPage />} />
                 <Route path="sales/lists/:listId" element={<ContactListsPage />} />
                 <Route path="sales/call-mode" element={<CallModePage />} />
-                <Route path="sales/:contactId" element={<ContactPage />} />
-                <Route path="sales" element={<SalesMode />} />
-                <Route path="intelligence" element={<IntelligenceMode />} />
+                <Route path="sales/:contactId" element={<SalesContactRouteGate />} />
+                <Route path="sales" element={<SalesDefaultRouteGate />} />
+                <Route path="intelligence" element={<IntelligenceDefaultRouteGate />} />
                 <Route path="deliver" element={<DeliverMode />} />
                 <Route path="deliver/:projectId" element={<ProjectPage />} />
               </Route>

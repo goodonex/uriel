@@ -6,13 +6,10 @@ import { useBrands } from '../../hooks/useBrands'
 import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
-import { useDiscoveryFeed } from '../../hooks/useDiscoveryFeed'
-import { useFocusPreferences } from '../../hooks/useFocusPreferences'
 import { useICPs } from '../../hooks/useICPs'
-import { useWordBank } from '../../hooks/useWordBank'
-import { computeFocusTasks } from '../../lib/mockFocusEngine'
 import { buildIntelligenceSnapshot } from '../../lib/mockIntelligence'
 import { IntelligenceReports } from './IntelligenceReports'
+import { IntelligenceFocusTasksBlock } from './IntelligenceFocusTasksBlock'
 import { MorningBriefSection } from './MorningBriefSection'
 
 export function IntelligenceMode() {
@@ -24,38 +21,6 @@ export function IntelligenceMode() {
   const contacts = useContacts(slug)
   const campaigns = useCampaigns(slug)
   const icps = useICPs(slug)
-  const wordBank = useWordBank(slug)
-  const feed = useDiscoveryFeed(slug)
-  const focusPrefs = useFocusPreferences(slug)
-
-  const dismissed = useMemo(
-    () => new Set(focusPrefs.dismissedIds),
-    [focusPrefs.dismissedIds],
-  )
-
-  const tasks = useMemo(
-    () =>
-      slug
-        ? computeFocusTasks({
-            brandSlug: slug,
-            pieces: pieces.items,
-            contacts: contacts.items,
-            discoveryItems: feed.items,
-            icps: icps.items,
-            wordBank: wordBank.items,
-            dismissed,
-          })
-        : [],
-    [
-      slug,
-      pieces.items,
-      contacts.items,
-      feed.items,
-      icps.items,
-      wordBank.items,
-      dismissed,
-    ],
-  )
 
   const snapshot = useMemo(
     () =>
@@ -68,15 +33,6 @@ export function IntelligenceMode() {
       }),
     [brand?.name, slug, pieces.items, contacts.items, campaigns.items, icps.items],
   )
-
-  const loading =
-    pieces.loading ||
-    contacts.loading ||
-    campaigns.loading ||
-    icps.loading ||
-    wordBank.loading ||
-    feed.loading ||
-    focusPrefs.loading
 
   return (
     <motion.div
@@ -123,92 +79,7 @@ export function IntelligenceMode() {
         </h2>
       </div>
 
-      <SectionLabel accent="var(--mode-intelligence)" tight>
-        Focus Tasks
-      </SectionLabel>
-      <div className="mb-8 flex flex-col gap-2">
-        {loading ? (
-          <div
-            className="animate-pulse"
-            style={{
-              height: 80,
-              borderRadius: 14,
-              background: 'var(--glass-1)',
-              border: '1px solid var(--glass-border-1)',
-            }}
-          />
-        ) : tasks.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-            Alles erledigt oder keine Signale — Super.
-          </p>
-        ) : (
-          tasks.map((t) => (
-            <div
-              key={t.id}
-              className="glass-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
-              style={{
-                padding: 14,
-                borderRadius: 14,
-                border: '1px solid var(--glass-border-1)',
-              }}
-            >
-              <div>
-                <div
-                  className="font-mono mb-1"
-                  style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-                >
-                  {t.source.toUpperCase()} · {t.impact.toUpperCase()}
-                </div>
-                <div
-                  className="font-display"
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  {t.title}
-                </div>
-                <p
-                  className="mt-1"
-                  style={{ fontSize: 13, color: 'var(--text-secondary)' }}
-                >
-                  {t.detail}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="font-mono shrink-0"
-                style={{
-                  fontSize: 11,
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: '1px solid var(--glass-border-2)',
-                  color: 'var(--text-secondary)',
-                }}
-                onClick={() => focusPrefs.dismiss(t.id)}
-              >
-                Erledigt / Ausblenden
-              </button>
-            </div>
-          ))
-        )}
-        {!loading && focusPrefs.dismissedIds.length > 0 ? (
-          <button
-            type="button"
-            className="font-mono self-start"
-            style={{
-              fontSize: 11,
-              marginTop: 6,
-              color: 'var(--text-tertiary)',
-              textDecoration: 'underline',
-            }}
-            onClick={() => focusPrefs.restoreAll()}
-          >
-            Ausblendungen zurücksetzen
-          </button>
-        ) : null}
-      </div>
+      {slug ? <IntelligenceFocusTasksBlock slug={slug} /> : null}
 
       <SectionLabel accent="var(--mode-intelligence)">
         Morning Brief (Mock)
