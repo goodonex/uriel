@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom'
+import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
 import { BrandWorkspaceSidebar } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -22,6 +23,10 @@ function modeFromPath(pathname: string): string | null {
   return MODE_LABEL[match[1] ?? ''] ?? null
 }
 
+function isBrandSystemRoute(pathname: string): boolean {
+  return /^\/brand\/[^/]+(?:\/dashboard)?\/?$/.test(pathname)
+}
+
 export function BrandPage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const { pathname } = useLocation()
@@ -31,6 +36,7 @@ export function BrandPage() {
 
   const brand = useMemo(() => brands.find((b) => b.slug === slug), [brands, slug])
   const modeLabel = modeFromPath(pathname)
+  const showBrandSystem = isBrandSystemRoute(pathname)
 
   useDocumentTitle([brand?.name ?? slug, modeLabel])
 
@@ -188,17 +194,28 @@ export function BrandPage() {
           </header>
         ) : null}
         <div style={{ padding: isMobile ? '12px 14px 80px' : 0 }}>
-          <AnimatePresence mode="wait" initial={false}>
+          {showBrandSystem ? (
             <motion.div
-              key={pathname}
+              key="brand-system"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
             >
-              <Outlet />
+              <BrandSystemDashboard slug={slug} />
             </motion.div>
-          </AnimatePresence>
+          ) : (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
       </motion.div>
 

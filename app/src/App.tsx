@@ -10,7 +10,6 @@ import { ShortcutsOverlay } from './components/ShortcutsOverlay'
 import { ToastProvider } from './components/Toast'
 import { CommandPaletteContext } from './lib/commandPaletteContext'
 import { SaveStatusProvider } from './lib/saveStatusContext'
-import { BrandDashboardPage } from './pages/BrandDashboardPage'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
 import { DeliverMode } from './pages/DeliverMode'
@@ -219,8 +218,7 @@ function App() {
             <Route element={<OwnerWorkspaceShell />}>
               <Route path="/" element={<UniversePage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
-                <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<BrandDashboardPage />} />
+                <Route path="dashboard" element={<Navigate to=".." replace />} />
                 <Route path="building" element={<BuildingMode />} />
                 <Route path="discovery" element={<DiscoveryMode />} />
                 <Route path="promo" element={<PromoMode />} />
