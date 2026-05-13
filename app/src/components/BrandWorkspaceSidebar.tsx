@@ -23,8 +23,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { section: 'dashboard', path: 'dashboard', label: 'Dashboard', mono: null },
-  { section: 'building', path: 'building', label: 'Building', mono: 'building' },
-  { section: 'discovery', path: 'discovery', label: 'Discovery', mono: 'discovery' },
+  { section: 'foundation', path: 'foundation', label: 'Foundation', mono: 'building' },
   { section: 'promo', path: 'promo', label: 'Promo', mono: 'promo' },
   { section: 'sales', path: 'sales', label: 'Sales', mono: 'sales' },
   { section: 'deliver', path: 'deliver', label: 'Deliver', mono: 'deliver' },
@@ -39,18 +38,12 @@ function navIcon(section: BrandNavSection): React.ReactNode {
           <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" strokeLinejoin="round" />
         </svg>
       )
-    case 'building':
+    case 'foundation':
       return (
         <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.5}>
           <rect x="2" y="2" width="12" height="12" rx="3" />
           <path d="M5 8h6M5 5.5h4M5 10.5h3" />
-        </svg>
-      )
-    case 'discovery':
-      return (
-        <svg viewBox="0 0 16 16" width={16} height={16} fill="none">
-          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth={1.5} />
-          <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth={1.2} />
+          <circle cx="11.5" cy="4.5" r="1.5" />
         </svg>
       )
     case 'promo':
@@ -85,6 +78,7 @@ function navIcon(section: BrandNavSection): React.ReactNode {
 
 function modeCssVar(m: ModeKey): string {
   switch (m) {
+    case 'foundation':
     case 'building':
       return '--mode-building'
     case 'discovery':
@@ -360,7 +354,7 @@ export function BrandWorkspaceSidebar({ slug }: { slug: string }) {
                   ) : null}
                   {(() => {
                     const hasSignal =
-                      (item.section === 'discovery' && signals.discoveryNew) ||
+                      (item.section === 'foundation' && signals.discoveryNew) ||
                       (item.section === 'sales' && signals.salesDue) ||
                       (item.section === 'deliver' && signals.deliverProgress)
                     if (!hasSignal) return null

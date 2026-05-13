@@ -69,8 +69,7 @@ const STAGE_CAMERA: Record<WorldStage, StageCamera> = {
  * Quadrant rückt ohne Reinzoomen.
  */
 const REGION_PAN: Record<WorldRegion, THREE.Vector3> = {
-  building: new THREE.Vector3(-3.5, 0, 1.5),
-  discovery: new THREE.Vector3(3.5, 0.5, -1),
+  foundation: new THREE.Vector3(-1.5, 0.3, 0.8),
   promo: new THREE.Vector3(0, -0.5, 3.5),
   sales: new THREE.Vector3(-2.5, -1, -2.5),
   intelligence: new THREE.Vector3(3.5, 1.5, 1.5),

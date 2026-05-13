@@ -15,22 +15,13 @@ export interface RegionDef {
 
 export const REGION_DEFS: RegionDef[] = [
   {
-    key: 'building',
-    label: 'BUILDING',
-    lat: 26,
-    lon: -38,
-    patchRadius: 1.3,
-    tone: '#665742', // Sandstein
-    accent: '#b48d61',
-  },
-  {
-    key: 'discovery',
-    label: 'DISCOVERY',
-    lat: 18,
-    lon: 36,
-    patchRadius: 1.22,
+    key: 'foundation',
+    label: 'FOUNDATION',
+    lat: 20,
+    lon: -4,
+    patchRadius: 1.65,
     tone: '#4e5d6c',
-    accent: '#7890a9',
+    accent: '#8fa7be',
   },
   {
     key: 'promo',

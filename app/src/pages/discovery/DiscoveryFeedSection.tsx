@@ -117,7 +117,7 @@ export function DiscoveryFeedSection({
       <p className="mt-4" style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
         Übernahme in{' '}
         <Link
-          to={`/brand/${slug}/building`}
+          to={`/brand/${slug}/foundation`}
           style={{ color: 'var(--accent-coral)', textDecoration: 'underline' }}
         >
           Building

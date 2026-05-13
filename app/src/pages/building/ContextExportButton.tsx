@@ -5,6 +5,7 @@ import { buildContextMarkdown } from '../../lib/contextExport'
 import { useAssets } from '../../hooks/useAssets'
 import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useContacts } from '../../hooks/useContacts'
+import { useDiscoveryFoundation } from '../../hooks/useDiscoveryFoundation'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { Brand, ICP, Positioning, WordBankEntry } from '../../types/db'
 
@@ -26,6 +27,7 @@ export function ContextExportButton({
   const assets = useAssets(slug)
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
+  const discoveryFoundation = useDiscoveryFoundation(slug)
   const { show } = useToast()
   const [busy, setBusy] = useState(false)
 
@@ -42,6 +44,7 @@ export function ContextExportButton({
         assets: assets.items,
         contacts: contacts.items,
         deliverProjects: deliver.items,
+        discoveryFoundation: discoveryFoundation.item,
       })
       if (!navigator.clipboard) {
         show('Clipboard nicht verfügbar', 'error')

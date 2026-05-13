@@ -10,6 +10,7 @@ interface ModePlaceholderProps {
 }
 
 const MODE_VAR: Record<ModeKey, string> = {
+  foundation: '--mode-building',
   building: '--mode-building',
   promo: '--mode-promo',
   sales: '--mode-sales',

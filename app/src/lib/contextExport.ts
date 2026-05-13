@@ -6,6 +6,7 @@ import {
   type Contact,
   type DeliverProject,
   type DeliverProjectStage,
+  type DiscoveryFoundationDoc,
   type ICP,
   type PipelineStage,
   type Positioning,
@@ -21,6 +22,7 @@ interface BuildContextArgs {
   assets?: Asset[]
   contacts?: Contact[]
   deliverProjects?: DeliverProject[]
+  discoveryFoundation?: DiscoveryFoundationDoc | null
 }
 
 function line(key: string, value: string | undefined | null): string | null {
@@ -147,6 +149,7 @@ export function buildContextMarkdown({
   assets,
   contacts,
   deliverProjects,
+  discoveryFoundation,
 }: BuildContextArgs): string {
   const sorted = [...icps].sort((a, b) => a.priority - b.priority)
   const primary = sorted[0]
@@ -170,6 +173,9 @@ export function buildContextMarkdown({
     line('WORD_BANK_YES', yes.length ? yes.join(' · ') : ''),
     line('WORD_BANK_NO', no.length ? no.join(' · ') : ''),
     ...businessModelLines(businessModel),
+    line('DISCOVERY_MARKET', discoveryFoundation?.market ?? ''),
+    line('DISCOVERY_COMPETITORS', discoveryFoundation?.competitors ?? ''),
+    line('DISCOVERY_NICHE', discoveryFoundation?.niche ?? ''),
     activeChannelsLine(assets),
     line('GENERATED_AT', new Date().toISOString()),
   ]

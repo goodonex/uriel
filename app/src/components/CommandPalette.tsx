@@ -128,8 +128,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         accent: string
       }> = [
         { path: 'dashboard', title: 'Dashboard', keywords: ['heute', 'home', 'startseite'], accent: 'var(--accent-blue)' },
-        { path: 'building', title: 'Building', keywords: ['foundation', 'icp', 'positioning', 'wortbank', 'business model'], accent: 'var(--mode-building)' },
-        { path: 'discovery', title: 'Discovery', keywords: ['markt', 'recherche', 'analyse', 'wettbewerb'], accent: 'var(--accent-coral)' },
+        { path: 'foundation', title: 'Foundation', keywords: ['building', 'discovery', 'icp', 'positioning', 'markt', 'wettbewerb'], accent: 'var(--mode-building)' },
         { path: 'promo', title: 'Promo', keywords: ['content', 'kampagne', 'social'], accent: 'var(--mode-promo)' },
         { path: 'sales', title: 'Sales', keywords: ['pipeline', 'kontakte', 'leads', 'crm'], accent: 'var(--mode-sales)' },
         { path: 'sales/lists', title: 'Sales · Listen', keywords: ['kontakt listen'], accent: 'var(--mode-sales)' },
@@ -262,7 +261,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           subtitle: `ICP · ${priorityLabel}${icp.location ? ' · ' + icp.location : ''}`,
           keywords: [icp.location, icp.age_range].filter(Boolean) as string[],
           accent: 'var(--mode-building)',
-          run: () => goTo(`${base}/building`),
+          run: () => goTo(`${base}/foundation`),
         })
       }
     }

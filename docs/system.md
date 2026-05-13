@@ -12,14 +12,15 @@ Drei Kernprinzipien:
 ---
 
 ## Der Fluss
-Discovery → Building → Promo → Sales → Intelligence → (zurück zu Building)
+Foundation → Promo → Sales → Intelligence → (zurück zu Foundation)
 
-Discovery informiert Building. Building informiert Promo. Promo informiert Sales.
+Foundation bündelt das frühere Building + Discovery in einem Bereich.
+Foundation informiert Promo. Promo informiert Sales.
 Sales + Promo informieren Intelligence. Intelligence optimiert Foundation zurück.
 
 ---
 
-## Die 6 Modi
+## Die 5 Modi
 
 ### Focus (KI-Schicht, immer sichtbar)
 - Zeigt täglich 3 nächste Moves mit höchstem Impact
@@ -28,22 +29,8 @@ Sales + Promo informieren Intelligence. Intelligence optimiert Foundation zurüc
 - Sendet Notifications wenn etwas stockt (später: Morning Brief)
 - Schlägt Foundation-Anpassungen vor wenn Performance-Daten es rechtfertigen
 
-### Discovery (Außenperspektive, automatisch aktualisiert)
-Schaut aktiv nach außen. Zwei Parts:
-
-**Discovery Foundation** — manuell gestartet (Button in der App).
-- Du gibst Markt, Wettbewerber, Nische ein
-- Edge Function **`discovery-agent`**: Web-Recherche (**Perplexity** `sonar`), strukturierte Analyse (**Claude**), Speicherung in `discovery_foundation` und neue Einträge in `discovery_feed_items`
-- Ergebnis: ICP-Entwürfe, Word-Bank-Vorschläge (Ja/Nein), Positioning, Content-Formate, Wettbewerber-Insights, Tone of Voice — Übernahme in Building pro Sektion
-- Secrets: siehe `docs/open-questions.md` (`PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY`, …)
-
-**Discovery Feed** — automatisch per Cron empfohlen (7 Tage), manuell aus der App auslösbar.
-- Edge Function **`discovery-feed-refresh`**: aktuelle Trends, Wettbewerber-Signale, Content-Formate (**Perplexity**); Einträge älter als 90 Tage werden archiviert (`archived_at`)
-
-Discovery füttert Intelligence. Discovery-Signale + Performance-Daten = vollständiger Loop.
-
-### Building
-Infrastruktur und Fundament. Was die Brand ist und wie sie läuft.
+### Foundation
+Infrastruktur und Fundament. Was die Brand ist und wie sie läuft — intern und extern.
 
 **Foundation:**
 - Business Model (Wer, Was, Wie, Für wen, Womit)
@@ -51,6 +38,10 @@ Infrastruktur und Fundament. Was die Brand ist und wie sie läuft.
 - Word Bank (✓ Ja-Wörter, ✗ Nein-Wörter, Cluster)
 - Positioning Statement
 - Tone of Voice
+- Markt / Kontext
+- Wettbewerber
+- Nische / Schwerpunkt
+- Discovery Feed + Analyse (`discovery-agent`, `discovery-feed-refresh`)
 
 **Assets:**
 - Website (embedded iframe + Tracking-Verbindung)
@@ -61,6 +52,10 @@ Infrastruktur und Fundament. Was die Brand ist und wie sie läuft.
 - Prozess-Templates
 - Workflows
 - Vorlagen für wiederkehrende Aufgaben
+
+**Routing-Hinweis:**
+- Haupt-Route ist `/brand/:slug/foundation`.
+- Alte Routen `/brand/:slug/building` und `/brand/:slug/discovery` redirecten auf `/brand/:slug/foundation`.
 
 ### Promo
 Was rausgeht. Content aus der Foundation heraus.

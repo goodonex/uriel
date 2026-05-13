@@ -346,7 +346,7 @@ export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
             </div>
             <button
               type="button"
-              onClick={() => navigate(`/brand/${slug}/building`)}
+              onClick={() => navigate(`/brand/${slug}/foundation`)}
               className="font-mono"
               style={{
                 fontSize: 9,

@@ -22,15 +22,15 @@ export type WorldStage =
   | 'moon-surface'
 
 export type WorldRegion =
-  | 'building'
-  | 'discovery'
+  | 'foundation'
   | 'promo'
   | 'sales'
   | 'intelligence'
 
 const REGION_FOR_MODE: Record<string, WorldRegion | 'deliver'> = {
-  building: 'building',
-  discovery: 'discovery',
+  foundation: 'foundation',
+  building: 'foundation',
+  discovery: 'foundation',
   promo: 'promo',
   sales: 'sales',
   intelligence: 'intelligence',

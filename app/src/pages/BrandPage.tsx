@@ -10,8 +10,9 @@ import { useViewport } from '../hooks/useViewport'
 
 const MODE_LABEL: Record<string, string> = {
   dashboard: 'Dashboard',
-  building: 'Building',
-  discovery: 'Discovery',
+  foundation: 'Foundation',
+  building: 'Foundation',
+  discovery: 'Foundation',
   promo: 'Promo',
   sales: 'Sales',
   intelligence: 'Intelligence',

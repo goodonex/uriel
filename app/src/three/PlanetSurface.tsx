@@ -2,14 +2,14 @@ import { useMemo } from 'react'
 import { useContentPieces } from '../hooks/useContentPieces'
 import { useContacts } from '../hooks/useContacts'
 import { useDiscoveryFeed } from '../hooks/useDiscoveryFeed'
+import { useDiscoveryFoundation } from '../hooks/useDiscoveryFoundation'
 import { useICPs } from '../hooks/useICPs'
 import { usePositioning } from '../hooks/usePositioning'
 import { useWordBank } from '../hooks/useWordBank'
 import { foundationHealth } from '../lib/foundationHealth'
 import { useWorldCamera } from '../store/worldCamera'
 import { Planet } from './Planet'
-import { BuildingPyramid } from './regions/BuildingPyramid'
-import { DiscoveryTower } from './regions/DiscoveryTower'
+import { FoundationStructure } from './regions/FoundationStructure'
 import { IntelligenceHill } from './regions/IntelligenceHill'
 import { PromoField } from './regions/PromoField'
 import { RegionLabel } from './regions/RegionLabel'
@@ -23,6 +23,7 @@ export function PlanetSurface({ slug }: { slug: string }) {
   const activeRegion = useWorldCamera((s) => s.region)
   const contacts = useContacts(slug)
   const feed = useDiscoveryFeed(slug)
+  const discoveryFoundation = useDiscoveryFoundation(slug)
   const content = useContentPieces(slug)
   const icps = useICPs(slug)
   const positioning = usePositioning(slug)
@@ -34,8 +35,9 @@ export function PlanetSurface({ slug }: { slug: string }) {
         icps: icps.items,
         positioning: positioning.item,
         wordBank: wordBank.items,
+        discoveryFoundation: discoveryFoundation.item,
       }),
-    [icps.items, positioning.item, wordBank.items],
+    [discoveryFoundation.item, icps.items, positioning.item, wordBank.items],
   )
 
   const intelligenceDef = byRegionKey('intelligence')
@@ -46,10 +48,10 @@ export function PlanetSurface({ slug }: { slug: string }) {
   )
 
   const sourceAnchors = useMemo(() => {
-    const keys: Array<'sales' | 'promo' | 'discovery'> = [
+    const keys: Array<'sales' | 'promo' | 'foundation'> = [
       'sales',
       'promo',
-      'discovery',
+      'foundation',
     ]
     return keys.map((k) => {
       const d = byRegionKey(k)
@@ -80,14 +82,10 @@ export function PlanetSurface({ slug }: { slug: string }) {
         <RegionLabel key={`label-${def.key}`} def={def} slug={slug} planetRadius={PLANET_RADIUS} />
       ))}
 
-      <BuildingPyramid
-        def={byRegionKey('building')}
+      <FoundationStructure
+        def={byRegionKey('foundation')}
         planetRadius={PLANET_RADIUS}
         foundationHealth={health}
-      />
-      <DiscoveryTower
-        def={byRegionKey('discovery')}
-        planetRadius={PLANET_RADIUS}
         signalCount={feed.items.length}
       />
       <PromoField

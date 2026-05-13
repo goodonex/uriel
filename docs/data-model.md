@@ -217,6 +217,14 @@ created_at    timestamp
 Wird on-demand aus den Foundation-Tabellen zusammengebaut.
 Format: strukturiertes Markdown.
 
+## Foundation Merge Hinweis
+
+`Foundation` vereint die früheren Bereiche `Building` und `Discovery` zu einem
+zusammenhängenden Brand-Verstehen-Bereich. Die Datenstruktur bleibt getrennt in
+`foundation_*` und `discovery_*` Tabellen, wird aber in einer gemeinsamen UI
+geführt. Routen `/brand/:slug/building` und `/brand/:slug/discovery` redirecten
+auf `/brand/:slug/foundation`.
+
 ```
 BRAND: {name}
 POSITIONING: {statement}

@@ -11,10 +11,8 @@ import { ToastProvider } from './components/Toast'
 import { CommandPaletteContext } from './lib/commandPaletteContext'
 import { SaveStatusProvider } from './lib/saveStatusContext'
 import { BrandPage } from './pages/BrandPage'
-import { BuildingMode } from './pages/building/BuildingMode'
 import { DeliverMode } from './pages/DeliverMode'
 import { ProjectPage } from './pages/deliver/ProjectPage'
-import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceMode } from './pages/intelligence/IntelligenceMode'
 import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -31,6 +29,7 @@ import { SalesMode } from './pages/sales/SalesMode'
 import { UniversePage } from './pages/UniversePage'
 import { useWorldCameraSyncFromRoute } from './store/worldCamera'
 import { World } from './three/World'
+import { FoundationMode } from './modes/FoundationMode'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -93,7 +92,8 @@ function OwnerWorkspaceShell() {
         const slug = slugRef.current
         const map: Record<string, string> = {
           d: 'dashboard',
-          b: 'building',
+          b: 'foundation',
+          f: 'foundation',
           s: 'sales',
           i: 'intelligence',
           p: 'deliver',
@@ -145,11 +145,11 @@ function OwnerWorkspaceShell() {
 
 function App() {
   const location = useLocation()
-  const { width } = useViewport()
+  const { isMobile } = useViewport()
   const isHome = location.pathname === '/'
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
   const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
-  const mobileWorldDisabled = width < 1024 && (isHome || isBrandWorkspace)
+  const mobileWorldDisabled = isMobile && (isHome || isBrandWorkspace)
   const hideCanvas =
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/onboarding') ||
@@ -224,8 +224,9 @@ function App() {
               <Route path="/" element={<UniversePage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route path="dashboard" element={<Navigate to=".." replace />} />
-                <Route path="building" element={<BuildingMode />} />
-                <Route path="discovery" element={<DiscoveryMode />} />
+                <Route path="foundation" element={<FoundationMode />} />
+                <Route path="building" element={<Navigate to="../foundation" replace />} />
+                <Route path="discovery" element={<Navigate to="../foundation" replace />} />
                 <Route path="promo" element={<PromoMode />} />
                 <Route path="sales/lists" element={<ContactListsPage />} />
                 <Route path="sales/lists/:listId" element={<ContactListsPage />} />

@@ -1,4 +1,5 @@
 export type ModeKey =
+  | 'foundation'
   | 'building'
   | 'promo'
   | 'sales'

@@ -5,8 +5,8 @@ import { useViewport } from '../hooks/useViewport'
 
 export function UniversePage() {
   const { brands } = useBrands()
-  const { width } = useViewport()
-  const worldDesktop = width >= 1024
+  const { isMobile } = useViewport()
+  const worldDesktop = !isMobile
 
   return (
     <div

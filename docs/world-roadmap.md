@@ -84,3 +84,9 @@ Diese Items sind absichtlich raus, um den Rebuild handhabbar zu halten. Beim nä
 - Section-Masken bleiben Glass + `backdrop-filter: blur(20px)`, Tokens aus `/design/tokens.css`.
 - Keine GLTF / `useGLTF`-Loader bevor die Higgsfield-Phase explizit gestartet ist.
 - Keine neuen npm-Pakete ohne Rückfrage.
+
+---
+
+## Erledigt nach Launch
+
+- [x] Building und Discovery zu Foundation gemerged (`/foundation` als Primärroute, `/building` + `/discovery` als Redirects).
