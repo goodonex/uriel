@@ -9,11 +9,16 @@
  */
 import { Suspense } from 'react'
 import { useWorldCamera } from '../store/worldCamera'
+import { BrandSystemScene } from './BrandSystemScene'
+import { PlanetSurface } from './PlanetSurface'
 import { Universe } from './Universe'
 import { WorldCameraController } from './WorldCameraController'
+import { getBrandSystemPosition } from './worldLayout'
 
 export function World() {
   const stage = useWorldCamera((s) => s.stage)
+  const brandSlug = useWorldCamera((s) => s.brandSlug)
+  const anchor = getBrandSystemPosition(brandSlug)
 
   return (
     <Suspense fallback={null}>
@@ -21,6 +26,16 @@ export function World() {
       <hemisphereLight args={['#2a2a38', '#080810', 0.35]} />
       <WorldCameraController />
       {stage === 'universe' ? <Universe /> : null}
+      {stage === 'brand-system' && brandSlug ? (
+        <group position={[anchor.x, anchor.y, anchor.z]}>
+          <BrandSystemScene slug={brandSlug} />
+        </group>
+      ) : null}
+      {stage === 'planet-surface' && brandSlug ? (
+        <group position={[anchor.x, anchor.y, anchor.z]}>
+          <PlanetSurface slug={brandSlug} />
+        </group>
+      ) : null}
       {/* Stage-bewusste Welt-Inhalte folgen in Phase 4–7. `stage` wird hier
           schon konsumiert damit das Mount-Pattern für späteres Conditional
           Rendering steht (kein React-Render ohne Bezug zur aktuellen Ebene). */}

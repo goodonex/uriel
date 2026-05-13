@@ -146,7 +146,7 @@ function App() {
   const location = useLocation()
   const isHome = location.pathname === '/'
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
-  const canvasPointerEvents = isHome ? 'auto' : 'none'
+  const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
   const hideCanvas =
     location.pathname.startsWith('/portal') || location.pathname.startsWith('/onboarding')
 
