@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom'
 import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
+import { SectionMask } from '../components/SectionMask'
 import { BrandWorkspaceSidebar } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -212,7 +213,13 @@ export function BrandPage() {
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
               >
-                <Outlet />
+                <SectionMask
+                  slug={slug}
+                  modeLabel={modeLabel ?? 'Section'}
+                  mobile={isMobile}
+                >
+                  <Outlet />
+                </SectionMask>
               </motion.div>
             </AnimatePresence>
           )}
