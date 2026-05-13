@@ -19,8 +19,9 @@ function resolveFrameStyle(
   slot: ModuleSlot,
   stackIndex: number,
   mobile: boolean,
+  hasOverlayRight: boolean,
 ): CSSProperties {
-  const base = slotStyle(slot, stackIndex)
+  const base = slotStyle(slot, stackIndex, { hasOverlayRight })
   if (mobile && slot === 'main') {
     return {
       ...base,
@@ -49,6 +50,11 @@ export function ModuleRenderer({ slug, mobile }: ModuleRendererProps) {
   const focus = useModuleManager((s) => s.focus)
   const navigate = useNavigate()
 
+  const hasOverlayRight = useMemo(
+    () => modules.some((m) => m.slot === 'overlay-right'),
+    [modules],
+  )
+
   const ordered = useMemo(() => {
     const list = [...modules]
     list.sort((a, b) => {
@@ -68,7 +74,7 @@ export function ModuleRenderer({ slug, mobile }: ModuleRendererProps) {
         const stackIdx = OVERLAY_SLOTS.includes(mod.slot)
           ? overlayStackIndex(modules, mod.slot, mod.id)
           : 0
-        const frameStyle = resolveFrameStyle(mod.slot, stackIdx, mobile)
+        const frameStyle = resolveFrameStyle(mod.slot, stackIdx, mobile, hasOverlayRight)
         const title = mod.title ?? mod.type
 
         return (

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { BRAND_FLOAT_MAIN_LEFT_X } from '../components/BrandWorkspaceSidebar'
 
 export type ModuleSlot =
   | 'main'
@@ -22,7 +23,53 @@ const Z = {
   overlay: 80,
 } as const
 
-export function slotStyle(slot: ModuleSlot, stackIndex: number): CSSProperties {
+/**
+ * Breite `overlay-right` (z. B. Kontakt-Detail).
+ * 640px: Labels, E-Mail, Datumsfelder und Flow-Auswahl bleiben lesbar (vgl. Phase-5-Review).
+ */
+export const OVERLAY_RIGHT_WIDTH_PX = 640
+
+/** Abstand zwischen rechter Kante des `main`-Moduls und linker Kante des Overlays */
+const MAIN_OVERLAY_GAP_PX = 24
+const VIEWPORT_RIGHT_INSET_PX = 32
+/** Rechte Spalte (Tasks + KPI) + Puffer — wenn kein `overlay-right` offen ist */
+const MAIN_RESERVE_RIGHT_BASE_PX = 320 + 56
+
+export interface MainSlotStyleOptions {
+  hasOverlayRight: boolean
+}
+
+export function mainSlotStyle(
+  stackIndex: number,
+  opts: MainSlotStyleOptions,
+): CSSProperties {
+  const reserveRight = opts.hasOverlayRight
+    ? OVERLAY_RIGHT_WIDTH_PX + VIEWPORT_RIGHT_INSET_PX + MAIN_OVERLAY_GAP_PX
+    : MAIN_RESERVE_RIGHT_BASE_PX
+  return {
+    position: 'fixed',
+    pointerEvents: 'auto',
+    boxSizing: 'border-box',
+    top: 32,
+    left: BRAND_FLOAT_MAIN_LEFT_X,
+    width: `min(52vw, calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - ${reserveRight}px))`,
+    maxWidth: `calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - ${reserveRight}px)`,
+    height: 'calc(100vh - 64px)',
+    zIndex: Z.main + stackIndex,
+  }
+}
+
+export function slotStyle(
+  slot: ModuleSlot,
+  stackIndex: number,
+  opts?: MainSlotStyleOptions,
+): CSSProperties {
+  const hasOverlayRight = opts?.hasOverlayRight ?? false
+
+  if (slot === 'main') {
+    return mainSlotStyle(stackIndex, { hasOverlayRight })
+  }
+
   const base: CSSProperties = {
     position: 'fixed',
     pointerEvents: 'auto',
@@ -30,15 +77,6 @@ export function slotStyle(slot: ModuleSlot, stackIndex: number): CSSProperties {
   }
 
   switch (slot) {
-    case 'main':
-      return {
-        ...base,
-        top: 32,
-        left: 96,
-        width: '60vw',
-        height: 'calc(100vh - 64px)',
-        zIndex: Z.main + stackIndex,
-      }
     case 'side-top':
       return {
         ...base,
@@ -74,8 +112,8 @@ export function slotStyle(slot: ModuleSlot, stackIndex: number): CSSProperties {
         ...base,
         top: 32,
         right: 32,
-        width: 480,
-        maxWidth: 'calc(100vw - 120px)',
+        width: OVERLAY_RIGHT_WIDTH_PX,
+        maxWidth: `min(${OVERLAY_RIGHT_WIDTH_PX}px, calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - 48px))`,
         height: 'calc(100vh - 64px)',
         zIndex: Z.overlay + stackIndex,
       }
