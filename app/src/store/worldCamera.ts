@@ -29,6 +29,7 @@ export type WorldRegion =
   | 'intelligence'
 
 const REGION_FOR_MODE: Record<string, WorldRegion | 'deliver'> = {
+  foundation: 'building',
   building: 'building',
   discovery: 'discovery',
   promo: 'promo',

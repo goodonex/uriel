@@ -92,7 +92,7 @@ export function BuildingHealthCard({
             </ul>
           )}
           <Link
-            to={`/brand/${slug}/building`}
+            to={`/brand/${slug}/foundation`}
             className="font-mono mt-2 inline-block"
             style={{ fontSize: 10, color: 'var(--mode-building)' }}
           >

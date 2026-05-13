@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { CollapsibleSection } from '../../components/CollapsibleSection'
 import { InlineEditableCard } from '../../components/InlineEditableCard'
 import type {
   DiscoveryAnalysis,
@@ -35,7 +36,7 @@ interface DiscoveryFoundationSectionProps {
   onApplyAllWords: (list: DiscoveryWordSuggestion[]) => void
   onApplyPositioningIdea: (idea: string) => void
   onApplyToneOfVoice: (text: string) => void
-  onSyncFromBuilding: () => void
+  onSyncFromFoundation: () => void
 }
 
 function formatAnalysisTime(iso: string | null): string {
@@ -157,8 +158,8 @@ function AnalysisPanel({
           marginBottom: 16,
         }}
       >
-        Aus Web-Research (Perplexity) und Strukturierung (Claude). Übernehme nach Bedarf in
-        Building.
+        Aus Web-Research (Perplexity) und Strukturierung (Claude). Übernehme nach Bedarf in ICPs,
+        Word Bank und Positioning (Foundation oben).
       </p>
 
       {comps.length ? (
@@ -268,7 +269,7 @@ function AnalysisPanel({
             }}
             onClick={() => onApplyToneOfVoice(tone)}
           >
-            In Building übernehmen
+            In Foundation übernehmen
           </button>
         </div>
       ) : null}
@@ -488,7 +489,7 @@ export function DiscoveryFoundationSection({
   onApplyAllWords,
   onApplyPositioningIdea,
   onApplyToneOfVoice,
-  onSyncFromBuilding,
+  onSyncFromFoundation,
 }: DiscoveryFoundationSectionProps) {
   const [market, setMarket] = useState(item?.market ?? '')
   const [competitors, setCompetitors] = useState(item?.competitors ?? '')
@@ -499,6 +500,40 @@ export function DiscoveryFoundationSection({
     setCompetitors(item?.competitors ?? '')
     setNiche(item?.niche ?? '')
   }, [item?.id, item?.market, item?.competitors, item?.niche])
+
+  const marketTrim = market.trim()
+  const compTrim = competitors.trim()
+  const nicheTrim = niche.trim()
+
+  const marketStatus: 'empty' | 'partial' | 'done' = !marketTrim
+    ? 'empty'
+    : marketTrim.length < 40
+      ? 'partial'
+      : 'done'
+  const compStatus: 'empty' | 'partial' | 'done' = !compTrim
+    ? 'empty'
+    : compTrim.length < 20
+      ? 'partial'
+      : 'done'
+  const nicheStatus: 'empty' | 'partial' | 'done' = !nicheTrim
+    ? 'empty'
+    : nicheTrim.length < 30
+      ? 'partial'
+      : 'done'
+
+  const analysisStatus: 'empty' | 'partial' | 'done' = item?.analysis
+    ? 'done'
+    : marketTrim && compTrim && nicheTrim
+      ? 'partial'
+      : 'empty'
+
+  const firstDiscoveryKey = useMemo(() => {
+    if (marketStatus !== 'done') return 'm'
+    if (compStatus !== 'done') return 'c'
+    if (nicheStatus !== 'done') return 'n'
+    if (analysisStatus !== 'done') return 'a'
+    return null as string | null
+  }, [marketStatus, compStatus, nicheStatus, analysisStatus])
 
   if (loading) {
     return (
@@ -517,43 +552,98 @@ export function DiscoveryFoundationSection({
   if (error) {
     return (
       <div className="font-mono" style={{ fontSize: 12, color: 'var(--accent-coral)' }}>
-        Discovery Foundation konnte nicht geladen werden: {error}
+        Discovery-Daten konnten nicht geladen werden: {error}
       </div>
     )
   }
 
   return (
     <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 520 }}>
+      <CollapsibleSection
+        title="Markt & Kontext"
+        status={marketStatus}
+        defaultOpen={firstDiscoveryKey === 'm'}
+      >
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 14 }}>
           Markt, Wettbewerb und Nische — einmal sauber festhalten. Die Analyse nutzt Web-Research
           und ein KI-Modell für strukturierte Vorschläge (ICPs, Word Bank, Positioning).
         </p>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-          <button
-            type="button"
-            className="font-mono inline-flex items-center gap-1.5"
-            style={{
-              fontSize: 11,
-              letterSpacing: '0.04em',
-              padding: '9px 14px',
-              borderRadius: 10,
-              background: 'var(--glass-2)',
-              border: '1px solid var(--glass-border-2)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
-            onClick={onSyncFromBuilding}
-            title="Felder mit Daten aus dem Building-Modus vorbefüllen"
-          >
-            <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M3 8 a5 5 0 0 1 9 -3 L13 6" strokeLinecap="round" />
-              <path d="M13 8 a5 5 0 0 1 -9 3 L3 10" strokeLinecap="round" />
-              <path d="M11 3 L13 6 L10 6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M5 13 L3 10 L6 10" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Aus Building übernehmen
-          </button>
+        <button
+          type="button"
+          className="font-mono mb-4 inline-flex items-center gap-1.5"
+          style={{
+            fontSize: 11,
+            letterSpacing: '0.04em',
+            padding: '9px 14px',
+            borderRadius: 10,
+            background: 'var(--glass-2)',
+            border: '1px solid var(--glass-border-2)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+          }}
+          onClick={onSyncFromFoundation}
+          title="Felder aus Business Model, ICPs und Positioning (oben) vorbefüllen"
+        >
+          <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+            <path d="M3 8 a5 5 0 0 1 9 -3 L13 6" strokeLinecap="round" />
+            <path d="M13 8 a5 5 0 0 1 -9 3 L3 10" strokeLinecap="round" />
+            <path d="M11 3 L13 6 L10 6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 13 L3 10 L6 10" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Aus Foundation übernehmen
+        </button>
+        <InlineEditableCard
+          label="Markt / Kontext"
+          hint="Wo spielt diese Brand?"
+          value={market}
+          placeholder="z. B. B2B SaaS DACH, lokale Dienstleister, Premium-Consumer …"
+          onSave={(v) => {
+            setMarket(v)
+            onSave({ market: v })
+          }}
+          accent="var(--accent-coral)"
+          toast="Markt gespeichert"
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Wettbewerber"
+        status={compStatus}
+        defaultOpen={firstDiscoveryKey === 'c'}
+      >
+        <InlineEditableCard
+          label="Wettbewerber"
+          hint="Namen · Links · Beobachtungen"
+          value={competitors}
+          placeholder="Namen, Links oder Beobachtungen — was dir im Feed auffällt."
+          onSave={(v) => {
+            setCompetitors(v)
+            onSave({ competitors: v })
+          }}
+          accent="var(--accent-coral)"
+          toast="Wettbewerber gespeichert"
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Nische"
+        status={nicheStatus === 'done' && analysisStatus === 'done' ? 'done' : nicheStatus === 'empty' && analysisStatus === 'empty' ? 'empty' : 'partial'}
+        defaultOpen={firstDiscoveryKey === 'n' || firstDiscoveryKey === 'a'}
+      >
+        <InlineEditableCard
+          label="Nische / Schwerpunkt"
+          hint="Worin hebt ihr euch ab?"
+          value={niche}
+          placeholder="Worin du dich von „alle machen das gleiche“ abhebst."
+          onSave={(v) => {
+            setNiche(v)
+            onSave({ niche: v })
+          }}
+          accent="var(--accent-coral)"
+          toast="Nische gespeichert"
+        />
+
+        <div className="mt-5 flex flex-wrap items-end gap-2">
           <button
             type="button"
             className="font-mono"
@@ -568,107 +658,66 @@ export function DiscoveryFoundationSection({
               pointerEvents: analysisRunBusy ? 'none' : 'auto',
             }}
             disabled={analysisRunBusy}
-            onClick={() =>
-              void onRunAnalysis({ market, competitors, niche })
-            }
+            onClick={() => void onRunAnalysis({ market, competitors, niche })}
           >
             {analysisRunBusy ? 'Analyse läuft…' : 'Analyse ausführen'}
           </button>
           <AnalysisRunProgress phaseIndex={analysisRunPhase} busy={analysisRunBusy} />
         </div>
-      </div>
 
-      {analysisRunError ? (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 14,
-            borderRadius: 12,
-            background: 'rgba(249, 115, 22, 0.08)',
-            border: '1px solid rgba(249, 115, 22, 0.35)',
-            fontSize: 13,
-            color: 'var(--text-secondary)',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          <div className="flex justify-between gap-2">
-            <span className="font-mono" style={{ color: 'var(--accent-coral)', fontSize: 11 }}>
-              Fehler
-            </span>
-            <button
-              type="button"
-              className="font-mono"
-              style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-              onClick={onDismissAnalysisError}
-            >
-              Schließen
-            </button>
+        {analysisRunError ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 14,
+              borderRadius: 12,
+              background: 'rgba(249, 115, 22, 0.08)',
+              border: '1px solid rgba(249, 115, 22, 0.35)',
+              fontSize: 13,
+              color: 'var(--text-secondary)',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            <div className="flex justify-between gap-2">
+              <span className="font-mono" style={{ color: 'var(--accent-coral)', fontSize: 11 }}>
+                Fehler
+              </span>
+              <button
+                type="button"
+                className="font-mono"
+                style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+                onClick={onDismissAnalysisError}
+              >
+                Schließen
+              </button>
+            </div>
+            <p style={{ margin: '8px 0 0' }}>{analysisRunError}</p>
           </div>
-          <p style={{ margin: '8px 0 0' }}>{analysisRunError}</p>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="mt-6 flex flex-col gap-3">
-        <InlineEditableCard
-          label="Markt / Kontext"
-          hint="Wo spielt diese Brand?"
-          value={market}
-          placeholder="z. B. B2B SaaS DACH, lokale Dienstleister, Premium-Consumer …"
-          onSave={(v) => {
-            setMarket(v)
-            onSave({ market: v })
-          }}
-          accent="var(--accent-coral)"
-          toast="Markt gespeichert"
-        />
-        <InlineEditableCard
-          label="Wettbewerber"
-          hint="Namen · Links · Beobachtungen"
-          value={competitors}
-          placeholder="Namen, Links oder Beobachtungen — was dir im Feed auffällt."
-          onSave={(v) => {
-            setCompetitors(v)
-            onSave({ competitors: v })
-          }}
-          accent="var(--accent-coral)"
-          toast="Wettbewerber gespeichert"
-        />
-        <InlineEditableCard
-          label="Nische / Schwerpunkt"
-          hint="Worin hebt ihr euch ab?"
-          value={niche}
-          placeholder="Worin du dich von „alle machen das gleiche“ abhebst."
-          onSave={(v) => {
-            setNiche(v)
-            onSave({ niche: v })
-          }}
-          accent="var(--accent-coral)"
-          toast="Nische gespeichert"
-        />
-      </div>
-
-      {item?.analysis ? (
-        <AnalysisPanel
-          analysis={item.analysis}
-          analysisRunAt={item.analysis_run_at}
-          onApplyIcpDraft={onApplyIcpDraft}
-          onApplyAllIcpDrafts={onApplyAllIcpDrafts}
-          onApplyWord={onApplyWord}
-          onApplyAllWords={onApplyAllWords}
-          onApplyPositioningIdea={onApplyPositioningIdea}
-          onApplyToneOfVoice={onApplyToneOfVoice}
-        />
-      ) : (
-        <p
-          style={{
-            marginTop: 20,
-            fontSize: 13,
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          Noch keine Analyse. Felder ausfüllen und „Analyse ausführen“ wählen.
-        </p>
-      )}
+        {item?.analysis ? (
+          <AnalysisPanel
+            analysis={item.analysis}
+            analysisRunAt={item.analysis_run_at}
+            onApplyIcpDraft={onApplyIcpDraft}
+            onApplyAllIcpDrafts={onApplyAllIcpDrafts}
+            onApplyWord={onApplyWord}
+            onApplyAllWords={onApplyAllWords}
+            onApplyPositioningIdea={onApplyPositioningIdea}
+            onApplyToneOfVoice={onApplyToneOfVoice}
+          />
+        ) : (
+          <p
+            style={{
+              marginTop: 20,
+              fontSize: 13,
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            Noch keine Analyse. Felder ausfüllen und „Analyse ausführen“ wählen.
+          </p>
+        )}
+      </CollapsibleSection>
     </div>
   )
 }

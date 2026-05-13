@@ -90,7 +90,7 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
       case 'word_bank':
       case 'asset':
       case 'sop':
-        navigate(`/brand/${slug}/building`)
+        navigate(`/brand/${slug}/foundation`)
         break
       case 'content_piece':
         navigate(`/brand/${slug}/promo`)

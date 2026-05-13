@@ -93,7 +93,7 @@ function OwnerWorkspaceShell() {
         const slug = slugRef.current
         const map: Record<string, string> = {
           d: 'dashboard',
-          b: 'building',
+          b: 'foundation',
           s: 'sales',
           i: 'intelligence',
           p: 'deliver',
@@ -224,7 +224,8 @@ function App() {
               <Route path="/" element={<UniversePage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route path="dashboard" element={<Navigate to=".." replace />} />
-                <Route path="building" element={<BuildingMode />} />
+                <Route path="foundation" element={<BuildingMode />} />
+                <Route path="building" element={<Navigate to="../foundation" replace />} />
                 <Route path="discovery" element={<DiscoveryMode />} />
                 <Route path="promo" element={<PromoDefaultRouteGate />} />
                 <Route path="sales/lists" element={<ContactListsPage />} />

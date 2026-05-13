@@ -26,7 +26,11 @@ export function RegionLabel({ def, slug, planetRadius }: RegionLabelProps) {
     >
       <button
         type="button"
-        onClick={() => navigate(`/brand/${slug}/${def.key}`)}
+        onClick={() => {
+          const pathMode =
+            def.key === 'building' || def.key === 'discovery' ? 'foundation' : def.key
+          navigate(`/brand/${slug}/${pathMode}`)
+        }}
         style={{
           border: 'none',
           background: 'transparent',

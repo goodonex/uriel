@@ -29,7 +29,9 @@ export function RegionPatch({ def, slug, planetRadius }: RegionPatchProps) {
       quaternion={q}
       onClick={(e) => {
         e.stopPropagation()
-        navigate(`/brand/${slug}/${def.key}`)
+        const pathMode =
+          def.key === 'building' || def.key === 'discovery' ? 'foundation' : def.key
+        navigate(`/brand/${slug}/${pathMode}`)
       }}
       onPointerOver={() => {
         document.body.style.cursor = 'pointer'

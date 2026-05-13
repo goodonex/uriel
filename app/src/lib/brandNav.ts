@@ -1,7 +1,7 @@
 export type BrandNavSection =
   | 'dashboard'
-  | 'building'
-  | 'discovery'
+  /** Building + Discovery — gemeinsame Sidebar-Gruppe */
+  | 'foundation'
   | 'promo'
   | 'sales'
   | 'sales_lists'
@@ -10,8 +10,13 @@ export type BrandNavSection =
 
 export function parseBrandNavSection(pathname: string): BrandNavSection {
   if (pathname.includes('/dashboard')) return 'dashboard'
-  if (pathname.includes('/building')) return 'building'
-  if (pathname.includes('/discovery')) return 'discovery'
+  if (
+    pathname.includes('/foundation') ||
+    pathname.includes('/building') ||
+    pathname.includes('/discovery')
+  ) {
+    return 'foundation'
+  }
   if (pathname.includes('/promo')) return 'promo'
   if (pathname.includes('/intelligence')) return 'intelligence'
   if (pathname.includes('/sales/lists')) return 'sales_lists'

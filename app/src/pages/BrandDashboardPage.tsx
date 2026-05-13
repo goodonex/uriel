@@ -393,7 +393,7 @@ export function BrandDashboardPage() {
                 border: 'none',
                 cursor: 'pointer',
               }}
-              onClick={() => navigate(`/brand/${slug}/discovery`)}
+              onClick={() => navigate(`/brand/${slug}/foundation`)}
             >
               Feed →
             </button>
@@ -404,7 +404,7 @@ export function BrandDashboardPage() {
               title="Noch keine Signale."
               description="Brand OS analysiert Markt und Wettbewerb für dich."
               actionLabel="Analyse starten"
-              onAction={() => navigate(`/brand/${slug}/discovery`)}
+              onAction={() => navigate(`/brand/${slug}/foundation`)}
               accent="var(--accent-coral)"
             />
           ) : (
@@ -474,7 +474,7 @@ export function BrandDashboardPage() {
               color: 'var(--text-primary)',
               cursor: 'pointer',
             }}
-            onClick={() => navigate(`/brand/${slug}/discovery`)}
+            onClick={() => navigate(`/brand/${slug}/foundation`)}
           >
             Discovery starten
           </button>

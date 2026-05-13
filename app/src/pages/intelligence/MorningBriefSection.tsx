@@ -132,7 +132,7 @@ export function MorningBriefSection({ slug }: { slug: string }) {
     if (health.percent < 50) {
       out.push({
         text: 'Building vervollständigen',
-        onClick: () => navigate(`${base}/building`),
+        onClick: () => navigate(`${base}/foundation`),
       })
     }
     if (daysSincePublish !== null && daysSincePublish > 14) {
@@ -150,7 +150,7 @@ export function MorningBriefSection({ slug }: { slug: string }) {
     if (wordBank.items.length < 5) {
       out.push({
         text: 'Word Bank erweitern für besseres Targeting',
-        onClick: () => navigate(`${base}/building`),
+        onClick: () => navigate(`${base}/foundation`),
       })
     }
     return out

@@ -260,7 +260,7 @@ export function BrandSystemDashboard({ slug }: { slug: string }) {
                   <li key={sig.id}>
                     <button
                       type="button"
-                      onClick={() => navigate(`/brand/${slug}/discovery`)}
+                      onClick={() => navigate(`/brand/${slug}/foundation`)}
                       style={{
                         width: '100%',
                         textAlign: 'left',

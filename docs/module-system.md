@@ -2,7 +2,7 @@
 
 Anker-Dokument für den Umbau der Modus-Darstellung: von monolithischer Section-Maske zu autonomen, fest positionierten Glas-Modulen über der weiterhin sichtbaren und klickbaren 3D-Welt.
 
-**Hinweis:** `docs/foundation-merge-plan.md` existiert nur auf Branches mit Foundation-Merge. Auf `feat/world-rebuild` liegen Building/Discovery weiterhin unter `app/src/pages/building/` und `app/src/pages/discovery/`; die Modul-Architektur ist davon unabhängig.
+**Hinweis:** `docs/foundation-merge-plan.md` kann auf Branches mit ausführlicher Foundation-Planung existieren. Die **Foundation-URL** ist `/brand/:slug/foundation` (ehemals getrennte Building-/Discovery-Routen redirecten dorthin).
 
 ---
 
@@ -58,11 +58,15 @@ Definition in `app/src/modules/slots.ts`. Zwischen den Slots bleibt bewusst Frei
 
 | Slot            | Position (Auszug) |
 |-----------------|-------------------|
-| `main`          | `top: 32px`, `left: 96px`, `width: 60vw`, `height: calc(100vh - 64px)` |
+| `main`          | `top: 32px`, `left: BRAND_FLOAT_MAIN_LEFT_X` (Dock + expandierte Sidebar + Abstand), dynamische `width`/`maxWidth`: wenn mindestens ein Modul im Slot `overlay-right` offen ist, wird rechts zusätzlich **`OVERLAY_RIGHT_WIDTH_PX` (640px)** + Rand + **24px** Lücke bis zur Pipeline reserviert, damit Pipeline und Kontakt-Overlay auf **1440px** nicht kollidieren. Ohne Overlay: unverändert Platz für die **320px**-rechte Spalte + bisherigen Puffer (`+56px`). |
 | `side-top`      | `top: 32px`, `right: 32px`, `width: 320px`, `height: 280px` |
 | `side-bottom`   | `top: 332px`, `right: 32px`, `width: 320px`, `height: calc(100vh - 364px)` |
 | `overlay-center`| zentriert, ca. `720×600`, höchster Basis-z-index |
-| `overlay-right` | `top: 32px`, `right: 32px`, `width: 480px`, `height: calc(100vh - 64px)` |
+| `overlay-right` | `top: 32px`, `right: 32px`, **`width: 640px`** (`OVERLAY_RIGHT_WIDTH_PX`), `maxWidth`: schrumpft auf schmalen Viewports unterhalb von 640px, begrenzt durch `calc(100vw - BRAND_FLOAT_MAIN_LEFT_X - 48px)` |
+
+### Entscheidung: kein eigener Slot `detail-pane`
+
+480px für Kontakt-Detail führte zu abgeschnittenen Labels und Inputs. **640px** für `overlay-right` plus **dynamische Verengung** des `main`-Slots bei geöffnetem rechten Overlay reicht für typische 1440px-Desktops. Ein zusätzlicher Slot-Typ **`detail-pane` (720px)** mit Verdrängung der Pipeline wäre nur nötig, falls später komplexe Formulare oder Side-by-Side-Vergleiche im Detail Modul landen — dann kann `docs/module-system.md` um diese Variante erweitert werden.
 
 ---
 
@@ -139,7 +143,7 @@ Implementiert (Phasen 1–10 dieses Blocks):
 - **Sales:** Desktop-Dreiteiler + Kontakt-Overlay; Mobile-Gates; `ContactPage variant="module"`.
 - **Intelligence:** Desktop-Dreiteiler (`intelligence-morning-brief`, `intelligence-pipeline-forecast`, `intelligence-win-loss`); `IntelligenceFocusTasksBlock`; Mobile `IntelligenceDefaultRouteGate`.
 - **Promo:** Desktop ein `promo-workspace`-Modul (main); Mobile `PromoDefaultRouteGate`. Dreiteiler Kalender/Pieces/Campaigns bewusst **nicht** gesplittet (Roadmap).
-- **Building / Discovery / Deliver:** weiter über `workspace-outlet` + Routen (kein Foundation-Navigator-Split in diesem Durchgang).
+- **Building / Discovery / Deliver:** Deliver über Modul + Routen; **Foundation** unter `/brand/:slug/foundation` (Building+Discovery in einer Seite); Legacy `/building` und `/discovery` leiten nach `foundation` um.
 - **Welt:** `RegionPatch`/`RegionLabel` unverändert; **Mond** in `BrandSystemScene` klickbar → `/brand/:slug/deliver`. UI-Overlay `pointer-events: none`, Module `auto` (bestehend).
 - **Animation:** Modul-Ein-/Ausstieg ~280ms / ~200ms pro Slot in `ModuleContainer`-Variants.
 - **Mobile:** `<1024` Welt aus, `workspace-outlet` + Gates (Sales, Intelligence, Promo); kein zusätzliches Multi-Modul-Polish.

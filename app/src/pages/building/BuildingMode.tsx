@@ -3,13 +3,17 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { BrandTemplatePicker } from '../../components/BrandTemplatePicker'
 import { CollapsibleSection } from '../../components/CollapsibleSection'
-import { useBusinessModel } from '../../hooks/useBusinessModel'
+import { BrandFoundationProvider } from '../../lib/brandFoundationContext'
 import { useAssets } from '../../hooks/useAssets'
 import { useBrands } from '../../hooks/useBrands'
+import { useDiscoveryWorkspace } from '../../hooks/useDiscoveryWorkspace'
+import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useICPs } from '../../hooks/useICPs'
 import { usePositioning } from '../../hooks/usePositioning'
 import { useSOPs } from '../../hooks/useSOPs'
 import { useWordBank } from '../../hooks/useWordBank'
+import { DiscoveryFeedSection } from '../discovery/DiscoveryFeedSection'
+import { DiscoveryFoundationSection } from '../discovery/DiscoveryFoundationSection'
 import { AssetsSection } from './AssetsSection'
 import { BusinessModelSection } from './BusinessModelSection'
 import { ContextExportButton } from './ContextExportButton'
@@ -18,7 +22,6 @@ import { PositioningSection } from './PositioningSection'
 import { SOPSection } from './SOPSection'
 import { WordBankSection } from './WordBankSection'
 import { BuildingHealthCard } from './BuildingHealthCard'
-import { BrandFoundationProvider } from '../../lib/brandFoundationContext'
 
 export function BuildingMode() {
   const { slug } = useParams<{ slug: string }>()
@@ -31,6 +34,7 @@ export function BuildingMode() {
   const businessModel = useBusinessModel(slug)
   const assets = useAssets(slug)
   const sops = useSOPs(slug)
+  const discovery = useDiscoveryWorkspace(slug)
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const bm = businessModel.item
@@ -94,7 +98,7 @@ export function BuildingMode() {
                 marginBottom: 6,
               }}
             >
-              Building Mode
+              Markt · Positionierung · Discovery
             </div>
             <h2
               className="font-display"
@@ -207,6 +211,77 @@ export function BuildingMode() {
           onRemove={wordBank.remove}
         />
       </CollapsibleSection>
+
+      <div
+        style={{
+          marginTop: 36,
+          paddingTop: 22,
+          borderTop: '1px dashed var(--glass-border-2)',
+        }}
+      >
+        <div
+          className="font-mono mb-4 flex items-center gap-3"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'var(--accent-coral)',
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: 'var(--accent-coral)',
+              boxShadow: '0 0 8px var(--accent-coral)',
+            }}
+          />
+          {`Discovery — Markt & Signale`}
+        </div>
+        <DiscoveryFoundationSection
+          item={discovery.foundation.item}
+          loading={discovery.foundation.loading}
+          error={discovery.foundation.error}
+          onSave={discovery.foundation.save}
+          onRunAnalysis={discovery.runAnalysis}
+          analysisRunBusy={discovery.analysisRunBusy}
+          analysisRunPhase={discovery.analysisRunPhase}
+          analysisRunError={discovery.analysisRunError}
+          onDismissAnalysisError={discovery.dismissAnalysisError}
+          onApplyIcpDraft={discovery.applyIcp}
+          onApplyAllIcpDrafts={discovery.applyIcpDraftsBatch}
+          onApplyWord={discovery.applyWord}
+          onApplyAllWords={discovery.applyWordSuggestionsBatch}
+          onApplyPositioningIdea={discovery.applyPositioningIdea}
+          onApplyToneOfVoice={discovery.applyToneOfVoice}
+          onSyncFromFoundation={discovery.syncFromFoundation}
+        />
+        {slug ? (
+          <CollapsibleSection
+            title="Discovery Feed"
+            status={
+              discovery.feed.items.length >= 4
+                ? 'done'
+                : discovery.feed.items.length > 0
+                  ? 'partial'
+                  : 'empty'
+            }
+            defaultOpen={discovery.feed.items.length === 0}
+          >
+            <DiscoveryFeedSection
+              slug={slug}
+              items={discovery.feed.items}
+              loading={discovery.feed.loading}
+              error={discovery.feed.error}
+              settings={discovery.settings.item}
+              settingsLoading={discovery.settings.loading}
+              onIntervalChange={discovery.onIntervalChange}
+              onRefreshFeed={discovery.refreshFeed}
+            />
+          </CollapsibleSection>
+        ) : null}
+      </div>
 
       <div
         style={{

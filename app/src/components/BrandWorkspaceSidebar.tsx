@@ -11,6 +11,8 @@ import { NotificationBell } from './NotificationBell'
 
 const COLLAPSED_W = 64
 const EXPANDED_W = 240
+/** Float-Dock links; zusammen mit EXPANDED_W = Platzbedarf bei Hover */
+const FLOAT_DOCK_INSET = 16
 
 interface NavItem {
   section: BrandNavSection
@@ -21,8 +23,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { section: 'dashboard', path: 'dashboard', label: 'Dashboard', mono: null },
-  { section: 'building', path: 'building', label: 'Building', mono: 'building' },
-  { section: 'discovery', path: 'discovery', label: 'Discovery', mono: 'discovery' },
+  {
+    section: 'foundation',
+    path: 'foundation',
+    label: 'Foundation',
+    mono: 'building',
+  },
   { section: 'promo', path: 'promo', label: 'Promo', mono: 'promo' },
   { section: 'sales', path: 'sales', label: 'Sales', mono: 'sales' },
   { section: 'deliver', path: 'deliver', label: 'Deliver', mono: 'deliver' },
@@ -37,18 +43,12 @@ function navIcon(section: BrandNavSection): ReactNode {
           <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" strokeLinejoin="round" />
         </svg>
       )
-    case 'building':
+    case 'foundation':
       return (
         <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.5}>
-          <rect x="2" y="2" width="12" height="12" rx="3" />
-          <path d="M5 8h6M5 5.5h4M5 10.5h3" />
-        </svg>
-      )
-    case 'discovery':
-      return (
-        <svg viewBox="0 0 16 16" width={16} height={16} fill="none">
-          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth={1.5} />
-          <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth={1.2} />
+          <rect x="2" y="7" width="12" height="7" rx="2" />
+          <path d="M4 7V5a4 4 0 0 1 8 0v2" />
+          <circle cx="11" cy="4.5" r="2" fill="currentColor" stroke="none" opacity={0.35} />
         </svg>
       )
     case 'promo':
@@ -109,9 +109,10 @@ export interface BrandWorkspaceSidebarProps {
 export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspaceSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { pathname } = location
   const { brands } = useBrands()
   const current = brands.find((b) => b.slug === slug)
-  const active = parseBrandNavSection(location.pathname)
+  const active = parseBrandNavSection(pathname)
   const accentColor =
     current?.color && current.color.trim() && !current.color.startsWith('var(')
       ? current.color
@@ -153,7 +154,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
 
   const floatDockStyle = {
     position: 'fixed' as const,
-    left: 16,
+    left: FLOAT_DOCK_INSET,
     top: '50%',
     transform: 'translateY(-50%)',
     zIndex: 45,
@@ -326,7 +327,12 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
 
         <nav className="space-y-0.5" style={{ marginRight: -4 }}>
           {NAV.map((item) => {
-            const isActive = item.section === 'sales' ? salesBranchActive : active === item.section
+            const isActive =
+              item.section === 'sales'
+                ? salesBranchActive
+                : item.section === 'foundation'
+                  ? active === 'foundation'
+                  : active === item.section
             const to = `${base}/${item.path}`
             const accent = item.mono ? modeCssVar(item.mono) : '--brand-accent'
 
@@ -335,7 +341,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
 
             return (
               <div
-                key={item.path}
+                key={item.section}
                 onMouseEnter={() => setHoveredSection(item.section)}
                 onMouseLeave={() =>
                   setHoveredSection((curr) => (curr === item.section ? null : curr))
@@ -396,7 +402,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                   ) : null}
                   {(() => {
                     const hasSignal =
-                      (item.section === 'discovery' && signals.discoveryNew) ||
+                      (item.section === 'foundation' && signals.discoveryNew) ||
                       (item.section === 'sales' && signals.salesDue) ||
                       (item.section === 'deliver' && signals.deliverProgress)
                     if (!hasSignal) return null
@@ -550,5 +556,9 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   )
 }
 
-/** Abstand für Seiteninhalt: links Dock + kollabierte Breite + Luft bis Text */
-export const BRAND_FLOAT_SIDEBAR_CLEARANCE_X = 16 + COLLAPSED_W + 16
+/**
+ * Abstand für Haupt-Module & Seiteninhalt: Dock links + **aufgeklappte** Sidebar-Breite + Luft,
+ * damit Hover-Expand nicht über den Inhalt legt.
+ */
+export const BRAND_FLOAT_MAIN_LEFT_X = FLOAT_DOCK_INSET + EXPANDED_W + 16
+export const BRAND_FLOAT_SIDEBAR_CLEARANCE_X = BRAND_FLOAT_MAIN_LEFT_X
