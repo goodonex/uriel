@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
+import * as THREE from 'three'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
+import { createPlanetSurfaceTextures } from './textures/noiseSurface'
 
 function stageIntensity(stage: string): number {
   switch (stage) {
@@ -29,6 +31,15 @@ function projectPoint(index: number, total: number, radius: number): [number, nu
 export function Moon({ slug }: { slug: string }) {
   const projects = useDeliverProjects(slug)
   const radius = 3.2
+  const surfaceTextures = useMemo(
+    () =>
+      createPlanetSurfaceTextures({
+        baseColor: '#8a8276',
+        seed: slug.length * 13.37,
+        contrast: 0.75,
+      }),
+    [slug.length],
+  )
 
   const points = useMemo(
     () =>
@@ -44,7 +55,11 @@ export function Moon({ slug }: { slug: string }) {
       <mesh>
         <sphereGeometry args={[radius, 96, 96]} />
         <meshStandardMaterial
-          color="#737782"
+          map={surfaceTextures.map}
+          bumpMap={surfaceTextures.bumpMap}
+          roughnessMap={surfaceTextures.roughnessMap}
+          bumpScale={0.25}
+          color="#8a8276"
           roughness={0.95}
           metalness={0.02}
           emissive="#15171f"
@@ -58,6 +73,17 @@ export function Moon({ slug }: { slug: string }) {
         const pulse = project.internal_stage === 'execute'
         return (
           <group key={project.id} position={point}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[0.04, 0.08, 32]} />
+              <meshStandardMaterial
+                color="#2f3138"
+                emissive="#20222a"
+                emissiveIntensity={0.1}
+                roughness={0.95}
+                metalness={0}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
             <mesh>
               <sphereGeometry args={[0.08, 16, 16]} />
               <meshStandardMaterial

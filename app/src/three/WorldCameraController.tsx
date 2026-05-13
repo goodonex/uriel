@@ -17,7 +17,7 @@
  */
 import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type ElementRef } from 'react'
+import { useEffect, useMemo, useRef, useState, type ElementRef } from 'react'
 import * as THREE from 'three'
 import {
   useWorldCamera,
@@ -48,8 +48,8 @@ const STAGE_CAMERA: Record<WorldStage, StageCamera> = {
     fov: 35,
   },
   'brand-system': {
-    offset: new THREE.Vector3(0, 1.5, 6.5),
-    fov: 35,
+    offset: new THREE.Vector3(0, 4, 12),
+    fov: 28,
   },
   'planet-surface': {
     // ~60° Neigung über dem Pol, Distanz so dass alle Regionen ins Bild passen.
@@ -76,22 +76,13 @@ const REGION_PAN: Record<WorldRegion, THREE.Vector3> = {
   intelligence: new THREE.Vector3(3.5, 1.5, 1.5),
 }
 
-/**
- * Lerp-Damping pro Frame, so kalibriert dass die Bewegung sich ungefähr wie
- * eine Ease-Out über die jeweils angepeilte Dauer anfühlt (60 fps).
- *
- *   alpha = 1 - 0.001^(1/frames)
- *
- * Stage-Wechsel ~1.2 s ≈ 72 Frames → ~0.094
- * Region-Pan   ~0.8 s ≈ 48 Frames → ~0.139
- * Moon-Swing  ~1.5 s ≈ 90 Frames → ~0.076
- */
-const DAMPING_STAGE = 0.094
-const DAMPING_REGION = 0.139
-const DAMPING_MOON = 0.076
+const DURATION_STAGE_MS = 1200
+const DURATION_REGION_MS = 800
+const DURATION_MOON_MS = 1500
 
-const TWEEN_EPSILON_POS = 0.05
-const TWEEN_EPSILON_FOV = 0.15
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
 
 interface ResolvedTarget {
   pos: THREE.Vector3
@@ -151,23 +142,23 @@ function resolveTarget(
   }
 }
 
-function chooseDamping(
+function chooseDurationMs(
   prevStage: WorldStage,
   nextStage: WorldStage,
   prevRegion: WorldRegion | null,
   nextRegion: WorldRegion | null,
 ): number {
   if (prevStage === 'moon-surface' || nextStage === 'moon-surface') {
-    return DAMPING_MOON
+    return DURATION_MOON_MS
   }
   if (
     prevStage === 'planet-surface' &&
     nextStage === 'planet-surface' &&
     prevRegion !== nextRegion
   ) {
-    return DAMPING_REGION
+    return DURATION_REGION_MS
   }
-  return DAMPING_STAGE
+  return DURATION_STAGE_MS
 }
 
 export function WorldCameraController() {
@@ -178,10 +169,15 @@ export function WorldCameraController() {
 
   const targetPos = useRef(new THREE.Vector3())
   const targetLook = useRef(new THREE.Vector3())
-  const currentLook = useRef(new THREE.Vector3())
   const targetFov = useRef(STAGE_CAMERA.universe.fov)
-  const tweening = useRef(true) // Beim Mount ein Initial-Tween auf Universe.
-  const damping = useRef(DAMPING_STAGE)
+  const startPos = useRef(new THREE.Vector3())
+  const startLook = useRef(new THREE.Vector3())
+  const startFov = useRef(STAGE_CAMERA.universe.fov)
+  const currentLook = useRef(new THREE.Vector3())
+  const tweenStartMs = useRef(0)
+  const tweenDurationMs = useRef(DURATION_STAGE_MS)
+  const tweening = useRef(false)
+  const [tweenActive, setTweenActive] = useState(false)
   const orbitRef = useRef<ElementRef<typeof OrbitControls> | null>(null)
   const prev = useRef<{ stage: WorldStage; region: WorldRegion | null }>({
     stage,
@@ -197,6 +193,9 @@ export function WorldCameraController() {
     targetLook.current.copy(t.look)
     currentLook.current.copy(t.look)
     targetFov.current = t.fov
+    startPos.current.copy(t.pos)
+    startLook.current.copy(t.look)
+    startFov.current = t.fov
     camera.position.copy(t.pos)
     camera.fov = t.fov
     camera.updateProjectionMatrix()
@@ -208,51 +207,47 @@ export function WorldCameraController() {
   // Stage- / Region- / Brand-Wechsel → neues Ziel + Tween-Flag.
   useEffect(() => {
     const t = resolveTarget(stage, brandSlug, region)
+    if (camera instanceof THREE.PerspectiveCamera) {
+      startPos.current.copy(camera.position)
+      startLook.current.copy(currentLook.current)
+      startFov.current = camera.fov
+    }
     targetPos.current.copy(t.pos)
     targetLook.current.copy(t.look)
     targetFov.current = t.fov
-    damping.current = chooseDamping(
+    tweenDurationMs.current = chooseDurationMs(
       prev.current.stage,
       stage,
       prev.current.region,
       region,
     )
+    tweenStartMs.current = performance.now()
     tweening.current = true
+    setTweenActive(true)
     prev.current = { stage, region }
     if (orbitRef.current) {
       orbitRef.current.target.copy(t.look)
       orbitRef.current.update()
     }
-  }, [stage, region, brandSlug])
+  }, [stage, region, brandSlug, camera])
 
   useFrame(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
     if (!tweening.current) return
 
-    const d = damping.current
-    camera.position.lerp(targetPos.current, d)
-    currentLook.current.lerp(targetLook.current, d)
+    const elapsed = performance.now() - tweenStartMs.current
+    const raw = Math.min(1, Math.max(0, elapsed / tweenDurationMs.current))
+    const t = easeOutCubic(raw)
+
+    camera.position.copy(startPos.current).lerp(targetPos.current, t)
+    currentLook.current.copy(startLook.current).lerp(targetLook.current, t)
     camera.lookAt(currentLook.current)
+    camera.fov = THREE.MathUtils.lerp(startFov.current, targetFov.current, t)
+    camera.updateProjectionMatrix()
 
-    const fovDelta = targetFov.current - camera.fov
-    if (Math.abs(fovDelta) > TWEEN_EPSILON_FOV) {
-      camera.fov += fovDelta * d
-      camera.updateProjectionMatrix()
-    }
-
-    const posDist = camera.position.distanceTo(targetPos.current)
-    const lookDist = currentLook.current.distanceTo(targetLook.current)
-    if (
-      posDist < TWEEN_EPSILON_POS &&
-      lookDist < TWEEN_EPSILON_POS &&
-      Math.abs(fovDelta) < TWEEN_EPSILON_FOV
-    ) {
-      camera.position.copy(targetPos.current)
-      currentLook.current.copy(targetLook.current)
-      camera.lookAt(currentLook.current)
-      camera.fov = targetFov.current
-      camera.updateProjectionMatrix()
+    if (raw >= 1) {
       tweening.current = false
+      setTweenActive(false)
       if (orbitRef.current) {
         orbitRef.current.target.copy(targetLook.current)
         orbitRef.current.update()
@@ -261,8 +256,8 @@ export function WorldCameraController() {
   })
 
   const orbitEnabled = useMemo(
-    () => stage === 'universe' || stage === 'brand-system',
-    [stage],
+    () => (stage === 'universe' || stage === 'brand-system') && !tweenActive,
+    [stage, tweenActive],
   )
 
   const orbitTarget = useMemo<[number, number, number]>(() => {

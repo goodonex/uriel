@@ -27,9 +27,10 @@ export function PromoField({ def, planetRadius, pieces }: PromoFieldProps) {
   )
 
   const sample = pieces.slice(0, 70)
+  const SCALE = 2.5
 
   return (
-    <group position={[base.x, base.y, base.z]}>
+    <group position={[base.x, base.y, base.z]} scale={[SCALE, SCALE, SCALE]}>
       {sample.map((piece, idx) => {
         const col = idx % 9
         const row = Math.floor(idx / 9)

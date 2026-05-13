@@ -8,6 +8,7 @@
  * damit Kamera-Tweens und Mount-Logik gemeinsam vom Store gesteuert werden.
  */
 import { Suspense } from 'react'
+import { Stars } from '@react-three/drei'
 import { useWorldCamera } from '../store/worldCamera'
 import { BrandSystemScene } from './BrandSystemScene'
 import { Moon } from './Moon'
@@ -26,6 +27,9 @@ export function World() {
       <ambientLight intensity={stage === 'universe' ? 0.15 : 0.22} />
       <hemisphereLight args={['#2a2a38', '#080810', 0.35]} />
       <WorldCameraController />
+      {(stage === 'universe' || stage === 'brand-system') ? (
+        <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade />
+      ) : null}
       {stage === 'universe' ? <Universe /> : null}
       {stage === 'brand-system' && brandSlug ? (
         <group position={[anchor.x, anchor.y, anchor.z]}>

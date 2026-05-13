@@ -12,7 +12,7 @@ interface RegionPatchProps {
 export function RegionPatch({ def, slug, planetRadius }: RegionPatchProps) {
   const navigate = useNavigate()
   const pos = useMemo(
-    () => latLonToVector3(def.lat, def.lon, planetRadius + 0.03),
+    () => latLonToVector3(def.lat, def.lon, planetRadius + 0.06),
     [def.lat, def.lon, planetRadius],
   )
 
@@ -46,7 +46,7 @@ export function RegionPatch({ def, slug, planetRadius }: RegionPatchProps) {
         roughness={0.8}
         metalness={0.03}
         emissive={def.accent}
-        emissiveIntensity={0.07}
+        emissiveIntensity={0.25}
       />
     </mesh>
   )

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
@@ -13,6 +13,7 @@ interface SectionMaskProps {
 export function SectionMask({ slug, modeLabel, children, mobile }: SectionMaskProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const hasMounted = useRef(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -22,6 +23,10 @@ export function SectionMask({ slug, modeLabel, children, mobile }: SectionMaskPr
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [navigate, slug])
+
+  useEffect(() => {
+    hasMounted.current = true
+  }, [])
 
   return (
     <div
@@ -38,7 +43,11 @@ export function SectionMask({ slug, modeLabel, children, mobile }: SectionMaskPr
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{
+            duration: 0.2,
+            ease: [0.16, 1, 0.3, 1],
+            delay: hasMounted.current ? 0.9 : 0,
+          }}
           style={{
             pointerEvents: 'auto',
             width: mobile ? '100%' : 'min(78vw, 1120px)',

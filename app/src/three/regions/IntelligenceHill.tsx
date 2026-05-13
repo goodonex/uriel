@@ -19,9 +19,10 @@ export function IntelligenceHill({
     () => latLonToVector3(def.lat, def.lon, planetRadius + 0.12),
     [def.lat, def.lon, planetRadius],
   )
+  const SCALE = 2.5
 
   return (
-    <group position={[base.x, base.y, base.z]}>
+    <group position={[base.x, base.y, base.z]} scale={[SCALE, SCALE, SCALE]}>
       <mesh>
         <sphereGeometry args={[0.36, 24, 24]} />
         <meshStandardMaterial
@@ -48,8 +49,8 @@ export function IntelligenceHill({
               ]}
               color={def.accent}
               transparent
-              opacity={0.28}
-              lineWidth={1}
+              opacity={0.4}
+              lineWidth={1.5}
             />
           ))
         : null}

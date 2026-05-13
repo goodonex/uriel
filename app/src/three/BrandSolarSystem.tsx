@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import type { Brand } from '../types/db'
 import { useUniverseNodeHover } from '../lib/universeNodeHover'
+import { createPlanetSurfaceTextures } from './textures/noiseSurface'
 import {
   BRAND_MOON_ORBIT_RADIUS,
   BRAND_MOON_RADIUS,
@@ -65,6 +66,14 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
   const nodeLeave = useUniverseNodeHover((s) => s.nodeLeave)
 
   const color = useMemo(() => resolvePlanetColor(brand), [brand])
+  const surfaceTextures = useMemo(
+    () =>
+      createPlanetSurfaceTextures({
+        baseColor: color,
+        seed: brand.slug.length * 3.17,
+      }),
+    [brand.slug.length, color],
+  )
 
   const glowTexture = useMemo(() => createRadialGlowTexture(), [])
   const glowMaterial = useMemo(() => {
@@ -74,7 +83,7 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      opacity: 0.25,
+      opacity: 0.4,
     })
     return m
   }, [color, glowTexture])
@@ -108,11 +117,12 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
     <group ref={groupRef} position={position}>
       <pointLight
         color={color}
-        intensity={1.1}
-        distance={18}
+        intensity={1.8}
+        distance={8}
         decay={2}
-        position={[0, BRAND_PLANET_RADIUS + 0.65, 0]}
+        position={[2, 3, 2]}
       />
+      <pointLight color="#ffffff" intensity={0.3} distance={8} decay={2} position={[-2.2, -2.2, -1.8]} />
 
       <mesh
         ref={planetRef}
@@ -134,15 +144,23 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
       >
         <sphereGeometry args={[BRAND_PLANET_RADIUS, 64, 64]} />
         <meshStandardMaterial
+          map={surfaceTextures.map}
+          bumpMap={surfaceTextures.bumpMap}
+          roughnessMap={surfaceTextures.roughnessMap}
+          bumpScale={0.15}
           color={color}
           emissive={color}
-          emissiveIntensity={hovered ? 0.22 : 0.12}
+          emissiveIntensity={hovered ? 0.12 : 0.08}
           roughness={0.82}
           metalness={0.08}
         />
       </mesh>
 
-      <sprite ref={glowRef} scale={[BRAND_PLANET_RADIUS * 3.2, BRAND_PLANET_RADIUS * 3.2, 1]} material={glowMaterial} />
+      <sprite
+        ref={glowRef}
+        scale={[BRAND_PLANET_RADIUS * 1.3, BRAND_PLANET_RADIUS * 1.3, 1]}
+        material={glowMaterial}
+      />
 
       <mesh ref={moonRef}>
         <sphereGeometry args={[BRAND_MOON_RADIUS, 32, 32]} />
@@ -163,11 +181,11 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
         <div
           className="font-mono"
           style={{
-            fontSize: 10,
+            fontSize: 16,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
             color: 'var(--text-primary)',
-            opacity: 0.7,
+            opacity: 0.8,
             whiteSpace: 'nowrap',
             textShadow: '0 1px 14px rgba(0,0,0,0.55)',
           }}

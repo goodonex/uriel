@@ -20,6 +20,7 @@ export function DiscoveryTower({
   )
   const spring = useGrowthSpring(String(signalCount), 1)
   const pulse = useMemo(() => ({ v: 0 }), [])
+  const SCALE = 2.5
 
   useFrame((state) => {
     pulse.v =
@@ -29,7 +30,7 @@ export function DiscoveryTower({
   })
 
   return (
-    <group position={[base.x, base.y, base.z]}>
+    <group position={[base.x, base.y, base.z]} scale={[SCALE, SCALE, SCALE]}>
       <mesh scale={[1, spring.get(), 1]}>
         <cylinderGeometry args={[0.18, 0.24, 1.3, 14]} />
         <meshStandardMaterial

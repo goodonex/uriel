@@ -45,9 +45,10 @@ export function SalesTowers({ def, planetRadius, contacts }: SalesTowersProps) {
   )
 
   const sample = contacts.slice(0, 60)
+  const SCALE = 2.5
 
   return (
-    <group position={[base.x, base.y, base.z]}>
+    <group position={[base.x, base.y, base.z]} scale={[SCALE, SCALE, SCALE]}>
       {sample.map((contact, idx) => {
         const a = (idx / Math.max(1, sample.length)) * Math.PI * 2
         const r = 0.25 + (idx % 7) * 0.065

@@ -2,7 +2,13 @@ import { Line } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { BRAND_MOON_ORBIT_RADIUS, getBrandWorldColor } from './worldLayout'
+import { createPlanetSurfaceTextures } from './textures/noiseSurface'
+import {
+  BRAND_MOON_ORBIT_RADIUS,
+  BRAND_MOON_RADIUS,
+  BRAND_PLANET_RADIUS,
+  getBrandWorldColor,
+} from './worldLayout'
 
 export function BrandSystemScene({ slug }: { slug: string }) {
   const planetRef = useRef<THREE.Mesh>(null)
@@ -27,6 +33,14 @@ export function BrandSystemScene({ slug }: { slug: string }) {
   }, [orbit])
 
   const color = getBrandWorldColor(slug)
+  const surfaceTextures = useMemo(
+    () =>
+      createPlanetSurfaceTextures({
+        baseColor: color,
+        seed: slug.length * 9.11,
+      }),
+    [color, slug.length],
+  )
 
   useFrame((state, delta) => {
     if (planetRef.current) planetRef.current.rotation.y += delta * 0.09
@@ -40,13 +54,18 @@ export function BrandSystemScene({ slug }: { slug: string }) {
 
   return (
     <group>
-      <pointLight color={color} intensity={1.25} distance={24} position={[0, 2.2, 0]} />
+      <pointLight color={color} intensity={1.8} distance={8} decay={2} position={[2, 3, 2]} />
+      <pointLight color="#ffffff" intensity={0.3} distance={8} decay={2} position={[-2.2, -2, -1.8]} />
       <mesh ref={planetRef}>
-        <sphereGeometry args={[2.4, 80, 80]} />
+        <sphereGeometry args={[BRAND_PLANET_RADIUS, 80, 80]} />
         <meshStandardMaterial
+          map={surfaceTextures.map}
+          bumpMap={surfaceTextures.bumpMap}
+          roughnessMap={surfaceTextures.roughnessMap}
+          bumpScale={0.15}
           color={color}
           emissive={color}
-          emissiveIntensity={0.16}
+          emissiveIntensity={0.08}
           roughness={0.84}
           metalness={0.06}
         />
@@ -63,7 +82,7 @@ export function BrandSystemScene({ slug }: { slug: string }) {
         lineWidth={1}
       />
       <mesh ref={moonRef}>
-        <sphereGeometry args={[0.46, 30, 30]} />
+        <sphereGeometry args={[BRAND_MOON_RADIUS, 30, 30]} />
         <meshStandardMaterial
           color="#6d6f79"
           emissive="#1f2027"

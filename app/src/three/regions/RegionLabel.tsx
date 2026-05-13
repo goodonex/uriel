@@ -31,10 +31,11 @@ export function RegionLabel({ def, slug, planetRadius }: RegionLabelProps) {
           border: 'none',
           background: 'transparent',
           color: 'var(--text-primary)',
-          opacity: 0.72,
+          opacity: 0.85,
           cursor: 'pointer',
           padding: 0,
           textAlign: 'left',
+          textShadow: '0 0 10px rgba(235,235,245,0.28)',
         }}
       >
         <div
@@ -46,16 +47,16 @@ export function RegionLabel({ def, slug, planetRadius }: RegionLabelProps) {
         >
           <span
             style={{
-              width: 28,
-              height: 1,
-              background: 'color-mix(in srgb, var(--text-primary) 40%, transparent)',
+              width: 34,
+              height: 2,
+              background: 'rgba(214,218,232,0.4)',
               display: 'inline-block',
             }}
           />
           <span
             className="font-mono"
             style={{
-              fontSize: 10,
+              fontSize: 14,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',

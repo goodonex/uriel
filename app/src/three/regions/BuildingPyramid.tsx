@@ -20,6 +20,7 @@ export function BuildingPyramid({
   )
   const trigger = String(Math.round(foundationHealth))
   const spring = useGrowthSpring(trigger, Math.max(0.1, foundationHealth / 100))
+  const SCALE = 2.5
 
   useFrame((_, delta) => {
     const phase = (Date.now() % 5000) / 5000
@@ -28,7 +29,7 @@ export function BuildingPyramid({
   })
 
   return (
-    <group position={[base.x, base.y, base.z]}>
+    <group position={[base.x, base.y, base.z]} scale={[SCALE, SCALE, SCALE]}>
       <mesh scale={[1, spring.get(), 1]}>
         <coneGeometry args={[0.55, 1.4, 4]} />
         <meshStandardMaterial
