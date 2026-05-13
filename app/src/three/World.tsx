@@ -9,6 +9,7 @@
  */
 import { Suspense } from 'react'
 import { useWorldCamera } from '../store/worldCamera'
+import { Universe } from './Universe'
 import { WorldCameraController } from './WorldCameraController'
 
 export function World() {
@@ -16,9 +17,11 @@ export function World() {
 
   return (
     <Suspense fallback={null}>
-      <ambientLight intensity={0.3} />
+      <ambientLight intensity={stage === 'universe' ? 0.15 : 0.22} />
+      <hemisphereLight args={['#2a2a38', '#080810', 0.35]} />
       <WorldCameraController />
-      {/* Stage-bewusste Welt-Inhalte folgen in Phase 3–7. `stage` wird hier
+      {stage === 'universe' ? <Universe /> : null}
+      {/* Stage-bewusste Welt-Inhalte folgen in Phase 4–7. `stage` wird hier
           schon konsumiert damit das Mount-Pattern für späteres Conditional
           Rendering steht (kein React-Render ohne Bezug zur aktuellen Ebene). */}
       <group name={`world-stage-${stage}`} />

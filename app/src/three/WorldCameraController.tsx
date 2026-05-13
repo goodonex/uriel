@@ -24,34 +24,40 @@ import {
   type WorldRegion,
   type WorldStage,
 } from '../store/worldCamera'
+import { getBrandSystemPosition } from './worldLayout'
 
 interface StageCamera {
-  pos: THREE.Vector3
-  look: THREE.Vector3
+  /** Offset relativ zum `look`-Punkt der Stage. */
+  offset: THREE.Vector3
   fov: number
 }
 
-/** Default-Positionen pro Stage. Werden in späteren Phasen ggf. feinjustiert. */
+/**
+ * Stage-Offsets relativ zum aktuellen "look"-Anker:
+ *   universe       → Anker `[0,0,0]`, weit weg im All
+ *   brand-system   → Anker am Brand-System, etwas vor/oben
+ *   planet-surface → Anker am Brand-System, schräg oben (~60°)
+ *   moon-surface   → Anker am Brand-System + Mond-Versatz
+ *
+ * Die tatsächliche Anker-Position kommt in `resolveTarget` aus
+ * `brandSlug` (Phase 3) und der Region-Offset (Phase 2).
+ */
 const STAGE_CAMERA: Record<WorldStage, StageCamera> = {
   universe: {
-    pos: new THREE.Vector3(0, 30, 80),
-    look: new THREE.Vector3(0, 0, 0),
+    offset: new THREE.Vector3(0, 30, 80),
     fov: 35,
   },
   'brand-system': {
-    pos: new THREE.Vector3(0, 5, 25),
-    look: new THREE.Vector3(0, 0, 0),
+    offset: new THREE.Vector3(0, 1.5, 6.5),
     fov: 35,
   },
   'planet-surface': {
     // ~60° Neigung über dem Pol, Distanz so dass alle Regionen ins Bild passen.
-    pos: new THREE.Vector3(0, 18, 18),
-    look: new THREE.Vector3(0, 0, 0),
+    offset: new THREE.Vector3(0, 18, 18),
     fov: 45,
   },
   'moon-surface': {
-    pos: new THREE.Vector3(0, 6, 10),
-    look: new THREE.Vector3(0, 0, 0),
+    offset: new THREE.Vector3(0, 6, 10),
     fov: 45,
   },
 }
@@ -95,20 +101,35 @@ interface ResolvedTarget {
 
 function resolveTarget(
   stage: WorldStage,
+  brandSlug: string | null,
   region: WorldRegion | null,
 ): ResolvedTarget {
   const base = STAGE_CAMERA[stage]
-  if (stage === 'planet-surface' && region) {
-    const offset = REGION_PAN[region]
+
+  // Universe: Anker im Ursprung, weit weg.
+  if (stage === 'universe') {
     return {
-      pos: base.pos.clone().add(offset),
-      look: base.look.clone().add(offset),
+      pos: base.offset.clone(),
+      look: new THREE.Vector3(0, 0, 0),
       fov: base.fov,
     }
   }
+
+  // Alle anderen Stages: Anker am Brand-System.
+  const anchor = getBrandSystemPosition(brandSlug)
+
+  if (stage === 'planet-surface' && region) {
+    const regionOffset = REGION_PAN[region]
+    return {
+      pos: anchor.clone().add(base.offset).add(regionOffset),
+      look: anchor.clone().add(regionOffset),
+      fov: base.fov,
+    }
+  }
+
   return {
-    pos: base.pos.clone(),
-    look: base.look.clone(),
+    pos: anchor.clone().add(base.offset),
+    look: anchor.clone(),
     fov: base.fov,
   }
 }
@@ -136,6 +157,7 @@ export function WorldCameraController() {
   const { camera } = useThree()
   const stage = useWorldCamera((s) => s.stage)
   const region = useWorldCamera((s) => s.region)
+  const brandSlug = useWorldCamera((s) => s.brandSlug)
 
   const targetPos = useRef(new THREE.Vector3())
   const targetLook = useRef(new THREE.Vector3())
@@ -153,7 +175,7 @@ export function WorldCameraController() {
   // bisherigen Default des `<Canvas camera>`-Props in die Welt fallen muss.
   useEffect(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
-    const t = resolveTarget(stage, region)
+    const t = resolveTarget(stage, brandSlug, region)
     targetPos.current.copy(t.pos)
     targetLook.current.copy(t.look)
     currentLook.current.copy(t.look)
@@ -166,9 +188,9 @@ export function WorldCameraController() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Stage- / Region-Wechsel → neues Ziel + Tween-Flag.
+  // Stage- / Region- / Brand-Wechsel → neues Ziel + Tween-Flag.
   useEffect(() => {
-    const t = resolveTarget(stage, region)
+    const t = resolveTarget(stage, brandSlug, region)
     targetPos.current.copy(t.pos)
     targetLook.current.copy(t.look)
     targetFov.current = t.fov
@@ -180,12 +202,11 @@ export function WorldCameraController() {
     )
     tweening.current = true
     prev.current = { stage, region }
-    // OrbitControls beim Tween-Start aus dem Spiel nehmen — sonst zappelt es.
     if (orbitRef.current) {
       orbitRef.current.target.copy(t.look)
       orbitRef.current.update()
     }
-  }, [stage, region])
+  }, [stage, region, brandSlug])
 
   useFrame(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
@@ -227,6 +248,11 @@ export function WorldCameraController() {
     [stage],
   )
 
+  const orbitTarget = useMemo<[number, number, number]>(() => {
+    const t = resolveTarget(stage, brandSlug, region)
+    return [t.look.x, t.look.y, t.look.z]
+  }, [stage, brandSlug, region])
+
   return (
     <OrbitControls
       ref={orbitRef}
@@ -234,9 +260,9 @@ export function WorldCameraController() {
       enablePan={false}
       enableZoom={stage === 'universe'}
       makeDefault={false}
-      target={STAGE_CAMERA[stage].look.toArray()}
-      minDistance={6}
-      maxDistance={120}
+      target={orbitTarget}
+      minDistance={4}
+      maxDistance={140}
       rotateSpeed={0.45}
       dampingFactor={0.08}
     />

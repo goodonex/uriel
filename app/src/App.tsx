@@ -28,7 +28,7 @@ import { ContactListsPage } from './pages/sales/ContactListsPage'
 import { ContactPage } from './pages/sales/ContactPage'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { SalesMode } from './pages/sales/SalesMode'
-import { NodeGraphPage } from './pages/NodeGraphPage'
+import { UniversePage } from './pages/UniversePage'
 import { useWorldCameraSyncFromRoute } from './store/worldCamera'
 import { World } from './three/World'
 
@@ -217,7 +217,7 @@ function App() {
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
             <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />
             <Route element={<OwnerWorkspaceShell />}>
-              <Route path="/" element={<NodeGraphPage />} />
+              <Route path="/" element={<UniversePage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<BrandDashboardPage />} />

@@ -11,11 +11,11 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
 const DEFAULT_BRANDS: Omit<Brand, 'id' | 'user_id' | 'created_at'>[] = [
-  { name: 'Herrmann & Co.', slug: 'herrmann', color: 'var(--accent-blue)' },
-  { name: 'Wertavio', slug: 'wertavio', color: '#C8A97A' },
-  { name: 'Culturefit', slug: 'culturefit', color: 'var(--accent-ember)' },
-  { name: 'Eversmell', slug: 'eversmell', color: '#F5C518' },
-  { name: 'Homeflower', slug: 'homeflower', color: 'var(--accent-teal)' },
+  { name: 'Herrmann & Co.', slug: 'herrmann', color: '#3B6FE8' },
+  { name: 'Wertavio', slug: 'wertavio', color: '#B8902A' },
+  { name: 'Culturefit', slug: 'culturefit', color: '#DC4628' },
+  { name: 'Eversmell', slug: 'eversmell', color: '#D4A843' },
+  { name: 'Homeflower', slug: 'homeflower', color: '#2D7A4F' },
 ]
 
 /** Wenn die DB-Migrationen noch nicht laufen: gleiche Slugs wie später in Supabase, damit Navigation stimmt. */
@@ -25,7 +25,7 @@ const FALLBACK_BRANDS: Brand[] = [
     user_id: null,
     name: 'Herrmann & Co.',
     slug: 'herrmann',
-    color: 'var(--accent-blue)',
+    color: '#3B6FE8',
     created_at: new Date().toISOString(),
   },
   {
@@ -33,7 +33,7 @@ const FALLBACK_BRANDS: Brand[] = [
     user_id: null,
     name: 'Wertavio',
     slug: 'wertavio',
-    color: '#C8A97A',
+    color: '#B8902A',
     created_at: new Date().toISOString(),
   },
   {
@@ -41,7 +41,7 @@ const FALLBACK_BRANDS: Brand[] = [
     user_id: null,
     name: 'Culturefit',
     slug: 'culturefit',
-    color: 'var(--accent-ember)',
+    color: '#DC4628',
     created_at: new Date().toISOString(),
   },
   {
@@ -49,7 +49,7 @@ const FALLBACK_BRANDS: Brand[] = [
     user_id: null,
     name: 'Eversmell',
     slug: 'eversmell',
-    color: '#F5C518',
+    color: '#D4A843',
     created_at: new Date().toISOString(),
   },
   {
@@ -57,7 +57,7 @@ const FALLBACK_BRANDS: Brand[] = [
     user_id: null,
     name: 'Homeflower',
     slug: 'homeflower',
-    color: 'var(--accent-teal)',
+    color: '#2D7A4F',
     created_at: new Date().toISOString(),
   },
 ]
@@ -126,6 +126,13 @@ async function syncCanonicalBrandsForUser(
 
   const mine = rows.filter((r) => r.user_id === userId)
   const bySlug = (slug: string) => mine.find((r) => r.slug === slug)
+  const syncColorBySlug: Record<string, string> = {
+    herrmann: '#3B6FE8',
+    wertavio: '#B8902A',
+    culturefit: '#DC4628',
+    homeflower: '#2D7A4F',
+    eversmell: '#D4A843',
+  }
 
   let changed = false
 
@@ -138,7 +145,7 @@ async function syncCanonicalBrandsForUser(
       .update({
         name: 'Wertavio',
         slug: 'wertavio',
-        color: '#C8A97A',
+        color: '#B8902A',
       })
       .eq('id', offmarket.id)
       .eq('user_id', userId)
@@ -152,7 +159,7 @@ async function syncCanonicalBrandsForUser(
       user_id: userId,
       name: 'Culturefit',
       slug: 'culturefit',
-      color: 'var(--accent-ember)',
+      color: '#DC4628',
     })
     if (!error) changed = true
     else if (
@@ -168,7 +175,7 @@ async function syncCanonicalBrandsForUser(
       user_id: userId,
       name: 'Eversmell',
       slug: 'eversmell',
-      color: '#F5C518',
+      color: '#D4A843',
     })
     if (!error) changed = true
     else if (
@@ -177,6 +184,18 @@ async function syncCanonicalBrandsForUser(
     ) {
       console.warn('[useBrands] Eversmell einfügen:', error.message)
     }
+  }
+
+  for (const row of mine) {
+    const canonical = syncColorBySlug[row.slug]
+    if (!canonical) continue
+    if (row.color === canonical) continue
+    const { error } = await supabase
+      .from('brands')
+      .update({ color: canonical })
+      .eq('id', row.id)
+      .eq('user_id', userId)
+    if (!error) changed = true
   }
 
   return changed
