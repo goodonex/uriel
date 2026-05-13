@@ -7,6 +7,7 @@ import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useSidebarSignals } from '../hooks/useSidebarSignals'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
 import { useCommandPalette } from '../lib/commandPaletteContext'
+import { ClosedModulesTray } from './ClosedModulesTray'
 import { NotificationBell } from './NotificationBell'
 
 const COLLAPSED_W = 64
@@ -506,6 +507,8 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
             )
           })}
         </nav>
+
+        {!isDrawer ? <ClosedModulesTray /> : null}
 
         <div
           style={{

@@ -44,9 +44,10 @@ export function BrandPage() {
   useRouteModulesSync({
     slug,
     pathname,
-    enabled: !showBrandSystem,
+    enabled: true,
     modeLabel: modeLabel ?? 'Bereich',
     mobile: isMobile,
+    brandSystemMobile: showBrandSystem && isMobile,
   })
 
   useDocumentTitle([brand?.name ?? slug, modeLabel])
@@ -206,7 +207,7 @@ export function BrandPage() {
           </header>
         ) : null}
         <div style={{ padding: isMobile ? '12px 14px 80px' : 0 }}>
-          {showBrandSystem ? (
+          {isMobile && showBrandSystem ? (
             <motion.div
               key="brand-system"
               initial={{ opacity: 0, y: 6 }}

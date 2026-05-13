@@ -18,6 +18,12 @@ export interface RouteModulesSyncOptions {
   enabled: boolean
   modeLabel: string
   mobile: boolean
+  /** Mobile Brand-Home: volles Dashboard ohne Modul-Manager */
+  brandSystemMobile?: boolean
+}
+
+function isBrandSystemDesktopPath(pathname: string): boolean {
+  return /^\/brand\/[^/]+\/?$/.test(pathname) || /^\/brand\/[^/]+\/dashboard\/?$/.test(pathname)
 }
 
 function isSalesDesktopModulesPath(pathname: string): boolean {
@@ -52,12 +58,27 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     }
 
     if (opts.mobile) {
+      if (opts.brandSystemMobile) {
+        closeAll()
+        return
+      }
       closeAll()
       open({
         id: WORKSPACE_OUTLET_ID,
         type: 'workspace-outlet',
         slot: 'main',
         title: opts.modeLabel,
+      })
+      return
+    }
+
+    if (isBrandSystemDesktopPath(opts.pathname)) {
+      closeAll()
+      open({
+        id: 'brand-dashboard',
+        type: 'brand-dashboard',
+        slot: 'main',
+        title: 'Brand-System',
       })
       return
     }
@@ -75,7 +96,7 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
         id: 'sales-tasks',
         type: 'tasks',
         slot: 'side-top',
-        title: 'Heute fällig',
+        title: 'Tasks',
       })
       open({
         id: 'sales-quick-stats',
@@ -120,10 +141,22 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     if (/^\/brand\/[^/]+\/promo\/?$/.test(opts.pathname)) {
       closeAll()
       open({
-        id: 'promo-workspace',
-        type: 'promo-workspace',
+        id: 'promo-calendar',
+        type: 'promo-calendar',
         slot: 'main',
-        title: 'Promo',
+        title: 'Kalender',
+      })
+      open({
+        id: 'promo-pieces',
+        type: 'promo-pieces',
+        slot: 'side-top',
+        title: 'Pieces',
+      })
+      open({
+        id: 'promo-campaigns',
+        type: 'promo-campaigns',
+        slot: 'side-bottom',
+        title: 'Kampagnen',
       })
       return
     }
@@ -141,6 +174,7 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     opts.pathname,
     opts.slug,
     opts.mobile,
+    opts.brandSystemMobile,
     open,
     closeAll,
   ])
@@ -150,11 +184,14 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (isEditableEscTarget(e.target)) return
-      const hasContact = useModuleManager
-        .getState()
-        .modules.some((m) => m.type === 'contact-detail')
+      const mods = useModuleManager.getState().modules
+      const hasContact = mods.some((m) => m.type === 'contact-detail')
       if (hasContact) {
         navigate(`/brand/${opts.slug}/sales`)
+        return
+      }
+      if (mods.length === 1 && mods[0]?.type === 'brand-dashboard') {
+        navigate('/')
         return
       }
       navigate(`/brand/${opts.slug}`)

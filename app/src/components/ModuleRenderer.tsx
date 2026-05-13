@@ -90,6 +90,10 @@ export function ModuleRenderer({ slug, mobile }: ModuleRendererProps) {
                 navigate(`/brand/${slug}/sales`)
                 return
               }
+              if (mod.type === 'brand-dashboard') {
+                navigate('/')
+                return
+              }
               if (mod.type === 'promo-workspace') {
                 navigate(`/brand/${slug}`)
                 return

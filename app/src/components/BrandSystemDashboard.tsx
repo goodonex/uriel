@@ -39,7 +39,7 @@ interface DueItem {
   href: string
 }
 
-export function BrandSystemDashboard({ slug }: { slug: string }) {
+export function BrandSystemDashboard({ slug, embedded = false }: { slug: string; embedded?: boolean }) {
   const navigate = useNavigate()
   const { brands } = useBrands()
   const contacts = useContacts(slug)
@@ -106,8 +106,10 @@ export function BrandSystemDashboard({ slug }: { slug: string }) {
     <div
       style={{
         position: 'relative',
-        minHeight: '100vh',
-        padding: '24px 24px 32px',
+        minHeight: embedded ? 0 : '100vh',
+        maxHeight: embedded ? 'min(72vh, 640px)' : undefined,
+        overflowY: embedded ? 'auto' : undefined,
+        padding: embedded ? '8px 4px 12px' : '24px 24px 32px',
       }}
     >
       <div
@@ -123,7 +125,7 @@ export function BrandSystemDashboard({ slug }: { slug: string }) {
           <div
             className="font-display"
             style={{
-              fontSize: 34,
+              fontSize: embedded ? 22 : 34,
               fontWeight: 600,
               letterSpacing: '-0.02em',
               color: 'var(--text-primary)',
@@ -148,7 +150,7 @@ export function BrandSystemDashboard({ slug }: { slug: string }) {
 
         <div
           style={{
-            width: 'min(300px, 34vw)',
+            width: embedded ? 'min(260px, 42%)' : 'min(300px, 34vw)',
             display: 'grid',
             gap: 10,
             pointerEvents: 'auto',
@@ -339,7 +341,7 @@ export function BrandSystemDashboard({ slug }: { slug: string }) {
               WebkitBackdropFilter: 'blur(20px)',
               padding: 16,
               pointerEvents: 'auto',
-              maxHeight: '70vh',
+              maxHeight: embedded ? 'min(40vh, 360px)' : '70vh',
               overflowY: 'auto',
             }}
           >
