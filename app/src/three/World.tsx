@@ -10,10 +10,11 @@
 import { Suspense } from 'react'
 import { useWorldCamera } from '../store/worldCamera'
 import { BrandSystemScene } from './BrandSystemScene'
+import { Moon } from './Moon'
 import { PlanetSurface } from './PlanetSurface'
 import { Universe } from './Universe'
 import { WorldCameraController } from './WorldCameraController'
-import { getBrandSystemPosition } from './worldLayout'
+import { BRAND_MOON_SURFACE_OFFSET, getBrandSystemPosition } from './worldLayout'
 
 export function World() {
   const stage = useWorldCamera((s) => s.stage)
@@ -34,6 +35,17 @@ export function World() {
       {stage === 'planet-surface' && brandSlug ? (
         <group position={[anchor.x, anchor.y, anchor.z]}>
           <PlanetSurface slug={brandSlug} />
+        </group>
+      ) : null}
+      {stage === 'moon-surface' && brandSlug ? (
+        <group
+          position={[
+            anchor.x + BRAND_MOON_SURFACE_OFFSET[0],
+            anchor.y + BRAND_MOON_SURFACE_OFFSET[1],
+            anchor.z + BRAND_MOON_SURFACE_OFFSET[2],
+          ]}
+        >
+          <Moon slug={brandSlug} />
         </group>
       ) : null}
       {/* Stage-bewusste Welt-Inhalte folgen in Phase 4–7. `stage` wird hier

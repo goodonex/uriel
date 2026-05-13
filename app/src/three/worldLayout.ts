@@ -58,3 +58,8 @@ export function getBrandWorldColor(
 export const BRAND_MOON_ORBIT_RADIUS = 2.6
 export const BRAND_PLANET_RADIUS = 1.2
 export const BRAND_MOON_RADIUS = 0.28
+export const BRAND_MOON_SURFACE_OFFSET: [number, number, number] = [
+  BRAND_MOON_ORBIT_RADIUS,
+  0.2,
+  0,
+]

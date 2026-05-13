@@ -24,7 +24,7 @@ import {
   type WorldRegion,
   type WorldStage,
 } from '../store/worldCamera'
-import { getBrandSystemPosition } from './worldLayout'
+import { BRAND_MOON_SURFACE_OFFSET, getBrandSystemPosition } from './worldLayout'
 
 interface StageCamera {
   /** Offset relativ zum `look`-Punkt der Stage. */
@@ -117,6 +117,23 @@ function resolveTarget(
 
   // Alle anderen Stages: Anker am Brand-System.
   const anchor = getBrandSystemPosition(brandSlug)
+
+  if (stage === 'moon-surface') {
+    const moonAnchor = anchor
+      .clone()
+      .add(
+        new THREE.Vector3(
+          BRAND_MOON_SURFACE_OFFSET[0],
+          BRAND_MOON_SURFACE_OFFSET[1],
+          BRAND_MOON_SURFACE_OFFSET[2],
+        ),
+      )
+    return {
+      pos: moonAnchor.clone().add(base.offset),
+      look: moonAnchor,
+      fov: base.fov,
+    }
+  }
 
   if (stage === 'planet-surface' && region) {
     const regionOffset = REGION_PAN[region]
