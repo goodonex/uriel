@@ -22,6 +22,7 @@ import { PortalRoute } from './pages/portal/PortalRoute'
 import { BookingPublicPage } from './pages/public/BookingPublicPage'
 import { LeadIntakePage } from './pages/public/LeadIntakePage'
 import { PromoMode } from './pages/promo/PromoMode'
+import { useViewport } from './hooks/useViewport'
 import { CallModePage } from './pages/sales/CallModePage'
 import { ContactListsPage } from './pages/sales/ContactListsPage'
 import { ContactPage } from './pages/sales/ContactPage'
@@ -144,11 +145,15 @@ function OwnerWorkspaceShell() {
 
 function App() {
   const location = useLocation()
+  const { width } = useViewport()
   const isHome = location.pathname === '/'
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
   const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
+  const mobileWorldDisabled = width < 1024 && (isHome || isBrandWorkspace)
   const hideCanvas =
-    location.pathname.startsWith('/portal') || location.pathname.startsWith('/onboarding')
+    location.pathname.startsWith('/portal') ||
+    location.pathname.startsWith('/onboarding') ||
+    mobileWorldDisabled
 
   return (
     <ToastProvider>
