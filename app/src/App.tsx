@@ -12,7 +12,7 @@ import { CommandPaletteContext } from './lib/commandPaletteContext'
 import { SaveStatusProvider } from './lib/saveStatusContext'
 import { BrandPage } from './pages/BrandPage'
 import { BuildingMode } from './pages/building/BuildingMode'
-import { DeliverMode } from './pages/DeliverMode'
+import { DeliverDefaultRouteGate } from './pages/deliver/DeliverDefaultRouteGate'
 import { ProjectPage } from './pages/deliver/ProjectPage'
 import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
 import { IntelligenceDefaultRouteGate } from './pages/intelligence/IntelligenceDefaultRouteGate'
@@ -228,13 +228,16 @@ function App() {
                 <Route path="building" element={<Navigate to="../foundation" replace />} />
                 <Route path="discovery" element={<DiscoveryMode />} />
                 <Route path="promo" element={<PromoDefaultRouteGate />} />
+                <Route path="promo/:panel" element={<PromoDefaultRouteGate />} />
                 <Route path="sales/lists" element={<ContactListsPage />} />
                 <Route path="sales/lists/:listId" element={<ContactListsPage />} />
                 <Route path="sales/call-mode" element={<CallModePage />} />
                 <Route path="sales/:contactId" element={<SalesContactRouteGate />} />
                 <Route path="sales" element={<SalesDefaultRouteGate />} />
                 <Route path="intelligence" element={<IntelligenceDefaultRouteGate />} />
-                <Route path="deliver" element={<DeliverMode />} />
+                <Route path="deliver" element={<DeliverDefaultRouteGate />} />
+                <Route path="deliver/completed" element={<DeliverDefaultRouteGate />} />
+                <Route path="deliver/moon" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/:projectId" element={<ProjectPage />} />
               </Route>
             </Route>

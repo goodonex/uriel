@@ -1,15 +1,26 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
+import { HorizontalScroller } from '../HorizontalScroller'
 import { CardTile } from '../../modules/CardTile'
 import { ContactDetailModule } from '../../modules/sales/ContactDetailModule'
-import { PipelineModule } from '../../modules/sales/PipelineModule'
-import { QuickStatsModule } from '../../modules/sales/QuickStatsModule'
-import { TasksModule } from '../../modules/sales/TasksModule'
+import { SalesListDetailModule } from '../../modules/sales/SalesListDetailModule'
+import { SalesListsModule } from '../../modules/sales/SalesListsModule'
+import { useHorizontalPanelUrl } from '../../hooks/useHorizontalPanelUrl'
 import {
-  SCROLL_PIPELINE_WIDTH,
-  SCROLL_SIDE_CARD_WIDTH,
-  SECTION_SHELL,
-  SECTION_VIEWPORT,
-} from './sectionLayout'
+  SALES_PANELS,
+  salesPanelIndexFromPath,
+  salesPathForPanel,
+} from '../../lib/horizontalPanels'
+import { CallModePage } from '../../pages/sales/CallModePage'
+import { SalesMode } from '../../pages/sales/SalesMode'
+import { ScrollSectionPanel } from './ScrollSectionPanel'
+import { SECTION_SHELL, SECTION_VIEWPORT } from './sectionLayout'
+
+const CONTACT_PANEL_W = 320
+
+function salesListIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/brand\/[^/]+\/sales\/lists\/([^/]+)/)
+  return m?.[1] ?? null
+}
 
 function salesContactIdFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)/)
@@ -18,76 +29,94 @@ function salesContactIdFromPath(pathname: string): string | null {
   return m[1]
 }
 
-export function SalesSection() {
-  const { pathname } = useLocation()
-  const contactId = salesContactIdFromPath(pathname)
+function salesView(pathname: string): 'call-mode' | 'list-detail' | 'horizontal' {
+  if (pathname.includes('/sales/call-mode')) return 'call-mode'
+  if (salesListIdFromPath(pathname)) return 'list-detail'
+  return 'horizontal'
+}
 
-  const pipelineWidth = SCROLL_PIPELINE_WIDTH
-  const sideW = SCROLL_SIDE_CARD_WIDTH
+export function SalesSection() {
+  const { slug = '' } = useParams<{ slug: string }>()
+  const { pathname } = useLocation()
+  const view = salesView(pathname)
+  const contactId = salesContactIdFromPath(pathname)
+  const { activeIndex, onIndexChange } = useHorizontalPanelUrl(
+    slug,
+    salesPanelIndexFromPath,
+    salesPathForPanel,
+  )
+
+  if (view === 'call-mode') {
+    return (
+      <ScrollSectionPanel section="sales">
+        <CallModePage />
+      </ScrollSectionPanel>
+    )
+  }
+
+  if (view === 'list-detail') {
+    return (
+      <ScrollSectionPanel section="sales">
+        <SalesListDetailModule />
+      </ScrollSectionPanel>
+    )
+  }
+
+  const tabs = SALES_PANELS.map((p) => ({ id: p.id, label: p.label }))
+
+  const pipelinePanel = (
+    <div
+      style={{
+        position: 'relative',
+        height: '100%',
+        minHeight: 0,
+        paddingRight: contactId ? CONTACT_PANEL_W + 12 : 0,
+      }}
+    >
+      <SalesMode scrollEmbed />
+      {contactId ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: CONTACT_PANEL_W,
+            zIndex: 2,
+          }}
+        >
+          <ContactDetailModule />
+        </div>
+      ) : null}
+    </div>
+  )
+
+  const panels = [pipelinePanel, <SalesListsModule key="lists" />]
 
   return (
     <div data-scroll-section="sales" style={SECTION_SHELL}>
       <div style={SECTION_VIEWPORT}>
         <CardTile
+          bare
           flyFrom="left"
           delay={0}
-          className="sales-scroll-pipeline-card"
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            width: contactId
-              ? `calc(${pipelineWidth} - ${sideW + 16}px)`
-              : pipelineWidth,
-            bottom: 0,
-            maxHeight: '100%',
-          }}
-        >
-          <PipelineModule />
-        </CardTile>
-
-        {contactId ? (
-          <CardTile
-            flyFrom="right"
-            delay={0.05}
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: sideW + 16,
-              width: sideW,
-              bottom: 0,
-            }}
-          >
-            <ContactDetailModule />
-          </CardTile>
-        ) : null}
-
-        <CardTile
-          flyFrom="right"
-          delay={0.1}
-          style={{
-            position: 'absolute',
-            top: 0,
             right: 0,
-            width: sideW,
-            maxHeight: contactId ? 'calc(50% - 6px)' : 'calc(50% - 6px)',
-          }}
-        >
-          <TasksModule />
-        </CardTile>
-
-        <CardTile
-          flyFrom="right"
-          delay={0.18}
-          style={{
-            position: 'absolute',
             bottom: 0,
-            right: 0,
-            width: sideW,
-            maxHeight: 'calc(50% - 6px)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
           }}
         >
-          <QuickStatsModule />
+          <HorizontalScroller
+            tabs={tabs}
+            activeIndex={activeIndex}
+            onIndexChange={onIndexChange}
+            children={panels}
+          />
         </CardTile>
       </div>
     </div>

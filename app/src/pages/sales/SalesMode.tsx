@@ -1357,7 +1357,7 @@ export function SalesMode({
             </div>
           ) : null}
 
-          {!contacts.loading && !contacts.error && !scrollEmbed ? (
+          {!contacts.loading && !contacts.error ? (
             <div className="mb-5">
               <PipelineFilterBar
                 q={pipeQ}

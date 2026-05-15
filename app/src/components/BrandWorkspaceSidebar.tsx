@@ -29,6 +29,15 @@ interface NavItem {
   mono: ModeKey | null
 }
 
+/** Sub-Routen behalten Pfad-basiertes Sidebar-Highlight (Listen, Projekte, …). */
+function scrollSyncUsesPathHighlight(pathname: string): boolean {
+  return (
+    /\/sales\/lists/.test(pathname) ||
+    /\/sales\/call-mode/.test(pathname) ||
+    /\/deliver\/[^/]+/.test(pathname)
+  )
+}
+
 const NAV: NavItem[] = [
   { section: 'dashboard', path: '', label: 'Dashboard', mono: null },
   {
@@ -123,7 +132,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const scrollCtx = useScrollSectionContext()
   const pathActive = parseBrandNavSection(pathname)
   const active =
-    scrollCtx?.syncEnabled ? scrollKeyToNavSection(scrollCtx.activeSection) : pathActive
+    scrollCtx?.syncEnabled && !scrollSyncUsesPathHighlight(pathname)
+      ? scrollKeyToNavSection(scrollCtx.activeSection)
+      : pathActive
+
   const accentColor =
     current?.color && current.color.trim() && !current.color.startsWith('var(')
       ? current.color
@@ -389,8 +401,13 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     if (!scrollCtx?.syncEnabled) return
                     e.preventDefault()
                     const key = navSectionToScrollKey(item.section)
+                    scrollCtx.setActiveSection(key)
                     scrollCtx.scrollToSection(key)
-                    navigate(pathForSection(slug, key))
+                    if (isSalesItem) {
+                      navigate(`${base}/sales`, { replace: true })
+                      return
+                    }
+                    navigate(pathForSection(slug, key), { replace: true })
                   }}
                   className="group relative flex items-center rounded-lg"
                   style={{
@@ -520,7 +537,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                               to={`${base}/deliver/${p.id}`}
                               title={p.name}
                               data-no-scale
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                scrollCtx?.scrollToSection('deliver')
+                              }}
                               className="flex items-center gap-2 rounded-lg truncate transition-colors"
                               style={{
                                 textDecoration: 'none',
@@ -578,7 +598,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                         <Link
                           to={`${base}/sales`}
                           data-no-scale
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            scrollCtx?.scrollToSection('sales')
+                          }}
                           className="flex items-center gap-2 rounded-lg truncate"
                           style={{
                             textDecoration: 'none',
@@ -628,7 +651,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                               to={`${base}/sales/lists/${l.id}`}
                               title={l.name}
                               data-no-scale
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                scrollCtx?.scrollToSection('sales')
+                              }}
                               className="flex items-center gap-2 rounded-lg truncate"
                               style={{
                                 textDecoration: 'none',

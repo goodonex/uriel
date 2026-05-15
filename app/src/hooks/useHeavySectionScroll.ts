@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { SECTION_ORDER, type SectionKey } from '../lib/scrollFlow'
 
-/** Wheel-Delta bis der nächste Section-Snap auslöst (höher = schwerer) */
-const SWITCH_THRESHOLD = 280
+/** Wheel-Delta bis der nächste Section-Snap auslöst */
+const SWITCH_THRESHOLD = 210
 /** Max. visueller Widerstand in px an der Section-Kante */
-const RESISTANCE_MAX_PX = 56
+const RESISTANCE_MAX_PX = 44
 /** Dauer des Section-Wechsels in ms */
-const SNAP_DURATION_MS = 1050
+const SNAP_DURATION_MS = 820
 /** Nach programmatischem Scroll Observer kurz pausieren */
-const SNAP_LOCK_MS = SNAP_DURATION_MS + 120
+const SNAP_LOCK_MS = SNAP_DURATION_MS + 100
 
-function easeOutQuart(t: number): number {
-  return 1 - (1 - t) ** 4
+/** Premium ease — weich ein, crisp aus */
+function easePremiumScroll(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
 }
 
 function isNestedScroller(target: EventTarget | null): HTMLElement | null {
@@ -37,7 +38,7 @@ function animateScrollTop(element: HTMLElement, targetTop: number, duration: num
   return new Promise((resolve) => {
     const tick = (now: number) => {
       const t = Math.min(1, (now - startTime) / duration)
-      element.scrollTop = start + delta * easeOutQuart(t)
+      element.scrollTop = start + delta * easePremiumScroll(t)
       if (t < 1) {
         requestAnimationFrame(tick)
       } else {
@@ -70,6 +71,8 @@ export interface UseHeavySectionScrollOptions {
   enabled: boolean
   onSnapStart?: () => void
   onSnapEnd?: () => void
+  /** Nach Snap (Wheel oder programmatisch) — für Sidebar/Dot-Nav-Sync */
+  onSectionSettled?: (section: SectionKey) => void
 }
 
 /**
@@ -82,6 +85,7 @@ export function useHeavySectionScroll({
   enabled,
   onSnapStart,
   onSnapEnd,
+  onSectionSettled,
 }: UseHeavySectionScrollOptions) {
   const accumulatorRef = useRef(0)
   const resistanceRef = useRef(0)
@@ -89,8 +93,10 @@ export function useHeavySectionScroll({
   const cooldownRef = useRef(0)
   const onSnapStartRef = useRef(onSnapStart)
   const onSnapEndRef = useRef(onSnapEnd)
+  const onSectionSettledRef = useRef(onSectionSettled)
   onSnapStartRef.current = onSnapStart
   onSnapEndRef.current = onSnapEnd
+  onSectionSettledRef.current = onSectionSettled
 
   const scrollToSectionHeavy = useCallback(
     async (section: SectionKey) => {
@@ -122,7 +128,8 @@ export function useHeavySectionScroll({
       const inner = innerRef?.current
       if (!inner) return
       inner.style.transform = px === 0 ? '' : `translate3d(0, ${px}px, 0)`
-      inner.style.transition = px === 0 ? 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
+      inner.style.transition =
+        px === 0 ? 'transform 0.52s cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
     }
 
     const decayResistance = () => {
@@ -155,6 +162,7 @@ export function useHeavySectionScroll({
 
       snappingRef.current = false
       onSnapEnd?.()
+      onSectionSettledRef.current?.(target.key)
     }
 
     const onWheel = (e: WheelEvent) => {

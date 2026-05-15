@@ -46,18 +46,29 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const innerRef = useRef<HTMLDivElement>(null)
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const activeSection = sectionFromPathname(pathname)
+  const pathSection = sectionFromPathname(pathname)
   const navigatingRef = useRef(false)
   const scrollCtx = useScrollSectionContext()
+
+  const activeSection = scrollCtx?.activeSection ?? pathSection
+
+  const settleSection = useCallback(
+    (section: SectionKey) => {
+      scrollCtx?.setActiveSection(section)
+      if (section !== pathSection) {
+        navigatingRef.current = true
+        navigate(pathForSection(slug, section), { replace: true })
+      }
+    },
+    [navigate, pathSection, scrollCtx, slug],
+  )
 
   const onSectionChange = useCallback(
     (section: SectionKey) => {
       if (section === activeSection) return
-      scrollCtx?.setActiveSection(section)
-      navigatingRef.current = true
-      navigate(pathForSection(slug, section))
+      settleSection(section)
     },
-    [activeSection, navigate, scrollCtx, slug],
+    [activeSection, settleSection],
   )
 
   const { suppressObserverRef } = useScrollSection({
@@ -81,6 +92,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     enabled: true,
     onSnapStart: lockObserver,
     onSnapEnd: unlockObserver,
+    onSectionSettled: settleSection,
   })
 
   useEffect(() => {
@@ -92,21 +104,35 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   }, [scrollCtx, scrollToSectionHeavy])
 
   useEffect(() => {
+    scrollCtx?.setActiveSection(pathSection)
+  }, [pathSection, scrollCtx])
+
+  useEffect(() => {
     if (navigatingRef.current) {
       navigatingRef.current = false
       return
     }
     const root = containerRef.current
     if (!root) return
-    const target = root.querySelector(`[data-scroll-section="${activeSection}"]`)
+    const target = root.querySelector(`[data-scroll-section="${pathSection}"]`)
     if (!target || !(target instanceof HTMLElement)) return
     if (Math.abs(root.scrollTop - target.offsetTop) < 6) return
 
     lockObserver()
-    void scrollToSectionHeavy(activeSection).finally(() => {
+    void scrollToSectionHeavy(pathSection).finally(() => {
       window.setTimeout(unlockObserver, 80)
     })
-  }, [activeSection, pathname, lockObserver, unlockObserver, scrollToSectionHeavy])
+  }, [pathSection, pathname, lockObserver, unlockObserver, scrollToSectionHeavy])
+
+  const jumpToSection = useCallback(
+    (section: SectionKey) => {
+      if (section === activeSection) return
+      navigatingRef.current = true
+      settleSection(section)
+      void scrollToSectionHeavy(section)
+    },
+    [activeSection, scrollToSectionHeavy, settleSection],
+  )
 
   return (
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
@@ -128,15 +154,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
           ))}
         </div>
       </div>
-      <SectionDotNav
-        active={activeSection}
-        onSelect={(section) => {
-          if (section === activeSection) return
-          navigatingRef.current = true
-          onSectionChange(section)
-          void scrollToSectionHeavy(section)
-        }}
-      />
+      <SectionDotNav onSelect={jumpToSection} />
     </ScrollFlowProvider>
   )
 }
