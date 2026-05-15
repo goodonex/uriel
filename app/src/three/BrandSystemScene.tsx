@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
+import { BrandPlanetGlow } from './BrandPlanetGlow'
 import { BrandPlanetMesh } from './BrandPlanetMesh'
 import {
   BRAND_MOON_ORBIT_RADIUS,
@@ -48,7 +49,7 @@ export function BrandSystemScene({ slug }: { slug: string }) {
 
   return (
     <group>
-      <pointLight color={color} intensity={1.8} distance={8} decay={2} position={[2, 3, 2]} />
+      <pointLight color={color} intensity={2.8} distance={8} decay={2} position={[2, 3, 2]} />
       <pointLight color="#ffffff" intensity={0.4} distance={8} decay={2} position={[-3, -2, -2]} />
       <BrandPlanetMesh
         slug={slug}
@@ -57,12 +58,14 @@ export function BrandSystemScene({ slug }: { slug: string }) {
         segments={80}
         meshRef={planetRef}
         rotationSpeed={0.09}
+        emissiveIntensity={0.06}
       />
+      <BrandPlanetGlow planetRadius={BRAND_PLANET_RADIUS} color={color} baseOpacity={0.2} />
       <Line
         points={orbitPoints}
         color="#b8bdd8"
         transparent
-        opacity={0.15}
+        opacity={0.22}
         dashed
         dashScale={16}
         dashSize={0.55}
@@ -85,10 +88,11 @@ export function BrandSystemScene({ slug }: { slug: string }) {
       >
         <sphereGeometry args={[BRAND_MOON_RADIUS, 30, 30]} />
         <meshStandardMaterial
-          color="#6d6f79"
-          emissive="#1f2027"
-          emissiveIntensity={0.08}
-          roughness={0.92}
+          color="#8a8d9a"
+          emissive="#3a3d4a"
+          emissiveIntensity={0.22}
+          roughness={0.88}
+          metalness={0.02}
         />
       </mesh>
     </group>

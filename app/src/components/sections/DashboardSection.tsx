@@ -6,7 +6,7 @@ import { useBrands } from '../../hooks/useBrands'
 import { useContacts } from '../../hooks/useContacts'
 import { useDiscoveryFeed } from '../../hooks/useDiscoveryFeed'
 import { useTasks } from '../../hooks/useTasks'
-import { SECTION_GRID, SECTION_SHELL } from './sectionLayout'
+import { SCROLL_SIDE_CARD_WIDTH, SECTION_SHELL, SECTION_VIEWPORT } from './sectionLayout'
 
 function fmtDateLong(): string {
   return new Intl.DateTimeFormat('de-DE', {
@@ -53,7 +53,7 @@ export function DashboardSection({ slug }: { slug: string }) {
   if (expanded) {
     return (
       <div data-scroll-section="dashboard" style={SECTION_SHELL}>
-        <div style={{ pointerEvents: 'auto', height: 'calc(100vh - 48px)', overflowY: 'auto' }}>
+        <div style={{ ...SECTION_VIEWPORT, pointerEvents: 'auto', overflowY: 'auto' as const }}>
           <BrandSystemDashboard slug={slug} embedded />
           <button
             type="button"
@@ -81,145 +81,164 @@ export function DashboardSection({ slug }: { slug: string }) {
 
   return (
     <div data-scroll-section="dashboard" style={SECTION_SHELL}>
-      <div
-        style={{
-          position: 'absolute',
-          left: 24,
-          bottom: 28,
-          pointerEvents: 'auto',
-          zIndex: 2,
-        }}
-      >
+      <div style={SECTION_VIEWPORT}>
         <div
-          className="font-display"
-          style={{ fontSize: 28, fontWeight: 600, color: 'var(--text-primary)' }}
-        >
-          {brand?.name ?? slug}
-        </div>
-        <div
-          className="font-mono"
           style={{
-            marginTop: 6,
-            fontSize: 10,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'var(--text-tertiary)',
+            position: 'absolute',
+            left: 0,
+            bottom: 0,
+            pointerEvents: 'auto',
+            zIndex: 2,
+            maxWidth: 'min(420px, 55vw)',
           }}
         >
-          {fmtDateLong()}
+          <div
+            className="font-display"
+            style={{ fontSize: 28, fontWeight: 600, color: 'var(--text-primary)' }}
+          >
+            {brand?.name ?? slug}
+          </div>
+          <div
+            className="font-mono"
+            style={{
+              marginTop: 6,
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            {fmtDateLong()}
+          </div>
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => setExpanded(true)}
+            style={{
+              marginTop: 14,
+              border: '1px solid var(--glass-border-2)',
+              background: 'rgba(8, 8, 16, 0.45)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              fontSize: 10,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            Mehr anzeigen
+          </button>
         </div>
-        <button
-          type="button"
-          className="font-mono"
-          onClick={() => setExpanded(true)}
-          style={{
-            marginTop: 14,
-            border: '1px solid var(--glass-border-2)',
-            background: 'var(--glass-1)',
-            borderRadius: 10,
-            padding: '8px 12px',
-            fontSize: 10,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-          }}
-        >
-          Mehr anzeigen
-        </button>
-      </div>
 
-      <div style={{ ...SECTION_GRID, gridTemplateColumns: '1fr minmax(280px, 32%)' }}>
-        <div style={{ gridColumn: '2', gridRow: '1' }}>
-          <CardTile flyFrom="right" delay={0} style={{ height: '100%' }}>
-            <div
-              className="font-mono"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--text-tertiary)',
-                marginBottom: 8,
-              }}
-            >
-              Heute fällig
+        <CardTile
+          flyFrom="right"
+          delay={0}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: SCROLL_SIDE_CARD_WIDTH,
+            maxHeight: '48%',
+          }}
+        >
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            Heute fällig
+          </div>
+          {dueItems.length === 0 ? (
+            <div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Sauberer Tag
             </div>
-            {dueItems.length === 0 ? (
-              <div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                Sauberer Tag
-              </div>
-            ) : (
-              <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
-                {dueItems.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(item.href)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        borderRadius: 10,
-                        border: '1px solid var(--glass-border-2)',
-                        background: 'var(--glass-1)',
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
-                        {item.label}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardTile>
-        </div>
-        <div style={{ gridColumn: '2', gridRow: '2' }}>
-          <CardTile flyFrom="right" delay={0.08} style={{ height: '100%' }}>
-            <div
-              className="font-mono"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--text-tertiary)',
-                marginBottom: 8,
-              }}
-            >
-              Neueste Signale
+          ) : (
+            <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
+              {dueItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(item.href)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: 10,
+                      border: '1px solid var(--glass-border-2)',
+                      background: 'var(--glass-1)',
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+                      {item.label}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardTile>
+
+        <CardTile
+          flyFrom="right"
+          delay={0.08}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: SCROLL_SIDE_CARD_WIDTH,
+            maxHeight: '48%',
+          }}
+        >
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            Neueste Signale
+          </div>
+          {signals.length === 0 ? (
+            <div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Noch keine Signale
             </div>
-            {signals.length === 0 ? (
-              <div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                Noch keine Signale
-              </div>
-            ) : (
-              <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
-                {signals.map((sig) => (
-                  <li key={sig.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/brand/${slug}/foundation`)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        borderRadius: 10,
-                        border: '1px solid var(--glass-border-2)',
-                        background: 'var(--glass-1)',
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
-                        {sig.title}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardTile>
-        </div>
+          ) : (
+            <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
+              {signals.map((sig) => (
+                <li key={sig.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/brand/${slug}/foundation`)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: 10,
+                      border: '1px solid var(--glass-border-2)',
+                      background: 'var(--glass-1)',
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+                      {sig.title}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardTile>
       </div>
     </div>
   )

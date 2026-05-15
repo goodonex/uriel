@@ -23,7 +23,8 @@ import { SOPSection } from './SOPSection'
 import { WordBankSection } from './WordBankSection'
 import { BuildingHealthCard } from './BuildingHealthCard'
 
-export function BuildingMode() {
+export function BuildingMode({ layout = 'page' }: { layout?: 'page' | 'scroll' }) {
+  const isScroll = layout === 'scroll'
   const { slug } = useParams<{ slug: string }>()
   const { brands } = useBrands()
   const brand = brands.find((b) => b.slug === slug) ?? null
@@ -85,6 +86,7 @@ export function BuildingMode() {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {!isScroll ? (
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
           <div>
@@ -143,16 +145,18 @@ export function BuildingMode() {
           </div>
         </div>
         {slug ? (
-          <BuildingHealthCard
+            <BuildingHealthCard
             slug={slug}
             positioning={positioning.item}
             icps={icps.items}
             wordBank={wordBank.items}
             businessModel={businessModel.item}
             assets={assets.items}
+            variant="standalone"
           />
         ) : null}
       </div>
+      ) : null}
 
       <CollapsibleSection
         title="Business Model — Wer · Was · Wie · Für wen · Womit"
@@ -212,6 +216,8 @@ export function BuildingMode() {
         />
       </CollapsibleSection>
 
+      {!isScroll ? (
+      <>
       <div
         style={{
           marginTop: 36,
@@ -341,8 +347,10 @@ export function BuildingMode() {
           />
         </CollapsibleSection>
       </div>
+      </>
+      ) : null}
 
-      {slug ? (
+      {slug && !isScroll ? (
         <BrandTemplatePicker
           slug={slug}
           open={templatePickerOpen}

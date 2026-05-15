@@ -1,5 +1,5 @@
 import { SalesMode } from '../../pages/sales/SalesMode'
 
 export function PipelineModule() {
-  return <SalesMode panel="pipeline" />
+  return <SalesMode panel="pipeline" scrollEmbed />
 }

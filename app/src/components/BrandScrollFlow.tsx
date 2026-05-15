@@ -1,7 +1,8 @@
-import { animate, motion, useMotionValue } from 'framer-motion'
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ScrollFlowProvider } from '../context/ScrollFlowContext'
+import { useScrollSectionContext } from '../context/ScrollSectionContext'
+import { useHeavySectionScroll } from '../hooks/useHeavySectionScroll'
 import { useScrollSection } from '../hooks/useScrollSection'
 import {
   SECTION_ORDER,
@@ -46,17 +47,17 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const activeSection = sectionFromPathname(pathname)
-  const resistanceY = useMotionValue(0)
   const navigatingRef = useRef(false)
-  const scrollSyncRef = useRef(false)
+  const scrollCtx = useScrollSectionContext()
 
   const onSectionChange = useCallback(
     (section: SectionKey) => {
       if (section === activeSection) return
+      scrollCtx?.setActiveSection(section)
       navigatingRef.current = true
       navigate(pathForSection(slug, section))
     },
-    [activeSection, navigate, slug],
+    [activeSection, navigate, scrollCtx, slug],
   )
 
   const { suppressObserverRef } = useScrollSection({
@@ -66,6 +67,30 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     onSectionChange,
   })
 
+  const lockObserver = useCallback(() => {
+    suppressObserverRef.current = true
+  }, [suppressObserverRef])
+
+  const unlockObserver = useCallback(() => {
+    suppressObserverRef.current = false
+  }, [suppressObserverRef])
+
+  const { scrollToSectionHeavy } = useHeavySectionScroll({
+    containerRef,
+    innerRef,
+    enabled: true,
+    onSnapStart: lockObserver,
+    onSnapEnd: unlockObserver,
+  })
+
+  useEffect(() => {
+    if (!scrollCtx?.syncEnabled) return
+    scrollCtx.registerScrollToSection((section) => {
+      void scrollToSectionHeavy(section)
+    })
+    return () => scrollCtx.registerScrollToSection(null)
+  }, [scrollCtx, scrollToSectionHeavy])
+
   useEffect(() => {
     if (navigatingRef.current) {
       navigatingRef.current = false
@@ -74,80 +99,42 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     const root = containerRef.current
     if (!root) return
     const target = root.querySelector(`[data-scroll-section="${activeSection}"]`)
-    if (!target) return
-    scrollSyncRef.current = true
-    suppressObserverRef.current = true
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    const t = window.setTimeout(() => {
-      scrollSyncRef.current = false
-      suppressObserverRef.current = false
-    }, 700)
-    return () => window.clearTimeout(t)
-  }, [activeSection, pathname, suppressObserverRef])
+    if (!target || !(target instanceof HTMLElement)) return
+    if (Math.abs(root.scrollTop - target.offsetTop) < 6) return
 
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    let resistanceTimer: ReturnType<typeof setTimeout> | null = null
-
-    const onWheel = (e: WheelEvent) => {
-      if (scrollSyncRef.current) return
-      const { scrollTop, clientHeight } = el
-      if (clientHeight <= 0) return
-      const sectionProgress = (scrollTop % clientHeight) / clientHeight
-      const nearEdge =
-        (sectionProgress > 0.82 && e.deltaY > 0) || (sectionProgress < 0.18 && e.deltaY < 0)
-      if (!nearEdge) return
-
-      const push = Math.min(40, Math.abs(e.deltaY) * 0.12) * Math.sign(e.deltaY)
-      void animate(resistanceY, push, { duration: 0.12, ease: 'easeOut' })
-      if (resistanceTimer) clearTimeout(resistanceTimer)
-      resistanceTimer = setTimeout(() => {
-        void animate(resistanceY, 0, { duration: 0.28, ease: [0.16, 1, 0.3, 1] })
-      }, 300)
-    }
-
-    el.addEventListener('wheel', onWheel, { passive: true })
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      if (resistanceTimer) clearTimeout(resistanceTimer)
-    }
-  }, [resistanceY])
-
-  const scrollToSection = useCallback((section: SectionKey) => {
-    const root = containerRef.current
-    if (!root) return
-    const target = root.querySelector(`[data-scroll-section="${section}"]`)
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
+    lockObserver()
+    void scrollToSectionHeavy(activeSection).finally(() => {
+      window.setTimeout(unlockObserver, 80)
+    })
+  }, [activeSection, pathname, lockObserver, unlockObserver, scrollToSectionHeavy])
 
   return (
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
       <div
         ref={containerRef}
-        className="brand-scroll-flow"
+        className="brand-scroll-flow brand-scroll-flow--heavy"
         style={{
           height: '100vh',
           overflowY: 'auto',
           overflowX: 'hidden',
-          scrollSnapType: 'y mandatory',
-          overscrollBehavior: 'contain',
+          overscrollBehavior: 'y contain',
           position: 'relative',
           zIndex: 1,
         }}
       >
-        <motion.div ref={innerRef} style={{ y: resistanceY }}>
+        <div ref={innerRef} className="brand-scroll-flow-inner">
           {SECTION_ORDER.map((section) => (
             <SectionView key={section} section={section} slug={slug} />
           ))}
-        </motion.div>
+        </div>
       </div>
       <SectionDotNav
         active={activeSection}
         onSelect={(section) => {
-          scrollToSection(section)
+          if (section === activeSection) return
+          navigatingRef.current = true
           onSectionChange(section)
+          void scrollToSectionHeavy(section)
         }}
       />
     </ScrollFlowProvider>

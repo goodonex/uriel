@@ -100,7 +100,7 @@ function DayDots({ dayPieces }: { dayPieces: ContentPiece[] }) {
   )
 }
 
-export function PromoCalendarSplit() {
+export function PromoCalendarSplit({ scrollTile = false }: { scrollTile?: boolean }) {
   const { slug } = useParams<{ slug: string }>()
   const pieces = useContentPieces(slug)
   const [cursor, setCursor] = useState(() => {
@@ -134,19 +134,39 @@ export function PromoCalendarSplit() {
   })
 
   return (
-    <div style={{ minWidth: 0 }}>
-      <SectionLabel accent="var(--mode-promo)" tight>
-        Kalender
-      </SectionLabel>
+    <div style={{ minWidth: 0, height: scrollTile ? '100%' : undefined, display: 'flex', flexDirection: 'column' }}>
+      {!scrollTile ? (
+        <SectionLabel accent="var(--mode-promo)" tight>
+          Kalender
+        </SectionLabel>
+      ) : (
+        <div
+          className="font-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: 'var(--text-tertiary)',
+            marginBottom: 10,
+            flexShrink: 0,
+          }}
+        >
+          Kalender
+        </div>
+      )}
       <div
-        className="glass-2"
-        style={{
-          borderRadius: 16,
-          padding: 16,
-          border: '1px solid var(--glass-border-1)',
-          backdropFilter: 'var(--blur-md)',
-          WebkitBackdropFilter: 'var(--blur-md)',
-        }}
+        style={
+          scrollTile
+            ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
+            : {
+                borderRadius: 16,
+                padding: 16,
+                border: '1px solid var(--glass-border-1)',
+                background: 'var(--glass-2)',
+                backdropFilter: 'var(--blur-md)',
+                WebkitBackdropFilter: 'var(--blur-md)',
+              }
+        }
       >
         <div className="mb-3 flex items-center justify-between">
           <button

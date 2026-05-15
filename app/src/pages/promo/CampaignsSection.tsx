@@ -14,6 +14,8 @@ interface CampaignsSectionProps {
     patch: Partial<Omit<Campaign, 'id' | 'brand_id'>>,
   ) => void
   onDelete: (id: string) => void
+  /** Einspaltiges Layout für schmale Modul-Slots */
+  compact?: boolean
 }
 
 export function CampaignsSection({
@@ -24,6 +26,7 @@ export function CampaignsSection({
   onCreate,
   onUpdate,
   onDelete,
+  compact = false,
 }: CampaignsSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = campaigns.find((c) => c.id === selectedId) ?? null
@@ -55,7 +58,14 @@ export function CampaignsSection({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div
+        layout
+        className={
+          compact
+            ? 'flex flex-col gap-2'
+            : 'grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3'
+        }
+      >
         {campaigns.map((c, idx) => {
           const linked = pieces.filter((p) => p.campaign_id === c.id).length
           return (
@@ -71,9 +81,9 @@ export function CampaignsSection({
                 ease: [0.16, 1, 0.3, 1],
               }}
               whileHover={{ y: -1 }}
-              className="text-left"
+              className="min-w-0 w-full text-left"
               style={{
-                padding: 16,
+                padding: compact ? 12 : 16,
                 borderRadius: 12,
                 background: 'var(--glass-2)',
                 border: '1px solid var(--glass-border-1)',
@@ -93,16 +103,17 @@ export function CampaignsSection({
               >
                 Kampagne
               </div>
-              <div
-                className="font-display"
+              <motion.div
+                layout
+                className="font-display truncate"
                 style={{
-                  fontSize: 15,
+                  fontSize: compact ? 14 : 15,
                   fontWeight: 600,
                   color: 'var(--text-primary)',
                 }}
               >
                 {c.name}
-              </div>
+              </motion.div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
                 {linked} Piece(s) zugeordnet
               </div>
@@ -131,7 +142,7 @@ export function CampaignsSection({
         >
           + Neue Kampagne
         </motion.button>
-      </div>
+      </motion.div>
 
       <Drawer
         open={selected !== null}

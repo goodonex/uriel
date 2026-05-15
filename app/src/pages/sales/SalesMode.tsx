@@ -400,27 +400,31 @@ function DroppableStageColumn({
   stage,
   children,
   onStageHover,
+  scrollEmbed = false,
 }: {
   stage: PipelineStage
   children: ReactNode
   onStageHover?: (stage: PipelineStage | null) => void
+  scrollEmbed?: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
   return (
     <div
       ref={setNodeRef}
-      className="glass-2 shrink-0"
+      className={scrollEmbed ? 'shrink-0' : 'glass-2 shrink-0'}
       onPointerEnter={() => onStageHover?.(stage)}
       style={{
-        width: 'min(200px, calc(100vw - 48px))',
-        minWidth: 'min(200px, calc(100vw - 48px))',
+        flex: scrollEmbed ? '1 1 160px' : undefined,
+        width: scrollEmbed ? undefined : 'min(200px, calc(100vw - 48px))',
+        minWidth: scrollEmbed ? 160 : 'min(200px, calc(100vw - 48px))',
         borderRadius: 14,
         padding: 10,
         border: isOver
           ? '2px solid var(--mode-sales)'
           : '1px solid var(--glass-border-1)',
-        backdropFilter: 'var(--blur-md)',
-        WebkitBackdropFilter: 'var(--blur-md)',
+        background: scrollEmbed ? 'rgba(8, 8, 16, 0.45)' : undefined,
+        backdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
+        WebkitBackdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
         minHeight: 120,
       }}
     >
@@ -451,6 +455,7 @@ function SortableContactCard({
   selected,
   onToggleSelected,
   bulkActive,
+  scrollEmbed = false,
 }: {
   contact: Contact
   slug: string
@@ -462,6 +467,7 @@ function SortableContactCard({
   selected: boolean
   onToggleSelected: () => void
   bulkActive: boolean
+  scrollEmbed?: boolean
 }) {
   const {
     attributes,
@@ -492,8 +498,9 @@ function SortableContactCard({
       : CSS.Transform.toString(transform),
     transition: isDragging ? 'box-shadow 160ms ease' : transition,
     opacity: isDragging ? 0.95 : 1,
-    padding: 10,
-    paddingLeft: 12,
+    padding: scrollEmbed ? 12 : 10,
+    paddingLeft: scrollEmbed ? 14 : 12,
+    minHeight: scrollEmbed ? 72 : undefined,
     borderRadius: 10,
     background: isDragging ? 'var(--glass-3)' : 'var(--glass-1)',
     border: overdue
@@ -623,12 +630,15 @@ function SortableContactCard({
       <div
         className="font-display"
         style={{
-          fontSize: 14,
+          fontSize: scrollEmbed ? 13 : 14,
           fontWeight: 700,
           color: 'var(--text-primary)',
           paddingRight: 28,
           paddingTop: 2,
           marginLeft: showChk ? 18 : 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: scrollEmbed ? 'nowrap' : undefined,
         }}
       >
         {title}
@@ -637,8 +647,11 @@ function SortableContactCard({
         className="font-mono mt-1"
         style={{
           fontSize: 10,
-          color: 'var(--text-tertiary)',
-          wordBreak: 'break-all',
+          color: 'var(--text-secondary)',
+          wordBreak: scrollEmbed ? 'normal' : 'break-all',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: scrollEmbed ? 'nowrap' : undefined,
         }}
       >
         {subtitle}
@@ -703,6 +716,7 @@ function PipelineBoard({
   onToggleSelected,
   bulkActive,
   onColumnHover,
+  scrollEmbed = false,
 }: {
   contacts: Contact[]
   slug: string
@@ -716,6 +730,7 @@ function PipelineBoard({
   onToggleSelected: (id: string) => void
   bulkActive: boolean
   onColumnHover?: (stage: PipelineStage | null) => void
+  scrollEmbed?: boolean
 }) {
   const skipClickRef = useRef(false)
   const markSkipClick = useCallback(() => {
@@ -773,8 +788,8 @@ function PipelineBoard({
       }}
     >
       <div
-        className="flex gap-2 overflow-x-auto pb-2 overscroll-x-contain"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="flex overflow-x-auto pb-2 overscroll-x-contain sales-scroll-kanban"
+        style={{ WebkitOverflowScrolling: 'touch', gap: 12 }}
         onPointerLeave={() => onColumnHover?.(null)}
       >
         {STAGES.map((stage) => {
@@ -784,6 +799,7 @@ function PipelineBoard({
               key={stage}
               stage={stage}
               onStageHover={onColumnHover}
+              scrollEmbed={scrollEmbed}
             >
               <SortableContext
                 items={list.map((c) => c.id)}
@@ -794,6 +810,7 @@ function PipelineBoard({
                     key={c.id}
                     contact={c}
                     slug={slug}
+                    scrollEmbed={scrollEmbed}
                     onSelect={() => {
                       if (skipClickRef.current) return
                       onSelectContact(c.id)
@@ -837,7 +854,10 @@ function PipelineBoard({
   )
 }
 
-export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = {}) {
+export function SalesMode({
+  panel = 'full',
+  scrollEmbed = false,
+}: { panel?: 'full' | 'pipeline'; scrollEmbed?: boolean } = {}) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   // brandId wird in den Hooks (useBrandId) intern verwendet; hier nicht mehr direkt nötig.
@@ -1112,11 +1132,12 @@ export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = 
   return (
     <motion.div
       key={slug}
-      initial={{ opacity: 0, y: 8 }}
+      initial={scrollEmbed ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      style={{ background: 'transparent', pointerEvents: 'auto' }}
+      transition={{ duration: scrollEmbed ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+      style={{ background: 'transparent', pointerEvents: 'auto', height: scrollEmbed ? '100%' : undefined }}
     >
+      {!scrollEmbed ? (
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div
@@ -1269,8 +1290,9 @@ export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = 
           </div>
         ) : null}
       </div>
+      ) : null}
 
-      {salesTab === 'listen' ? (
+      {salesTab === 'listen' && !scrollEmbed ? (
         <ContactListsContent slug={slug} embedded />
       ) : (
         <>
@@ -1335,7 +1357,7 @@ export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = 
             </div>
           ) : null}
 
-          {!contacts.loading && !contacts.error ? (
+          {!contacts.loading && !contacts.error && !scrollEmbed ? (
             <div className="mb-5">
               <PipelineFilterBar
                 q={pipeQ}
@@ -1352,14 +1374,17 @@ export function SalesMode({ panel = 'full' }: { panel?: 'full' | 'pipeline' } = 
             </div>
           ) : null}
 
-          <SectionLabel accent="var(--mode-sales)" tight>
-            Pipeline
-          </SectionLabel>
+          {!scrollEmbed ? (
+            <SectionLabel accent="var(--mode-sales)" tight>
+              Pipeline
+            </SectionLabel>
+          ) : null}
 
           {!contacts.loading && !contacts.error ? (
             <PipelineBoard
               contacts={filteredPipeline}
               slug={slug}
+              scrollEmbed={scrollEmbed}
               onMoveToStage={(id, stage) =>
                 contacts.update(id, { pipeline_stage: stage })
               }

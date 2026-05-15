@@ -22,11 +22,11 @@ export const BRAND_WORLD_COLORS: Record<string, string> = {
  * Organisch in Tiefe und Höhe gestaffelt — keine Reihe.
  */
 export const BRAND_SYSTEM_POSITIONS: Record<string, [number, number, number]> = {
-  herrmann: [-18, 4, -8],
-  wertavio: [14, -2, 6],
-  culturefit: [0, 8, -14],
-  homeflower: [-6, -8, 12],
-  eversmell: [20, 6, -2],
+  herrmann: [-32, 6, -14],
+  wertavio: [26, -4, 10],
+  culturefit: [0, 14, -24],
+  homeflower: [-10, -14, 20],
+  eversmell: [34, 10, -4],
 }
 
 /** Default für unbekannte Slugs. Hält die Kamera handhabbar. */
@@ -55,8 +55,10 @@ export function getBrandWorldColor(
 }
 
 /** Radius des Deliver-Mondes im Brand-Sonnensystem. */
-export const BRAND_MOON_ORBIT_RADIUS = 2.5
-export const BRAND_PLANET_RADIUS = 1.2
+export const BRAND_MOON_ORBIT_RADIUS = 3.2
+/** Universe & Brand-System — größere Planeten für Lesbarkeit */
+export const BRAND_PLANET_RADIUS = 1.4
+export const UNIVERSE_PLANET_RADIUS = 1.4
 export const BRAND_MOON_RADIUS = 0.28
 export const BRAND_MOON_SURFACE_OFFSET: [number, number, number] = [
   BRAND_MOON_ORBIT_RADIUS,

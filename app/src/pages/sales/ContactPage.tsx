@@ -9,6 +9,7 @@ import {
 } from '../../components/tasks/ContactTasksTab'
 import { ContactCallsTab } from '../../components/sales/ContactCallsTab'
 import { ContactEmailsTab } from '../../components/sales/ContactEmailsTab'
+import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
 import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
 import { generateId } from '../../lib/storage'
 import { annualEuroForPotenzial, formatEuroDe } from '../../lib/salesPipelineFilters'
@@ -187,14 +188,10 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
     'overview' | 'details' | 'erstgespraech' | 'qualifikation' | 'tasks' | 'emails' | 'calls' | 'notes'
   >('overview')
 
-  const emailKey = useMemo(() => (d?.email ?? '').trim().toLowerCase(), [d?.email])
   const duplicateProject = useMemo(() => {
-    if (!emailKey) return null
-    return (
-      deliver.items.find((p) => (p.client_email ?? '').trim().toLowerCase() === emailKey) ??
-      null
-    )
-  }, [deliver.items, emailKey])
+    if (!d) return null
+    return findDeliverProjectForContact(deliver.items, d)
+  }, [deliver.items, d])
   const previewUrl = d ? normalizeWebsiteUrl(d.website) : ''
   const mailto = d?.email?.trim() ? `mailto:${d.email.trim()}` : ''
   const phoneHref = d ? telHref(d.phone) : ''

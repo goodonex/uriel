@@ -59,7 +59,7 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
     <group ref={groupRef} position={position}>
       <pointLight
         color={color}
-        intensity={1.8}
+        intensity={2.8}
         distance={8}
         decay={2}
         position={[2, 3, 2]}
@@ -115,11 +115,11 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
         <div
           className="font-mono"
           style={{
-            fontSize: 16,
+            fontSize: 18,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
             color: 'var(--text-primary)',
-            opacity: 0.8,
+            opacity: 1,
             whiteSpace: 'nowrap',
             textShadow: '0 1px 14px rgba(0,0,0,0.55)',
           }}

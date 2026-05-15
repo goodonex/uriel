@@ -33,7 +33,8 @@ export const OVERLAY_RIGHT_WIDTH_PX = 640
 const MAIN_OVERLAY_GAP_PX = 24
 const VIEWPORT_RIGHT_INSET_PX = 32
 /** Rechte Spalte (Tasks + KPI) + Puffer — wenn kein `overlay-right` offen ist */
-const MAIN_RESERVE_RIGHT_BASE_PX = 320 + 56
+const SIDE_COLUMN_WIDTH_PX = 380
+const MAIN_RESERVE_RIGHT_BASE_PX = SIDE_COLUMN_WIDTH_PX + 56
 
 export interface MainSlotStyleOptions {
   hasOverlayRight: boolean
@@ -82,17 +83,17 @@ export function slotStyle(
         ...base,
         top: 32,
         right: 32,
-        width: 320,
-        height: 280,
+        width: SIDE_COLUMN_WIDTH_PX,
+        height: 'min(42vh, 420px)',
         zIndex: Z.side + stackIndex,
       }
     case 'side-bottom':
       return {
         ...base,
-        top: 332,
+        top: 'calc(32px + min(42vh, 420px) + 16px)',
         right: 32,
-        width: 320,
-        height: 'calc(100vh - 364px)',
+        width: SIDE_COLUMN_WIDTH_PX,
+        height: 'calc(100vh - min(42vh, 420px) - 80px)',
         zIndex: Z.side + stackIndex,
       }
     case 'overlay-center':

@@ -4,7 +4,12 @@ import { ContactDetailModule } from '../../modules/sales/ContactDetailModule'
 import { PipelineModule } from '../../modules/sales/PipelineModule'
 import { QuickStatsModule } from '../../modules/sales/QuickStatsModule'
 import { TasksModule } from '../../modules/sales/TasksModule'
-import { SECTION_GRID, SECTION_SHELL } from './sectionLayout'
+import {
+  SCROLL_PIPELINE_WIDTH,
+  SCROLL_SIDE_CARD_WIDTH,
+  SECTION_SHELL,
+  SECTION_VIEWPORT,
+} from './sectionLayout'
 
 function salesContactIdFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)/)
@@ -17,38 +22,73 @@ export function SalesSection() {
   const { pathname } = useLocation()
   const contactId = salesContactIdFromPath(pathname)
 
+  const pipelineWidth = SCROLL_PIPELINE_WIDTH
+  const sideW = SCROLL_SIDE_CARD_WIDTH
+
   return (
     <div data-scroll-section="sales" style={SECTION_SHELL}>
-      <div
-        style={{
-          ...SECTION_GRID,
-          gridTemplateColumns: contactId
-            ? 'minmax(0, 1.1fr) minmax(260px, 30%) minmax(280px, 32%)'
-            : undefined,
-        }}
-      >
-        <div style={{ gridColumn: '1', gridRow: '1 / span 2', minHeight: 0 }}>
-          <CardTile flyFrom="left" delay={0} style={{ height: '100%', maxHeight: 'calc(100vh - 56px)' }}>
-            <PipelineModule />
-          </CardTile>
-        </div>
-        <div style={{ gridColumn: contactId ? '3' : '2', gridRow: '1' }}>
-          <CardTile flyFrom="right" delay={0.1} style={{ height: '100%' }}>
-            <TasksModule />
-          </CardTile>
-        </div>
-        <div style={{ gridColumn: contactId ? '3' : '2', gridRow: '2' }}>
-          <CardTile flyFrom="right" delay={0.18} style={{ height: '100%' }}>
-            <QuickStatsModule />
-          </CardTile>
-        </div>
+      <div style={SECTION_VIEWPORT}>
+        <CardTile
+          flyFrom="left"
+          delay={0}
+          className="sales-scroll-pipeline-card"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: contactId
+              ? `calc(${pipelineWidth} - ${sideW + 16}px)`
+              : pipelineWidth,
+            bottom: 0,
+            maxHeight: '100%',
+          }}
+        >
+          <PipelineModule />
+        </CardTile>
+
         {contactId ? (
-          <div style={{ gridColumn: '2', gridRow: '1 / span 2', minHeight: 0 }}>
-            <CardTile flyFrom="right" delay={0.05} style={{ height: '100%', maxHeight: 'calc(100vh - 56px)' }}>
-              <ContactDetailModule />
-            </CardTile>
-          </div>
+          <CardTile
+            flyFrom="right"
+            delay={0.05}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: sideW + 16,
+              width: sideW,
+              bottom: 0,
+            }}
+          >
+            <ContactDetailModule />
+          </CardTile>
         ) : null}
+
+        <CardTile
+          flyFrom="right"
+          delay={0.1}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: sideW,
+            maxHeight: contactId ? 'calc(50% - 6px)' : 'calc(50% - 6px)',
+          }}
+        >
+          <TasksModule />
+        </CardTile>
+
+        <CardTile
+          flyFrom="right"
+          delay={0.18}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: sideW,
+            maxHeight: 'calc(50% - 6px)',
+          }}
+        >
+          <QuickStatsModule />
+        </CardTile>
       </div>
     </div>
   )

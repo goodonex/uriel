@@ -3,9 +3,16 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
+import { useContactLists } from '../hooks/useContactLists'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useSidebarSignals } from '../hooks/useSidebarSignals'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
+import { pathForSection } from '../lib/scrollFlow'
+import {
+  navSectionToScrollKey,
+  scrollKeyToNavSection,
+  useScrollSectionContext,
+} from '../context/ScrollSectionContext'
 import { useCommandPalette } from '../lib/commandPaletteContext'
 import { ClosedModulesTray } from './ClosedModulesTray'
 import { NotificationBell } from './NotificationBell'
@@ -23,7 +30,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { section: 'dashboard', path: 'dashboard', label: 'Dashboard', mono: null },
+  { section: 'dashboard', path: '', label: 'Dashboard', mono: null },
   {
     section: 'foundation',
     path: 'foundation',
@@ -113,7 +120,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const { pathname } = location
   const { brands } = useBrands()
   const current = brands.find((b) => b.slug === slug)
-  const active = parseBrandNavSection(pathname)
+  const scrollCtx = useScrollSectionContext()
+  const pathActive = parseBrandNavSection(pathname)
+  const active =
+    scrollCtx?.syncEnabled ? scrollKeyToNavSection(scrollCtx.activeSection) : pathActive
   const accentColor =
     current?.color && current.color.trim() && !current.color.startsWith('var(')
       ? current.color
@@ -131,8 +141,14 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const salesBranchActive = active === 'sales' || active === 'sales_lists'
 
   const deliverProjects = useDeliverProjects(slug)
+  const contactLists = useContactLists(slug)
   const params = useParams<{ projectId?: string }>()
   const activeProjectId = params.projectId ?? null
+
+  const activeSalesListId = useMemo(() => {
+    const m = pathname.match(/\/sales\/lists\/([^/]+)\/?$/)
+    return m?.[1] ?? null
+  }, [pathname])
 
   const activeDeliverProjects = useMemo(
     () =>
@@ -152,6 +168,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
     expanded &&
     activeDeliverProjects.length > 0 &&
     (hoveredSection === 'deliver' || deliverSectionActive)
+
+  const salesSectionActive = salesBranchActive
+  const showSalesSubmenu =
+    expanded && (hoveredSection === 'sales' || salesSectionActive)
 
   const floatDockStyle = {
     position: 'fixed' as const,
@@ -217,7 +237,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
         >
           {expanded ? (
             <Link
-              to={`${base}/dashboard`}
+              to={base}
               className="font-display min-w-0 flex-1 truncate"
               title={current?.name ?? slug}
               style={{
@@ -334,11 +354,23 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                 : item.section === 'foundation'
                   ? active === 'foundation'
                   : active === item.section
-            const to = `${base}/${item.path}`
+            const to = item.path ? `${base}/${item.path}` : base
             const accent = item.mono ? modeCssVar(item.mono) : '--brand-accent'
 
             const isDeliverItem = item.section === 'deliver'
-            const submenuVisibleHere = isDeliverItem && showDeliverSubmenu
+            const isSalesItem = item.section === 'sales'
+            const submenuVisibleHere = isDeliverItem
+              ? showDeliverSubmenu
+              : isSalesItem
+                ? showSalesSubmenu
+                : false
+
+            const salesTo =
+              isSalesItem && contactLists.lists.length === 1
+                ? `${base}/sales/lists/${contactLists.lists[0].id}`
+                : isSalesItem
+                  ? `${base}/sales/lists`
+                  : to
 
             return (
               <div
@@ -349,10 +381,17 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                 }
               >
                 <Link
-                  to={to}
+                  to={isSalesItem ? salesTo : to}
                   title={!expanded ? item.label : undefined}
                   data-no-scale
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!scrollCtx?.syncEnabled) return
+                    e.preventDefault()
+                    const key = navSectionToScrollKey(item.section)
+                    scrollCtx.scrollToSection(key)
+                    navigate(pathForSection(slug, key))
+                  }}
                   className="group relative flex items-center rounded-lg"
                   style={{
                     textDecoration: 'none',
@@ -437,10 +476,27 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                       {activeDeliverProjects.length}
                     </span>
                   ) : null}
+                  {isSalesItem && expanded && contactLists.lists.length > 0 ? (
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 9,
+                        padding: '2px 7px',
+                        borderRadius: 999,
+                        background: isActive
+                          ? 'color-mix(in srgb, var(--mode-sales) 22%, transparent)'
+                          : 'var(--glass-1)',
+                        color: 'var(--mode-sales)',
+                        border: '1px solid var(--glass-border-2)',
+                      }}
+                    >
+                      {contactLists.lists.length}
+                    </span>
+                  ) : null}
                 </Link>
 
                 <AnimatePresence initial={false}>
-                  {submenuVisibleHere ? (
+                  {submenuVisibleHere && isDeliverItem ? (
                     <motion.ul
                       key="deliver-submenu"
                       initial={{ opacity: 0, height: 0, y: -4 }}
@@ -496,6 +552,107 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                               >
                                 {p.name}
                               </span>
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </motion.ul>
+                  ) : null}
+                  {submenuVisibleHere && isSalesItem ? (
+                    <motion.ul
+                      key="sales-submenu"
+                      initial={{ opacity: 0, height: 0, y: -4 }}
+                      animate={{ opacity: 1, height: 'auto', y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: -4 }}
+                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col gap-0.5 overflow-hidden"
+                      style={{
+                        marginLeft: 18,
+                        paddingLeft: 10,
+                        borderLeft: '1px solid var(--glass-border-1)',
+                        marginTop: 2,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <li>
+                        <Link
+                          to={`${base}/sales`}
+                          data-no-scale
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 rounded-lg truncate"
+                          style={{
+                            textDecoration: 'none',
+                            padding: '5px 8px',
+                            fontSize: 11,
+                            color:
+                              active === 'sales' && !activeSalesListId
+                                ? 'var(--mode-sales)'
+                                : 'var(--text-secondary)',
+                            background:
+                              active === 'sales' && !activeSalesListId
+                                ? 'var(--glass-2)'
+                                : 'transparent',
+                          }}
+                        >
+                          Pipeline
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to={`${base}/sales/lists`}
+                          data-no-scale
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 rounded-lg truncate"
+                          style={{
+                            textDecoration: 'none',
+                            padding: '5px 8px',
+                            fontSize: 11,
+                            color:
+                              active === 'sales_lists' && !activeSalesListId
+                                ? 'var(--mode-sales)'
+                                : 'var(--text-secondary)',
+                            background:
+                              active === 'sales_lists' && !activeSalesListId
+                                ? 'var(--glass-2)'
+                                : 'transparent',
+                          }}
+                        >
+                          Alle Listen
+                        </Link>
+                      </li>
+                      {contactLists.lists.map((l) => {
+                        const listActive = activeSalesListId === l.id
+                        return (
+                          <li key={l.id}>
+                            <Link
+                              to={`${base}/sales/lists/${l.id}`}
+                              title={l.name}
+                              data-no-scale
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-2 rounded-lg truncate"
+                              style={{
+                                textDecoration: 'none',
+                                padding: '5px 8px',
+                                fontSize: 11,
+                                color: listActive ? 'var(--mode-sales)' : 'var(--text-secondary)',
+                                background: listActive ? 'var(--glass-2)' : 'transparent',
+                                border: `1px solid ${
+                                  listActive ? 'var(--glass-border-2)' : 'transparent'
+                                }`,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 4,
+                                  height: 4,
+                                  borderRadius: '50%',
+                                  background: listActive
+                                    ? 'var(--mode-sales)'
+                                    : 'var(--text-tertiary)',
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span className="truncate">{l.name}</span>
                             </Link>
                           </li>
                         )

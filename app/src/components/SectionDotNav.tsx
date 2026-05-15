@@ -14,7 +14,7 @@ export function SectionDotNav({ active, onSelect }: SectionDotNavProps) {
       aria-label="Bereiche"
       style={{
         position: 'fixed',
-        right: 24,
+        right: 18,
         top: '50%',
         transform: 'translateY(-50%)',
         zIndex: 45,

@@ -12,7 +12,16 @@ function trayLabel(s: ClosedModuleSnapshot): string {
     case 'promo-campaigns':
       return 'Kampagnen'
     case 'promo-calendar':
-      return 'Kalender'
+    case 'promo-main':
+      return 'Promo'
+    case 'deliver-project':
+      return 'Projekt'
+    case 'deliver-workspace':
+      return 'Deliver'
+    case 'sales-lists':
+      return 'Listen'
+    case 'sales-list-detail':
+      return 'Liste'
     case 'intelligence-pipeline-forecast':
       return 'Reports'
     case 'intelligence-win-loss':
@@ -74,7 +83,12 @@ export function ClosedModulesTray() {
               }}
               onClick={() => reopenFromTray(snap)}
             >
-              {snap.slot === 'side-top' ? '▴' : '▾'} {trayLabel(snap)}
+              {snap.slot === 'main'
+                ? '◆'
+                : snap.slot === 'side-top'
+                  ? '▴'
+                  : '▾'}{' '}
+              {trayLabel(snap)}
             </button>
             <button
               type="button"

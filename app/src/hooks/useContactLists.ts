@@ -6,7 +6,7 @@ import {
   supabaseErrorMessage,
 } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
-import type { ContactList, ContactListItem, ContactListItemStatus } from '../types/db'
+import type { Contact, ContactList, ContactListItem, ContactListItemStatus } from '../types/db'
 import { useBrandId } from './useBrandId'
 
 const LISTS_KEY = 'contact-lists-store' as const
@@ -367,3 +367,126 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
 
   return { items, loading, error, reload, insertRows, updateItem }
 }
+
+/** Listen-IDs, in denen der Kontakt (per E-Mail) bereits vorkommt. */
+export async function findListIdsForContact(
+  brandSlug: string | undefined,
+  brandId: string | null,
+  contact: Contact,
+): Promise<string[]> {
+  if (!brandSlug) return []
+  const email = (contact.email ?? '').trim().toLowerCase()
+  if (!email) return []
+
+  if (supabase && brandId) {
+    const { data: listRows } = await supabase
+      .from('contact_lists')
+      .select('id')
+      .eq('brand_id', brandId)
+    const listIds = (listRows ?? []).map((r) => r.id as string)
+    if (listIds.length === 0) return []
+
+    const { data, error } = await supabase
+      .from('contact_list_items')
+      .select('list_id, email')
+      .in('list_id', listIds)
+
+    if (!error && data) {
+      return [
+        ...new Set(
+          (data as { list_id: string; email: string | null }[])
+            .filter((row) => (row.email ?? '').trim().toLowerCase() === email)
+            .map((row) => row.list_id),
+        ),
+      ]
+    }
+  }
+
+  const lists = loadList<ContactList>([brandSlug, LISTS_KEY])
+  const out: string[] = []
+  for (const list of lists) {
+    const items = loadList<ContactListItem>([brandSlug, ITEMS_PREFIX, list.id])
+    if (items.some((it) => (it.email ?? '').trim().toLowerCase() === email)) {
+      out.push(list.id)
+    }
+  }
+  return out
+}
+
+/** Kontakt als Listeneintrag anlegen (gleiche E-Mail = kein Duplikat in derselben Liste). */
+export async function addContactToList(
+  brandSlug: string,
+  listId: string,
+  contact: Contact,
+  extraNotes?: string,
+): Promise<void> {
+  const email = (contact.email ?? '').trim().toLowerCase()
+  const items = loadList<ContactListItem>([brandSlug, ITEMS_PREFIX, listId])
+  if (email && items.some((it) => (it.email ?? '').trim().toLowerCase() === email)) {
+    return
+  }
+
+  const row = {
+    name: contact.name || contact.email || 'Kontakt',
+    email: contact.email ?? '',
+    phone: contact.phone ?? '',
+    company: contact.company ?? '',
+    linkedin_url: contact.linkedin ?? '',
+    notes: extraNotes?.trim() || contact.notes?.trim() || '',
+  }
+
+  const now = new Date().toISOString()
+
+  if (!supabase) {
+    const next = [
+      ...items,
+      {
+        id: generateId(),
+        list_id: listId,
+        ...row,
+        status: 'offen' as const,
+        called_at: null,
+        created_at: now,
+      },
+    ]
+    saveList([brandSlug, ITEMS_PREFIX, listId], next)
+    return
+  }
+
+  const { error } = await supabase.from('contact_list_items').insert({
+    id: generateId(),
+    list_id: listId,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    company: row.company,
+    linkedin_url: row.linkedin_url,
+    notes: row.notes,
+    status: 'offen',
+  })
+  if (error) {
+    const msg = supabaseErrorMessage(error)
+    if (!shouldFallbackToLocalSupabase(msg)) throw error
+    const next = [
+      ...items,
+      {
+        id: generateId(),
+        list_id: listId,
+        ...row,
+        status: 'offen' as const,
+        called_at: null,
+        created_at: now,
+      },
+    ]
+    saveList([brandSlug, ITEMS_PREFIX, listId], next)
+  }
+}
+
+export const LIST_PRESETS: ReadonlyArray<{ name: string; description: string }> = [
+  { name: 'High Potentials', description: 'Warme Leads — später Batch anrufen' },
+  { name: 'Gerade gesprochen', description: 'Heute kontaktiert — Follow-up später' },
+  { name: 'Messe / Event', description: 'Herkunft: Veranstaltung' },
+  { name: 'Inbound', description: 'Website, Formular, Ads' },
+  { name: 'Empfehlungen', description: 'Referrals & Netzwerk' },
+  { name: 'Kaltakquise', description: 'Outbound-Liste' },
+]

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
 import { BrandScrollFlow } from '../components/BrandScrollFlow'
+import { ScrollSectionProvider } from '../context/ScrollSectionContext'
 import { ModuleRenderer } from '../components/ModuleRenderer'
 import { BrandWorkspaceSidebar, BRAND_FLOAT_SIDEBAR_CLEARANCE_X } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
@@ -74,6 +75,7 @@ export function BrandPage() {
   const brandAccent = brand?.color || 'var(--accent-teal)'
 
   return (
+    <ScrollSectionProvider enabled={useScrollFlow && !isMobile}>
     <div
       className="relative min-h-0 w-full"
       style={
@@ -254,5 +256,6 @@ export function BrandPage() {
         </Link>
       ) : null}
     </div>
+    </ScrollSectionProvider>
   )
 }

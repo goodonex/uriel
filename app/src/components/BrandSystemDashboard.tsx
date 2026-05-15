@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrands } from '../hooks/useBrands'
 import { useContacts } from '../hooks/useContacts'
@@ -102,205 +102,186 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
     [feed.items],
   )
 
+  const showCompactSummary = !embedded || !expanded
+
   return (
-    <div
+    <motion.div
+      layout
       style={{
         position: 'relative',
-        minHeight: embedded ? 0 : '100vh',
-        maxHeight: embedded ? 'min(72vh, 640px)' : undefined,
-        overflowY: embedded ? 'auto' : undefined,
-        padding: embedded ? '8px 4px 12px' : '24px 24px 32px',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: embedded ? '100%' : '100vh',
+        height: embedded ? '100%' : undefined,
+        minWidth: 0,
+        overflow: embedded && expanded ? 'visible' : embedded ? 'auto' : undefined,
+        padding: embedded ? '4px 2px 8px' : '24px 24px 32px',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 20,
-          pointerEvents: 'none',
-        }}
-      >
-        <div style={{ pointerEvents: 'auto' }}>
-          <div
-            className="font-display"
-            style={{
-              fontSize: embedded ? 22 : 34,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: 'var(--text-primary)',
-              textShadow: '0 10px 36px rgba(0,0,0,0.45)',
-            }}
-          >
-            {brand?.name ?? slug}
-          </div>
-          <div
-            className="font-mono"
-            style={{
-              marginTop: 8,
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'var(--text-tertiary)',
-            }}
-          >
-            {fmtDateLong()}
-          </div>
-        </div>
-
+      {showCompactSummary ? (
         <div
           style={{
-            width: embedded ? 'min(260px, 42%)' : 'min(300px, 34vw)',
-            display: 'grid',
-            gap: 10,
-            pointerEvents: 'auto',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 20,
+            pointerEvents: 'none',
+            flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              borderRadius: 14,
-              border: '1px solid var(--glass-border-1)',
-              background: 'rgba(8, 8, 16, 0.55)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              padding: '12px 12px 10px',
-            }}
-          >
+          <div style={{ pointerEvents: 'auto' }}>
             <div
-              className="font-mono"
+              className="font-display"
               style={{
-                fontSize: 9,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--text-tertiary)',
-                marginBottom: 8,
+                fontSize: embedded ? 22 : 34,
+                fontWeight: 600,
+                letterSpacing: '-0.02em',
+                color: 'var(--text-primary)',
+                textShadow: '0 10px 36px rgba(0,0,0,0.45)',
               }}
             >
-              Heute fällig
+              {brand?.name ?? slug}
             </div>
-            {dueItems.length === 0 ? (
-              <div
-                className="font-body"
-                style={{ fontSize: 13, color: 'var(--text-secondary)' }}
-              >
-                Sauberer Tag
-              </div>
-            ) : (
-              <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
-                {dueItems.map((item) => (
-                  <li key={`${item.type}-${item.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(item.href)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        borderRadius: 10,
-                        border: '1px solid var(--glass-border-2)',
-                        background: 'var(--glass-1)',
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div
-                        className="font-body"
-                        style={{ fontSize: 12.5, color: 'var(--text-primary)' }}
-                      >
-                        {item.label}
-                      </div>
-                      <div
-                        className="font-mono"
-                        style={{
-                          marginTop: 3,
-                          fontSize: 9,
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                          color: 'var(--text-tertiary)',
-                        }}
-                      >
-                        {item.subtitle}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <motion.div
+              className="font-mono"
+              style={{
+                marginTop: 8,
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              {fmtDateLong()}
+            </motion.div>
           </div>
 
           <div
             style={{
-              borderRadius: 14,
-              border: '1px solid var(--glass-border-1)',
-              background: 'rgba(8, 8, 16, 0.55)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              padding: '12px 12px 10px',
+              width: embedded ? 'min(260px, 42%)' : 'min(300px, 34vw)',
+              display: 'grid',
+              gap: 10,
+              pointerEvents: 'auto',
             }}
           >
-            <div
-              className="font-mono"
-              style={{
-                fontSize: 9,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--text-tertiary)',
-                marginBottom: 8,
-              }}
-            >
-              Neueste Signale
-            </div>
-            {latestSignals.length === 0 ? (
-              <div
-                className="font-body"
-                style={{ fontSize: 13, color: 'var(--text-secondary)' }}
-              >
-                Noch keine Signale
-              </div>
-            ) : (
-              <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
-                {latestSignals.map((sig) => (
-                  <li key={sig.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/brand/${slug}/foundation`)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        borderRadius: 10,
-                        border: '1px solid var(--glass-border-2)',
-                        background: 'var(--glass-1)',
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div
-                        className="font-body"
-                        style={{ fontSize: 12.5, color: 'var(--text-primary)' }}
-                      >
-                        {sig.title}
-                      </div>
-                      <div
-                        className="font-mono"
+            <SummaryCard title="Heute fällig">
+              {dueItems.length === 0 ? (
+                <motion.div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Sauberer Tag
+                </motion.div>
+              ) : (
+                <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
+                  {dueItems.map((item) => (
+                    <li key={`${item.type}-${item.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(item.href)}
                         style={{
-                          marginTop: 3,
-                          fontSize: 9,
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                          color: 'var(--text-tertiary)',
+                          width: '100%',
+                          textAlign: 'left',
+                          borderRadius: 10,
+                          border: '1px solid var(--glass-border-2)',
+                          background: 'var(--glass-1)',
+                          padding: '8px 10px',
+                          cursor: 'pointer',
                         }}
                       >
-                        {formatTimeAgoDe(sig.recorded_at)}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                        <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+                          {item.label}
+                        </div>
+                        <div
+                          className="font-mono"
+                          style={{
+                            marginTop: 3,
+                            fontSize: 9,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
+                          {item.subtitle}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SummaryCard>
+
+            <SummaryCard title="Neueste Signale">
+              {latestSignals.length === 0 ? (
+                <div className="font-body" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Noch keine Signale
+                </div>
+              ) : (
+                <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
+                  {latestSignals.map((sig) => (
+                    <li key={sig.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/brand/${slug}/foundation`)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          borderRadius: 10,
+                          border: '1px solid var(--glass-border-2)',
+                          background: 'var(--glass-1)',
+                          padding: '8px 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+                          {sig.title}
+                        </div>
+                        <div
+                          className="font-mono"
+                          style={{
+                            marginTop: 3,
+                            fontSize: 9,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
+                          {formatTimeAgoDe(sig.recorded_at)}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SummaryCard>
           </div>
         </div>
-      </div>
+      ) : (
+        <div
+          className="flex shrink-0 items-center justify-between gap-3"
+          style={{ pointerEvents: 'auto', marginBottom: 10 }}
+        >
+          <div>
+            <div
+              className="font-display"
+              style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}
+            >
+              {brand?.name ?? slug}
+            </div>
+            <div
+              className="font-mono"
+              style={{
+                marginTop: 4,
+                fontSize: 9,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              Mein Tag · {fmtDateLong()}
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div style={{ marginTop: 14, pointerEvents: 'auto' }}>
+      <div style={{ marginTop: showCompactSummary ? 14 : 0, pointerEvents: 'auto', flexShrink: 0 }}>
         <button
           type="button"
           onClick={() => setExpanded((s) => !s)}
@@ -328,27 +309,57 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
         {expanded ? (
           <motion.div
             key="brand-dashboard-expanded"
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
+            exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              marginTop: 14,
-              borderRadius: 16,
-              border: '1px solid var(--glass-border-1)',
-              background: 'rgba(8, 8, 16, 0.55)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              padding: 16,
+              marginTop: 12,
+              flex: embedded ? 1 : undefined,
+              minHeight: embedded ? 0 : undefined,
+              borderRadius: embedded ? 12 : 16,
+              border: embedded ? 'none' : '1px solid var(--glass-border-1)',
+              background: embedded ? 'transparent' : 'rgba(8, 8, 16, 0.55)',
+              backdropFilter: embedded ? undefined : 'blur(20px)',
+              WebkitBackdropFilter: embedded ? undefined : 'blur(20px)',
+              padding: embedded ? 0 : 16,
               pointerEvents: 'auto',
-              maxHeight: embedded ? 'min(40vh, 360px)' : '70vh',
-              overflowY: 'auto',
+              overflow: 'visible',
             }}
           >
             <BrandDashboardPage />
           </motion.div>
         ) : null}
       </AnimatePresence>
+    </motion.div>
+  )
+}
+
+function SummaryCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        border: '1px solid var(--glass-border-1)',
+        background: 'rgba(8, 8, 16, 0.55)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        padding: '12px 12px 10px',
+      }}
+    >
+      <div
+        className="font-mono"
+        style={{
+          fontSize: 9,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'var(--text-tertiary)',
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      {children}
     </div>
   )
 }

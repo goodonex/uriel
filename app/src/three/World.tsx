@@ -24,15 +24,15 @@ export function World() {
         <Stars
           radius={150}
           depth={50}
-          count={3500}
-          factor={4}
+          count={stage === 'brand-system' ? 1200 : 3500}
+          factor={stage === 'brand-system' ? 2.5 : 4}
           saturation={0}
           fade
-          speed={0.5}
+          speed={0.35}
         />
       ) : null}
-      {stage === 'universe' ? <fog attach="fog" args={['#080810', 60, 120]} /> : null}
-      <ambientLight intensity={0.25} />
+      {stage === 'universe' ? <fog attach="fog" args={['#060610', 60, 120]} /> : null}
+      <ambientLight intensity={stage === 'universe' ? 0.45 : 0.25} />
       <WorldCameraController />
       {stage === 'universe' ? <Universe /> : null}
       {stage === 'brand-system' && brandSlug ? (

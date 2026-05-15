@@ -227,7 +227,9 @@ export function ProjectPage() {
     [debouncedBookingUrl, projectId],
   )
 
-  if (!slug || !projectId) return <Navigate to="/" replace />
+  if (!slug || !projectId) {
+    return <Navigate to={slug ? `/brand/${slug}/sales` : '/'} replace />
+  }
 
   if (!projects.loading && !projects.error && !project) {
     return <Navigate to={`/brand/${slug}/deliver`} replace />

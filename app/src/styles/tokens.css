@@ -24,7 +24,7 @@
   --radius-full: 9999px;
 
   /* --- Base colors (dark theme primary) --- */
-  --bg-void:        #080810;   /* deepest background — 3D canvas */
+  --bg-void:        #060610;   /* deepest background — 3D canvas */
   --bg-base:        #0d0d1a;   /* app background */
   --bg-surface:     #12121f;   /* panels, sidebars */
 

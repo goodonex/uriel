@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../../components/Toast'
-import { useContactListItems, useContactLists } from '../../hooks/useContactLists'
+import { LIST_PRESETS, useContactListItems, useContactLists } from '../../hooks/useContactLists'
 import { useContacts } from '../../hooks/useContacts'
 import { supabase } from '../../lib/supabase'
 import type { ContactListItemStatus } from '../../types/db'
@@ -338,6 +338,37 @@ export function ContactListsContent({
             {listsErr}
           </p>
         ) : null}
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {LIST_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              className="font-mono rounded-lg px-3 py-2"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.04em',
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-1)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+              onClick={async () => {
+                try {
+                  const id = await createList({
+                    name: preset.name,
+                    description: preset.description,
+                  })
+                  navigate(`${listsBase}/${id}`)
+                } catch (e) {
+                  show(e instanceof Error ? e.message : 'Liste konnte nicht angelegt werden.', 'error')
+                }
+              }}
+            >
+              + {preset.name}
+            </button>
+          ))}
+        </div>
 
         <div
           className="glass-2 mb-8 flex flex-wrap items-end gap-3 rounded-2xl p-4"

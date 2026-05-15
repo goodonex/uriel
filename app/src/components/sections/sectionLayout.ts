@@ -1,5 +1,14 @@
 import type { CSSProperties } from 'react'
 
+/** Platz für Dot-Nav + Browser-Rand */
+export const SCROLL_FLOW_RIGHT_INSET = 52
+
+/** Kollabierte Sidebar + Dock (siehe BrandWorkspaceSidebar) */
+export const SCROLL_SIDEBAR_CLEARANCE = 120
+
+export const SCROLL_SIDE_CARD_WIDTH = 300
+export const SCROLL_PIPELINE_WIDTH = `calc(100vw - ${SCROLL_SIDEBAR_CLEARANCE}px - ${SCROLL_SIDE_CARD_WIDTH}px - 48px)`
+
 export const SECTION_SHELL: CSSProperties = {
   height: '100vh',
   minHeight: '100vh',
@@ -7,21 +16,18 @@ export const SECTION_SHELL: CSSProperties = {
   scrollSnapStop: 'always',
   position: 'relative',
   boxSizing: 'border-box',
-  padding: '20px 24px 28px',
+  padding: 0,
   pointerEvents: 'none',
+  overflow: 'visible',
+  background: 'transparent',
 }
 
-export const SECTION_GRID: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 34%)',
-  gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
-  gap: 14,
-  height: 'calc(100vh - 48px)',
-  maxHeight: 'calc(100vh - 48px)',
+/** Freier Viewport — Cards liegen absolut, Welt bleibt sichtbar */
+export const SECTION_VIEWPORT: CSSProperties = {
+  position: 'absolute',
+  top: 18,
+  right: SCROLL_FLOW_RIGHT_INSET + 16,
+  bottom: 24,
+  left: 20,
   pointerEvents: 'none',
-}
-
-export const SECTION_GRID_SINGLE: CSSProperties = {
-  ...SECTION_GRID,
-  gridTemplateColumns: 'minmax(0, 1fr)',
 }

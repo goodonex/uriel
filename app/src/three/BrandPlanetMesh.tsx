@@ -5,7 +5,7 @@ import { useConfiguredTexture } from './hooks/useConfiguredTexture'
 import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
 import { PLANET_TEXTURES } from './textureRegistry'
 
-const PLANET_BUMP_SCALE = 0.55
+const PLANET_BUMP_SCALE = 0.32
 
 export interface BrandPlanetMaterialProps {
   color: string
@@ -77,10 +77,10 @@ function BrandPlanetMeshInner({
         roughnessMap={surfaceTexture ?? undefined}
         aoMap={surfaceTexture ?? undefined}
         aoMapIntensity={surfaceTexture ? 0.5 : 0}
-        roughness={surfaceTexture ? 0.88 : 0.75}
-        metalness={0.14}
+        roughness={surfaceTexture ? 0.92 : 0.82}
+        metalness={0.04}
         emissive={color}
-        emissiveIntensity={surfaceTexture ? 0.04 : emissiveIntensity}
+        emissiveIntensity={surfaceTexture ? 0.02 : emissiveIntensity * 0.85}
       />
     </mesh>
   )

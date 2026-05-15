@@ -31,8 +31,9 @@ function nextFocusTime(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }
 
-function isSideSlot(slot: ModuleSlot): boolean {
-  return slot === 'side-top' || slot === 'side-bottom'
+/** Module, die per Schließen in die Restore-Leiste kommen (Side + Main). */
+function isRestorableSlot(slot: ModuleSlot): boolean {
+  return slot === 'side-top' || slot === 'side-bottom' || slot === 'main'
 }
 
 export interface ModuleManagerState {
@@ -89,7 +90,7 @@ export const useModuleManager = create<ModuleManagerState>((set, get) => ({
     set((state) => {
       const found = state.modules.find((m) => m.id === id)
       let tray = state.closedTray
-      if (found && isSideSlot(found.slot)) {
+      if (found && isRestorableSlot(found.slot)) {
         const snap: ClosedModuleSnapshot = {
           id: found.id,
           type: found.type,

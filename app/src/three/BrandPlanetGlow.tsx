@@ -29,7 +29,7 @@ function BrandPlanetGlowInner({
     [color, glowTexture, baseOpacity],
   )
 
-  const scale = planetRadius * 1.6
+  const scale = planetRadius * 2.0
 
   return <sprite scale={[scale, scale, 1]} material={material} />
 }

@@ -25,6 +25,8 @@ import type {
   Task,
 } from '../../types/db'
 import { useToast } from '../Toast'
+import { ContactDeliverCard } from './ContactDeliverCard'
+import { ContactListAssign } from './ContactListAssign'
 import { ContactSequencesPanel } from './ContactSequencesPanel'
 import { EmailComposeDialog } from './EmailComposeDialog'
 
@@ -281,6 +283,8 @@ export function ContactOverviewPanel({
         brandSlug={brandSlug}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+        <ContactDeliverCard brandSlug={brandSlug} contact={contact} />
+        <ContactListAssign brandSlug={brandSlug} contact={contact} />
         <DocumenterCard
           contact={contact}
           action={action}
