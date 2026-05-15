@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 
 /** Graustufen + Kontrast für Bump/Roughness und subtile Albedo-Modulation (map × brand color). */
-function buildSurfaceTexture(source: THREE.Texture): THREE.Texture {
+export function buildSurfaceTexture(source: THREE.Texture): THREE.Texture {
   const image = source.image as HTMLImageElement | undefined
   if (!image?.width || !image?.height) return source
 

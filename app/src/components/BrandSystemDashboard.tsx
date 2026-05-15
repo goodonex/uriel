@@ -30,6 +30,12 @@ function formatTimeAgoDe(iso: string): string {
   return `vor ${d} Tag${d === 1 ? '' : 'en'}`
 }
 
+function endOfTodayMs(): number {
+  const d = new Date()
+  d.setHours(23, 59, 59, 999)
+  return d.getTime()
+}
+
 interface DueItem {
   id: string
   type: 'followup' | 'task'
@@ -54,12 +60,14 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
 
   const dueItems = useMemo<DueItem[]>(() => {
     const now = Date.now()
+    const endToday = endOfTodayMs()
     const next: DueItem[] = []
 
     for (const c of contacts.items) {
       if (!c.next_follow_up_at) continue
       const due = new Date(c.next_follow_up_at).getTime()
       if (Number.isNaN(due)) continue
+      if (due > endToday) continue
       next.push({
         id: c.id,
         type: 'followup',
@@ -75,6 +83,7 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
       if (t.status === 'done' || t.status === 'cancelled') continue
       const due = new Date(t.due_at).getTime()
       if (Number.isNaN(due)) continue
+      if (due > endToday) continue
       next.push({
         id: t.id,
         type: 'task',

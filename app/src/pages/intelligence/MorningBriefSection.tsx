@@ -1,17 +1,18 @@
 import { motion } from 'framer-motion'
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { computeBuildingHealth } from '../../lib/brandHealthScore'
-import { useAssets } from '../../hooks/useAssets'
-import { useBrands } from '../../hooks/useBrands'
-import { useBusinessModel } from '../../hooks/useBusinessModel'
 import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
-import { useDiscoveryFeed } from '../../hooks/useDiscoveryFeed'
-import { useICPs } from '../../hooks/useICPs'
-import { usePositioning } from '../../hooks/usePositioning'
-import { useWordBank } from '../../hooks/useWordBank'
+import { useMorningBrief } from '../../hooks/useMorningBrief'
 import type { PipelineStage } from '../../types/db'
+
+const STAGE_ORDER: PipelineStage[] = [
+  'first_contact',
+  'conversation',
+  'proposal',
+  'deal',
+  'paused',
+]
 
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
@@ -21,158 +22,69 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   paused: 'Pause',
 }
 
-function endOfToday(): Date {
+function todayIsoDay(): string {
   const d = new Date()
-  d.setHours(23, 59, 59, 999)
-  return d
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-function startOfWeekMonday(): Date {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = day === 0 ? 6 : day - 1
-  const mon = new Date(now)
-  mon.setDate(now.getDate() - diff)
-  mon.setHours(0, 0, 0, 0)
-  return mon
+function scheduledIsoDay(scheduledAt: string): string {
+  const t = scheduledAt.trim()
+  return t.length >= 10 ? t.slice(0, 10) : t
 }
 
 export function MorningBriefSection({ slug }: { slug: string }) {
   const navigate = useNavigate()
-  const { brands } = useBrands()
-  const brandName = brands.find((b) => b.slug === slug)?.name ?? slug
-
+  const { data, loading, reload } = useMorningBrief(slug)
   const contacts = useContacts(slug)
   const pieces = useContentPieces(slug)
-  const feed = useDiscoveryFeed(slug)
-  const positioning = usePositioning(slug)
-  const icps = useICPs(slug)
-  const wordBank = useWordBank(slug)
-  const businessModel = useBusinessModel(slug)
-  const assets = useAssets(slug)
-
   const [generatedAt, setGeneratedAt] = useState(() => new Date())
 
-  const refresh = useCallback(() => {
+  const onRefresh = useCallback(() => {
     setGeneratedAt(new Date())
+    reload()
     void contacts.reload()
     void pieces.reload()
-    void feed.reload()
-  }, [contacts, pieces, feed])
+  }, [contacts, pieces, reload])
 
-  const health = useMemo(
-    () =>
-      computeBuildingHealth({
-        positioning: positioning.item,
-        icps: icps.items,
-        wordBank: wordBank.items,
-        businessModel: businessModel.item,
-        assets: assets.items,
-      }),
-    [
-      positioning.item,
-      icps.items,
-      wordBank.items,
-      businessModel.item,
-      assets.items,
-    ],
-  )
-
-  const followUpsToday = useMemo(() => {
-    const end = endOfToday()
-    return contacts.items
-      .filter((c) => c.next_follow_up_at && new Date(c.next_follow_up_at) <= end)
-      .sort((a, b) =>
-        String(a.next_follow_up_at).localeCompare(String(b.next_follow_up_at)),
-      )
-      .slice(0, 5)
+  const pipelineBars = useMemo(() => {
+    const counts: Record<PipelineStage, number> = {
+      first_contact: 0,
+      conversation: 0,
+      proposal: 0,
+      deal: 0,
+      paused: 0,
+    }
+    for (const c of contacts.items) {
+      counts[c.pipeline_stage] += 1
+    }
+    const max = Math.max(1, ...Object.values(counts))
+    return STAGE_ORDER.map((stage) => ({
+      stage,
+      label: STAGE_LABEL[stage],
+      count: counts[stage],
+      widthPct: Math.round((counts[stage] / max) * 100),
+    }))
   }, [contacts.items])
 
-  const daysSincePublish = useMemo(() => {
-    const published = pieces.items
-      .filter((p) => p.published_at && String(p.published_at).trim())
-      .map((p) => new Date(p.published_at as string).getTime())
-    if (!published.length) return null
-    const latest = Math.max(...published)
-    return Math.floor((Date.now() - latest) / 86400000)
-  }, [pieces.items])
+  const todayDay = todayIsoDay()
+  const liveToday = useMemo(() => {
+    return pieces.items.filter((p) => {
+      const pub = p.published_at?.trim()
+      if (pub && scheduledIsoDay(pub) === todayDay) return true
+      const sched = p.scheduled_at?.trim()
+      if (!p.published_at && sched && scheduledIsoDay(sched) === todayDay) return true
+      return false
+    })
+  }, [pieces.items, todayDay])
 
-  const discoveryWeekCount = useMemo(() => {
-    const since = Date.now() - 7 * 86400000
-    return feed.items.filter(
-      (i) => !i.archived_at && new Date(i.recorded_at).getTime() >= since,
-    ).length
-  }, [feed.items])
-
-  const weekStart = useMemo(() => startOfWeekMonday().getTime(), [])
-
-  const pipelineMovesThisWeek = useMemo(() => {
-    return contacts.items.filter(
-      (c) => c.updated_at && new Date(c.updated_at).getTime() >= weekStart,
-    ).length
-  }, [contacts.items, weekStart])
-
-  const lastPipelineActivity = useMemo(() => {
-    if (!contacts.items.length) return null
-    return Math.max(...contacts.items.map((c) => new Date(c.updated_at).getTime()))
-  }, [contacts.items])
-
-  const daysSincePipeline = lastPipelineActivity
-    ? (Date.now() - lastPipelineActivity) / 86400000
-    : null
-
-  const openPipelineCount = useMemo(
-    () => contacts.items.filter((c) => c.pipeline_stage !== 'paused').length,
-    [contacts.items],
-  )
-
-  const recommendations = useMemo(() => {
-    const base = `/brand/${slug}`
-    const out: { text: string; onClick: () => void }[] = []
-    if (health.percent < 50) {
-      out.push({
-        text: 'Building vervollständigen',
-        onClick: () => navigate(`${base}/foundation`),
-      })
-    }
-    if (daysSincePublish !== null && daysSincePublish > 14) {
-      out.push({
-        text: 'Content-Piece erstellen',
-        onClick: () => navigate(`${base}/promo`),
-      })
-    }
-    if (daysSincePipeline !== null && daysSincePipeline > 7 && openPipelineCount > 0) {
-      out.push({
-        text: `Pipeline checken — ${openPipelineCount} Kontakte warten`,
-        onClick: () => navigate(`${base}/sales`),
-      })
-    }
-    if (wordBank.items.length < 5) {
-      out.push({
-        text: 'Word Bank erweitern für besseres Targeting',
-        onClick: () => navigate(`${base}/foundation`),
-      })
-    }
-    return out
-  }, [
-    health.percent,
-    daysSincePublish,
-    daysSincePipeline,
-    openPipelineCount,
-    wordBank.items.length,
-    navigate,
-    slug,
-  ])
-
-  const loading =
-    contacts.loading ||
-    pieces.loading ||
-    feed.loading ||
-    positioning.loading ||
-    icps.loading ||
-    wordBank.loading ||
-    businessModel.loading ||
-    assets.loading
+  const startToday = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }, [])
 
   return (
     <motion.section
@@ -195,13 +107,13 @@ export function MorningBriefSection({ slug }: { slug: string }) {
             Morning Brief
           </div>
           <h3 className="font-display mt-1" style={{ fontSize: 18, fontWeight: 600 }}>
-            Übersicht
+            Operations — Live
           </h3>
         </div>
         <button
           type="button"
           className="font-mono"
-          onClick={() => refresh()}
+          onClick={() => onRefresh()}
           style={{
             fontSize: 10,
             padding: '8px 12px',
@@ -215,106 +127,186 @@ export function MorningBriefSection({ slug }: { slug: string }) {
         </button>
       </div>
 
-      {loading ? (
+      {loading || !data ? (
         <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
           Lade Daten…
         </p>
       ) : (
         <>
-          <div className="mb-5">
-            <div
-              className="font-mono mb-2"
-              style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}
-            >
-              HEUTE
+          <div
+            className="mb-6 grid gap-4"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            }}
+          >
+            <div>
+              <div
+                className="font-mono mb-2"
+                style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}
+              >
+                HEUTE
+              </div>
+              <div className="flex flex-col gap-2">
+                {[...data.overdueFollowUps, ...data.todayFollowUps].slice(0, 10).map((c) => {
+                  const dueMs = c.next_follow_up_at
+                    ? new Date(c.next_follow_up_at).getTime()
+                    : 0
+                  const overdue = Number.isFinite(dueMs) && dueMs < startToday
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="text-left font-mono"
+                      onClick={() => navigate(`/brand/${slug}/sales/${c.id}`)}
+                      style={{
+                        fontSize: 11,
+                        padding: '8px 10px',
+                        borderRadius: 10,
+                        border: `1px solid ${overdue ? 'var(--accent-coral)' : 'var(--glass-border-2)'}`,
+                        background: 'var(--glass-1)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {c.name || c.email || 'Kontakt'}{' '}
+                      <span style={{ color: 'var(--text-tertiary)' }}>
+                        · {overdue ? 'überfällig' : 'heute'} · {STAGE_LABEL[c.pipeline_stage]}
+                      </span>
+                    </button>
+                  )
+                })}
+                {data.overdueFollowUps.length === 0 && data.todayFollowUps.length === 0 ? (
+                  <div className="font-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                    Keine Follow-ups für heute.
+                  </div>
+                ) : null}
+              </div>
+              <div
+                className="font-mono mt-3"
+                style={{ fontSize: 10, color: 'var(--text-secondary)' }}
+              >
+                Content heute:{' '}
+                {liveToday.length === 0 ? (
+                  <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                ) : (
+                  liveToday.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="mr-2 underline-offset-2 hover:underline"
+                      style={{
+                        color: 'var(--accent-teal)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      onClick={() => navigate(`/brand/${slug}/promo`)}
+                    >
+                      {p.title || 'Piece'}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
-            <ul className="flex flex-col gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {followUpsToday.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/brand/${slug}/sales/${c.id}`)}
-                    className="text-left font-mono"
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--accent-blue)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}
-                  >
-                    {c.name || 'Kontakt'} follow-up fällig — {STAGE_LABEL[c.pipeline_stage]}
-                  </button>
-                </li>
-              ))}
-              {followUpsToday.length === 0 ? (
-                <li className="font-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                  Keine fälligen Follow-ups heute.
-                </li>
-              ) : null}
-              <li className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                {brandName}
-                {': '}
-                {daysSincePublish === null
-                  ? 'noch kein veröffentlichtes Content-Piece.'
-                  : `kein Content seit ${daysSincePublish} Tag${daysSincePublish === 1 ? '' : 'en'}.`}
-              </li>
-              <li className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                {discoveryWeekCount} neue Discovery-Signale in den letzten 7 Tagen
-                {pipelineMovesThisWeek > 0
-                  ? ` · ${pipelineMovesThisWeek} Pipeline-Updates diese Woche`
-                  : ''}
-                .
-              </li>
-            </ul>
-          </div>
 
-          <div className="mb-2">
-            <div
-              className="font-mono mb-2"
-              style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}
-            >
-              EMPFEHLUNGEN
+            <div>
+              <div
+                className="font-mono mb-2"
+                style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}
+              >
+                PIPELINE
+              </div>
+              <div className="flex flex-col gap-2">
+                {pipelineBars.map((row) => (
+                  <div key={row.stage}>
+                    <div
+                      className="font-mono mb-0.5 flex justify-between"
+                      style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+                    >
+                      <span>{row.label}</span>
+                      <span>{row.count}</span>
+                    </div>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 999,
+                        background: 'var(--glass-2)',
+                        overflow: 'hidden',
+                        border: '1px solid var(--glass-border-2)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${row.widthPct}%`,
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'color-mix(in srgb, var(--mode-intelligence) 55%, var(--glass-3))',
+                          transition: 'width 0.35s ease',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="font-mono mt-3"
+                onClick={() => navigate(`/brand/${slug}/sales`)}
+                style={{
+                  fontSize: 10,
+                  border: 'none',
+                  background: 'none',
+                  color: 'var(--accent-blue)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                Zur Pipeline →
+              </button>
             </div>
-            <ul className="flex flex-col gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {recommendations.map((r, i) => (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={r.onClick}
-                    className="text-left font-mono"
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--accent-teal)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}
-                  >
-                    · {r.text}
-                  </button>
-                </li>
-              ))}
-              {recommendations.length === 0 ? (
-                <li className="font-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                  · Kurz alle Modi checken — sieht gut aus.
-                </li>
-              ) : null}
-            </ul>
+
+            <div>
+              <div
+                className="font-mono mb-2"
+                style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}
+              >
+                EMPFEHLUNG
+              </div>
+              <p
+                className="font-display"
+                style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  lineHeight: 1.35,
+                  color: 'var(--text-primary)',
+                  margin: 0,
+                }}
+              >
+                {data.recommendation}
+              </p>
+              <div
+                className="font-mono mt-3 grid gap-1"
+                style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+              >
+                <span>Foundation {data.foundationHealth}%</span>
+                <span>Signale (7 Tage): {data.discoverySignalsNew}</span>
+                <span>Content live (7 Tage): {data.contentPiecesLive}</span>
+                <span>Pipeline-Updates (Woche): {data.pipelineUpdates}</span>
+                <span>Aktive Projekte: {data.activeProjects}</span>
+              </div>
+            </div>
           </div>
 
           <div
-            className="font-mono mt-4 border-t border-[var(--glass-border-1)] pt-3"
+            className="font-mono mt-2 border-t border-[var(--glass-border-1)] pt-3"
             style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
           >
-            Generiert um{' '}
+            Aktualisiert um{' '}
             {generatedAt.toLocaleTimeString('de-DE', {
               hour: '2-digit',
               minute: '2-digit',
-            })}{' '}
-            · Health {health.percent}%
+            })}
           </div>
         </>
       )}

@@ -1,11 +1,9 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { useConfiguredTexture } from './hooks/useConfiguredTexture'
-import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
-import { MOON_TEXTURE } from './textureRegistry'
+import { useMoonSurfaceTexture } from './hooks/useMoonSurfaceTexture'
 
-const MOON_BUMP_SCALE = 0.72
+const MOON_BUMP_SCALE = 0.45
 
 interface MoonMeshProps {
   radius: number
@@ -64,15 +62,7 @@ function MoonMeshInner({
   )
 }
 
-function MoonMeshWithTexture(props: MoonMeshProps) {
-  const surfaceTexture = useConfiguredTexture(MOON_TEXTURE)
-  return <MoonMeshInner {...props} surfaceTexture={surfaceTexture} />
-}
-
 export function MoonMesh(props: MoonMeshProps) {
-  const canLoad = useShouldLoadTextures()
-  if (canLoad) {
-    return <MoonMeshWithTexture {...props} />
-  }
-  return <MoonMeshInner {...props} surfaceTexture={null} />
+  const surfaceTexture = useMoonSurfaceTexture()
+  return <MoonMeshInner {...props} surfaceTexture={surfaceTexture} />
 }

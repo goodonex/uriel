@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useActivityLog } from '../hooks/useActivityLog'
+import { useNotifications } from '../hooks/useNotifications'
 import type { ActivityEntityType, ActivityEntry } from '../lib/activityLog'
 
 interface NotificationBellProps {
@@ -52,6 +53,7 @@ function relativeTime(iso: string): string {
 
 export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
   const log = useActivityLog(slug, 60)
+  const follow = useNotifications(slug)
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
@@ -98,6 +100,20 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
     }
   }
 
+  const badgeTotal = follow.followUpBadgeCount + log.unreadCount
+
+  const handleFollowUpClick = (contactId: string) => {
+    follow.markFollowUpRead(contactId)
+    setOpen(false)
+    navigate(`/brand/${slug}/sales/${contactId}`)
+  }
+
+  const handleMarkAllFollowUpsRead = () => {
+    for (const it of follow.unreadFollowUps) {
+      follow.markFollowUpRead(it.contact.id)
+    }
+  }
+
   const handleToggle = () => {
     setOpen((o) => !o)
   }
@@ -107,8 +123,8 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
       <button
         type="button"
         onClick={handleToggle}
-        title={`Aktivität${log.unreadCount > 0 ? ` (${log.unreadCount} ungelesen)` : ''}`}
-        aria-label="Aktivität"
+        title={`Benachrichtigungen${badgeTotal > 0 ? ` (${badgeTotal})` : ''}`}
+        aria-label="Benachrichtigungen"
         className="relative flex shrink-0 items-center justify-center rounded-lg transition-colors"
         style={{
           width: collapsed ? '100%' : 30,
@@ -131,7 +147,7 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
           <path d="M3 6 A5 5 0 0 1 13 6 L13 9 L14 11 L2 11 L3 9 Z" />
           <path d="M6.5 13 a1.5 1.5 0 0 0 3 0" />
         </svg>
-        {log.unreadCount > 0 ? (
+        {badgeTotal > 0 ? (
           <span
             style={{
               position: 'absolute',
@@ -149,7 +165,7 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
               lineHeight: 1.3,
             }}
           >
-            {log.unreadCount > 99 ? '99+' : log.unreadCount}
+            {badgeTotal > 99 ? '99+' : badgeTotal}
           </span>
         ) : null}
       </button>
@@ -205,10 +221,28 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
                     className="font-display"
                     style={{ fontSize: 16, fontWeight: 600 }}
                   >
-                    Was passiert ist
+                    Benachrichtigungen
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {follow.unreadFollowUps.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkAllFollowUpsRead()}
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        padding: '6px 10px',
+                        borderRadius: 7,
+                        border: '1px solid var(--glass-border-2)',
+                        background: 'var(--glass-1)',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Follow-ups ✓
+                    </button>
+                  ) : null}
                   {log.unreadCount > 0 ? (
                     <button
                       type="button"
@@ -247,6 +281,49 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto">
+                {follow.unreadFollowUps.length > 0 ? (
+                  <div className="border-b border-[var(--glass-border-1)]">
+                    <div
+                      className="font-mono px-[18px] pt-3"
+                      style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--mode-sales)' }}
+                    >
+                      FOLLOW-UPS
+                    </div>
+                    <ul className="list-none p-0 pb-2">
+                      {follow.unreadFollowUps.map((it) => (
+                        <li key={it.id}>
+                          <button
+                            type="button"
+                            className="flex w-full items-start gap-3 text-left transition-colors"
+                            style={{
+                              padding: '10px 18px',
+                              background: 'color-mix(in srgb, var(--mode-sales) 8%, transparent)',
+                              borderBottom: '1px solid var(--glass-border-1)',
+                              cursor: 'pointer',
+                              color: 'var(--text-primary)',
+                            }}
+                            onClick={() => handleFollowUpClick(it.contact.id)}
+                          >
+                            <span
+                              className="shrink-0"
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: 999,
+                                marginTop: 8,
+                                background: 'var(--mode-sales)',
+                              }}
+                            />
+                            <div className="font-body min-w-0 flex-1" style={{ fontSize: 12.5 }}>
+                              {it.label}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 {log.loading ? (
                   <div
                     className="font-mono"
@@ -254,7 +331,7 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
                   >
                     Lädt …
                   </div>
-                ) : log.items.length === 0 ? (
+                ) : !log.loading && log.items.length === 0 && follow.unreadFollowUps.length === 0 ? (
                   <div
                     className="font-body"
                     style={{
@@ -265,6 +342,13 @@ export function NotificationBell({ slug, collapsed }: NotificationBellProps) {
                     }}
                   >
                     Noch keine Aktivität. Aktionen erscheinen hier automatisch.
+                  </div>
+                ) : log.items.length === 0 ? (
+                  <div
+                    className="font-mono"
+                    style={{ padding: '8px 18px', fontSize: 10, color: 'var(--text-tertiary)' }}
+                  >
+                    Keine weiteren Aktivitäten.
                   </div>
                 ) : (
                   <ul className="list-none p-0">

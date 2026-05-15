@@ -19,14 +19,22 @@ export const BRAND_WORLD_COLORS: Record<string, string> = {
 
 /**
  * Position des Brand-Sonnensystems im Universe.
- * Organisch in Tiefe und Höhe gestaffelt — keine Reihe.
+ * Zwei sichtbare Cluster (Kamera: Offset 0,30,80 → Blick auf ~0,6,0):
+ * — links: Herrmann · Wertavio · Culturefit (Dreieck)
+ * — rechts: Homeflower · Eversmell (Paar)
  */
 export const BRAND_SYSTEM_POSITIONS: Record<string, [number, number, number]> = {
-  herrmann: [-32, 6, -14],
-  wertavio: [26, -4, 10],
-  culturefit: [0, 14, -24],
-  homeflower: [-10, -14, 20],
-  eversmell: [34, 10, -4],
+  herrmann: [-26, 8, -4],
+  culturefit: [-14, 12, -10],
+  wertavio: [-22, 3, 4],
+  homeflower: [18, 7, 3],
+  eversmell: [26, 9, -5],
+}
+
+/** Mittelpunkte der Universe-Cluster (Ambient / Guides) */
+export const UNIVERSE_CLUSTER_CENTERS = {
+  core: [-20, 7.5, -2] as [number, number, number],
+  duo: [22, 8, -1] as [number, number, number],
 }
 
 /** Default für unbekannte Slugs. Hält die Kamera handhabbar. */
@@ -55,13 +63,18 @@ export function getBrandWorldColor(
 }
 
 /** Radius des Deliver-Mondes im Brand-Sonnensystem. */
-export const BRAND_MOON_ORBIT_RADIUS = 3.2
-/** Universe & Brand-System — größere Planeten für Lesbarkeit */
-export const BRAND_PLANET_RADIUS = 1.4
-export const UNIVERSE_PLANET_RADIUS = 1.4
+export const BRAND_MOON_ORBIT_RADIUS = 5.4
+/** Universe & Brand-System — große, gut lesbare Planeten */
+export const BRAND_PLANET_RADIUS = 2.8
+export const UNIVERSE_PLANET_RADIUS = 2.8
 export const BRAND_MOON_RADIUS = 0.28
 export const BRAND_MOON_SURFACE_OFFSET: [number, number, number] = [
   BRAND_MOON_ORBIT_RADIUS,
   0.2,
   0,
 ]
+
+/** Detaillierte Planet-Surface-Szene (World Stage planet-surface) — Zoom-Clamps & Hinweise */
+export const PLANET_SURFACE_SCENE_RADIUS = 5
+/** Deliver-Mond in Moon.tsx — Zoom-Clamps moon-surface */
+export const MOON_SCENE_RADIUS = 3.2

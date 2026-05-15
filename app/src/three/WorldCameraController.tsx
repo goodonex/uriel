@@ -24,7 +24,7 @@ import {
   type WorldRegion,
   type WorldStage,
 } from '../store/worldCamera'
-import { BRAND_MOON_SURFACE_OFFSET, getBrandSystemPosition } from './worldLayout'
+import { BRAND_MOON_SURFACE_OFFSET, MOON_SCENE_RADIUS, PLANET_SURFACE_SCENE_RADIUS, getBrandSystemPosition } from './worldLayout'
 
 interface StageCamera {
   /** Offset relativ zum `look`-Punkt der Stage. */
@@ -162,10 +162,12 @@ function chooseDurationMs(
 }
 
 export function WorldCameraController() {
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
   const stage = useWorldCamera((s) => s.stage)
   const region = useWorldCamera((s) => s.region)
   const brandSlug = useWorldCamera((s) => s.brandSlug)
+
+  const pinchVelocityRef = useRef(0)
 
   const targetPos = useRef(new THREE.Vector3())
   const targetLook = useRef(new THREE.Vector3())
@@ -206,6 +208,7 @@ export function WorldCameraController() {
 
   // Stage- / Region- / Brand-Wechsel → neues Ziel + Tween-Flag.
   useEffect(() => {
+    pinchVelocityRef.current = 0
     const t = resolveTarget(stage, brandSlug, region)
     if (camera instanceof THREE.PerspectiveCamera) {
       startPos.current.copy(camera.position)
@@ -231,6 +234,19 @@ export function WorldCameraController() {
     }
   }, [stage, region, brandSlug, camera])
 
+  /** Trackpad-Pinch (ctrlKey+wheel) auf Planet / Mond — Page-Scroll bleibt ohne Ctrl. */
+  useEffect(() => {
+    const el = gl.domElement
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return
+      if (stage !== 'planet-surface' && stage !== 'moon-surface') return
+      e.preventDefault()
+      pinchVelocityRef.current += e.deltaY * 0.01
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [gl.domElement, stage])
+
   useFrame(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
     if (!tweening.current) return
@@ -255,6 +271,43 @@ export function WorldCameraController() {
     }
   })
 
+  /** Pinch-Zoom sanft entlang Blickachse (Planet / Mond). */
+  useFrame(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return
+    if (tweening.current) return
+    if (stage !== 'planet-surface' && stage !== 'moon-surface') return
+
+    pinchVelocityRef.current *= 0.88
+    const delta = pinchVelocityRef.current
+    if (Math.abs(delta) < 1e-5) return
+
+    const look = currentLook.current
+    const offset = camera.position.clone().sub(look)
+    const dist = offset.length()
+    if (dist < 1e-4) return
+
+    const dir = offset.multiplyScalar(1 / dist)
+    const minD =
+      stage === 'moon-surface'
+        ? MOON_SCENE_RADIUS + 3
+        : PLANET_SURFACE_SCENE_RADIUS + 3
+    const maxD =
+      stage === 'moon-surface'
+        ? MOON_SCENE_RADIUS + 30
+        : PLANET_SURFACE_SCENE_RADIUS + 30
+
+    const step = delta * 2.8
+    const nextDist = THREE.MathUtils.clamp(dist + step, minD, maxD)
+    camera.position.copy(look).addScaledVector(dir, nextDist)
+    camera.lookAt(look)
+  })
+
+  const orbitZoomLimits = useMemo(() => {
+    if (stage === 'universe') return { min: 30, max: 200 }
+    if (stage === 'brand-system') return { min: 8, max: 60 }
+    return { min: 4, max: 140 }
+  }, [stage])
+
   const orbitEnabled = useMemo(
     () => (stage === 'universe' || stage === 'brand-system') && !tweenActive,
     [stage, tweenActive],
@@ -270,11 +323,12 @@ export function WorldCameraController() {
       ref={orbitRef}
       enabled={orbitEnabled}
       enablePan={false}
-      enableZoom={stage === 'universe'}
+      enableZoom={stage === 'universe' || stage === 'brand-system'}
+      zoomSpeed={0.8}
       makeDefault={false}
       target={orbitTarget}
-      minDistance={4}
-      maxDistance={140}
+      minDistance={orbitZoomLimits.min}
+      maxDistance={orbitZoomLimits.max}
       rotateSpeed={0.45}
       dampingFactor={0.08}
     />

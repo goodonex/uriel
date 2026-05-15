@@ -13,10 +13,10 @@ export const REGION_MATERIALS: Record<
   'building' | 'promo' | 'sales' | 'intelligence',
   ContinentMaterialDef
 > = {
-  building: { color: '#2255aa', emissive: '#1a44cc', emissiveIntensity: 0.55 },
-  promo: { color: '#8833cc', emissive: '#6622aa', emissiveIntensity: 0.55 },
-  sales: { color: '#cc8822', emissive: '#aa6600', emissiveIntensity: 0.55 },
-  intelligence: { color: '#aaaaaa', emissive: '#888888', emissiveIntensity: 0.5 },
+  building: { color: '#2255aa', emissive: '#1a44cc', emissiveIntensity: 0.65 },
+  promo: { color: '#8833cc', emissive: '#6622aa', emissiveIntensity: 0.65 },
+  sales: { color: '#cc8822', emissive: '#aa6600', emissiveIntensity: 0.65 },
+  intelligence: { color: '#aaaaaa', emissive: '#888888', emissiveIntensity: 0.62 },
 }
 
 const NOISE_SEED_BY_KEY: Record<'building' | 'promo' | 'sales' | 'intelligence', string> = {

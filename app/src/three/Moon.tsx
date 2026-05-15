@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { MoonMesh } from './MoonMesh'
+import { MOON_SCENE_RADIUS } from './worldLayout'
 
 function stageIntensity(stage: string): number {
   switch (stage) {
@@ -30,7 +31,7 @@ function projectPoint(index: number, total: number, radius: number): [number, nu
 
 export function Moon({ slug }: { slug: string }) {
   const projects = useDeliverProjects(slug)
-  const radius = 3.2
+  const radius = MOON_SCENE_RADIUS
 
   const points = useMemo(
     () =>

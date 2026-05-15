@@ -1,11 +1,9 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import { useConfiguredTexture } from './hooks/useConfiguredTexture'
-import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
-import { PLANET_TEXTURES } from './textureRegistry'
+import { useBrandPlanetSurfaceTexture } from './hooks/useBrandPlanetSurfaceTexture'
 
-const PLANET_BUMP_SCALE = 0.32
+const PLANET_BUMP_SCALE = 0.28
 
 export interface BrandPlanetMaterialProps {
   color: string
@@ -80,29 +78,13 @@ function BrandPlanetMeshInner({
         roughness={surfaceTexture ? 0.92 : 0.82}
         metalness={0.04}
         emissive={color}
-        emissiveIntensity={surfaceTexture ? 0.02 : emissiveIntensity * 0.85}
+        emissiveIntensity={surfaceTexture ? emissiveIntensity * 0.72 : emissiveIntensity}
       />
     </mesh>
   )
 }
 
-function BrandPlanetMeshWithTexture(props: BrandPlanetMeshProps & { texturePath: string }) {
-  const surfaceTexture = useConfiguredTexture(props.texturePath)
-  return (
-    <BrandPlanetMeshInner
-      {...props}
-      surfaceTexture={surfaceTexture}
-    />
-  )
-}
-
 export function BrandPlanetMesh(props: BrandPlanetMeshProps) {
-  const texturePath = PLANET_TEXTURES[props.slug]
-  const canLoad = useShouldLoadTextures() && Boolean(texturePath)
-
-  if (canLoad && texturePath) {
-    return <BrandPlanetMeshWithTexture {...props} texturePath={texturePath} />
-  }
-
-  return <BrandPlanetMeshInner {...props} surfaceTexture={null} />
+  const surfaceTexture = useBrandPlanetSurfaceTexture(props.slug)
+  return <BrandPlanetMeshInner {...props} surfaceTexture={surfaceTexture} />
 }

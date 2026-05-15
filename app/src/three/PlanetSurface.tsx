@@ -21,8 +21,9 @@ import {
   latLonToVector3,
 } from './regions/regionGeometry'
 import { SalesTowers } from './regions/SalesTowers'
+import { PLANET_SURFACE_SCENE_RADIUS, getBrandWorldColor } from './worldLayout'
 
-const PLANET_RADIUS = 5
+const PLANET_RADIUS = PLANET_SURFACE_SCENE_RADIUS
 
 export function PlanetSurface({ slug }: { slug: string }) {
   const activeRegion = useWorldCamera((s) => s.region)
@@ -32,6 +33,8 @@ export function PlanetSurface({ slug }: { slug: string }) {
   const icps = useICPs(slug)
   const positioning = usePositioning(slug)
   const wordBank = useWordBank(slug)
+
+  const brandLight = useMemo(() => getBrandWorldColor(slug), [slug])
 
   const health = useMemo(
     () =>
@@ -68,8 +71,9 @@ export function PlanetSurface({ slug }: { slug: string }) {
 
   return (
     <group>
-      <ambientLight intensity={0.4} />
-      <pointLight color="#ffffff" intensity={2.2} distance={45} position={[0, 12, 0]} />
+      <ambientLight intensity={0.32} />
+      <pointLight color={brandLight} intensity={3.5} distance={12} decay={2} position={[5, 10, 6]} />
+      <pointLight color="#eef2ff" intensity={0.3} distance={45} decay={2} position={[-8, 6, -4]} />
 
       <Planet slug={slug} radius={PLANET_RADIUS} />
 
@@ -78,7 +82,18 @@ export function PlanetSurface({ slug }: { slug: string }) {
         <meshStandardMaterial
           color="#4488ff"
           transparent
-          opacity={0.08}
+          opacity={0.14}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      <mesh renderOrder={-2}>
+        <sphereGeometry args={[PLANET_RADIUS + 0.45, 56, 56]} />
+        <meshStandardMaterial
+          color="#88aaff"
+          transparent
+          opacity={0.05}
           side={THREE.BackSide}
           depthWrite={false}
         />

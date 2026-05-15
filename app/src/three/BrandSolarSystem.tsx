@@ -1,5 +1,6 @@
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
+import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
@@ -34,7 +35,7 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
   const [hovered, setHovered] = useState(false)
 
   const moonBoostUntilRef = useRef(0)
-  const pulseUntilRef = useRef(0)
+  const clickPulseRef = useRef<{ start: number } | null>(null)
 
   const nodeEnter = useUniverseNodeHover((s) => s.nodeEnter)
   const nodeLeave = useUniverseNodeHover((s) => s.nodeLeave)
@@ -75,8 +76,9 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
   useFrame((state, delta) => {
     const elapsed = state.clock.elapsedTime
     const g = groupRef.current
+    const orbitYaw = 0.04
     if (g) {
-      g.rotation.y += delta * (hovered ? 0.022 : 0.04)
+      g.rotation.y += delta * (hovered ? orbitYaw * 0.2 : orbitYaw)
     }
 
     const orbitBoost = elapsed < moonBoostUntilRef.current ? 1.85 : 1
@@ -91,11 +93,14 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
     const shell = planetShellRef.current
     if (shell) {
       let s = 1
-      const pu = pulseUntilRef.current
-      if (pu > 0 && elapsed < pu) {
-        const u = (elapsed - (pu - 0.3)) / 0.3
-        const clamped = Math.min(1, Math.max(0, u))
-        s = 1 + 0.08 * Math.sin(Math.PI * clamped)
+      const pulse = clickPulseRef.current
+      if (pulse) {
+        const u = (elapsed - pulse.start) / 0.25
+        if (u >= 1) {
+          clickPulseRef.current = null
+        } else {
+          s = 1 + 0.06 * Math.sin(Math.PI * Math.min(1, Math.max(0, u)))
+        }
       }
       shell.scale.setScalar(s)
     }
@@ -123,7 +128,7 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
           color={color}
           segments={72}
           emissiveIntensity={hovered ? 0.34 : 0.26}
-          rotationSpeed={hovered ? 0.09 : 0.18}
+          rotationSpeed={hovered ? 0.036 : 0.18}
           onPointerOver={(e) => {
             e.stopPropagation()
             setHovered(true)
@@ -138,8 +143,8 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
           }}
           onClick={(e) => {
             e.stopPropagation()
-            pulseUntilRef.current = clock.elapsedTime + 0.3
-            window.setTimeout(() => navigate(`/brand/${brand.slug}`), 300)
+            clickPulseRef.current = { start: clock.elapsedTime }
+            window.setTimeout(() => navigate(`/brand/${brand.slug}`), 250)
           }}
         />
       </group>
@@ -169,26 +174,32 @@ export function BrandSolarSystem({ brand, position }: BrandSolarSystemProps) {
         zIndexRange={[50, 0]}
         style={{ pointerEvents: 'none' }}
       >
-        <div
-          className="universe-planet-label"
-          style={{
-            color: hovered ? '#ffffff' : 'var(--text-primary)',
-            fontSize: hovered ? 20 : 13,
-            fontWeight: hovered ? 600 : 500,
-            letterSpacing: hovered ? '0.06em' : '0.14em',
-            borderColor: hovered
-              ? `color-mix(in srgb, ${color} 55%, transparent)`
-              : 'rgba(255,255,255,0.14)',
-            boxShadow: hovered
-              ? `0 0 28px color-mix(in srgb, ${color} 50%, transparent), 0 8px 28px rgba(0,0,0,0.45)`
-              : '0 8px 28px rgba(0,0,0,0.45)',
-            textShadow: hovered
-              ? `0 0 18px color-mix(in srgb, ${color} 55%, transparent)`
-              : undefined,
-          }}
+        <motion.div
+          initial={{ opacity: 0.75 }}
+          animate={{ opacity: hovered ? 1 : 0.82 }}
+          transition={{ duration: 0.15 }}
         >
-          {brand.name}
-        </div>
+          <div
+            className="universe-planet-label"
+            style={{
+              color: hovered ? '#ffffff' : 'var(--text-primary)',
+              fontSize: hovered ? 18 : 13,
+              fontWeight: hovered ? 600 : 500,
+              letterSpacing: hovered ? '0.06em' : '0.14em',
+              borderColor: hovered
+                ? `color-mix(in srgb, ${color} 55%, transparent)`
+                : 'rgba(255,255,255,0.14)',
+              boxShadow: hovered
+                ? `0 0 28px color-mix(in srgb, ${color} 50%, transparent), 0 8px 28px rgba(0,0,0,0.45)`
+                : '0 8px 28px rgba(0,0,0,0.45)',
+              textShadow: hovered
+                ? `0 0 18px color-mix(in srgb, ${color} 55%, transparent)`
+                : undefined,
+            }}
+          >
+            {brand.name}
+          </div>
+        </motion.div>
       </Html>
     </group>
   )

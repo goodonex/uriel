@@ -1,8 +1,10 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import type { WorldRegion } from '../../store/worldCamera'
+import { useShouldLoadTextures } from '../hooks/useShouldLoadTextures'
+import { CONTINENT_TEXTURES } from '../textureRegistry'
 import {
   REGION_MATERIALS,
   createContinentGeometry,
@@ -10,6 +12,15 @@ import {
 } from './continentGeometry'
 import type { RegionDef } from './regionGeometry'
 import { latLonToVector3 } from './regionGeometry'
+
+/** Routen-Segment pro Kontinent — Building → foundation */
+export const REGION_TO_MODE: Record<WorldRegion, string> = {
+  building: 'foundation',
+  discovery: 'foundation',
+  promo: 'promo',
+  sales: 'sales',
+  intelligence: 'intelligence',
+}
 
 interface RegionPatchProps {
   def: RegionDef
@@ -32,8 +43,44 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
   const rippleMeshRef = useRef<THREE.Mesh>(null)
   const rippleMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const [hovered, setHovered] = useState(false)
+  const [continentBump, setContinentBump] = useState<THREE.Texture | null>(null)
 
+  const loadTextures = useShouldLoadTextures()
   const matDef = REGION_MATERIALS[materialKeyFor(def)]
+
+  useEffect(() => {
+    if (!loadTextures) {
+      setContinentBump(null)
+      return
+    }
+    const url = CONTINENT_TEXTURES[def.key]
+    if (!url) {
+      setContinentBump(null)
+      return
+    }
+    let alive = true
+    const loader = new THREE.TextureLoader()
+    loader.load(
+      url,
+      (tex) => {
+        tex.wrapS = THREE.RepeatWrapping
+        tex.wrapT = THREE.RepeatWrapping
+        tex.colorSpace = THREE.SRGBColorSpace
+        if (alive) setContinentBump(tex)
+      },
+      undefined,
+      () => {
+        if (alive) setContinentBump(null)
+      },
+    )
+    return () => {
+      alive = false
+      setContinentBump((prev) => {
+        prev?.dispose()
+        return null
+      })
+    }
+  }, [def.key, loadTextures])
 
   const flashUntilRef = useRef(0)
   const rippleRef = useRef({ active: false, t: 0 })
@@ -79,7 +126,7 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
       emissiveTarget.current = 1
     } else {
       const base = matDef.emissiveIntensity
-      const target = hovered ? 0.9 : base
+      const target = hovered ? 1 : base
       emissiveTarget.current += (target - emissiveTarget.current) * Math.min(1, delta * 12)
       mat.emissiveIntensity = emissiveTarget.current
     }
@@ -106,9 +153,9 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
     }
   })
 
-  const navigateToRegion = (key: WorldRegion) => {
-    const pathMode = key === 'building' ? 'foundation' : key
-    navigate(`/brand/${slug}/${pathMode}`)
+  const navigateToRegion = () => {
+    const mode = REGION_TO_MODE[def.key] ?? def.key
+    navigate(`/brand/${slug}/${mode}`)
   }
 
   const triggerClickFeedback = () => {
@@ -137,7 +184,7 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
           ref={edgeMatRef}
           color={matDef.emissive}
           transparent
-          opacity={0.3}
+          opacity={0.45}
           side={THREE.BackSide}
           depthWrite={false}
         />
@@ -148,7 +195,7 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
         onClick={(e) => {
           e.stopPropagation()
           triggerClickFeedback()
-          window.setTimeout(() => navigateToRegion(def.key), 150)
+          window.setTimeout(() => navigateToRegion(), 150)
         }}
         onPointerOver={(e) => {
           e.stopPropagation()
@@ -169,10 +216,19 @@ export function RegionPatch({ def, slug, planetRadius, onHoverChange }: RegionPa
           emissiveIntensity={matDef.emissiveIntensity}
           roughness={0.82}
           metalness={0.05}
+          bumpMap={continentBump ?? undefined}
+          bumpScale={continentBump ? 0.12 : 0}
         />
       </mesh>
 
-      <mesh ref={rippleMeshRef} position={ringLayout.pos} quaternion={ringLayout.q} visible={false} renderOrder={2} raycast={() => undefined}>
+      <mesh
+        ref={rippleMeshRef}
+        position={ringLayout.pos}
+        quaternion={ringLayout.q}
+        visible={false}
+        renderOrder={2}
+        raycast={() => undefined}
+      >
         <ringGeometry args={[ringLayout.inner, ringLayout.outer, 48]} />
         <meshBasicMaterial
           ref={rippleMatRef}

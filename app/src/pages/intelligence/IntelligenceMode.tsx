@@ -82,22 +82,6 @@ export function IntelligenceMode() {
       {slug ? <IntelligenceFocusTasksBlock slug={slug} /> : null}
 
       <SectionLabel accent="var(--mode-intelligence)">
-        Morning Brief (Mock)
-      </SectionLabel>
-      <div
-        className="glass-2 mb-8"
-        style={{
-          padding: 16,
-          borderRadius: 16,
-          border: '1px solid var(--glass-border-1)',
-        }}
-      >
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          {snapshot.morningBrief}
-        </p>
-      </div>
-
-      <SectionLabel accent="var(--mode-intelligence)">
         Pattern Recognition (Mock)
       </SectionLabel>
       <ul className="mb-8 flex flex-col gap-2">
