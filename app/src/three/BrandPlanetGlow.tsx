@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { useConfiguredTexture } from './hooks/useConfiguredTexture'
-import { GLOW_TEXTURE, shouldLoadTextures } from './textureRegistry'
+import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
+import { GLOW_TEXTURE } from './textureRegistry'
 
 interface BrandPlanetGlowProps {
   planetRadius: number
@@ -39,6 +40,7 @@ function BrandPlanetGlowWithTexture(props: BrandPlanetGlowProps) {
 }
 
 export function BrandPlanetGlow(props: BrandPlanetGlowProps) {
-  if (!shouldLoadTextures()) return null
+  const canLoad = useShouldLoadTextures()
+  if (!canLoad) return null
   return <BrandPlanetGlowWithTexture {...props} />
 }

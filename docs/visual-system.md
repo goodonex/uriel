@@ -26,7 +26,7 @@ Planet (Universe / Brand-System / Planet-Surface):
 <meshStandardMaterial
   color={brandColor}
   bumpMap={surfaceTexture}
-  bumpScale={0.18}
+  bumpScale={0.42}
   roughnessMap={surfaceTexture}
   roughness={0.75}
   metalness={0.1}
@@ -41,7 +41,7 @@ Mond (`MoonMesh`):
 <meshStandardMaterial
   color="#8a8276"
   bumpMap={moonTexture}
-  bumpScale={0.32}
+  bumpScale={0.55}
   roughnessMap={moonTexture}
   roughness={0.9}
   metalness={0}

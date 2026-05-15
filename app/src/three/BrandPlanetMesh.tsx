@@ -2,7 +2,10 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { useConfiguredTexture } from './hooks/useConfiguredTexture'
-import { PLANET_TEXTURES, shouldLoadTextures } from './textureRegistry'
+import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
+import { PLANET_TEXTURES } from './textureRegistry'
+
+const PLANET_BUMP_SCALE = 0.42
 
 export interface BrandPlanetMaterialProps {
   color: string
@@ -62,12 +65,12 @@ function BrandPlanetMeshInner({
       <meshStandardMaterial
         color={color}
         bumpMap={surfaceTexture ?? undefined}
-        bumpScale={surfaceTexture ? 0.18 : 0}
+        bumpScale={surfaceTexture ? PLANET_BUMP_SCALE : 0}
         roughnessMap={surfaceTexture ?? undefined}
-        roughness={0.75}
-        metalness={0.1}
+        roughness={surfaceTexture ? 0.82 : 0.75}
+        metalness={0.12}
         emissive={color}
-        emissiveIntensity={emissiveIntensity}
+        emissiveIntensity={surfaceTexture ? emissiveIntensity * 0.5 : emissiveIntensity}
       />
     </mesh>
   )
@@ -85,7 +88,7 @@ function BrandPlanetMeshWithTexture(props: BrandPlanetMeshProps & { texturePath:
 
 export function BrandPlanetMesh(props: BrandPlanetMeshProps) {
   const texturePath = PLANET_TEXTURES[props.slug]
-  const canLoad = shouldLoadTextures() && Boolean(texturePath)
+  const canLoad = useShouldLoadTextures() && Boolean(texturePath)
 
   if (canLoad && texturePath) {
     return <BrandPlanetMeshWithTexture {...props} texturePath={texturePath} />

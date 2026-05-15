@@ -2,7 +2,10 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useConfiguredTexture } from './hooks/useConfiguredTexture'
-import { MOON_TEXTURE, shouldLoadTextures } from './textureRegistry'
+import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
+import { MOON_TEXTURE } from './textureRegistry'
+
+const MOON_BUMP_SCALE = 0.55
 
 interface MoonMeshProps {
   radius: number
@@ -40,7 +43,7 @@ function MoonMeshInner({
       <meshStandardMaterial
         color="#8a8276"
         bumpMap={surfaceTexture ?? undefined}
-        bumpScale={surfaceTexture ? 0.32 : 0}
+        bumpScale={surfaceTexture ? MOON_BUMP_SCALE : 0}
         roughnessMap={surfaceTexture ?? undefined}
         roughness={0.9}
         metalness={0}
@@ -55,7 +58,8 @@ function MoonMeshWithTexture(props: MoonMeshProps) {
 }
 
 export function MoonMesh(props: MoonMeshProps) {
-  if (shouldLoadTextures()) {
+  const canLoad = useShouldLoadTextures()
+  if (canLoad) {
     return <MoonMeshWithTexture {...props} />
   }
   return <MoonMeshInner {...props} surfaceTexture={null} />

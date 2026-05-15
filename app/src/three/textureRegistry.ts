@@ -9,6 +9,8 @@ export const PLANET_TEXTURES: Record<string, string> = {
 export const MOON_TEXTURE = '/textures/moon/moon_surface.jpg'
 export const GLOW_TEXTURE = '/textures/glow/star_glow.png'
 
+/** Sync-Check außerhalb von React (z. B. Scripts). In Komponenten `useShouldLoadTextures` nutzen. */
 export function shouldLoadTextures(): boolean {
-  return typeof window !== 'undefined' && window.innerWidth >= 1024
+  if (typeof window === 'undefined') return false
+  return window.innerWidth >= 1024
 }
