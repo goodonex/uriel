@@ -1,11 +1,11 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { useRef, type RefObject } from 'react'
+import { useLayoutEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { useConfiguredTexture } from './hooks/useConfiguredTexture'
 import { useShouldLoadTextures } from './hooks/useShouldLoadTextures'
 import { PLANET_TEXTURES } from './textureRegistry'
 
-const PLANET_BUMP_SCALE = 0.42
+const PLANET_BUMP_SCALE = 0.55
 
 export interface BrandPlanetMaterialProps {
   color: string
@@ -49,6 +49,13 @@ function BrandPlanetMeshInner({
   const localRef = useRef<THREE.Mesh>(null)
   const ref = meshRef ?? localRef
 
+  useLayoutEffect(() => {
+    const geo = ref.current?.geometry
+    if (geo && !geo.attributes.uv2) {
+      geo.setAttribute('uv2', geo.attributes.uv)
+    }
+  }, [ref])
+
   useFrame((_, delta) => {
     if (!ref.current || rotationSpeed <= 0) return
     ref.current.rotation.y += delta * rotationSpeed
@@ -64,13 +71,16 @@ function BrandPlanetMeshInner({
       <sphereGeometry args={[radius, segments, segments]} />
       <meshStandardMaterial
         color={color}
+        map={surfaceTexture ?? undefined}
         bumpMap={surfaceTexture ?? undefined}
         bumpScale={surfaceTexture ? PLANET_BUMP_SCALE : 0}
         roughnessMap={surfaceTexture ?? undefined}
-        roughness={surfaceTexture ? 0.82 : 0.75}
-        metalness={0.12}
+        aoMap={surfaceTexture ?? undefined}
+        aoMapIntensity={surfaceTexture ? 0.5 : 0}
+        roughness={surfaceTexture ? 0.88 : 0.75}
+        metalness={0.14}
         emissive={color}
-        emissiveIntensity={surfaceTexture ? emissiveIntensity * 0.5 : emissiveIntensity}
+        emissiveIntensity={surfaceTexture ? 0.04 : emissiveIntensity}
       />
     </mesh>
   )

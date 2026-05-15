@@ -51,8 +51,8 @@ export function Universe() {
 
       <EffectComposer>
         <Bloom
-          intensity={0.55}
-          luminanceThreshold={0.25}
+          intensity={0.32}
+          luminanceThreshold={0.42}
           luminanceSmoothing={0.5}
           mipmapBlur
         />

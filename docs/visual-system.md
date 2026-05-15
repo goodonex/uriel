@@ -18,16 +18,19 @@ Dateien liegen unter `app/public/textures/`.
 
 - **Albedo:** `color` = Brand-Primärfarbe (DB / `getBrandWorldColor`)
 - **Struktur:** `bumpMap` + `roughnessMap` = gleiche Graustufen-Texture
-- **Kein** `map` auf Planeten/Mond — vermeidet Pol-Verzerrung und Farb-Konflikte mit Higgsfield-Output
+- **`map`**: nur die **kontrast-verstärkte Graustufen-Texture** — multipliziert mit `color` (Brand-Farbe bleibt der Farbton, Struktur wird sichtbar). Kein farbiges Higgsfield-Albedo.
 
 Planet (Universe / Brand-System / Planet-Surface):
 
 ```tsx
 <meshStandardMaterial
   color={brandColor}
+  map={surfaceTexture}
   bumpMap={surfaceTexture}
-  bumpScale={0.42}
+  bumpScale={0.55}
   roughnessMap={surfaceTexture}
+  aoMap={surfaceTexture}
+  aoMapIntensity={0.5}
   roughness={0.75}
   metalness={0.1}
   emissive={brandColor}
