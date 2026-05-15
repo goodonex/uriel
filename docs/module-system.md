@@ -103,6 +103,24 @@ Framer Motion am `ModuleContainer`: Eintritt ~280ms ease-out aus slot-typischer 
 
 ---
 
+## Desktop Scroll-Flow (≥ 1024px)
+
+Ab **1024px** ersetzt der **Scroll-Flow** das Multi-Modul-`ModuleRenderer`-Layout auf `BrandPage`. Statt schwebender Glas-Fenster mit Titel-Header gibt es einen **vertikalen Section-Scroll** mit Snap, Dot-Navigation und autonomen **`CardTile`**-Kacheln (Glass ohne Modul-Chrome).
+
+| Bereich | Pfad / Verhalten |
+|---------|------------------|
+| Container | `app/src/components/BrandScrollFlow.tsx` |
+| Sections | `app/src/components/sections/*` |
+| Section-Order / Route-Mapping | `app/src/lib/scrollFlow.ts` |
+| Aktive Section (IO) | `app/src/hooks/useScrollSection.ts` |
+| Navigation API | `app/src/context/ScrollFlowContext.tsx` |
+| Kacheln | `app/src/modules/CardTile.tsx` |
+| Headless Module | `ModuleContainer` mit `headless` (kein Titel/Schließen) |
+
+`useRouteModulesSync` erhält `scrollFlowDesktop: true` → **`closeAll()`**, kein automatisches Öffnen von Modul-Sets. Die **URL** bleibt führend; Section-Wechsel synchronisiert `navigate()` → Kamera über bestehendes `useWorldCameraSyncFromRoute`. Mobile (&lt; 1024px) unverändert: `ModuleRenderer` bzw. `BrandSystemDashboard`.
+
+---
+
 ## Mobile (Phase 9)
 
 Ab **Viewport-Breite &lt; 1024px** (für diesen Block): kein Multi-Modul-Desktop-Layout; **ein dominantes Vollbild-Modul** pro Modus-Set, rest über Tabs/Bottom-Sheet (minimal, ohne vollständiges Polish). Welt ausgeblendet wie im World-Rebuild für schmale Viewports. Sidebar: Bottom-Bar / Drawer-Pattern beibehalten.
@@ -130,6 +148,7 @@ Diese Punkte sind **Roadmap** für spätere Iterationen und können in `docs/wor
 | Container      | `app/src/modules/ModuleContainer.tsx` |
 | Registry       | `app/src/modules/registry.tsx` + `app/src/components/ModuleRenderer.tsx` |
 | Route-Sync     | `app/src/hooks/useRouteModulesSync.ts` |
+| Scroll-Flow    | `app/src/components/BrandScrollFlow.tsx`, `app/src/lib/scrollFlow.ts`, `app/src/modules/CardTile.tsx` |
 | Modul-Inhalte  | `app/src/modules/<bereich>/*.tsx` |
 
 ---

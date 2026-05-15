@@ -251,7 +251,7 @@ export function PromoCalendarSplit() {
             >
               Geplant am {selectedCalendarDay}
             </span>
-            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+            <ul className="flex flex-col gap-1">
               {(piecesByDay.get(selectedCalendarDay) ?? []).map((p) => (
                 <li key={p.id} className="font-mono truncate text-[11px] text-[var(--text-secondary)]">
                   <span
@@ -315,7 +315,7 @@ export function PromoCalendarSplit() {
   )
 }
 
-export function PromoPiecesSplit() {
+export function PromoPiecesSplit({ compact = false }: { compact?: boolean }) {
   const { slug } = useParams<{ slug: string }>()
   const { show } = useToast()
   const pieces = useContentPieces(slug)
@@ -330,7 +330,7 @@ export function PromoPiecesSplit() {
 
   return (
     <div style={{ minWidth: 0 }}>
-      <SectionLabel accent="var(--mode-promo)">Content-Pieces</SectionLabel>
+      {!compact ? <SectionLabel accent="var(--mode-promo)">Content-Pieces</SectionLabel> : null}
       {pieces.loading ? (
         <div
           className="animate-pulse"
@@ -452,7 +452,7 @@ export function PromoPiecesSplit() {
   )
 }
 
-export function PromoCampaignsSplit() {
+export function PromoCampaignsSplit({ compact = false }: { compact?: boolean }) {
   const { slug } = useParams<{ slug: string }>()
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
@@ -468,7 +468,7 @@ export function PromoCampaignsSplit() {
 
   return (
     <div style={{ minWidth: 0 }}>
-      <SectionLabel accent="var(--mode-promo)">Kampagnen</SectionLabel>
+      {!compact ? <SectionLabel accent="var(--mode-promo)">Kampagnen</SectionLabel> : null}
       <CampaignsSection
         campaigns={campaigns.items}
         pieces={pieces.items}
@@ -477,6 +477,7 @@ export function PromoCampaignsSplit() {
         onCreate={() => campaigns.create()}
         onUpdate={campaigns.update}
         onDelete={removeCampaign}
+        compact={compact}
       />
     </div>
   )

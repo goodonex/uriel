@@ -18,12 +18,23 @@ export interface RouteModulesSyncOptions {
   enabled: boolean
   modeLabel: string
   mobile: boolean
+  /** Desktop Scroll-Flow: Module-Manager nicht nutzen */
+  scrollFlowDesktop?: boolean
   /** Mobile Brand-Home: volles Dashboard ohne Modul-Manager */
   brandSystemMobile?: boolean
 }
 
 function isBrandSystemDesktopPath(pathname: string): boolean {
   return /^\/brand\/[^/]+\/?$/.test(pathname) || /^\/brand\/[^/]+\/dashboard\/?$/.test(pathname)
+}
+
+function isSalesListsPath(pathname: string): boolean {
+  return /^\/brand\/[^/]+\/sales\/lists(\/|$)/.test(pathname)
+}
+
+function salesListIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/brand\/[^/]+\/sales\/lists\/([^/]+)\/?$/)
+  return m?.[1] ?? null
 }
 
 function isSalesDesktopModulesPath(pathname: string): boolean {
@@ -43,6 +54,15 @@ function salesContactIdFromPath(pathname: string): string | null {
   return seg
 }
 
+function deliverProjectIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/brand\/[^/]+\/deliver\/([^/]+)\/?$/)
+  return m?.[1] ?? null
+}
+
+function isDeliverDesktopPath(pathname: string): boolean {
+  return /^\/brand\/[^/]+\/deliver(\/|$)/.test(pathname)
+}
+
 /**
  * Hält den Module-Manager mit der aktuellen Brand-Workspace-Route synchron.
  */
@@ -52,7 +72,7 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
   const closeAll = useModuleManager((s) => s.closeAll)
 
   useEffect(() => {
-    if (!opts.enabled) {
+    if (!opts.enabled || opts.scrollFlowDesktop) {
       closeAll()
       return
     }
@@ -80,6 +100,27 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
         slot: 'main',
         title: 'Brand-System',
       })
+      return
+    }
+
+    if (isSalesListsPath(opts.pathname)) {
+      const listId = salesListIdFromPath(opts.pathname)
+      closeAll()
+      if (listId) {
+        open({
+          id: `sales-list-${listId}`,
+          type: 'sales-list-detail',
+          slot: 'main',
+          title: 'Liste',
+        })
+      } else {
+        open({
+          id: 'sales-lists',
+          type: 'sales-lists',
+          slot: 'main',
+          title: 'Listen',
+        })
+      }
       return
     }
 
@@ -138,13 +179,34 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
       return
     }
 
+    if (isDeliverDesktopPath(opts.pathname)) {
+      const projectId = deliverProjectIdFromPath(opts.pathname)
+      closeAll()
+      if (projectId) {
+        open({
+          id: `deliver-project-${projectId}`,
+          type: 'deliver-project',
+          slot: 'main',
+          title: 'Projekt',
+        })
+      } else {
+        open({
+          id: 'deliver-workspace',
+          type: 'deliver-workspace',
+          slot: 'main',
+          title: 'Deliver',
+        })
+      }
+      return
+    }
+
     if (/^\/brand\/[^/]+\/promo\/?$/.test(opts.pathname)) {
       closeAll()
       open({
-        id: 'promo-calendar',
-        type: 'promo-calendar',
+        id: 'promo-main',
+        type: 'promo-main',
         slot: 'main',
-        title: 'Kalender',
+        title: 'Promo',
       })
       open({
         id: 'promo-pieces',
@@ -174,6 +236,7 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     opts.pathname,
     opts.slug,
     opts.mobile,
+    opts.scrollFlowDesktop,
     opts.brandSystemMobile,
     open,
     closeAll,
@@ -184,17 +247,24 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (isEditableEscTarget(e.target)) return
-      const mods = useModuleManager.getState().modules
+      const state = useModuleManager.getState()
+      const mods = state.modules
       const hasContact = mods.some((m) => m.type === 'contact-detail')
       if (hasContact) {
         navigate(`/brand/${opts.slug}/sales`)
         return
       }
-      if (mods.length === 1 && mods[0]?.type === 'brand-dashboard') {
-        navigate('/')
+      const overlay = mods.filter((m) => m.slot === 'overlay-right' || m.slot === 'overlay-center')
+      if (overlay.length > 0) {
+        const last = overlay[overlay.length - 1]
+        if (last) state.close(last.id)
         return
       }
-      navigate(`/brand/${opts.slug}`)
+      if (mods.length > 0) {
+        const last = mods[mods.length - 1]
+        if (last) state.close(last.id)
+        return
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

@@ -41,6 +41,8 @@ export interface ModuleContainerProps {
   compact?: boolean
   /** Position + z-index vom Renderer (slots.ts) */
   frameStyle?: CSSProperties
+  /** Ohne Titel-Header und Schließen (Mobile kann weiterhin Chrome nutzen) */
+  headless?: boolean
 }
 
 export function ModuleContainer({
@@ -52,17 +54,18 @@ export function ModuleContainer({
   showMaximize = false,
   compact = false,
   frameStyle,
+  headless = false,
 }: ModuleContainerProps) {
   const v = enterVariants[slot]
 
   return (
     <motion.div
       layout
-      role="dialog"
-      aria-label={title}
+      role={headless ? undefined : 'dialog'}
+      aria-label={headless ? undefined : title}
       style={{
         display: 'grid',
-        gridTemplateRows: 'auto 1fr',
+        gridTemplateRows: headless ? '1fr' : 'auto 1fr',
         borderRadius: 18,
         border: '1px solid var(--glass-border-1)',
         background: 'rgba(8, 8, 16, 0.7)',
@@ -82,6 +85,7 @@ export function ModuleContainer({
         boxShadow: '0 28px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
       }}
     >
+      {!headless ? (
       <header
         style={{
           display: 'flex',
@@ -145,10 +149,14 @@ export function ModuleContainer({
           </button>
         </div>
       </header>
+      ) : null}
       <div
+        className="module-scroll"
         style={{
           minHeight: 0,
-          overflow: 'auto',
+          minWidth: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           padding: compact ? 10 : 14,
         }}
       >

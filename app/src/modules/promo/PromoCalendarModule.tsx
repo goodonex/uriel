@@ -1,5 +1,2 @@
-import { PromoCalendarSplit } from '../../pages/promo/PromoSplitViews'
-
-export function PromoCalendarModule() {
-  return <PromoCalendarSplit />
-}
+/** @deprecated Nutze PromoMainModule — Alias für Registry-Typ `promo-calendar`. */
+export { PromoMainModule as PromoCalendarModule } from './PromoMainModule'

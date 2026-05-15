@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
+import { BrandScrollFlow } from '../components/BrandScrollFlow'
 import { ModuleRenderer } from '../components/ModuleRenderer'
 import { BrandWorkspaceSidebar, BRAND_FLOAT_SIDEBAR_CLEARANCE_X } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
@@ -34,7 +35,8 @@ export function BrandPage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const { pathname } = useLocation()
   const { brands } = useBrands()
-  const { isMobile } = useViewport()
+  const { isMobile, width } = useViewport()
+  const useScrollFlow = width >= 1024
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const brand = useMemo(() => brands.find((b) => b.slug === slug), [brands, slug])
@@ -47,6 +49,7 @@ export function BrandPage() {
     enabled: true,
     modeLabel: modeLabel ?? 'Bereich',
     mobile: isMobile,
+    scrollFlowDesktop: useScrollFlow,
     brandSystemMobile: showBrandSystem && isMobile,
   })
 
@@ -216,6 +219,8 @@ export function BrandPage() {
             >
               <BrandSystemDashboard slug={slug} />
             </motion.div>
+          ) : useScrollFlow ? (
+            <BrandScrollFlow slug={slug} />
           ) : (
             <ModuleRenderer slug={slug} mobile={isMobile} />
           )}
