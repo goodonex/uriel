@@ -4,15 +4,23 @@ Stand: `feat/visual-polish` · Assets unter `app/public/textures/`.
 
 ## MCP-Status bei Generierung
 
-Higgsfield MCP lieferte **„Invalid or expired token“** — alle aktuellen Dateien wurden mit dem prozeduralen Fallback-Skript erzeugt:
+**2026-05-15:** Alle Assets via Higgsfield MCP (`nano_banana_2`, `aspect_ratio` 16:9 Planet/Mond, 1:1 Glow) generiert und nach `app/public/textures/` geladen.
 
-```bash
-python3 app/scripts/generate-fallback-textures.py
-```
+| Asset | Job-ID |
+|-------|--------|
+| herrmann_surface.jpg | `cb2d487f-5ff1-4efb-8935-81ce8f6ddce5` |
+| wertavio_surface.jpg | `241e0a85-6e7c-49ae-9d08-f1ac2bde418e` |
+| culturefit_surface.jpg | `8316ba9b-eef9-451f-b621-06f76a5a7434` |
+| homeflower_surface.jpg | `4d8a4e9d-4161-4044-b3eb-42358430ba95` |
+| eversmell_surface.jpg | `0e6fb317-f9b8-4b76-85de-dd7619e20df5` |
+| moon_surface.jpg | `746da119-e2b3-46d7-92f2-6decbc821596` |
+| star_glow.png | `699c0a96-6e18-48af-87a3-6eebf7247c43` |
 
-Nach Token-Renewal die Prompts unten 1:1 in `generate_image` nutzen, `job_status` pollen, `results.rawUrl` nach `public/textures/` laden.
+Glow: Higgsfield-PNG + radiale Alpha-Nachbearbeitung (PIL), falls kein natives Alpha.
 
-Empfohlenes Modell (nach `models_explore`): `nano_banana_2` · Aspect Ratio `16:9` oder `1:1`.
+**Fallback** (nur bei erneutem API-Ausfall): `python3 app/scripts/generate-fallback-textures.py`
+
+Modell: `nano_banana_2` · Resolution Default `1k` · ~2 Credits/Bild.
 
 ---
 
