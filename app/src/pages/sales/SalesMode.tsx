@@ -15,10 +15,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { motion } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
+import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
 import { EmailTemplatesDrawer } from '../../components/sales/EmailTemplatesDrawer'
 import { PipelineSwitcher } from '../../components/sales/PipelineSwitcher'
@@ -65,6 +66,22 @@ const STAGE_ACCENT: Record<PipelineStage, string> = {
   proposal: 'var(--accent-teal)',
   deal: '#4ade80',
   paused: 'var(--text-tertiary)',
+}
+
+const KANBAN_WRAP_VARIANTS: Variants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.06 },
+  },
+}
+
+const KANBAN_COLUMN_VARIANTS: Variants = {
+  hidden: { opacity: 0, x: -14 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { type: 'spring', stiffness: 260, damping: 22 },
+  },
 }
 
 function ymdToday(): string {
@@ -401,16 +418,19 @@ function DroppableStageColumn({
   children,
   onStageHover,
   scrollEmbed = false,
+  columnMotionVariants,
 }: {
   stage: PipelineStage
   children: ReactNode
   onStageHover?: (stage: PipelineStage | null) => void
   scrollEmbed?: boolean
+  columnMotionVariants?: Variants
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
+      variants={columnMotionVariants}
       className={scrollEmbed ? 'shrink-0' : 'glass-2 shrink-0'}
       onPointerEnter={() => onStageHover?.(stage)}
       style={{
@@ -440,7 +460,7 @@ function DroppableStageColumn({
         {STAGE_LABEL[stage]}
       </div>
       <div className="flex flex-col gap-2">{children}</div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -523,9 +543,10 @@ function SortableContactCard({
   }
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       style={style}
+      {...CARD_TILE_TAP}
       {...listeners}
       {...attributes}
       role="button"
@@ -699,7 +720,7 @@ function SortableContactCard({
           Projekt anlegen
         </button>
       ) : null}
-    </div>
+    </motion.div>
   )
 }
 
@@ -787,9 +808,12 @@ function PipelineBoard({
         setActiveDrag(null)
       }}
     >
-      <div
+      <motion.div
         className="flex overflow-x-auto pb-2 overscroll-x-contain sales-scroll-kanban"
         style={{ WebkitOverflowScrolling: 'touch', gap: 12 }}
+        variants={KANBAN_WRAP_VARIANTS}
+        initial="hidden"
+        animate="visible"
         onPointerLeave={() => onColumnHover?.(null)}
       >
         {STAGES.map((stage) => {
@@ -800,6 +824,7 @@ function PipelineBoard({
               stage={stage}
               onStageHover={onColumnHover}
               scrollEmbed={scrollEmbed}
+              columnMotionVariants={KANBAN_COLUMN_VARIANTS}
             >
               <SortableContext
                 items={list.map((c) => c.id)}
@@ -828,7 +853,7 @@ function PipelineBoard({
             </DroppableStageColumn>
           )
         })}
-      </div>
+      </motion.div>
       <DragOverlay dropAnimation={null}>
         {activeDrag ? (
           <div

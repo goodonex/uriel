@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -151,6 +151,11 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const base = `/brand/${slug}`
 
   const salesBranchActive = active === 'sales' || active === 'sales_lists'
+
+  const [sidebarGlowTick, setSidebarGlowTick] = useState(0)
+  useEffect(() => {
+    setSidebarGlowTick((n) => n + 1)
+  }, [active])
 
   const deliverProjects = useDeliverProjects(slug)
   const contactLists = useContactLists(slug)
@@ -421,7 +426,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                 >
                   {isActive ? (
                     <motion.span
-                      layoutId="sidebar-active-indicator"
+                      layoutId="active-indicator"
                       style={{
                         position: 'absolute',
                         left: expanded ? 0 : 4,
@@ -432,7 +437,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                         background: `var(${accent})`,
                         boxShadow: `0 0 8px color-mix(in srgb, var(${accent}) 50%, transparent)`,
                       }}
-                      transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 38 }}
                     />
                   ) : null}
                   <span
@@ -446,8 +451,20 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     {navIcon(item.section)}
                   </span>
                   {expanded ? (
-                    <span
+                    <motion.span
+                      key={`nav-${item.section}-${isActive ? sidebarGlowTick : 'idle'}`}
                       className="font-display min-w-0 flex-1 truncate"
+                      animate={
+                        isActive
+                          ? {
+                              textShadow: [
+                                '0 0 12px var(--brand-accent)',
+                                '0 0 0px transparent',
+                              ],
+                            }
+                          : { textShadow: '0 0 0px transparent' }
+                      }
+                      transition={{ duration: 0.6 }}
                       style={{
                         fontSize: 12.5,
                         fontWeight: isActive ? 600 : 500,
@@ -455,7 +472,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                       }}
                     >
                       {item.label}
-                    </span>
+                    </motion.span>
                   ) : null}
                   {(() => {
                     const hasSignal =

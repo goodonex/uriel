@@ -1,7 +1,8 @@
+import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BrandSystemDashboard } from '../BrandSystemDashboard'
-import { CardTile } from '../../modules/CardTile'
+import { CardTile, CARD_TILE_TAP } from '../../modules/CardTile'
 import { useBrands } from '../../hooks/useBrands'
 import { useContacts } from '../../hooks/useContacts'
 import { useDiscoveryFeed } from '../../hooks/useDiscoveryFeed'
@@ -134,7 +135,7 @@ export function DashboardSection({ slug }: { slug: string }) {
 
         <CardTile
           flyFrom="right"
-          delay={0}
+          delay={0.08}
           style={{
             position: 'absolute',
             top: 0,
@@ -163,8 +164,9 @@ export function DashboardSection({ slug }: { slug: string }) {
             <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
               {dueItems.map((item) => (
                 <li key={item.id}>
-                  <button
+                  <motion.button
                     type="button"
+                    {...CARD_TILE_TAP}
                     onClick={() => navigate(item.href)}
                     style={{
                       width: '100%',
@@ -179,7 +181,7 @@ export function DashboardSection({ slug }: { slug: string }) {
                     <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
                       {item.label}
                     </div>
-                  </button>
+                  </motion.button>
                 </li>
               ))}
             </ul>
@@ -188,7 +190,7 @@ export function DashboardSection({ slug }: { slug: string }) {
 
         <CardTile
           flyFrom="right"
-          delay={0.08}
+          delay={0.16}
           style={{
             position: 'absolute',
             bottom: 0,
@@ -217,8 +219,9 @@ export function DashboardSection({ slug }: { slug: string }) {
             <ul className="list-none p-0" style={{ margin: 0, display: 'grid', gap: 6 }}>
               {signals.map((sig) => (
                 <li key={sig.id}>
-                  <button
+                  <motion.button
                     type="button"
+                    {...CARD_TILE_TAP}
                     onClick={() => navigate(`/brand/${slug}/foundation`)}
                     style={{
                       width: '100%',
@@ -233,7 +236,7 @@ export function DashboardSection({ slug }: { slug: string }) {
                     <div className="font-body" style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
                       {sig.title}
                     </div>
-                  </button>
+                  </motion.button>
                 </li>
               ))}
             </ul>

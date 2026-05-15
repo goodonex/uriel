@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../Drawer'
 import { EmptyState } from '../EmptyState'
 import { SectionLabel } from '../SectionLabel'
+import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useContacts } from '../../hooks/useContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { DeliverProject } from '../../types/db'
@@ -126,6 +127,7 @@ export function DeliverProjectCardsPanel({ filter }: { filter: Filter }) {
           {filtered.map((p, idx) => (
             <motion.div
               key={p.id}
+              {...CARD_TILE_TAP}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.04, duration: 0.35 }}

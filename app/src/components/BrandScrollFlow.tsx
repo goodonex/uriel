@@ -122,7 +122,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     void scrollToSectionHeavy(pathSection).finally(() => {
       window.setTimeout(unlockObserver, 80)
     })
-  }, [pathSection, pathname, lockObserver, unlockObserver, scrollToSectionHeavy])
+  }, [pathSection, lockObserver, unlockObserver, scrollToSectionHeavy])
 
   const jumpToSection = useCallback(
     (section: SectionKey) => {
@@ -142,7 +142,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
         style={{
           height: '100vh',
           overflowY: 'auto',
-          overflowX: 'hidden',
+          overflowX: 'clip',
           overscrollBehavior: 'y contain',
           position: 'relative',
           zIndex: 1,

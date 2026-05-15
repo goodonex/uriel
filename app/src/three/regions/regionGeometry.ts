@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import type { WorldRegion } from '../../store/worldCamera'
 
+/** Kontinent-Oberflächenfarben — Single Source in continentGeometry.ts */
+export { REGION_MATERIALS } from './continentGeometry'
+
 /** Gebäude auf der Planetenoberfläche — später wieder true setzen. */
 export const SHOW_REGION_BUILDINGS = false
 

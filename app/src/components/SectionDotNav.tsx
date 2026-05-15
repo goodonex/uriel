@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import { useScrollFlow } from '../context/ScrollFlowContext'
 import { useScrollSectionContext } from '../context/ScrollSectionContext'
 import { SECTION_LABELS, SECTION_ORDER, type SectionKey } from '../lib/scrollFlow'
 
@@ -10,6 +11,7 @@ interface SectionDotNavProps {
 export function SectionDotNav({ onSelect }: SectionDotNavProps) {
   const [hovered, setHovered] = useState<SectionKey | null>(null)
   const scrollCtx = useScrollSectionContext()
+  const { scrollBusy } = useScrollFlow()
   const active = scrollCtx?.activeSection ?? 'dashboard'
 
   return (
@@ -31,6 +33,13 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
       {SECTION_ORDER.map((key) => {
         const isActive = key === active
         const showTip = hovered === key
+
+        let inactiveOpacity = 0.35
+        if (scrollBusy) inactiveOpacity = 0.6
+        else if (hovered === key) inactiveOpacity = 0.7
+
+        const accent = 'var(--brand-accent, var(--accent-teal))'
+
         return (
           <div
             key={key}
@@ -39,22 +48,25 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
             onMouseLeave={() => setHovered(null)}
           >
             {showTip ? (
-              <span
+              <motion.span
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.12 }}
                 className="font-mono"
                 style={{
-                  fontSize: 10,
-                  letterSpacing: '0.1em',
+                  fontSize: 11,
+                  letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                   color: 'var(--text-secondary)',
                   whiteSpace: 'nowrap',
                   padding: '4px 8px',
-                  borderRadius: 8,
-                  background: 'rgba(8,8,16,0.75)',
-                  border: '1px solid var(--glass-border-2)',
+                  borderRadius: 6,
+                  background: 'rgba(8,8,16,0.8)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 {SECTION_LABELS[key]}
-              </span>
+              </motion.span>
             ) : null}
             <button
               type="button"
@@ -63,8 +75,8 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
               onClick={() => onSelect(key)}
               style={{
                 position: 'relative',
-                width: 20,
-                height: 20,
+                width: 22,
+                height: 22,
                 borderRadius: '50%',
                 border: 'none',
                 padding: 0,
@@ -74,31 +86,22 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
                 placeItems: 'center',
               }}
             >
-              {isActive ? (
-                <motion.span
-                  layoutId="scroll-dot-active"
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    background: 'var(--brand-accent, var(--accent-teal))',
-                    boxShadow:
-                      '0 0 14px color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 60%, transparent)',
-                  }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-                />
-              ) : (
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: 'rgba(200,204,220,0.4)',
-                    transition: 'background 0.2s, transform 0.2s',
-                    transform: hovered === key ? 'scale(1.15)' : 'scale(1)',
-                  }}
-                />
-              )}
+              <motion.span
+                animate={{
+                  scale: isActive ? 1.4 : 1,
+                  opacity: isActive ? 1 : inactiveOpacity,
+                  backgroundColor: isActive ? accent : 'rgba(200,204,220,0.5)',
+                  boxShadow: isActive
+                    ? '0 0 14px color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 55%, transparent)'
+                    : 'none',
+                }}
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                }}
+              />
             </button>
           </div>
         )

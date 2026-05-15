@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { Drawer } from '../../components/Drawer'
+import { CARD_TILE_TAP } from '../../modules/CardTile'
 import type { Campaign, ContentPiece, ICP, WordBankEntry } from '../../types/db'
 import { ContentPieceEditor } from './ContentPieceEditor'
 
@@ -71,6 +72,7 @@ export function ContentPiecesSection({
           <motion.button
             key={piece.id}
             type="button"
+            {...CARD_TILE_TAP}
             onClick={() => setSelectedId(piece.id)}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -129,6 +131,7 @@ export function ContentPiecesSection({
 
         <motion.button
           type="button"
+          {...CARD_TILE_TAP}
           onClick={() => {
             const p = onCreate()
             setSelectedId(p.id)
