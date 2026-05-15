@@ -67,12 +67,23 @@ Funktional bleibt alles erhalten — CRM, Pipeline, Building, Promo, Discovery, 
 
 ---
 
+## Erledigt — Visual Polish (`feat/visual-polish`)
+
+- [x] Texture-Architektur (`public/textures/`, `textureRegistry.ts`)
+- [x] Planeten/Mond/Glow als Bump+Roughness (Brand-`color` bleibt Albedo)
+- [x] Stars + Universe-Fog, vereinheitlichtes Lighting
+- [x] Region-Labels lesbarer, Bauwerke 2.5× Skala
+- [x] Kamera `easeOutCubic` (1200 / 800 ms)
+- [x] Mobile: keine Texture-Loads unter 1024 px
+
+---
+
 ## Bewusst NICHT in diesem Block (kommt später)
 
 Diese Items sind absichtlich raus, um den Rebuild handhabbar zu halten. Beim nächsten World-Iterations-Block werden sie hier gepickt.
 
 - **Hover und Klick auf einzelne Gebäude** auf der Planeten-Oberfläche — z. B. ein konkreter Kontakt-Turm öffnet die Kontakt-Detailseite direkt aus der 3D-Welt.
-- **Detaillierte GLTF-Modelle** für die Higgsfield-Stilphase. Aktuell nur Three.js-Primitives (`SphereGeometry`, `BoxGeometry`, `ConeGeometry`, `CylinderGeometry`). Higgsfield-Assets kommen wenn die visuelle Sprache final steht.
+- **Detaillierte GLTF-Modelle** — weiterhin offen. **Higgsfield Surface-Texturen** (Bump/Roughness, kein GLTF) sind in `feat/visual-polish` umgesetzt; siehe [`docs/visual-system.md`](visual-system.md) und [`docs/higgsfield-prompts.md`](higgsfield-prompts.md).
 - **Weitere Subplaneten und Monde pro Brand** — z. B. ein eigener Mond pro Asset-Kanal, oder ein Subplanet für Lead-Magnets / Funnels.
 - **Dynamische Leuchtlinien zwischen Regionen** für Datenflüsse (Discovery → Building, Sales → Intelligence, Promo → Sales). Heute nur statische Intelligence-Linien wenn Daten vorhanden, später animierte Partikel-Spuren.
 - **Mobile 3D** — bewusst nicht gebaut (Performance). Mobile bleibt 2D mit Section-Masken vollflächig.
@@ -88,5 +99,5 @@ Diese Items sind absichtlich raus, um den Rebuild handhabbar zu halten. Beim nä
 - Daten-getriebene Strukturen sind **immer** memoisiert (kein Re-Mount in der 3D-Szene bei jedem React-Re-Render).
 - Camera-Tweens immer über `useWorldCamera` triggern, nie direkt auf `camera.position` schreiben.
 - Section-Masken bleiben Glass + `backdrop-filter: blur(20px)`, Tokens aus `/design/tokens.css`.
-- Keine GLTF / `useGLTF`-Loader bevor die Higgsfield-Phase explizit gestartet ist.
+- Keine GLTF / `useGLTF`-Loader — Higgsfield-JPG/PNG-Texturen (Bump/Roughness) sind erlaubt und dokumentiert in `docs/visual-system.md`.
 - Keine neuen npm-Pakete ohne Rückfrage.

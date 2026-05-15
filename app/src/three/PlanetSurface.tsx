@@ -67,10 +67,10 @@ export function PlanetSurface({ slug }: { slug: string }) {
 
   return (
     <group>
-      <ambientLight intensity={0.25} />
-      <pointLight color="#ffffff" intensity={0.8} distance={45} position={[6, 9, 8]} />
+      <ambientLight intensity={0.4} />
+      <pointLight color="#ffffff" intensity={2.2} distance={45} position={[0, 12, 0]} />
 
-      <Planet radius={PLANET_RADIUS} />
+      <Planet slug={slug} radius={PLANET_RADIUS} />
 
       {REGION_DEFS.map((def) => (
         <RegionPatch key={def.key} def={def} slug={slug} planetRadius={PLANET_RADIUS} />

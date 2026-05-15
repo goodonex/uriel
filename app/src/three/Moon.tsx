@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
-import { createPlanetSurfaceTextures } from './textures/noiseSurface'
+import { MoonMesh } from './MoonMesh'
 
 function stageIntensity(stage: string): number {
   switch (stage) {
@@ -31,15 +31,6 @@ function projectPoint(index: number, total: number, radius: number): [number, nu
 export function Moon({ slug }: { slug: string }) {
   const projects = useDeliverProjects(slug)
   const radius = 3.2
-  const surfaceTextures = useMemo(
-    () =>
-      createPlanetSurfaceTextures({
-        baseColor: '#8a8276',
-        seed: slug.length * 13.37,
-        contrast: 0.75,
-      }),
-    [slug.length],
-  )
 
   const points = useMemo(
     () =>
@@ -52,20 +43,10 @@ export function Moon({ slug }: { slug: string }) {
 
   return (
     <group>
-      <mesh>
-        <sphereGeometry args={[radius, 96, 96]} />
-        <meshStandardMaterial
-          map={surfaceTextures.map}
-          bumpMap={surfaceTextures.bumpMap}
-          roughnessMap={surfaceTextures.roughnessMap}
-          bumpScale={0.25}
-          color="#8a8276"
-          roughness={0.95}
-          metalness={0.02}
-          emissive="#15171f"
-          emissiveIntensity={0.08}
-        />
-      </mesh>
+      <ambientLight intensity={0.3} />
+      <pointLight position={[5, 8, 5]} intensity={1.8} color="#fefcf5" distance={45} decay={2} />
+
+      <MoonMesh radius={radius} segments={96} />
 
       {points.map(({ project, point }, idx) => {
         const completed = project.status === 'completed'

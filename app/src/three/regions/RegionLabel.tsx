@@ -52,8 +52,9 @@ export function RegionLabel({ def, slug, planetRadius }: RegionLabelProps) {
           <span
             style={{
               width: 34,
-              height: 2,
-              background: 'rgba(214,218,232,0.4)',
+              height: 1.5,
+              background: '#aab0bf',
+              opacity: 0.45,
               display: 'inline-block',
             }}
           />

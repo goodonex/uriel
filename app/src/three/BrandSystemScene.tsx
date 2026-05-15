@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
-import { createPlanetSurfaceTextures } from './textures/noiseSurface'
+import { BrandPlanetMesh } from './BrandPlanetMesh'
 import {
   BRAND_MOON_ORBIT_RADIUS,
   BRAND_MOON_RADIUS,
@@ -35,14 +35,6 @@ export function BrandSystemScene({ slug }: { slug: string }) {
   }, [orbit])
 
   const color = getBrandWorldColor(slug)
-  const surfaceTextures = useMemo(
-    () =>
-      createPlanetSurfaceTextures({
-        baseColor: color,
-        seed: slug.length * 9.11,
-      }),
-    [color, slug.length],
-  )
 
   useFrame((state, delta) => {
     if (planetRef.current) planetRef.current.rotation.y += delta * 0.09
@@ -57,21 +49,15 @@ export function BrandSystemScene({ slug }: { slug: string }) {
   return (
     <group>
       <pointLight color={color} intensity={1.8} distance={8} decay={2} position={[2, 3, 2]} />
-      <pointLight color="#ffffff" intensity={0.3} distance={8} decay={2} position={[-2.2, -2, -1.8]} />
-      <mesh ref={planetRef}>
-        <sphereGeometry args={[BRAND_PLANET_RADIUS, 80, 80]} />
-        <meshStandardMaterial
-          map={surfaceTextures.map}
-          bumpMap={surfaceTextures.bumpMap}
-          roughnessMap={surfaceTextures.roughnessMap}
-          bumpScale={0.15}
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.08}
-          roughness={0.84}
-          metalness={0.06}
-        />
-      </mesh>
+      <pointLight color="#ffffff" intensity={0.4} distance={8} decay={2} position={[-3, -2, -2]} />
+      <BrandPlanetMesh
+        slug={slug}
+        radius={BRAND_PLANET_RADIUS}
+        color={color}
+        segments={80}
+        meshRef={planetRef}
+        rotationSpeed={0.09}
+      />
       <Line
         points={orbitPoints}
         color="#b8bdd8"

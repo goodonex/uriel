@@ -1,11 +1,5 @@
 /**
  * World — Wurzel der dreischichtigen Welt (Universe / Brand-System / Planet-Surface / Moon-Surface).
- *
- * Phase 1: leere Bühne mit Basis-Lights. Inhalte kommen in Phase 3 (Universe),
- * Phase 4 (Brand-System), Phase 5 (Planet-Surface) und Phase 7 (Moon-Surface).
- *
- * Die Welt liest die aktuelle Stage aus `useWorldCamera` (nicht aus der Route),
- * damit Kamera-Tweens und Mount-Logik gemeinsam vom Store gesteuert werden.
  */
 import { Suspense } from 'react'
 import { Stars } from '@react-three/drei'
@@ -22,14 +16,24 @@ export function World() {
   const brandSlug = useWorldCamera((s) => s.brandSlug)
   const anchor = getBrandSystemPosition(brandSlug)
 
+  const showStars = stage === 'universe' || stage === 'brand-system'
+
   return (
     <Suspense fallback={null}>
-      <ambientLight intensity={stage === 'universe' ? 0.15 : 0.22} />
-      <hemisphereLight args={['#2a2a38', '#080810', 0.35]} />
-      <WorldCameraController />
-      {(stage === 'universe' || stage === 'brand-system') ? (
-        <Stars radius={150} depth={50} count={3000} factor={4} saturation={0} fade />
+      {showStars ? (
+        <Stars
+          radius={150}
+          depth={50}
+          count={3500}
+          factor={4}
+          saturation={0}
+          fade
+          speed={0.5}
+        />
       ) : null}
+      {stage === 'universe' ? <fog attach="fog" args={['#080810', 60, 120]} /> : null}
+      <ambientLight intensity={0.25} />
+      <WorldCameraController />
       {stage === 'universe' ? <Universe /> : null}
       {stage === 'brand-system' && brandSlug ? (
         <group position={[anchor.x, anchor.y, anchor.z]}>
@@ -52,9 +56,6 @@ export function World() {
           <Moon slug={brandSlug} />
         </group>
       ) : null}
-      {/* Stage-bewusste Welt-Inhalte folgen in Phase 4–7. `stage` wird hier
-          schon konsumiert damit das Mount-Pattern für späteres Conditional
-          Rendering steht (kein React-Render ohne Bezug zur aktuellen Ebene). */}
       <group name={`world-stage-${stage}`} />
     </Suspense>
   )
