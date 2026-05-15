@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import * as THREE from 'three'
 import { useContentPieces } from '../hooks/useContentPieces'
 import { useContacts } from '../hooks/useContacts'
 import { useDiscoveryFeed } from '../hooks/useDiscoveryFeed'
@@ -9,12 +10,16 @@ import { foundationHealth } from '../lib/foundationHealth'
 import { useWorldCamera } from '../store/worldCamera'
 import { Planet } from './Planet'
 import { BuildingPyramid } from './regions/BuildingPyramid'
+import { ContinentGroup } from './regions/ContinentGroup'
 import { DiscoveryTower } from './regions/DiscoveryTower'
 import { IntelligenceHill } from './regions/IntelligenceHill'
 import { PromoField } from './regions/PromoField'
-import { RegionLabel } from './regions/RegionLabel'
-import { RegionPatch } from './regions/RegionPatch'
-import { REGION_DEFS, byRegionKey, latLonToVector3 } from './regions/regionGeometry'
+import {
+  REGION_DEFS,
+  SHOW_REGION_BUILDINGS,
+  byRegionKey,
+  latLonToVector3,
+} from './regions/regionGeometry'
 import { SalesTowers } from './regions/SalesTowers'
 
 const PLANET_RADIUS = 5
@@ -46,11 +51,7 @@ export function PlanetSurface({ slug }: { slug: string }) {
   )
 
   const sourceAnchors = useMemo(() => {
-    const keys: Array<'sales' | 'promo' | 'discovery'> = [
-      'sales',
-      'promo',
-      'discovery',
-    ]
+    const keys: Array<'sales' | 'promo'> = ['sales', 'promo']
     return keys.map((k) => {
       const d = byRegionKey(k)
       const p = latLonToVector3(d.lat, d.lon, PLANET_RADIUS + 0.12)
@@ -72,44 +73,53 @@ export function PlanetSurface({ slug }: { slug: string }) {
 
       <Planet slug={slug} radius={PLANET_RADIUS} />
 
-      {REGION_DEFS.map((def) => (
-        <RegionPatch key={def.key} def={def} slug={slug} planetRadius={PLANET_RADIUS} />
-      ))}
+      <mesh renderOrder={-1}>
+        <sphereGeometry args={[PLANET_RADIUS + 0.22, 64, 64]} />
+        <meshStandardMaterial
+          color="#4488ff"
+          transparent
+          opacity={0.08}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
 
       {REGION_DEFS.map((def) => (
-        <RegionLabel key={`label-${def.key}`} def={def} slug={slug} planetRadius={PLANET_RADIUS} />
+        <ContinentGroup key={def.key} def={def} slug={slug} planetRadius={PLANET_RADIUS} />
       ))}
 
-      <BuildingPyramid
-        def={byRegionKey('building')}
-        planetRadius={PLANET_RADIUS}
-        foundationHealth={health}
-      />
-      <DiscoveryTower
-        def={byRegionKey('discovery')}
-        planetRadius={PLANET_RADIUS}
-        signalCount={feed.items.length}
-      />
-      <PromoField
-        def={byRegionKey('promo')}
-        planetRadius={PLANET_RADIUS}
-        pieces={content.items}
-      />
-      <SalesTowers
-        def={byRegionKey('sales')}
-        planetRadius={PLANET_RADIUS}
-        contacts={contacts.items}
-      />
-      <IntelligenceHill
-        def={intelligenceDef}
-        planetRadius={PLANET_RADIUS}
-        hasData={hasIntelligenceData}
-        sourceAnchors={sourceAnchors}
-      />
-
-      {activeRegion ? (
-        <group name={`active-region-${activeRegion}`} />
+      {SHOW_REGION_BUILDINGS ? (
+        <>
+          <BuildingPyramid
+            def={byRegionKey('building')}
+            planetRadius={PLANET_RADIUS}
+            foundationHealth={health}
+          />
+          <DiscoveryTower
+            def={byRegionKey('discovery')}
+            planetRadius={PLANET_RADIUS}
+            signalCount={feed.items.length}
+          />
+          <PromoField
+            def={byRegionKey('promo')}
+            planetRadius={PLANET_RADIUS}
+            pieces={content.items}
+          />
+          <SalesTowers
+            def={byRegionKey('sales')}
+            planetRadius={PLANET_RADIUS}
+            contacts={contacts.items}
+          />
+          <IntelligenceHill
+            def={intelligenceDef}
+            planetRadius={PLANET_RADIUS}
+            hasData={hasIntelligenceData}
+            sourceAnchors={sourceAnchors}
+          />
+        </>
       ) : null}
+
+      {activeRegion ? <group name={`active-region-${activeRegion}`} /> : null}
     </group>
   )
 }

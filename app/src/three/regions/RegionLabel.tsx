@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei'
+import { motion } from 'framer-motion'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { latLonToVector3, type RegionDef } from './regionGeometry'
@@ -7,70 +8,79 @@ interface RegionLabelProps {
   def: RegionDef
   slug: string
   planetRadius: number
+  hovered?: boolean
 }
 
-export function RegionLabel({ def, slug, planetRadius }: RegionLabelProps) {
+export function RegionLabel({ def, slug, planetRadius, hovered = false }: RegionLabelProps) {
   const navigate = useNavigate()
   const anchor = useMemo(
-    () => latLonToVector3(def.lat, def.lon, planetRadius + 0.08),
+    () => latLonToVector3(def.lat, def.lon, planetRadius + 0.2),
     [def.lat, def.lon, planetRadius],
   )
+
+  const navigateToRegion = () => {
+    const pathMode = def.key === 'building' ? 'foundation' : def.key
+    navigate(`/brand/${slug}/${pathMode}`)
+  }
 
   return (
     <Html
       position={[anchor.x, anchor.y, anchor.z]}
-      distanceFactor={9}
-      transform={false}
+      distanceFactor={hovered ? 6.5 : 8}
+      transform
       occlude={false}
-      style={{ pointerEvents: 'auto' }}
+      style={{ pointerEvents: 'none' }}
     >
-      <button
+      <motion.button
         type="button"
-        onClick={() => {
-          const pathMode =
-            def.key === 'building' || def.key === 'discovery' ? 'foundation' : def.key
-          navigate(`/brand/${slug}/${pathMode}`)
+        onClick={navigateToRegion}
+        animate={{
+          opacity: hovered ? 1 : 0.82,
+          scale: hovered ? 1.06 : 1,
         }}
+        transition={{ type: 'spring', stiffness: 380, damping: 26 }}
         style={{
           border: 'none',
-          background: 'transparent',
+          background: hovered ? 'rgba(8, 8, 16, 0.82)' : 'rgba(8, 8, 16, 0.55)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          borderRadius: 10,
+          padding: hovered ? '8px 14px' : '6px 12px',
           color: 'var(--text-primary)',
-          opacity: 0.85,
           cursor: 'pointer',
-          padding: 0,
           textAlign: 'left',
-          textShadow: '0 0 10px rgba(235,235,245,0.28)',
+          textShadow: hovered
+            ? '0 0 18px rgba(235,235,245,0.45)'
+            : '0 0 10px rgba(235,235,245,0.22)',
+          pointerEvents: 'auto',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span
             style={{
-              width: 34,
+              width: hovered ? 40 : 28,
               height: 1.5,
               background: '#aab0bf',
-              opacity: 0.45,
+              opacity: hovered ? 0.7 : 0.4,
               display: 'inline-block',
+              transition: 'width 0.25s ease',
             }}
           />
-          <span
+          <motion.span
             className="font-mono"
+            layout
             style={{
-              fontSize: 14,
+              fontSize: hovered ? 17 : 14,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
+              fontWeight: hovered ? 600 : 500,
             }}
           >
             {def.label}
-          </span>
+          </motion.span>
         </div>
-      </button>
+      </motion.button>
     </Html>
   )
 }

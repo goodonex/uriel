@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import type { WorldRegion } from '../../store/worldCamera'
 
+/** Gebäude auf der Planetenoberfläche — später wieder true setzen. */
+export const SHOW_REGION_BUILDINGS = false
+
 export interface RegionDef {
   key: WorldRegion
   label: string
@@ -8,6 +11,9 @@ export interface RegionDef {
   lat: number
   /** Grad */
   lon: number
+  /** Winkelradius der Kontinent-Kappe in Grad */
+  angularRadiusDeg: number
+  /** Legacy — Bauwerke / Fallback */
   patchRadius: number
   tone: string
   accent: string
@@ -16,55 +22,51 @@ export interface RegionDef {
 export const REGION_DEFS: RegionDef[] = [
   {
     key: 'building',
-    label: 'BUILDING',
-    lat: 26,
-    lon: -38,
-    patchRadius: 1.3,
-    tone: '#665742', // Sandstein
-    accent: '#b48d61',
-  },
-  {
-    key: 'discovery',
-    label: 'DISCOVERY',
-    lat: 18,
-    lon: 36,
-    patchRadius: 1.22,
-    tone: '#4e5d6c',
-    accent: '#7890a9',
+    label: 'FOUNDATION',
+    lat: 25,
+    lon: -40,
+    angularRadiusDeg: 35,
+    patchRadius: 1.4,
+    tone: '#4a6fa5',
+    accent: '#2a4f85',
   },
   {
     key: 'promo',
     label: 'PROMO',
-    lat: -12,
-    lon: 18,
-    patchRadius: 1.28,
-    tone: '#5f4f69',
-    accent: '#9d79b4',
+    lat: -15,
+    lon: 60,
+    angularRadiusDeg: 28,
+    patchRadius: 1.12,
+    tone: '#7a4fa5',
+    accent: '#5a2f85',
   },
   {
     key: 'sales',
     label: 'SALES',
-    lat: -22,
-    lon: -52,
-    patchRadius: 1.18,
-    tone: '#6d5a40',
-    accent: '#b89458',
+    lat: 10,
+    lon: 150,
+    angularRadiusDeg: 35,
+    patchRadius: 1.4,
+    tone: '#a57a30',
+    accent: '#855a10',
   },
   {
     key: 'intelligence',
     label: 'INTELLIGENCE',
-    lat: 4,
-    lon: 74,
-    patchRadius: 1.14,
-    tone: '#7a7a80',
-    accent: '#c6c7cf',
+    lat: -45,
+    lon: -20,
+    angularRadiusDeg: 22,
+    patchRadius: 0.88,
+    tone: '#a5a5a5',
+    accent: '#858585',
   },
 ]
 
 export function byRegionKey(key: WorldRegion): RegionDef {
   const hit = REGION_DEFS.find((x) => x.key === key)
-  if (!hit) return REGION_DEFS[0]
-  return hit
+  if (hit) return hit
+  if (key === 'discovery') return REGION_DEFS.find((x) => x.key === 'building') ?? REGION_DEFS[0]
+  return REGION_DEFS[0]
 }
 
 export function latLonToVector3(
