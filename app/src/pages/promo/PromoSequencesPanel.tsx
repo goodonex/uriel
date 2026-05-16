@@ -45,7 +45,7 @@ function normalizePlanWeeks(plan: ContentSequencePlanWeek[], wochen: number): Co
   return out
 }
 
-export function PromoSequencesPanel({ slug }: { slug: string }) {
+export function PromoSequencesPanel({ slug, className }: { slug: string; className?: string }) {
   const seq = useContentSequences(slug, { kind: 'content' })
   const pieces = useContentPieces(slug)
   const { show } = useToast()
@@ -150,7 +150,7 @@ export function PromoSequencesPanel({ slug }: { slug: string }) {
   }, [pieces, selected, startYmd])
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+    <div className={`mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] ${className ?? ''}`.trim()}>
       <div
         className="glass-2 flex flex-col gap-3 rounded-2xl p-4"
         style={{ border: '1px solid var(--glass-border-1)', alignSelf: 'start' }}

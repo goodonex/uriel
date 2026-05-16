@@ -79,18 +79,18 @@ a {
   scrollbar-color: color-mix(in srgb, var(--text-tertiary) 35%, transparent) transparent;
 }
 
-.brand-scroll-flow--heavy {
-  scroll-snap-type: none;
+.brand-scroll-flow--snap {
+  scroll-snap-type: y mandatory;
 }
 
-.brand-scroll-flow-inner {
-  will-change: transform;
-  backface-visibility: hidden;
+.brand-scroll-flow--snap [data-scroll-section] {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand-scroll-flow-inner {
-    transition: none !important;
+  .brand-scroll-flow--snap {
+    scroll-behavior: auto;
   }
 }
 

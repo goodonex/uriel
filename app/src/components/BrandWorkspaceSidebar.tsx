@@ -7,7 +7,6 @@ import { useContactLists } from '../hooks/useContactLists'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useSidebarSignals } from '../hooks/useSidebarSignals'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
-import { pathForSection } from '../lib/scrollFlow'
 import {
   navSectionToScrollKey,
   scrollKeyToNavSection,
@@ -410,9 +409,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     scrollCtx.scrollToSection(key)
                     if (isSalesItem) {
                       navigate(`${base}/sales`, { replace: true })
-                      return
                     }
-                    navigate(pathForSection(slug, key), { replace: true })
                   }}
                   className="group relative flex items-center rounded-lg"
                   style={{

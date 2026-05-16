@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,7 @@ interface ScrollFlowContextValue {
 }
 
 const ScrollFlowContext = createContext<ScrollFlowContextValue | null>(null)
+const ScrollSurfaceContext = createContext<HTMLElement | null>(null)
 
 export function ScrollFlowProvider({
   slug,
@@ -33,7 +35,12 @@ export function ScrollFlowProvider({
 }) {
   const navigate = useNavigate()
   const [scrollBusy, setScrollBusy] = useState(false)
+  const [scrollSurface, setScrollSurface] = useState<HTMLElement | null>(null)
   const idleTimerRef = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    setScrollSurface(containerRef.current)
+  })
 
   useEffect(() => {
     const el = containerRef.current
@@ -51,7 +58,7 @@ export function ScrollFlowProvider({
       el.removeEventListener('scroll', onScroll)
       if (idleTimerRef.current !== null) window.clearTimeout(idleTimerRef.current)
     }
-  }, [containerRef])
+  }, [containerRef, scrollSurface])
 
   const scrollToSection = useCallback(
     (section: SectionKey, behavior: ScrollBehavior = 'smooth') => {
@@ -75,7 +82,11 @@ export function ScrollFlowProvider({
     [slug, scrollToSection, navigateToSection, scrollBusy],
   )
 
-  return <ScrollFlowContext.Provider value={value}>{children}</ScrollFlowContext.Provider>
+  return (
+    <ScrollFlowContext.Provider value={value}>
+      <ScrollSurfaceContext.Provider value={scrollSurface}>{children}</ScrollSurfaceContext.Provider>
+    </ScrollFlowContext.Provider>
+  )
 }
 
 export function useScrollFlow(): ScrollFlowContextValue {
@@ -84,4 +95,9 @@ export function useScrollFlow(): ScrollFlowContextValue {
     throw new Error('useScrollFlow must be used within ScrollFlowProvider')
   }
   return ctx
+}
+
+/** IO-Root für CardTile — Brand-Scroll-Container, nicht Viewport */
+export function useOptionalScrollFlowSurface(): HTMLElement | null {
+  return useContext(ScrollSurfaceContext)
 }

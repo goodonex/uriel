@@ -20,6 +20,21 @@ export interface HorizontalScrollerProps {
   onIndexChange?: (index: number) => void
 }
 
+const SETTLE_MS = 120
+
+function readIndexFromScroll(root: HTMLElement, panelCount: number): number {
+  const slot = root.clientWidth
+  if (slot <= 0) return 0
+  const idx = Math.round(root.scrollLeft / slot)
+  return Math.max(0, Math.min(panelCount - 1, idx))
+}
+
+function isIndexAligned(root: HTMLElement, index: number): boolean {
+  const slot = root.clientWidth
+  if (slot <= 0) return true
+  return Math.abs(root.scrollLeft - index * slot) <= 16
+}
+
 export function HorizontalScroller({
   children,
   tabs,
@@ -30,17 +45,22 @@ export function HorizontalScroller({
   const scrollRef = useRef<HTMLDivElement>(null)
   const panelRefs = useRef<(HTMLDivElement | null)[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
+  const [scrollIndex, setScrollIndex] = useState(0)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const suppressObserverRef = useRef(false)
+  const navFromScrollRef = useRef(false)
+  const programmaticRef = useRef(false)
+  const settleTimerRef = useRef<number | null>(null)
 
-  const activeIndex = controlledIndex ?? internalIndex
+  const routeIndex = controlledIndex ?? internalIndex
+  const activeIndex = scrollIndex
   const useDropdown = isMobile && tabs.length > 4
 
   const setIndex = useCallback(
-    (idx: number) => {
+    (idx: number, source: 'click' | 'scroll' = 'click') => {
       const clamped = Math.max(0, Math.min(children.length - 1, idx))
+      setScrollIndex(clamped)
       if (controlledIndex === undefined) setInternalIndex(clamped)
-      onIndexChange?.(clamped)
+      if (source === 'click') onIndexChange?.(clamped)
     },
     [children.length, controlledIndex, onIndexChange],
   )
@@ -50,47 +70,75 @@ export function HorizontalScroller({
       const el = panelRefs.current[idx]
       const root = scrollRef.current
       if (!el || !root) return
-      suppressObserverRef.current = true
+      if (isIndexAligned(root, idx)) return
+      programmaticRef.current = true
       root.scrollTo({ left: el.offsetLeft, behavior })
-      window.setTimeout(() => {
-        suppressObserverRef.current = false
-      }, behavior === 'smooth' ? 420 : 60)
     },
     [],
   )
 
   useEffect(() => {
+    setScrollIndex(routeIndex)
+  }, [routeIndex])
+
+  useEffect(() => {
+    if (navFromScrollRef.current) {
+      navFromScrollRef.current = false
+      return
+    }
     if (controlledIndex === undefined) return
-    scrollToIndex(controlledIndex)
+    const root = scrollRef.current
+    if (!root) return
+    if (isIndexAligned(root, controlledIndex)) return
+    scrollToIndex(controlledIndex, 'auto')
   }, [controlledIndex, scrollToIndex])
 
   useEffect(() => {
     const root = scrollRef.current
     if (!root) return
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (suppressObserverRef.current) return
-        let bestIdx = -1
-        let bestRatio = 0
-        for (const e of entries) {
-          if (!e.isIntersecting) continue
-          const idx = panelRefs.current.findIndex((node) => node === e.target)
-          if (idx >= 0 && e.intersectionRatio > bestRatio) {
-            bestRatio = e.intersectionRatio
-            bestIdx = idx
-          }
-        }
-        if (bestIdx >= 0 && bestRatio >= 0.45) setIndex(bestIdx)
-      },
-      { root, threshold: [0.45, 0.55, 0.7, 0.85] },
-    )
+    const settle = () => {
+      programmaticRef.current = false
+      const idx = readIndexFromScroll(root, children.length)
+      setScrollIndex(idx)
+      if (controlledIndex === undefined) setInternalIndex(idx)
+      if (idx === routeIndex) return
+      navFromScrollRef.current = true
+      onIndexChange?.(idx)
+    }
 
-    panelRefs.current.forEach((node) => {
-      if (node) observer.observe(node)
-    })
-    return () => observer.disconnect()
-  }, [children.length, setIndex])
+    const scheduleSettle = () => {
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current)
+      settleTimerRef.current = window.setTimeout(() => {
+        settleTimerRef.current = null
+        settle()
+      }, SETTLE_MS)
+    }
+
+    const onScroll = () => {
+      if (!programmaticRef.current) {
+        setScrollIndex(readIndexFromScroll(root, children.length))
+      }
+      scheduleSettle()
+    }
+
+    const onScrollEnd = () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current)
+        settleTimerRef.current = null
+      }
+      settle()
+    }
+
+    root.addEventListener('scroll', onScroll, { passive: true })
+    root.addEventListener('scrollend', onScrollEnd)
+
+    return () => {
+      root.removeEventListener('scroll', onScroll)
+      root.removeEventListener('scrollend', onScrollEnd)
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current)
+    }
+  }, [children.length, controlledIndex, onIndexChange, routeIndex])
 
   const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
     const root = scrollRef.current
@@ -166,7 +214,7 @@ export function HorizontalScroller({
                     className="font-mono block w-full text-left"
                     onClick={() => {
                       setDropdownOpen(false)
-                      setIndex(i)
+                      setIndex(i, 'click')
                       scrollToIndex(i)
                     }}
                     style={{
@@ -193,7 +241,7 @@ export function HorizontalScroller({
                 type="button"
                 className="font-mono shrink-0"
                 onClick={() => {
-                  setIndex(i)
+                  setIndex(i, 'click')
                   scrollToIndex(i)
                 }}
                 style={{

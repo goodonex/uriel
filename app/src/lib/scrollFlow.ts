@@ -35,6 +35,16 @@ export function sectionFromPathname(pathname: string): SectionKey {
   return 'dashboard'
 }
 
+/** Scroll-Top einer Section relativ zum Scroll-Container (transform-sicher). */
+export function getSectionScrollTop(
+  scrollRoot: HTMLElement,
+  sectionEl: HTMLElement,
+): number {
+  const rootRect = scrollRoot.getBoundingClientRect()
+  const elRect = sectionEl.getBoundingClientRect()
+  return scrollRoot.scrollTop + (elRect.top - rootRect.top)
+}
+
 export function pathForSection(slug: string, section: SectionKey): string {
   switch (section) {
     case 'dashboard':

@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ScrollFlowProvider } from '../context/ScrollFlowContext'
 import { useScrollSectionContext } from '../context/ScrollSectionContext'
-import { useHeavySectionScroll } from '../hooks/useHeavySectionScroll'
-import { useScrollSection } from '../hooks/useScrollSection'
 import {
-  SECTION_ORDER,
+  isSectionAligned,
+  useSectionScrollSnap,
+} from '../hooks/useSectionScrollSnap'
+import {
   pathForSection,
   sectionFromPathname,
+  SECTION_ORDER,
   type SectionKey,
 } from '../lib/scrollFlow'
 import { DashboardSection } from './sections/DashboardSection'
@@ -43,102 +45,65 @@ function SectionView({ section, slug }: { section: SectionKey; slug: string }) {
 
 export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const innerRef = useRef<HTMLDivElement>(null)
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const pathSection = sectionFromPathname(pathname)
-  const navigatingRef = useRef(false)
   const scrollCtx = useScrollSectionContext()
+  const initialSyncDoneRef = useRef(false)
 
-  const activeSection = scrollCtx?.activeSection ?? pathSection
-
-  const settleSection = useCallback(
+  const navigateSection = useCallback(
     (section: SectionKey) => {
-      scrollCtx?.setActiveSection(section)
-      if (section !== pathSection) {
-        navigatingRef.current = true
-        navigate(pathForSection(slug, section), { replace: true })
-      }
+      navigate(pathForSection(slug, section), { replace: true })
     },
-    [navigate, pathSection, scrollCtx, slug],
+    [navigate, slug],
   )
 
-  const onSectionChange = useCallback(
-    (section: SectionKey) => {
-      if (section === activeSection) return
-      settleSection(section)
-    },
-    [activeSection, settleSection],
-  )
-
-  const { suppressObserverRef } = useScrollSection({
+  const { scrollToSection, navFromScrollRef } = useSectionScrollSnap({
     containerRef,
-    enabled: true,
-    activeSection,
-    onSectionChange,
-  })
-
-  const lockObserver = useCallback(() => {
-    suppressObserverRef.current = true
-  }, [suppressObserverRef])
-
-  const unlockObserver = useCallback(() => {
-    suppressObserverRef.current = false
-  }, [suppressObserverRef])
-
-  const { scrollToSectionHeavy } = useHeavySectionScroll({
-    containerRef,
-    innerRef,
-    enabled: true,
-    onSnapStart: lockObserver,
-    onSnapEnd: unlockObserver,
-    onSectionSettled: settleSection,
+    pathSection,
+    onActiveSection: (section) => scrollCtx?.setActiveSection(section),
+    onNavigateSection: navigateSection,
   })
 
   useEffect(() => {
     if (!scrollCtx?.syncEnabled) return
     scrollCtx.registerScrollToSection((section) => {
-      void scrollToSectionHeavy(section)
+      scrollToSection(section, 'smooth')
     })
     return () => scrollCtx.registerScrollToSection(null)
-  }, [scrollCtx, scrollToSectionHeavy])
+  }, [scrollCtx, scrollToSection])
 
-  useEffect(() => {
-    scrollCtx?.setActiveSection(pathSection)
-  }, [pathSection, scrollCtx])
-
-  useEffect(() => {
-    if (navigatingRef.current) {
-      navigatingRef.current = false
+  useLayoutEffect(() => {
+    if (navFromScrollRef.current) {
+      navFromScrollRef.current = false
       return
     }
+
     const root = containerRef.current
     if (!root) return
-    const target = root.querySelector(`[data-scroll-section="${pathSection}"]`)
-    if (!target || !(target instanceof HTMLElement)) return
-    if (Math.abs(root.scrollTop - target.offsetTop) < 6) return
 
-    lockObserver()
-    void scrollToSectionHeavy(pathSection).finally(() => {
-      window.setTimeout(unlockObserver, 80)
-    })
-  }, [pathSection, lockObserver, unlockObserver, scrollToSectionHeavy])
+    if (isSectionAligned(root, pathSection)) {
+      initialSyncDoneRef.current = true
+      return
+    }
+
+    const behavior: ScrollBehavior = initialSyncDoneRef.current ? 'smooth' : 'auto'
+    scrollToSection(pathSection, behavior)
+    initialSyncDoneRef.current = true
+  }, [pathSection, scrollToSection])
 
   const jumpToSection = useCallback(
     (section: SectionKey) => {
-      if (section === activeSection) return
-      navigatingRef.current = true
-      settleSection(section)
-      void scrollToSectionHeavy(section)
+      scrollToSection(section, 'smooth')
     },
-    [activeSection, scrollToSectionHeavy, settleSection],
+    [scrollToSection],
   )
 
   return (
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
       <div
         ref={containerRef}
-        className="brand-scroll-flow brand-scroll-flow--heavy"
+        className="brand-scroll-flow brand-scroll-flow--snap"
         style={{
           height: '100vh',
           overflowY: 'auto',
@@ -148,7 +113,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
           zIndex: 1,
         }}
       >
-        <div ref={innerRef} className="brand-scroll-flow-inner">
+        <div className="brand-scroll-flow-inner">
           {SECTION_ORDER.map((section) => (
             <SectionView key={section} section={section} slug={slug} />
           ))}

@@ -1,0 +1,15 @@
+# Brand OS — SPA (Vite) auf Netlify
+# Env in Netlify UI: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+
+[build]
+  base = "app"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
