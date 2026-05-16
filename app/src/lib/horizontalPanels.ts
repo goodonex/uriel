@@ -1,7 +1,8 @@
 /** URL-Segmente und Panel-Indizes für horizontales Scrollen in Sections */
 
 export const PROMO_PANELS = [
-  { id: 'dashboard', label: 'Performance', segment: '' },
+  { id: 'funnel', label: 'Funnel', segment: '' },
+  { id: 'dashboard', label: 'Performance', segment: 'performance' },
   { id: 'kalender', label: 'Kalender', segment: 'kalender' },
   { id: 'email', label: 'E-Mail', segment: 'email' },
   { id: 'ads', label: 'Ads', segment: 'ads' },

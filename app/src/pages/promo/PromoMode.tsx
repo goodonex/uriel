@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { FunnelCanvas } from '../../components/funnel/FunnelCanvas'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useBrands } from '../../hooks/useBrands'
 import { useICPs } from '../../hooks/useICPs'
@@ -12,6 +13,7 @@ import { AdsPanel } from './AdsPanel'
 import { MailFlowsPanel } from './MailFlowsPanel'
 import { PromoEmailPanel } from './PromoEmailPanel'
 import { PromoIdeasPanel } from './PromoIdeasPanel'
+import { PromoPerformanceDashboard } from '../../components/promo/PromoPerformanceDashboard'
 import { PromoSequencesPanel } from './PromoSequencesPanel'
 import { RecruitingPanel } from './RecruitingPanel'
 
@@ -24,7 +26,7 @@ export function PromoMode() {
   const positioning = usePositioning(slug)
   const brand = brands.find((b) => b.slug === slug)
 
-  const [promoTab, setPromoTab] = useState<PromoTab>('kalender')
+  const [promoTab, setPromoTab] = useState<PromoTab>('funnel')
 
   return (
     <motion.div
@@ -63,7 +65,11 @@ export function PromoMode() {
         </motion.div>
       </motion.div>
 
-      {promoTab === 'kalender' ? (
+      {promoTab === 'funnel' ? (
+        slug ? <FunnelCanvas slug={slug} /> : null
+      ) : promoTab === 'performance' ? (
+        <PromoPerformanceDashboard />
+      ) : promoTab === 'kalender' ? (
         <>
           <PromoCalendarSplit />
           <motion.div style={{ marginTop: 20 }}>
@@ -87,15 +93,15 @@ export function PromoMode() {
             />
           ) : null}
         </>
+      ) : promoTab === 'email' ? (
+        <>
+          <SectionLabel accent="var(--accent-blue)">E-Mail</SectionLabel>
+          {slug ? <PromoEmailPanel slug={slug} /> : null}
+        </>
       ) : promoTab === 'sequenzen' ? (
         <>
           <SectionLabel accent="var(--mode-promo)">Sequenzen</SectionLabel>
-          {slug ? <PromoSequencesPanel slug={slug} /> : null}
-        </>
-      ) : promoTab === 'email' ? (
-        <>
-          <SectionLabel accent="var(--accent-blue)">E-Mail-Sequenzen</SectionLabel>
-          {slug ? <PromoEmailPanel slug={slug} /> : null}
+          {slug ? <PromoSequencesPanel slug={slug} className="!mt-0" /> : null}
         </>
       ) : promoTab === 'flows' ? (
         <>

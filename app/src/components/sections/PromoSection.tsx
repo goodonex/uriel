@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom'
+import { FunnelCanvas } from '../funnel/FunnelCanvas'
 import { HorizontalScroller } from '../HorizontalScroller'
 import { PromoPerformanceDashboard } from '../promo/PromoPerformanceDashboard'
 import { SectionLabel } from '../SectionLabel'
@@ -37,6 +38,7 @@ export function PromoSection() {
   const tabs = PROMO_PANELS.map((p) => ({ id: p.id, label: p.label }))
 
   const panels = [
+    <FunnelCanvas key="funnel" slug={slug} />,
     <PromoPerformanceDashboard key="dashboard" />,
     <div key="kalender">
       <PromoCalendarSplit />
@@ -48,7 +50,7 @@ export function PromoSection() {
       </div>
     </div>,
     <div key="email">
-      <SectionLabel accent="var(--accent-blue)">E-Mail-Sequenzen</SectionLabel>
+      <SectionLabel accent="var(--accent-blue)">E-Mail</SectionLabel>
       <PromoEmailPanel slug={slug} />
     </div>,
     <div key="ads">
@@ -72,7 +74,7 @@ export function PromoSection() {
     </div>,
     <div key="sequenzen">
       <SectionLabel accent="var(--mode-promo)">Sequenzen</SectionLabel>
-      <PromoSequencesPanel slug={slug} />
+      <PromoSequencesPanel slug={slug} className="!mt-0" />
     </div>,
   ]
 

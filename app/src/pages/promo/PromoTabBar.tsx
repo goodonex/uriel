@@ -5,7 +5,9 @@ import type { PromoTab } from './PromoTabBar.types'
 export type { PromoTab } from './PromoTabBar.types'
 
 const ALL_TABS: ReadonlyArray<[PromoTab, string]> = [
-  ['kalender', 'Übersicht'],
+  ['funnel', 'Funnel'],
+  ['performance', 'Performance'],
+  ['kalender', 'Kalender'],
   ['email', 'E-Mail'],
   ['ads', 'Ads'],
   ['ideen', 'Ideen'],
