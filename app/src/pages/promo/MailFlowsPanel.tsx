@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { SequenceBuilderCanvas } from '../../components/promo/SequenceBuilderCanvas'
+import { SwarmCheckButton } from '../../components/swarm/SwarmCheckButton'
 import { useToast } from '../../components/Toast'
 import { useEmailSequences } from '../../hooks/useEmailSequences'
 import { useEmailTemplates } from '../../hooks/useSalesPro'
@@ -35,6 +36,14 @@ export function MailFlowsPanel({ slug }: MailFlowsPanelProps) {
     () => seqs.items.find((s) => s.id === activeId) ?? null,
     [seqs.items, activeId],
   )
+
+  const swarmContent = useMemo(() => {
+    if (!active) return ''
+    return active.nodes
+      .filter((n) => n.type === 'email')
+      .map((n) => `${n.config.subject ?? ''}\n${n.config.body ?? ''}`)
+      .join('\n\n---\n\n')
+  }, [active])
 
   // Beim ersten Render: wenn keine Sequence geladen, wähle die erste
   useEffect(() => {
@@ -280,6 +289,7 @@ export function MailFlowsPanel({ slug }: MailFlowsPanelProps) {
                   width: 140,
                 }}
               />
+              <SwarmCheckButton slug={slug} contentType="email" content={swarmContent} />
               <button
                 type="button"
                 onClick={toggleActive}

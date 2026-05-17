@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import type {
   Contact,
   ContactActivityEntry,
+  LeadQuality,
   PipelineStage,
   PotenzialTyp,
 } from '../types/db'
@@ -41,6 +42,12 @@ function parseCustomFields(raw: unknown): Record<string, string | number | boole
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') out[k] = v
   }
   return out
+}
+
+function normalizeLeadQuality(raw: unknown): LeadQuality {
+  const s = typeof raw === 'string' ? raw : ''
+  if (s === 'good' || s === 'bad') return s
+  return 'unqualified'
 }
 
 function normalizePotenzialTyp(raw: unknown): PotenzialTyp {
@@ -90,6 +97,12 @@ function normalizeContact(
     company: c.company ?? '',
     source_content_piece_id: c.source_content_piece_id ?? null,
     source_campaign_id: c.source_campaign_id ?? null,
+    source_funnel_id: c.source_funnel_id ?? null,
+    lead_quality: normalizeLeadQuality(c.lead_quality),
+    lead_value:
+      c.lead_value != null && Number.isFinite(Number(c.lead_value))
+        ? Math.max(0, Number(c.lead_value))
+        : null,
     pipeline_stage: (c.pipeline_stage ?? 'first_contact') as PipelineStage,
     last_contact_at: c.last_contact_at ?? null,
     next_follow_up_at: c.next_follow_up_at ?? null,
@@ -146,6 +159,12 @@ function rowToContact(row: Record<string, unknown>): Contact {
     company: (row.company as string | undefined) ?? '',
     source_content_piece_id: (row.source_content_piece_id as string | null) ?? null,
     source_campaign_id: (row.source_campaign_id as string | null) ?? null,
+    source_funnel_id: (row.source_funnel_id as string | null) ?? null,
+    lead_quality: normalizeLeadQuality(row.lead_quality),
+    lead_value:
+      row.lead_value != null && Number.isFinite(Number(row.lead_value))
+        ? Math.max(0, Number(row.lead_value))
+        : null,
     pipeline_stage: row.pipeline_stage as PipelineStage,
     last_contact_at: (row.last_contact_at as string | null) ?? null,
     next_follow_up_at: (row.next_follow_up_at as string | null) ?? null,
@@ -241,6 +260,9 @@ function contactToRow(
     company: c.company,
     source_content_piece_id: c.source_content_piece_id,
     source_campaign_id: c.source_campaign_id,
+    source_funnel_id: c.source_funnel_id,
+    lead_quality: c.lead_quality,
+    lead_value: c.lead_value,
     pipeline_stage: c.pipeline_stage,
     last_contact_at: c.last_contact_at,
     next_follow_up_at: c.next_follow_up_at,

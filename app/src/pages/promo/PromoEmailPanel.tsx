@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { SwarmCheckButton } from '../../components/swarm/SwarmCheckButton'
 import { useToast } from '../../components/Toast'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useContentSequences } from '../../hooks/useContentSequences'
@@ -413,6 +414,13 @@ export function PromoEmailPanel({ slug }: { slug: string }) {
                           placeholder="Betreff / Arbeitstitel"
                           style={{ ...FIELD, marginBottom: 6 }}
                         />
+                        <div style={{ marginBottom: 6 }}>
+                          <SwarmCheckButton
+                            slug={slug}
+                            contentType="email"
+                            content={`${w.thema}\n\n${p.titel}`.trim()}
+                          />
+                        </div>
                         <button
                           type="button"
                           className="font-mono"

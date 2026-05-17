@@ -10,6 +10,7 @@ import {
 import { ContactCallsTab } from '../../components/sales/ContactCallsTab'
 import { ContactEmailsTab } from '../../components/sales/ContactEmailsTab'
 import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
+import { LeadQualityBadge } from '../../components/sales/LeadQualityBadge'
 import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
 import { generateId } from '../../lib/storage'
 import { annualEuroForPotenzial, formatEuroDe } from '../../lib/salesPipelineFilters'
@@ -21,6 +22,7 @@ import {
 } from '../../hooks/useContactFieldConfig'
 import { readContactsLocal, useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
+import { useFunnelCanvas } from '../../hooks/useFunnelCanvas'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { Contact, PipelineStage, PotenzialTyp, SalesFieldItem } from '../../types/db'
@@ -107,6 +109,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   const deliver = useDeliverProjects(slug)
   const pieces = useContentPieces(slug)
   const campaigns = useCampaigns(slug)
+  const funnelCanvas = useFunnelCanvas(slug)
   const fieldCfgErst = useContactFieldConfig(slug, 'erstgespraech')
   const fieldCfgQual = useContactFieldConfig(slug, 'qualifikation')
   const [fieldDrawer, setFieldDrawer] = useState<
@@ -391,6 +394,11 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
         >
           {d.name || 'Kontakt'}
         </h1>
+        <LeadQualityBadge
+          quality={d.lead_quality}
+          size="md"
+          onChange={(q) => onField({ lead_quality: q })}
+        />
         <button
           type="button"
           onClick={() => {
@@ -675,6 +683,48 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                Quelle — Funnel
+              </label>
+              <select
+                value={d.source_funnel_id ?? ''}
+                onChange={(e) =>
+                  onField({
+                    source_funnel_id: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+                style={FIELD}
+              >
+                <option value="">— keiner —</option>
+                {funnelCanvas.funnels.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                Geschätzter Deal-Wert (€)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={d.lead_value ?? ''}
+                onChange={(e) =>
+                  onField({
+                    lead_value:
+                      e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
+                  })
+                }
+                placeholder="optional"
+                style={FIELD}
+              />
             </div>
 
             <div>

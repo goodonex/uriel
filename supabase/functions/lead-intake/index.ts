@@ -24,6 +24,7 @@ interface Body {
   source?: string
   medium?: string
   content?: string
+  funnel_id?: string
 }
 
 function json(body: unknown, status = 200) {
@@ -98,6 +99,18 @@ Deno.serve(async (req) => {
     stage_changed_at: now,
     ad_campaign_id: campaignId,
     activity_log: [activityEntry],
+  }
+
+  if (body.funnel_id && body.funnel_id.trim()) {
+    const { data: funnelRow } = await supabase
+      .from('funnels')
+      .select('id')
+      .eq('id', body.funnel_id.trim())
+      .eq('brand_id', brand.id)
+      .maybeSingle()
+    if (funnelRow?.id) {
+      insertRow.source_funnel_id = funnelRow.id
+    }
   }
 
   const { data: contact, error: insErr } = await supabase

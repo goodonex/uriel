@@ -29,8 +29,9 @@ import { SalesMeetingLinkDrawer } from '../../components/sales/SalesMeetingLinkD
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { LeadQualityBadge } from '../../components/sales/LeadQualityBadge'
 import { useContacts } from '../../hooks/useContacts'
-import type { Contact, PipelineStage } from '../../types/db'
+import type { Contact, LeadQuality, PipelineStage } from '../../types/db'
 import {
   filterPipelineContacts,
   formatEuroDe,
@@ -470,6 +471,7 @@ function SortableContactCard({
   onSelect,
   onCreateDeliverProject,
   onAppendActivity,
+  onLeadQualityChange,
   quickNoteOpen,
   setQuickNoteOpen,
   selected,
@@ -482,6 +484,7 @@ function SortableContactCard({
   onSelect: () => void
   onCreateDeliverProject: () => void
   onAppendActivity: (contactId: string, text: string) => void
+  onLeadQualityChange: (contactId: string, quality: LeadQuality) => void
   quickNoteOpen: boolean
   setQuickNoteOpen: (open: boolean) => void
   selected: boolean
@@ -576,6 +579,21 @@ function SortableContactCard({
           />
         </label>
       ) : null}
+      <div
+        style={{
+          position: 'absolute',
+          top: 6,
+          left: showChk ? 22 : 6,
+          zIndex: 3,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <LeadQualityBadge
+          quality={contact.lead_quality}
+          onChange={(q) => onLeadQualityChange(contact.id, q)}
+        />
+      </div>
       {overdue ? (
         <span
           className="font-mono"
@@ -731,6 +749,7 @@ function PipelineBoard({
   onSelectContact,
   onCreateDeliverProject,
   onAppendActivity,
+  onLeadQualityChange,
   quickNoteId,
   setQuickNoteId,
   selectedIds,
@@ -745,6 +764,7 @@ function PipelineBoard({
   onSelectContact: (id: string) => void
   onCreateDeliverProject: (contact: Contact) => void
   onAppendActivity: (contactId: string, text: string) => void
+  onLeadQualityChange: (contactId: string, quality: LeadQuality) => void
   quickNoteId: string | null
   setQuickNoteId: (id: string | null) => void
   selectedIds: Set<string>
@@ -842,6 +862,7 @@ function PipelineBoard({
                     }}
                     onCreateDeliverProject={() => onCreateDeliverProject(c)}
                     onAppendActivity={onAppendActivity}
+                    onLeadQualityChange={onLeadQualityChange}
                     quickNoteOpen={quickNoteId === c.id}
                     setQuickNoteOpen={(open) => setQuickNoteId(open ? c.id : null)}
                     selected={selectedIds.has(c.id)}
@@ -1416,6 +1437,7 @@ export function SalesMode({
               onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
               onCreateDeliverProject={handleCreateDeliverFromContact}
               onAppendActivity={appendActivity}
+              onLeadQualityChange={(id, quality) => contacts.update(id, { lead_quality: quality })}
               quickNoteId={quickNoteId}
               setQuickNoteId={setQuickNoteId}
               selectedIds={selectedIds}

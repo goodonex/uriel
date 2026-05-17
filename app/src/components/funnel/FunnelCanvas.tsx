@@ -6,7 +6,10 @@ import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useContentSequences } from '../../hooks/useContentSequences'
 import { useEnrollments, useEmailSequences } from '../../hooks/useEmailSequences'
-import { useFunnelCanvas } from '../../hooks/useFunnelCanvas'
+import { buildFunnelEconomicsMap, useFunnelCanvas } from '../../hooks/useFunnelCanvas'
+import { usePromoPerformance } from '../../hooks/usePromoPerformance'
+import { formatMetricEuro, formatMetricRatio } from '../../lib/funnelEconomics'
+import { FunnelForecastCard } from './FunnelForecastCard'
 import { useMeetingLinks } from '../../hooks/useSalesPro'
 import type { FunnelEdgeRow, FunnelNodeRow, FunnelNodeType } from '../../types/funnel'
 import { FunnelEdges } from './FunnelEdges'
@@ -14,11 +17,8 @@ import { FunnelNode } from './FunnelNode'
 import { isFunnelNodeConfigured } from './funnelNodeConfig'
 import { NodeEditPanel } from './NodeEditPanel'
 import { NodePalette, paletteDefaultLabel } from './NodePalette'
+import { computeBoardSize, NODE_W } from './funnelBoardLayout'
 import { buildTemplateFunnel } from './templateFunnels'
-
-const BOARD_W = 3200
-const BOARD_H = 2200
-const NODE_W = 220
 
 function clientToWorld(
   clientX: number,
@@ -61,6 +61,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
   const mailFlows = useEmailSequences(slug)
   const meetingLinks = useMeetingLinks(slug)
   const contacts = useContacts(slug)
+  const promoPerf = usePromoPerformance(slug)
   const enrollments = useEnrollments(slug)
 
   const [activeFunnelId, setActiveFunnelId] = useState<string | null>(null)
@@ -116,6 +117,22 @@ export function FunnelCanvas({ slug }: { slug: string }) {
     [fc.edges, activeFunnelId],
   )
 
+  const economicsByFunnel = useMemo(
+    () =>
+      buildFunnelEconomicsMap(
+        fc.funnels,
+        fc.nodes,
+        contacts.items,
+        campaigns.items,
+        promoPerf.items,
+      ),
+    [fc.funnels, fc.nodes, contacts.items, campaigns.items, promoPerf.items],
+  )
+
+  const activeEconomics = activeFunnelId
+    ? economicsByFunnel.get(activeFunnelId)
+    : undefined
+
   const nodesById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
 
   const enrollByFlow = useMemo(() => {
@@ -130,6 +147,11 @@ export function FunnelCanvas({ slug }: { slug: string }) {
   const dealCount = useMemo(
     () => contacts.items.filter((c) => c.pipeline_stage === 'deal').length,
     [contacts.items],
+  )
+
+  const boardSize = useMemo(
+    () => computeBoardSize(nodes, nodeHeights),
+    [nodes, nodeHeights],
   )
 
   const health = funnelHealth(nodes, edges)
@@ -357,6 +379,22 @@ export function FunnelCanvas({ slug }: { slug: string }) {
         >
           {activeFunnel?.name ?? 'Funnel'}
         </div>
+        {activeEconomics ? (
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 4 }}>
+            <div>
+              <div className="font-mono" style={{ fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-tertiary)' }}>CPGL</div>
+              <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMetricEuro(activeEconomics.cpgl)}</div>
+            </div>
+            <div>
+              <div className="font-mono" style={{ fontSize: 8, color: 'var(--text-tertiary)' }}>GUTE / GESAMT</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{formatMetricRatio(activeEconomics.goodLeads, activeEconomics.totalLeads)}</div>
+            </div>
+            <div>
+              <div className="font-mono" style={{ fontSize: 8, color: 'var(--text-tertiary)' }}>FUNNEL-WERT</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-teal)' }}>{formatMetricEuro(activeEconomics.funnelValue > 0 ? activeEconomics.funnelValue : null)}</div>
+            </div>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             className="font-mono"
@@ -386,11 +424,15 @@ export function FunnelCanvas({ slug }: { slug: string }) {
                 color: 'var(--text-secondary)',
               }}
             >
-              {fc.funnels.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+              {fc.funnels.map((f) => {
+                const ec = economicsByFunnel.get(f.id)
+                const cpglLabel = ec ? formatMetricEuro(ec.cpgl) : '—'
+                return (
+                  <option key={f.id} value={f.id}>
+                    {f.name} · CPGL {cpglLabel}
+                  </option>
+                )
+              })}
             </select>
             <ToolbarBtn onClick={resetZoom}>Zoom Reset</ToolbarBtn>
             <ToolbarBtn onClick={() => setIsFullscreen((v) => !v)}>Vollbild</ToolbarBtn>
@@ -398,18 +440,45 @@ export function FunnelCanvas({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {activeFunnelId && activeEconomics ? (
+        <FunnelForecastCard
+          slug={slug}
+          funnelId={activeFunnelId}
+          funnelNodes={nodes}
+          funnelEdges={edges}
+          economics={activeEconomics}
+        />
+      ) : null}
+
       <div
-        ref={viewportRef}
-        onWheel={onBoardWheel}
         style={{
           flex: 1,
           minHeight: 0,
-          overflow: 'auto',
           position: 'relative',
-          background: '#0a0a12',
-          borderRadius: isFullscreen ? 0 : 12,
+          display: 'flex',
         }}
       >
+        {activeFunnelId && fc.funnels.length > 0 ? (
+          <NodePalette
+            onPickType={(t) =>
+              void addTypedNode(t, boardSize.w / 2, boardSize.h / 2)
+            }
+          />
+        ) : null}
+
+        <div
+          ref={viewportRef}
+          onWheel={onBoardWheel}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            minWidth: 0,
+            overflow: 'hidden',
+            position: 'relative',
+            background: '#0a0a12',
+            borderRadius: isFullscreen ? 0 : 12,
+          }}
+        >
         <div
           data-funnel-board
           ref={boardRef}
@@ -438,8 +507,8 @@ export function FunnelCanvas({ slug }: { slug: string }) {
             void addTypedNode(t, w.x, w.y)
           }}
           style={{
-            width: BOARD_W,
-            height: BOARD_H,
+            width: boardSize.w,
+            height: boardSize.h,
             position: 'relative',
             transform: `translate(${ox}px, ${oy}px) scale(${scale})`,
             transformOrigin: '0 0',
@@ -498,6 +567,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
               <FunnelNode
                 key={n.id}
                 slug={slug}
+                funnelId={activeFunnelId ?? undefined}
                 node={n}
                 configured={isFunnelNodeConfigured(n)}
                 adCampaign={camp}
@@ -652,10 +722,6 @@ export function FunnelCanvas({ slug }: { slug: string }) {
           ) : null}
         </div>
 
-        {activeFunnelId && fc.funnels.length > 0 ? (
-          <NodePalette onPickType={(t) => void addTypedNode(t, BOARD_W / 2, BOARD_H / 2)} />
-        ) : null}
-
         {editNodeId ? (
           (() => {
             const node = nodes.find((x) => x.id === editNodeId)
@@ -722,6 +788,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
             </div>
           </div>
         ) : null}
+        </div>
       </div>
     </div>
   )

@@ -40,6 +40,7 @@ export function LeadIntakePage() {
   const source = params.get('source') ?? ''
   const medium = params.get('medium') ?? ''
   const content = params.get('content') ?? ''
+  const funnelId = params.get('funnel') ?? ''
 
   const [form, setForm] = useState<FormState>(INITIAL)
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
@@ -69,6 +70,7 @@ export function LeadIntakePage() {
           source,
           medium,
           content,
+          funnel_id: funnelId || undefined,
         },
       })
       if (error || (data && (data as { error?: string }).error)) {

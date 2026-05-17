@@ -148,6 +148,15 @@ function rowToContact(row: Record<string, unknown>): Contact {
     company: (row.company as string) ?? '',
     source_content_piece_id: (row.source_content_piece_id as string | null) ?? null,
     source_campaign_id: (row.source_campaign_id as string | null) ?? null,
+    source_funnel_id: (row.source_funnel_id as string | null) ?? null,
+    lead_quality:
+      row.lead_quality === 'good' || row.lead_quality === 'bad'
+        ? row.lead_quality
+        : 'unqualified',
+    lead_value:
+      row.lead_value != null && Number.isFinite(Number(row.lead_value))
+        ? Number(row.lead_value)
+        : null,
     pipeline_stage: row.pipeline_stage as Contact['pipeline_stage'],
     last_contact_at: (row.last_contact_at as string | null) ?? null,
     next_follow_up_at: (row.next_follow_up_at as string | null) ?? null,

@@ -138,6 +138,9 @@ instagram, linkedin     text
 company                 text
 source_content_piece_id uuid FK nullable
 source_campaign_id      uuid FK nullable
+source_funnel_id        uuid FK funnels nullable  -- Migration 0032
+lead_quality            text default 'unqualified'  -- unqualified | good | bad
+lead_value              numeric(10,2) nullable     -- geschätzter Deal-Wert EUR
 pipeline_stage          text  -- first_contact | conversation | proposal | deal | paused
 last_contact_at         timestamptz nullable
 next_follow_up_at       timestamptz nullable
@@ -209,6 +212,18 @@ target_type   text nullable -- 'icp' | 'content' | 'contact' | 'asset'
 completed_at  timestamp nullable
 deferred_at   timestamp nullable
 created_at    timestamp
+```
+
+### swarm_predictions (Migration 0033)
+```sql
+id              uuid PK
+brand_id        uuid FK brands
+mode            text          -- 'content' | 'funnel'
+subject_ref     text          -- content-hash oder funnel_id:graph-hash
+funnel_id       uuid FK funnels nullable
+prediction      jsonb         -- ICP-Schwarm JSON
+actual_outcome  jsonb         -- Ist-Werte nach Kalibrierung
+created_at      timestamptz
 ```
 
 ---

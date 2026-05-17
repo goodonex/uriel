@@ -24,6 +24,7 @@ const glass: React.CSSProperties = {
 
 export interface FunnelNodeProps {
   slug: string
+  funnelId?: string
   node: FunnelNodeRow
   configured: boolean
   adCampaign?: AdCampaign | null
@@ -51,6 +52,7 @@ export interface FunnelNodeProps {
 
 export function FunnelNode({
   slug,
+  funnelId,
   node,
   configured,
   adCampaign,
@@ -154,7 +156,9 @@ export function FunnelNode({
       return
     }
     if (node.type === 'lead_form') {
-      window.open(`/leads/${slug}`, '_blank', 'noopener,noreferrer')
+      const leadSlug = (cfg.slug as string) || slug
+      const q = funnelId ? `?funnel=${encodeURIComponent(funnelId)}` : ''
+      window.open(`/leads/${leadSlug}${q}`, '_blank', 'noopener,noreferrer')
       return
     }
     if (node.type === 'email_sequence') {

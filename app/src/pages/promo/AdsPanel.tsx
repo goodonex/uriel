@@ -24,6 +24,7 @@ import {
   type AdField,
   type MarketingPlatform,
 } from '../../lib/marketingAi'
+import { SwarmCheckButton } from '../../components/swarm/SwarmCheckButton'
 import type { AdCampaign, AdPlatform, AdStatus } from '../../types/db'
 
 interface AdsPanelProps {
@@ -864,6 +865,12 @@ function CampaignEditor({
         brandId={brandId}
         brandName={brandName}
         aiContext={aiContext}
+      />
+
+      <SwarmCheckButton
+        slug={brandSlug}
+        contentType={platformForAi === 'linkedin_ad' ? 'linkedin_post' : 'meta_ad'}
+        content={[draft.hook, draft.body, draft.cta].filter(Boolean).join('\n\n')}
       />
 
       {/* Budget + Laufzeit */}

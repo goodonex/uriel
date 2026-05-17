@@ -276,6 +276,8 @@ export interface ContactActivityEntry {
 
 export type PotenzialTyp = 'einmalig' | 'monatlich' | 'jährlich'
 
+export type LeadQuality = 'unqualified' | 'good' | 'bad'
+
 export interface Contact {
   id: string
   brand_id: string
@@ -288,6 +290,9 @@ export interface Contact {
   company: string
   source_content_piece_id: string | null
   source_campaign_id: string | null
+  source_funnel_id: string | null
+  lead_quality: LeadQuality
+  lead_value: number | null
   pipeline_stage: PipelineStage
   last_contact_at: string | null
   next_follow_up_at: string | null

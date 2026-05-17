@@ -6,7 +6,30 @@ import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { FunnelEdgeRow, FunnelNodeRow, FunnelRow } from '../types/funnel'
+import type { AdCampaign, Contact } from '../types/db'
+import { computeFunnelEconomics, type FunnelEconomics } from '../lib/funnelEconomics'
+import type { PromoPerformanceRow } from './usePromoPerformance'
 import { useBrandId } from './useBrandId'
+
+export type { FunnelEconomics }
+export { computeFunnelEconomics }
+
+export function buildFunnelEconomicsMap(
+  funnels: FunnelRow[],
+  nodes: FunnelNodeRow[],
+  contacts: Contact[],
+  campaigns: AdCampaign[],
+  performance: PromoPerformanceRow[],
+): Map<string, FunnelEconomics> {
+  const map = new Map<string, FunnelEconomics>()
+  for (const f of funnels) {
+    map.set(
+      f.id,
+      computeFunnelEconomics(f.id, nodes, contacts, campaigns, performance),
+    )
+  }
+  return map
+}
 
 const SK_FUNNELS = 'funnels' as const
 const SK_NODES = 'funnel-nodes' as const
