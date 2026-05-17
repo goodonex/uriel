@@ -211,7 +211,7 @@ deferred_at   timestamp nullable
 created_at    timestamp
 ```
 
-### assistant_conversations (Migration 0032)
+### assistant_conversations (Migration 0034)
 ```sql
 id          uuid PK
 brand_id    uuid FK brands (unique pro Brand)
