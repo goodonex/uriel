@@ -211,6 +211,14 @@ deferred_at   timestamp nullable
 created_at    timestamp
 ```
 
+### assistant_conversations (Migration 0032)
+```sql
+id          uuid PK
+brand_id    uuid FK brands (unique pro Brand)
+messages    jsonb   -- [{ role, content, createdAt }]
+updated_at  timestamptz
+```
+
 ---
 
 ## Context Export (generiert, nicht gespeichert)
