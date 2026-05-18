@@ -226,6 +226,14 @@ actual_outcome  jsonb         -- Ist-Werte nach Kalibrierung
 created_at      timestamptz
 ```
 
+### assistant_conversations (Migration 0034)
+```sql
+id          uuid PK
+brand_id    uuid FK brands (unique pro Brand)
+messages    jsonb   -- [{ role, content, createdAt }]
+updated_at  timestamptz
+```
+
 ---
 
 ## Context Export (generiert, nicht gespeichert)

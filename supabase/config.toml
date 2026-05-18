@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.discovery-feed-refresh]
 verify_jwt = false
+
+[functions.brand-assistant]
+verify_jwt = true

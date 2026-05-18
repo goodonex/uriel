@@ -5,6 +5,7 @@ import { BrandSystemDashboard } from '../components/BrandSystemDashboard'
 import { BrandScrollFlow } from '../components/BrandScrollFlow'
 import { ScrollSectionProvider } from '../context/ScrollSectionContext'
 import { ModuleRenderer } from '../components/ModuleRenderer'
+import { BrandAssistant } from '../components/assistant/BrandAssistant'
 import { BrandWorkspaceSidebar, BRAND_FLOAT_SIDEBAR_CLEARANCE_X } from '../components/BrandWorkspaceSidebar'
 import { useBrands } from '../hooks/useBrands'
 import { useRouteModulesSync } from '../hooks/useRouteModulesSync'
@@ -255,6 +256,7 @@ export function BrandPage() {
           ☎
         </Link>
       ) : null}
+      <BrandAssistant />
     </div>
     </ScrollSectionProvider>
   )

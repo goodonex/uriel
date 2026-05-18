@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
@@ -43,12 +42,7 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   paused: 'Pause',
 }
 
-function normalizeWebsiteUrl(raw: string): string {
-  const t = raw.trim()
-  if (!t) return ''
-  if (/^https?:\/\//i.test(t)) return t
-  return `https://${t}`
-}
+import { normalizeWebsiteUrl } from '../../lib/contactUrls'
 
 function telHref(phone: string): string {
   const digits = phone.replace(/[^\d+]/g, '')
@@ -137,10 +131,20 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   }, [contacts.items, contactId, slug])
 
   const [draft, setDraft] = useState<Contact | null>(null)
+  const [allowMissing, setAllowMissing] = useState(false)
 
   useEffect(() => {
     if (contact) setDraft(contact)
   }, [contact])
+
+  useEffect(() => {
+    if (contact) {
+      setAllowMissing(false)
+      return
+    }
+    const t = window.setTimeout(() => setAllowMissing(true), 1200)
+    return () => window.clearTimeout(t)
+  }, [contact, contactId])
 
   const pushPatch = useCallback(
     (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => {
@@ -213,11 +217,11 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
     return <Navigate to="/" replace />
   }
 
-  if (!contacts.loading && !contacts.error && !contact) {
+  if (!contacts.loading && !contacts.error && !contact && allowMissing) {
     return <Navigate to={`/brand/${slug}/sales`} replace />
   }
 
-  if (contacts.loading && !d) {
+  if (contacts.loading && !d && !contact) {
     return (
       <div
         className="animate-pulse"
@@ -236,13 +240,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   }
 
   return (
-    <motion.div
-      key={contactId}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      style={{ pointerEvents: 'auto', background: 'transparent' }}
-    >
+    <div style={{ pointerEvents: 'auto', background: 'transparent' }}>
       {variant === 'page' ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -504,6 +502,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
             brandSlug={slug}
             contact={d}
             onField={onField}
+            layout={variant === 'page' ? 'page' : 'narrow'}
           />
         ) : null
       ) : contactTab === 'details' ? (
@@ -1432,6 +1431,6 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
           </div>
         ) : null}
       </Drawer>
-    </motion.div>
+    </div>
   )
 }

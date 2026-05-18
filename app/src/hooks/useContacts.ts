@@ -13,7 +13,7 @@ import type {
 import { useBrandId } from './useBrandId'
 
 export type CreateContactResult =
-  | { ok: true; contact: Contact }
+  | { ok: true; contact: Contact; syncWarning?: string }
   | { ok: false; duplicate: Contact }
 
 export type CreateContactOptions = {
@@ -264,6 +264,8 @@ function contactToRow(
     lead_quality: c.lead_quality,
     lead_value: c.lead_value,
     pipeline_stage: c.pipeline_stage,
+    pipeline_id: c.pipeline_id ?? null,
+    tags: c.tags ?? [],
     last_contact_at: c.last_contact_at,
     next_follow_up_at: c.next_follow_up_at,
     notes: c.notes,
@@ -284,6 +286,10 @@ function contactToRow(
     potenzial_typ: c.potenzial_typ,
     potenzial_notiz: c.potenzial_notiz,
     custom_fields: c.custom_fields,
+    stage_changed_at: c.stage_changed_at ?? new Date().toISOString(),
+    won_at: c.won_at,
+    lost_at: c.lost_at,
+    lost_reason: c.lost_reason ?? '',
     updated_at: c.updated_at,
   }
 }
@@ -298,7 +304,7 @@ interface UseContactsResult {
   create: (
     partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
     options?: CreateContactOptions,
-  ) => CreateContactResult
+  ) => Promise<CreateContactResult>
   update: (
     id: string,
     patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
@@ -412,10 +418,10 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
   }, [reload])
 
   const create = useCallback(
-    (
+    async (
       partial?: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
       options?: CreateContactOptions,
-    ): CreateContactResult => {
+    ): Promise<CreateContactResult> => {
       if (!brandSlug) throw new Error('Kein Brand-Slug')
       if (!options?.skipDuplicateCheck) {
         const dup = findDuplicateInContacts(itemsRef.current, {
@@ -428,33 +434,32 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       const item = normalizeContact({
         id: generateId(),
         brand_id: localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
+        stage_changed_at: now,
         ...partial,
         updated_at: now,
       })
-      if (localOnlyRef.current || !supabase || !brandId) {
-        const next = [...itemsRef.current, item]
-        itemsRef.current = next
-        setItems(next)
-        persistLocal(next)
-        return { ok: true, contact: item }
-      }
-      const row = contactToRow(item, brandId)
       const optimisticNext = [...itemsRef.current, item]
       itemsRef.current = optimisticNext
       setItems(optimisticNext)
-      void supabase.from('contacts').insert(row).then(({ error: insErr }) => {
-        if (insErr) {
-          if (isMissingSupabaseTableError(insErr.message)) {
-            localOnlyRef.current = true
-            const next = [...itemsRef.current, item]
-            persistLocal(next)
-            setItems(next)
-          } else {
-            setError(insErr.message)
-            void reload()
-          }
+      persistLocal(optimisticNext)
+
+      if (localOnlyRef.current || !supabase || !brandId) {
+        return { ok: true, contact: item }
+      }
+
+      const row = contactToRow(item, brandId)
+      const { error: insErr } = await supabase.from('contacts').insert(row)
+      if (insErr) {
+        if (isMissingSupabaseTableError(insErr.message)) {
+          localOnlyRef.current = true
+          return { ok: true, contact: item }
         }
-      })
+        console.warn('[useContacts] insert failed — local copy kept', insErr.message)
+        localOnlyRef.current = true
+        setError(insErr.message)
+        return { ok: true, contact: item, syncWarning: insErr.message }
+      }
+
       logActivity({
         brand_id: brandId,
         entity_type: 'contact',
@@ -465,7 +470,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       })
       return { ok: true, contact: item }
     },
-    [brandId, brandSlug, persistLocal, reload],
+    [brandId, brandSlug, persistLocal],
   )
 
   const update = useCallback(

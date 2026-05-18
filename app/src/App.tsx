@@ -26,6 +26,7 @@ import { useViewport } from './hooks/useViewport'
 import { CallModePage } from './pages/sales/CallModePage'
 import { ContactListsPage } from './pages/sales/ContactListsPage'
 import { SalesContactRouteGate } from './pages/sales/SalesContactRouteGate'
+import { SalesNewLeadPage } from './pages/sales/SalesNewLeadPage'
 import { SalesDefaultRouteGate } from './pages/sales/SalesDefaultRouteGate'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { UniversePage } from './pages/UniversePage'
@@ -232,6 +233,7 @@ function App() {
                 <Route path="sales/lists" element={<ContactListsPage />} />
                 <Route path="sales/lists/:listId" element={<ContactListsPage />} />
                 <Route path="sales/call-mode" element={<CallModePage />} />
+                <Route path="sales/new" element={<SalesNewLeadPage />} />
                 <Route path="sales/:contactId" element={<SalesContactRouteGate />} />
                 <Route path="sales" element={<SalesDefaultRouteGate />} />
                 <Route path="intelligence" element={<IntelligenceDefaultRouteGate />} />

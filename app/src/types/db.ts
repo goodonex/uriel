@@ -413,6 +413,8 @@ export interface ContactList {
   brand_id: string
   name: string
   description: string | null
+  is_favorite: boolean
+  is_hidden: boolean
   created_at: string
 }
 

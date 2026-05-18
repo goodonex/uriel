@@ -42,7 +42,7 @@ function isSalesDesktopModulesPath(pathname: string): boolean {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)\/?$/)
   if (!m?.[1]) return false
   const seg = m[1]
-  if (seg === 'lists' || seg === 'call-mode') return false
+  if (seg === 'lists' || seg === 'call-mode' || seg === 'new') return false
   return true
 }
 
@@ -127,6 +127,15 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
     if (isSalesDesktopModulesPath(opts.pathname)) {
       const contactId = salesContactIdFromPath(opts.pathname)
       closeAll()
+      if (contactId) {
+        open({
+          id: `sales-contact-${contactId}`,
+          type: 'contact-detail',
+          slot: 'main',
+          title: 'Kontakt',
+        })
+        return
+      }
       open({
         id: 'sales-pipeline',
         type: 'pipeline',
@@ -145,14 +154,6 @@ export function useRouteModulesSync(opts: RouteModulesSyncOptions) {
         slot: 'side-bottom',
         title: 'Kennzahlen',
       })
-      if (contactId) {
-        open({
-          id: `sales-contact-${contactId}`,
-          type: 'contact-detail',
-          slot: 'overlay-right',
-          title: 'Kontakt',
-        })
-      }
       return
     }
 

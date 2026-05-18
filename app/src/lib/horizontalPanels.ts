@@ -42,12 +42,23 @@ export function promoPathForPanel(slug: string, index: number): string {
   return panel.segment ? `${base}/${panel.segment}` : base
 }
 
+export function isSalesNewLeadPath(pathname: string): boolean {
+  return /^\/brand\/[^/]+\/sales\/new\/?$/.test(pathname)
+}
+
+export function salesContactIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)\/?$/)
+  if (!m?.[1]) return null
+  if (m[1] === 'lists' || m[1] === 'call-mode' || m[1] === 'new') return null
+  return m[1]
+}
+
 export function salesPanelIndexFromPath(pathname: string): number {
   if (pathname.includes('/sales/lists')) return 1
   if (/^\/brand\/[^/]+\/sales\/?$/.test(pathname)) return 0
   if (pathname.includes('/sales/call-mode')) return 0
-  const contact = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)/)
-  if (contact?.[1] && contact[1] !== 'lists' && contact[1] !== 'call-mode') return 0
+  if (isSalesNewLeadPath(pathname)) return 0
+  if (salesContactIdFromPath(pathname)) return 0
   return 0
 }
 
