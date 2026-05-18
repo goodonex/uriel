@@ -278,9 +278,44 @@ export type PotenzialTyp = 'einmalig' | 'monatlich' | 'jährlich'
 
 export type LeadQuality = 'unqualified' | 'good' | 'bad'
 
+export type ContactType = 'company' | 'person'
+
+export type ContactStatus =
+  | 'not_contacted'
+  | 'not_reached'
+  | 'in_contact'
+  | 'high_potential'
+  | 'followup_planned'
+  | 'offer_made'
+  | 'unqualified'
+  | 'deal_won'
+  | 'deal_lost'
+
+export type LeadSource =
+  | ''
+  | 'cold'
+  | 'referral'
+  | 'linkedin'
+  | 'website'
+  | 'event'
+  | 'other'
+
+export type FollowUpType = '' | 'call' | 'meeting' | 'email' | 'other'
+
+export type ContactListType = 'static' | 'dynamic'
+
 export interface Contact {
   id: string
   brand_id: string
+  contact_type: ContactType
+  parent_company_id: string | null
+  contact_status: ContactStatus
+  first_name: string
+  last_name: string
+  job_title: string
+  address: string
+  lead_source: LeadSource
+  follow_up_type: FollowUpType
   name: string
   email: string
   phone: string
@@ -415,6 +450,8 @@ export interface ContactList {
   description: string | null
   is_favorite: boolean
   is_hidden: boolean
+  list_type: ContactListType
+  filter_json: Record<string, unknown> | null
   created_at: string
 }
 

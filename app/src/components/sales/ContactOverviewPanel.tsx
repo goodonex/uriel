@@ -26,7 +26,10 @@ import type {
 } from '../../types/db'
 import { useToast } from '../Toast'
 import { ContactDeliverCard } from './ContactDeliverCard'
-import { ContactListAssign } from './ContactListAssign'
+import { ContactListPicker } from './ContactListPicker'
+import { CompanyPersonSection } from './CompanyPersonSection'
+import { isCompany } from '../../lib/crmContacts'
+import type { FollowUpType } from '../../types/db'
 import { ContactSequencesPanel } from './ContactSequencesPanel'
 import { EmailComposeDialog } from './EmailComposeDialog'
 import { ContactPresenceEmbeds } from './ContactPresenceEmbeds'
@@ -50,10 +53,10 @@ const STAGES: Array<{ key: PipelineStage; label: string; color: string }> = [
 type ActionType = 'note' | 'call' | 'email' | 'meeting' | 'linkedin' | 'stage'
 
 const ACTIONS: Array<{ key: ActionType; label: string; icon: string; accent: string }> = [
+  { key: 'meeting', label: 'Termin', icon: '◷', accent: 'var(--accent-teal)' },
   { key: 'note', label: 'Notiz', icon: '✎', accent: 'var(--text-secondary)' },
   { key: 'call', label: 'Anruf', icon: '☎', accent: 'var(--mode-sales)' },
   { key: 'email', label: 'E-Mail', icon: '✉', accent: 'var(--accent-blue)' },
-  { key: 'meeting', label: 'Termin', icon: '◷', accent: 'var(--accent-teal)' },
   { key: 'linkedin', label: 'LinkedIn', icon: 'in', accent: '#0A66C2' },
   { key: 'stage', label: 'Stage-Wechsel', icon: '→', accent: 'var(--mode-sales)' },
 ]
@@ -230,13 +233,13 @@ export function ContactOverviewPanel({
     setAction(null)
   }
 
-  const setMeeting = (when: string, note: string) => {
+  const setMeeting = (when: string, type: FollowUpType, note: string) => {
     if (!when) {
       show('Datum nötig', 'info')
       return
     }
     const iso = new Date(when).toISOString()
-    onField({ next_follow_up_at: iso })
+    onField({ next_follow_up_at: iso, follow_up_type: type })
     const entry: ContactActivityEntry = {
       id: generateId(),
       text: `Termin geplant: ${new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}${note ? ` · ${note}` : ''}`,
@@ -290,7 +293,7 @@ export function ContactOverviewPanel({
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <ContactDeliverCard brandSlug={brandSlug} contact={contact} />
-        <ContactListAssign brandSlug={brandSlug} contact={contact} />
+        <ContactListPicker brandSlug={brandSlug} contact={contact} />
         <DocumenterCard
           contact={contact}
           action={action}
@@ -454,25 +457,31 @@ function IdentityCard({
               letterSpacing: '-0.3px',
             }}
           />
-          <input
-            type="text"
-            value={c.company}
-            onChange={(e) => onField({ company: e.target.value })}
-            placeholder="Firma"
-            className="font-mono"
-            style={{
-              width: '100%',
-              fontSize: 11,
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-tertiary)',
-              outline: 'none',
-              padding: 0,
-              marginTop: 2,
-            }}
-          />
+          {!isCompany(c) ? (
+            <input
+              type="text"
+              value={c.company}
+              onChange={(e) => onField({ company: e.target.value })}
+              placeholder="Firma"
+              className="font-mono"
+              style={{
+                width: '100%',
+                fontSize: 11,
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-tertiary)',
+                outline: 'none',
+                padding: 0,
+                marginTop: 2,
+              }}
+            />
+          ) : null}
         </div>
       </div>
+
+      {brandSlug && isCompany(c) ? (
+        <CompanyPersonSection brandSlug={brandSlug} company={c} onField={onField} />
+      ) : null}
 
       {sourcePiece && brandSlug ? (
         <a
@@ -638,11 +647,11 @@ function IdentityCard({
           onChange={(v) => onField({ last_contact_at: v ? new Date(v).toISOString() : null })}
           type="date"
         />
-        <EditField
-          label="Nächster Follow-up"
-          value={c.next_follow_up_at?.slice(0, 10) ?? ''}
-          onChange={(v) => onField({ next_follow_up_at: v ? new Date(v).toISOString() : null })}
-          type="date"
+        <input
+          type="hidden"
+          aria-hidden
+          value={c.next_follow_up_at ?? ''}
+          readOnly
         />
       </FieldGroup>
 
@@ -866,7 +875,7 @@ function DocumenterCard({
   onNote: (text: string) => void
   onCall: (outcome: SalesCallOutcome, notes: string) => Promise<void>
   onLinkedIn: (text: string) => void
-  onMeeting: (when: string, note: string) => void
+  onMeeting: (when: string, type: FollowUpType, note: string) => void
   onStage: (next: PipelineStage, note: string) => void
   onOpenEmail: () => void
 }) {
@@ -1083,38 +1092,72 @@ function InlineMeetingForm({
   onCancel,
 }: {
   defaultWhen: string | null
-  onSave: (when: string, note: string) => void
+  onSave: (when: string, type: FollowUpType, note: string) => void
   onCancel: () => void
 }) {
-  const [when, setWhen] = useState(
-    defaultWhen ? new Date(defaultWhen).toISOString().slice(0, 16) : '',
+  const base = defaultWhen ? new Date(defaultWhen) : new Date()
+  const [date, setDate] = useState(base.toISOString().slice(0, 10))
+  const [time, setTime] = useState(
+    `${String(base.getHours()).padStart(2, '0')}:${String(Math.floor(base.getMinutes() / 15) * 15).padStart(2, '0')}`,
   )
+  const [fuType, setFuType] = useState<FollowUpType>('call')
   const [note, setNote] = useState('')
+
+  const timeOptions = useMemo(() => {
+    const out: string[] = []
+    for (let h = 7; h <= 20; h++) {
+      for (const m of [0, 15, 30, 45]) {
+        out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      }
+    }
+    return out
+  }, [])
+
+  const whenIso = date && time ? new Date(`${date}T${time}:00`).toISOString() : ''
+
   return (
     <div style={inlineFormBox}>
       <label style={{ display: 'block', marginBottom: 8 }}>
         <span className="font-mono" style={labelStyle}>
-          WANN
+          DATUM
         </span>
-        <input
-          type="datetime-local"
-          value={when}
-          onChange={(e) => setWhen(e.target.value)}
-          style={inputStyle}
-        />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+      </label>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        <span className="font-mono" style={labelStyle}>
+          UHRZEIT
+        </span>
+        <select value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle}>
+          {timeOptions.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        <span className="font-mono" style={labelStyle}>
+          TYP
+        </span>
+        <select value={fuType} onChange={(e) => setFuType(e.target.value as FollowUpType)} style={inputStyle}>
+          <option value="call">Anruf</option>
+          <option value="meeting">Meeting</option>
+          <option value="email">E-Mail</option>
+          <option value="other">Sonstiges</option>
+        </select>
       </label>
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Worum geht es im Termin?"
+        placeholder="Kurze Notiz (optional)"
         rows={2}
         style={textareaStyle}
       />
       <InlineActions
-        onSave={() => onSave(when, note)}
+        onSave={() => onSave(whenIso, fuType, note)}
         onCancel={onCancel}
-        disabled={!when}
-        label="Termin speichern"
+        disabled={!whenIso}
+        label="Follow-up speichern"
       />
     </div>
   )

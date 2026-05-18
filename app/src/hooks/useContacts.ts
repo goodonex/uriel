@@ -3,10 +3,14 @@ import { logActivity } from '../lib/activityLog'
 import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
+import { normalizeContactType } from '../lib/crmContacts'
 import type {
   Contact,
   ContactActivityEntry,
+  ContactStatus,
+  FollowUpType,
   LeadQuality,
+  LeadSource,
   PipelineStage,
   PotenzialTyp,
 } from '../types/db'
@@ -50,6 +54,35 @@ function normalizeLeadQuality(raw: unknown): LeadQuality {
   return 'unqualified'
 }
 
+const CONTACT_STATUSES: ContactStatus[] = [
+  'not_contacted',
+  'not_reached',
+  'in_contact',
+  'high_potential',
+  'followup_planned',
+  'offer_made',
+  'unqualified',
+  'deal_won',
+  'deal_lost',
+]
+
+function normalizeContactStatus(raw: unknown): ContactStatus {
+  const s = typeof raw === 'string' ? raw : ''
+  return CONTACT_STATUSES.includes(s as ContactStatus) ? (s as ContactStatus) : 'not_contacted'
+}
+
+function normalizeLeadSource(raw: unknown): LeadSource {
+  const s = typeof raw === 'string' ? raw : ''
+  const ok: LeadSource[] = ['', 'cold', 'referral', 'linkedin', 'website', 'event', 'other']
+  return ok.includes(s as LeadSource) ? (s as LeadSource) : ''
+}
+
+function normalizeFollowUpType(raw: unknown): FollowUpType {
+  const s = typeof raw === 'string' ? raw : ''
+  const ok: FollowUpType[] = ['', 'call', 'meeting', 'email', 'other']
+  return ok.includes(s as FollowUpType) ? (s as FollowUpType) : ''
+}
+
 function normalizePotenzialTyp(raw: unknown): PotenzialTyp {
   const s = typeof raw === 'string' ? raw.toLowerCase() : ''
   if (s === 'monatlich' || s === 'jährlich' || s === 'jaehrlich') {
@@ -88,6 +121,15 @@ function normalizeContact(
   return {
     id: c.id,
     brand_id: c.brand_id,
+    contact_type: normalizeContactType(c.contact_type),
+    parent_company_id: c.parent_company_id ?? null,
+    contact_status: normalizeContactStatus(c.contact_status),
+    first_name: c.first_name ?? '',
+    last_name: c.last_name ?? '',
+    job_title: c.job_title ?? '',
+    address: c.address ?? '',
+    lead_source: normalizeLeadSource(c.lead_source),
+    follow_up_type: normalizeFollowUpType(c.follow_up_type),
     name: c.name ?? '',
     email: c.email ?? '',
     phone: c.phone ?? '',
@@ -150,6 +192,15 @@ function rowToContact(row: Record<string, unknown>): Contact {
   return normalizeContact({
     id: row.id as string,
     brand_id: row.brand_id as string,
+    contact_type: normalizeContactType(row.contact_type),
+    parent_company_id: (row.parent_company_id as string | null) ?? null,
+    contact_status: normalizeContactStatus(row.contact_status),
+    first_name: (row.first_name as string | undefined) ?? '',
+    last_name: (row.last_name as string | undefined) ?? '',
+    job_title: (row.job_title as string | undefined) ?? '',
+    address: (row.address as string | undefined) ?? '',
+    lead_source: normalizeLeadSource(row.lead_source),
+    follow_up_type: normalizeFollowUpType(row.follow_up_type),
     name: row.name as string,
     email: row.email as string,
     phone: (row.phone as string | undefined) ?? '',
@@ -251,6 +302,15 @@ function contactToRow(
   return {
     id: c.id,
     brand_id: brandId,
+    contact_type: c.contact_type,
+    parent_company_id: c.parent_company_id,
+    contact_status: c.contact_status,
+    first_name: c.first_name,
+    last_name: c.last_name,
+    job_title: c.job_title,
+    address: c.address,
+    lead_source: c.lead_source,
+    follow_up_type: c.follow_up_type,
     name: c.name,
     email: c.email,
     phone: c.phone,

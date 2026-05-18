@@ -42,6 +42,12 @@ import {
 } from '../../lib/salesPipelineFilters'
 import { generateId } from '../../lib/storage'
 import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
+import { CrmToolbar } from '../../components/sales/CrmToolbar'
+import { CrmFilterPanel } from '../../components/sales/CrmFilterPanel'
+import { PipelineTableView } from '../../components/sales/PipelineTableView'
+import { applyCrmFilters, EMPTY_CRM_FILTERS, type CrmFilterState } from '../../lib/crmFilters'
+import { loadCrmFilters, loadPipelineView, saveCrmFilters, savePipelineView, type PipelineViewMode } from '../../lib/crmViewStorage'
+import { useContactLists } from '../../hooks/useContactLists'
 import { ContactListsContent } from './ContactListsContent'
 
 const STAGES: PipelineStage[] = [
@@ -929,22 +935,45 @@ export function SalesMode({
 
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
+  const contactLists = useContactLists(slug)
+
+  const [viewMode, setViewMode] = useState<PipelineViewMode>(() => (slug ? loadPipelineView(slug) : 'cards'))
+  const [crmFilters, setCrmFilters] = useState<CrmFilterState>(() => (slug ? loadCrmFilters(slug) : EMPTY_CRM_FILTERS))
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  useEffect(() => {
+    if (slug) savePipelineView(slug, viewMode)
+  }, [slug, viewMode])
+
+  useEffect(() => {
+    if (slug) saveCrmFilters(slug, crmFilters)
+  }, [slug, crmFilters])
 
   const [pipeQ, setPipeQ] = useState('')
   const [pipeStage, setPipeStage] = useState<StageFilter>('all')
   const [pipeFollow, setPipeFollow] = useState<FollowFilter>('all')
   const [pipePotenzial, setPipePotenzial] = useState<PotenzialFilter>('all')
 
-  const filteredPipeline = useMemo(
-    () =>
-      filterPipelineContacts(contacts.items, {
-        q: pipeQ,
-        stage: pipeStage,
-        follow: pipeFollow,
-        potenzial: pipePotenzial,
-      }),
-    [contacts.items, pipeFollow, pipePotenzial, pipeQ, pipeStage],
-  )
+  const filteredPipeline = useMemo(() => {
+    const base = filterPipelineContacts(contacts.items, {
+      q: pipeQ,
+      stage: pipeStage,
+      follow: pipeFollow,
+      potenzial: pipePotenzial,
+    })
+    return applyCrmFilters(base, crmFilters)
+  }, [contacts.items, crmFilters, pipeFollow, pipePotenzial, pipeQ, pipeStage])
+
+  const crmFiltersActive = useMemo(() => {
+    return (
+      crmFilters.statuses.length > 0 ||
+      crmFilters.stages.length > 0 ||
+      crmFilters.listIds.length > 0 ||
+      crmFilters.sources.length > 0 ||
+      crmFilters.activity !== 'all' ||
+      crmFilters.followDue !== 'all'
+    )
+  }, [crmFilters])
 
   const pipelineValue = useMemo(
     () => pipelineValueEuro(contacts.items),
@@ -1200,8 +1229,21 @@ export function SalesMode({
           </div>
         </div>
         {!contacts.loading && !contacts.error ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <quickLead.ActionBar />
+          <div className="flex flex-wrap items-center gap-2" style={{ position: 'relative' }}>
+            <CrmToolbar
+              onNewLead={() => quickLead.openQuickLead()}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onToggleFilter={() => setFilterOpen((v) => !v)}
+              filterActive={crmFiltersActive}
+            />
+            <CrmFilterPanel
+              open={filterOpen}
+              filters={crmFilters}
+              lists={contactLists.lists}
+              onChange={setCrmFilters}
+              onClose={() => setFilterOpen(false)}
+            />
             <button
               type="button"
               onClick={() => setTplDrawerOpen(true)}
@@ -1338,24 +1380,32 @@ export function SalesMode({
           ) : null}
 
           {!contacts.loading && !contacts.error ? (
-            <PipelineBoard
-              contacts={filteredPipeline}
-              slug={slug}
-              scrollEmbed={scrollEmbed}
-              onMoveToStage={(id, stage) =>
-                contacts.update(id, { pipeline_stage: stage })
-              }
-              onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
-              onCreateDeliverProject={handleCreateDeliverFromContact}
-              onAppendActivity={appendActivity}
-              onLeadQualityChange={(id, quality) => contacts.update(id, { lead_quality: quality })}
-              quickNoteId={quickNoteId}
-              setQuickNoteId={setQuickNoteId}
-              selectedIds={selectedIds}
-              onToggleSelected={toggleSelect}
-              bulkActive={bulkActive}
-              onColumnHover={setColumnHover}
-            />
+            viewMode === 'table' ? (
+              <PipelineTableView
+                contacts={filteredPipeline}
+                allContacts={contacts.items}
+                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+              />
+            ) : (
+              <PipelineBoard
+                contacts={filteredPipeline}
+                slug={slug}
+                scrollEmbed={scrollEmbed}
+                onMoveToStage={(id, stage) =>
+                  contacts.update(id, { pipeline_stage: stage })
+                }
+                onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+                onCreateDeliverProject={handleCreateDeliverFromContact}
+                onAppendActivity={appendActivity}
+                onLeadQualityChange={(id, quality) => contacts.update(id, { lead_quality: quality })}
+                quickNoteId={quickNoteId}
+                setQuickNoteId={setQuickNoteId}
+                selectedIds={selectedIds}
+                onToggleSelected={toggleSelect}
+                bulkActive={bulkActive}
+                onColumnHover={setColumnHover}
+              />
+            )
           ) : null}
 
           {!contacts.loading && !contacts.error && bulkActive ? (

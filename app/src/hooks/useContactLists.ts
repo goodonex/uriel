@@ -12,6 +12,7 @@ import { useBrandId } from './useBrandId'
 const LISTS_KEY = 'contact-lists-store' as const
 
 function rowToList(row: Record<string, unknown>): ContactList {
+  const lt = row.list_type as string
   return {
     id: row.id as string,
     brand_id: row.brand_id as string,
@@ -19,6 +20,11 @@ function rowToList(row: Record<string, unknown>): ContactList {
     description: (row.description as string | null) ?? null,
     is_favorite: Boolean(row.is_favorite),
     is_hidden: Boolean(row.is_hidden),
+    list_type: lt === 'dynamic' ? 'dynamic' : 'static',
+    filter_json:
+      row.filter_json && typeof row.filter_json === 'object' && !Array.isArray(row.filter_json)
+        ? (row.filter_json as Record<string, unknown>)
+        : null,
     created_at: (row.created_at as string) ?? new Date().toISOString(),
   }
 }
@@ -28,6 +34,8 @@ function normalizeList(row: ContactList): ContactList {
     ...row,
     is_favorite: Boolean(row.is_favorite),
     is_hidden: Boolean(row.is_hidden),
+    list_type: row.list_type === 'dynamic' ? 'dynamic' : 'static',
+    filter_json: row.filter_json ?? null,
   }
 }
 
@@ -130,10 +138,17 @@ export function useContactLists(brandSlug: string | undefined) {
   }, [reload])
 
   const createList = useCallback(
-    async (partial: { name: string; description?: string }) => {
+    async (partial: {
+      name: string
+      description?: string
+      list_type?: ContactList['list_type']
+      filter_json?: Record<string, unknown> | null
+    }) => {
       if (!brandSlug) throw new Error('Kein Brand')
       const name = partial.name.trim() || 'Neue Liste'
       const description = partial.description?.trim() ? partial.description.trim() : null
+      const list_type = partial.list_type === 'dynamic' ? 'dynamic' : 'static'
+      const filter_json = partial.filter_json ?? null
       const pushLocal = (id: string) => {
         const row: ContactList = {
           id,
@@ -142,6 +157,8 @@ export function useContactLists(brandSlug: string | undefined) {
           description,
           is_favorite: false,
           is_hidden: false,
+          list_type,
+          filter_json,
           created_at: new Date().toISOString(),
         }
         const next = sortLists([...listsRef.current, row])
@@ -158,6 +175,8 @@ export function useContactLists(brandSlug: string | undefined) {
         brand_id: brandId,
         name,
         description,
+        list_type,
+        filter_json,
       })
       if (insErr) {
         const msg = supabaseErrorMessage(insErr)
@@ -178,6 +197,8 @@ export function useContactLists(brandSlug: string | undefined) {
         description?: string | null
         is_favorite?: boolean
         is_hidden?: boolean
+        list_type?: ContactList['list_type']
+        filter_json?: Record<string, unknown> | null
       },
     ) => {
       if (!brandSlug) return

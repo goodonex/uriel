@@ -103,6 +103,8 @@ export function ContactListsContent({
   )
 
   const [newListName, setNewListName] = useState('')
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [editingListName, setEditingListName] = useState('')
   const [showHiddenLists, setShowHiddenLists] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | ContactListItemStatus>('all')
   const [search, setSearch] = useState('')
@@ -550,12 +552,65 @@ export function ContactListsContent({
                         </span>
                       ) : null}
                       <div className="min-w-0 flex-1">
-                        <div
-                          className="font-display"
-                          style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
-                        >
-                          {l.name}
-                        </div>
+                        {editingListId === l.id ? (
+                          <input
+                            value={editingListName}
+                            onChange={(e) => setEditingListName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                void updateListMeta(l.id, { name: editingListName.trim() || l.name }).then(() =>
+                                  setEditingListId(null),
+                                )
+                              }
+                              if (e.key === 'Escape') setEditingListId(null)
+                            }}
+                            onBlur={() => {
+                              void updateListMeta(l.id, { name: editingListName.trim() || l.name }).then(() =>
+                                setEditingListId(null),
+                              )
+                            }}
+                            className="font-display w-full"
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 600,
+                              background: 'var(--glass-1)',
+                              border: '1px solid var(--mode-sales)',
+                              borderRadius: 6,
+                              padding: '2px 6px',
+                              color: 'var(--text-primary)',
+                            }}
+                            autoFocus
+                            onClick={(e) => e.preventDefault()}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <div
+                              className="font-display"
+                              style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
+                            >
+                              {l.name}
+                            </div>
+                            <button
+                              type="button"
+                              title="Name bearbeiten"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setEditingListId(l.id)
+                                setEditingListName(l.name)
+                              }}
+                              className="font-mono"
+                              style={{
+                                fontSize: 10,
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-tertiary)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        )}
                         {l.description ? (
                           <div
                             className="mt-1"

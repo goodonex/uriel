@@ -139,6 +139,16 @@ function rowToContact(row: Record<string, unknown>): Contact {
   return {
     id: row.id as string,
     brand_id: row.brand_id as string,
+    contact_type: row.contact_type === 'person' ? 'person' : 'company',
+    parent_company_id: (row.parent_company_id as string | null) ?? null,
+    contact_status:
+      typeof row.contact_status === 'string' ? (row.contact_status as Contact['contact_status']) : 'not_contacted',
+    first_name: (row.first_name as string | undefined) ?? '',
+    last_name: (row.last_name as string | undefined) ?? '',
+    job_title: (row.job_title as string | undefined) ?? '',
+    address: (row.address as string | undefined) ?? '',
+    lead_source: (row.lead_source as Contact['lead_source']) ?? '',
+    follow_up_type: (row.follow_up_type as Contact['follow_up_type']) ?? '',
     name: row.name as string,
     email: row.email as string,
     phone: (row.phone as string) ?? '',

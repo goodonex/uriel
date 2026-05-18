@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
 import { useToast } from '../../components/Toast'
-import {
-  ContactTaskCounter,
-  ContactTasksTab,
-} from '../../components/tasks/ContactTasksTab'
+import { ContactTasksTab } from '../../components/tasks/ContactTasksTab'
 import { ContactCallsTab } from '../../components/sales/ContactCallsTab'
 import { ContactEmailsTab } from '../../components/sales/ContactEmailsTab'
 import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
-import { LeadQualityBadge } from '../../components/sales/LeadQualityBadge'
 import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
+import { ContactStatusDropdown } from '../../components/sales/ContactStatusDropdown'
+import { FollowUpBadge } from '../../components/sales/FollowUpBadge'
+import { ContactActivityTab } from '../../components/sales/ContactActivityTab'
+import { companyDisplayName } from '../../lib/crmContacts'
+import { useContactScrollLock } from '../../hooks/useContactScrollLock'
+import { useTasks } from '../../hooks/useTasks'
 import { generateId } from '../../lib/storage'
 import { annualEuroForPotenzial, formatEuroDe } from '../../lib/salesPipelineFilters'
 import { useCampaigns } from '../../hooks/useCampaigns'
@@ -192,8 +194,26 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
 
   const d = draft ?? contact
   const [contactTab, setContactTab] = useState<
-    'overview' | 'details' | 'erstgespraech' | 'qualifikation' | 'tasks' | 'emails' | 'calls' | 'notes'
+    | 'overview'
+    | 'activity'
+    | 'details'
+    | 'erstgespraech'
+    | 'qualifikation'
+    | 'tasks'
+    | 'emails'
+    | 'calls'
+    | 'notes'
   >('overview')
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useContactScrollLock(scrollRef as RefObject<HTMLElement | null>)
+  const brandTasks = useTasks(slug)
+  const openTasks = useMemo(
+    () =>
+      brandTasks.items.filter(
+        (t) => t.contact_id === contactId && t.status !== 'done' && t.status !== 'cancelled',
+      ),
+    [brandTasks.items, contactId],
+  )
 
   const duplicateProject = useMemo(() => {
     if (!d) return null
@@ -240,7 +260,16 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   }
 
   return (
-    <div style={{ pointerEvents: 'auto', background: 'transparent' }}>
+    <div
+      ref={scrollRef}
+      style={{
+        pointerEvents: 'auto',
+        background: 'transparent',
+        maxHeight: variant === 'page' ? 'calc(100vh - 120px)' : undefined,
+        overflowY: variant === 'page' ? 'auto' : undefined,
+        overscrollBehavior: 'contain',
+      }}
+    >
       {variant === 'page' ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -390,13 +419,9 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
             letterSpacing: '-0.3px',
           }}
         >
-          {d.name || 'Kontakt'}
+          {companyDisplayName(d)}
         </h1>
-        <LeadQualityBadge
-          quality={d.lead_quality}
-          size="md"
-          onChange={(q) => onField({ lead_quality: q })}
-        />
+        <ContactStatusDropdown contact={d} onField={onField} />
         <button
           type="button"
           onClick={() => {
@@ -423,69 +448,60 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
         </button>
       </div>
 
+      <div className="mb-3 flex flex-col gap-2">
+        <FollowUpBadge contact={d} />
+        {openTasks.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {openTasks.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="font-mono rounded-full px-2 py-0.5"
+                style={{
+                  fontSize: 10,
+                  border: '1px solid var(--glass-border-2)',
+                  background: 'var(--glass-2)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+                onClick={() => brandTasks.update(t.id, { status: 'done' })}
+              >
+                ✓ {t.title}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {(
           [
             { key: 'overview', label: 'Übersicht' },
-            { key: 'erstgespraech', label: 'Erstgespräch', gear: true },
-            { key: 'qualifikation', label: 'Qualifikation', gear: true },
-            { key: 'tasks', label: 'Tasks', counter: true },
-            { key: 'emails', label: 'E-Mails' },
-            { key: 'calls', label: 'Anrufe' },
-            { key: 'details', label: 'Felder' },
-            { key: 'notes', label: 'Log' },
+            { key: 'activity', label: 'Aktivität' },
+            { key: 'details', label: 'Details' },
           ] as const
         ).map((t) => {
           const on = contactTab === t.key
           return (
-            <div key={t.key} className="flex items-center gap-0.5">
-              <button
-                type="button"
-                className="font-mono"
-                onClick={() => setContactTab(t.key)}
-                style={{
-                  fontSize: 11,
-                  padding: '8px 14px',
-                  borderRadius: 10,
-                  border: on ? '1px solid var(--mode-sales)' : '1px solid var(--glass-border-2)',
-                  background: on
-                    ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
-                    : 'var(--glass-2)',
-                  color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                {t.label}
-                {'counter' in t && t.counter && slug && contactId ? (
-                  <ContactTaskCounter slug={slug} contactId={contactId} />
-                ) : null}
-              </button>
-              {'gear' in t && t.gear ? (
-                <button
-                  type="button"
-                  className="font-mono"
-                  title="Felder anpassen"
-                  aria-label="Felder anpassen"
-                  onClick={() =>
-                    setFieldDrawer(t.key as 'erstgespraech' | 'qualifikation')
-                  }
-                  style={{
-                    fontSize: 14,
-                    lineHeight: 1,
-                    padding: '4px 6px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--text-tertiary)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ⚙
-                </button>
-              ) : null}
-            </div>
+            <button
+              key={t.key}
+              type="button"
+              className="font-mono"
+              onClick={() => setContactTab(t.key)}
+              style={{
+                fontSize: 11,
+                padding: '8px 14px',
+                borderRadius: 10,
+                border: on ? '1px solid var(--mode-sales)' : '1px solid var(--glass-border-2)',
+                background: on
+                  ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
+                  : 'var(--glass-2)',
+                color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              {t.label}
+            </button>
           )
         })}
       </div>
@@ -505,6 +521,8 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
             layout={variant === 'page' ? 'page' : 'narrow'}
           />
         ) : null
+      ) : contactTab === 'activity' && slug ? (
+        <ContactActivityTab brandSlug={slug} contact={d} />
       ) : contactTab === 'details' ? (
         <div className="flex max-w-4xl flex-col gap-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -752,12 +770,21 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
                 {duplicateProject ? (
                   <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     Projekt bereits vorhanden.{' '}
-                    <Link
-                      to={`/brand/${slug}/deliver/${duplicateProject.id}`}
-                      style={{ color: 'var(--accent-teal)' }}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/brand/${slug}/deliver/${duplicateProject.id}`)}
+                      style={{
+                        color: 'var(--accent-teal)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        font: 'inherit',
+                        padding: 0,
+                        textDecoration: 'underline',
+                      }}
                     >
                       Zum Projekt
-                    </Link>
+                    </button>
                   </p>
                 ) : (
                   <button
