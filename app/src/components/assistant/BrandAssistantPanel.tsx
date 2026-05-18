@@ -123,9 +123,11 @@ export function BrandAssistantPanel({
         {messages.map((m, i) => (
           <MessageBubble key={`${m.role}-${i}`} role={m.role} content={m.content} />
         ))}
-        {loading && messages[messages.length - 1]?.role !== 'assistant' ? (
-          <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            Assistent denkt… (mit Brand-DNA-Kontext)
+        {loading &&
+        messages[messages.length - 1]?.role === 'assistant' &&
+        !messages[messages.length - 1]?.content?.trim() ? (
+          <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+            Assistent denkt… (Brand-DNA wird geladen)
           </p>
         ) : null}
         

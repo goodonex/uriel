@@ -142,7 +142,12 @@ export function useBrandAssistant(brandSlug: string | undefined) {
 
   const sendMessage = useCallback(
     async (text: string, opts?: { attachments?: AssistantAttachment[] }) => {
-      if (!brandId) return
+      if (!brandId) {
+        setError(
+          'Assistent braucht eine synchronisierte Brand in Supabase (keine reine Local-Fallback-Brand). Bitte Brand speichern oder Seite neu laden.',
+        )
+        return
+      }
       const trimmed = text.trim()
       const atts = opts?.attachments ?? pendingAttachments
       if (!trimmed && atts.length === 0) return
@@ -180,44 +185,49 @@ export function useBrandAssistant(brandSlug: string | undefined) {
         }
       })
 
-      await streamBrandAssistant(
-        {
-          brandId,
-          conversationHistory: prior,
-          newMessage: userMsg.content,
-          attachments: apiAttachments.length ? apiAttachments : undefined,
-        },
-        (chunk) => {
-          setMessages((cur) => {
-            const copy = [...cur]
-            const last = copy[copy.length - 1]
-            if (last?.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, content: last.content + chunk }
+      try {
+        await streamBrandAssistant(
+          {
+            brandId,
+            conversationHistory: prior,
+            newMessage: userMsg.content,
+            attachments: apiAttachments.length ? apiAttachments : undefined,
+          },
+          (chunk) => {
+            setMessages((cur) => {
+              const copy = [...cur]
+              const last = copy[copy.length - 1]
+              if (last?.role === 'assistant') {
+                copy[copy.length - 1] = { ...last, content: last.content + chunk }
+              }
+              messagesRef.current = copy
+              return copy
+            })
+          },
+          async () => {
+            const final = messagesRef.current
+            const last = final[final.length - 1]
+            if (last?.role === 'assistant' && last.content.trim()) {
+              await persist(final)
+            } else {
+              setMessages(history)
+              messagesRef.current = history
+              setError('Assistent lieferte keine Antwort.')
             }
-            messagesRef.current = copy
-            return copy
-          })
-        },
-        async () => {
-          setLoading(false)
-          const final = messagesRef.current
-          const last = final[final.length - 1]
-          if (last?.role === 'assistant' && last.content.trim()) {
-            await persist(final)
-          } else if (last?.role === 'assistant') {
+          },
+          (msg) => {
+            setError(msg)
             setMessages(history)
             messagesRef.current = history
-            setError('Assistent lieferte keine Antwort.')
-          }
-        },
-        (msg) => {
-          setLoading(false)
-          setError(msg)
-          const rolled = prior
-          setMessages(rolled)
-          messagesRef.current = rolled
-        },
-      )
+          },
+        )
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Assistent-Anfrage fehlgeschlagen.')
+        setMessages(history)
+        messagesRef.current = history
+      } finally {
+        setLoading(false)
+      }
     },
     [brandId, pendingAttachments, persist],
   )

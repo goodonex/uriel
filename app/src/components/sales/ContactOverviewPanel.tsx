@@ -29,12 +29,14 @@ import { ContactDeliverCard } from './ContactDeliverCard'
 import { ContactListAssign } from './ContactListAssign'
 import { ContactSequencesPanel } from './ContactSequencesPanel'
 import { EmailComposeDialog } from './EmailComposeDialog'
+import { ContactPresenceEmbeds } from './ContactPresenceEmbeds'
 
 interface ContactOverviewPanelProps {
   brandSlug: string
   brandName?: string
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
+  layout?: 'page' | 'narrow'
 }
 
 const STAGES: Array<{ key: PipelineStage; label: string; color: string }> = [
@@ -97,6 +99,7 @@ export function ContactOverviewPanel({
   brandName,
   contact,
   onField,
+  layout = 'page',
 }: ContactOverviewPanelProps) {
   const contacts = useContacts(brandSlug)
   const brandId = useBrandId(brandSlug)
@@ -267,18 +270,21 @@ export function ContactOverviewPanel({
     contacts.remove(contact.id)
   }
 
+  const wide = layout === 'page' && !isMobile
+
   return (
     <div
       className="grid gap-4"
       style={{
-        gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 360px) 1fr',
+        gridTemplateColumns: isMobile || !wide ? '1fr' : 'minmax(300px, 380px) minmax(0, 1fr)',
       }}
     >
       <IdentityCard
         contact={contact}
         onField={onField}
         onDelete={handleDelete}
-        compact={isMobile}
+        compact={isMobile || layout === 'narrow'}
+        showEmbeds={layout === 'page'}
         sourcePiece={sourcePiece ? { id: sourcePiece.id, title: sourcePiece.title } : null}
         brandSlug={brandSlug}
       />
@@ -331,6 +337,7 @@ function IdentityCard({
   onField,
   onDelete,
   compact = false,
+  showEmbeds = false,
   sourcePiece,
   brandSlug,
 }: {
@@ -338,6 +345,7 @@ function IdentityCard({
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   onDelete: () => void
   compact?: boolean
+  showEmbeds?: boolean
   sourcePiece?: { id: string; title: string } | null
   brandSlug?: string
 }) {
@@ -586,7 +594,42 @@ function IdentityCard({
           value={c.ansprechpartner}
           onChange={(v) => onField({ ansprechpartner: v })}
         />
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span
+            className="font-mono"
+            style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}
+          >
+            Notizen
+          </span>
+          <textarea
+            value={c.notes}
+            onChange={(e) => onField({ notes: e.target.value })}
+            rows={4}
+            placeholder="Kontext, Gesprächsnotizen, nächste Schritte…"
+            className="font-mono"
+            style={{
+              width: '100%',
+              padding: '7px 9px',
+              fontSize: 12,
+              borderRadius: 7,
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--glass-2)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+              resize: 'vertical',
+              minHeight: 88,
+            }}
+          />
+        </label>
       </FieldGroup>
+
+      {showEmbeds ? (
+        <ContactPresenceEmbeds
+          website={c.website}
+          instagram={c.instagram}
+          linkedin={c.linkedin}
+        />
+      ) : null}
 
       <FieldGroup label="Pipeline">
         <EditField

@@ -1,9 +1,6 @@
 import { ContactPage } from './ContactPage'
-import { useViewport } from '../../hooks/useViewport'
 
-/** Desktop: null. Mobile: klassische Kontakt-Vollseite. */
+/** Kontakt-Vollseite (nicht Scroll-Flow: Outlet / Mobile). */
 export function SalesContactRouteGate() {
-  const { isMobile } = useViewport()
-  if (!isMobile) return null
-  return <ContactPage />
+  return <ContactPage variant="page" />
 }

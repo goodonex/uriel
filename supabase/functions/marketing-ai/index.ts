@@ -14,6 +14,12 @@ type RecruitingField = 'description' | 'requirements' | 'benefits' | 'full'
 type AdField = 'hook' | 'body' | 'cta' | 'full'
 type Platform = 'linkedin_organic' | 'linkedin_ad' | 'culturefit' | 'meta' | 'google' | 'other'
 
+interface AdCopySiblings {
+  hook?: string
+  body?: string
+  cta?: string
+}
+
 interface Body {
   kind: Kind
   field: RecruitingField | AdField
@@ -22,6 +28,7 @@ interface Body {
   platform?: Platform
   title?: string
   current_value?: string
+  ad_copy?: AdCopySiblings
   context?: {
     positioning_statement?: string
     tone_of_voice?: string
@@ -66,6 +73,22 @@ function buildContext(c: Body['context'], brandName?: string): string {
   return lines.join('\n')
 }
 
+function adSiblingBlock(b: Body): string {
+  if (b.kind !== 'ad' || !b.ad_copy) return ''
+  const lines: string[] = []
+  const hook = b.ad_copy.hook?.trim()
+  const body = b.ad_copy.body?.trim()
+  const cta = b.ad_copy.cta?.trim()
+  if (b.field !== 'hook' && hook) lines.push(`Hook (bereits fest): ${hook}`)
+  if (b.field !== 'body' && body) lines.push(`Body (bereits fest): ${body}`)
+  if (b.field !== 'cta' && cta) lines.push(`CTA (bereits fest): ${cta}`)
+  if (!lines.length) return ''
+  return [
+    'Bereits vorhandene Anzeigen-Teile — unbedingt darauf abstimmen, nicht widersprechen:',
+    ...lines,
+  ].join('\n')
+}
+
 function prompt(b: Body): { system: string; user: string } {
   const ctx = buildContext(b.context, b.brand_name)
   const platformHint = b.platform ? `Plattform: ${b.platform}` : ''
@@ -100,15 +123,22 @@ function prompt(b: Body): { system: string; user: string } {
     role = 'Du bist Senior Performance-Copywriter. Du schreibst auf Deutsch.'
     switch (b.field) {
       case 'hook':
-        goal = 'Schreibe einen aufmerksamkeitsstarken Hook (max. 8-12 Wörter), der die Ziel-ICP triggert. Pattern-Interrupt. Keine Cliches.'
+        goal = b.ad_copy?.body?.trim()
+          ? 'Schreibe einen Hook (max. 8-12 Wörter), der den bereits vorhandenen Body logisch einleitet und zur Ziel-ICP passt.'
+          : 'Schreibe einen aufmerksamkeitsstarken Hook (max. 8-12 Wörter), der die Ziel-ICP triggert. Pattern-Interrupt. Keine Cliches.'
         format = 'Ein Satz, max. 12 Wörter.'
         break
       case 'body':
-        goal = 'Body der Anzeige: 2-3 Sätze, die das Problem benennen und die Lösung andeuten. Brand-Tone treffen. Word Bank nutzen.'
+        goal = b.ad_copy?.hook?.trim()
+          ? 'Schreibe den Body (2-3 Sätze), der nahtlos an den bereits vorhandenen Hook anschließt — gleicher Ton, keine Wiederholung des Hooks.'
+          : 'Body der Anzeige: 2-3 Sätze, die das Problem benennen und die Lösung andeuten. Brand-Tone treffen. Word Bank nutzen.'
         format = '2-3 Sätze Fließtext.'
         break
       case 'cta':
-        goal = 'Call-to-Action (max. 4 Wörter), action-orientiert. Nicht "Mehr erfahren".'
+        goal =
+          b.ad_copy?.hook?.trim() || b.ad_copy?.body?.trim()
+            ? 'CTA (max. 4 Wörter), passend zu Hook und Body — action-orientiert, nicht "Mehr erfahren".'
+            : 'Call-to-Action (max. 4 Wörter), action-orientiert. Nicht "Mehr erfahren".'
         format = 'Max. 4 Wörter.'
         break
       case 'full':
@@ -133,6 +163,8 @@ function prompt(b: Body): { system: string; user: string } {
     '',
     'Brand-Kontext:',
     ctx || '  (kein Kontext bisher)',
+    '',
+    adSiblingBlock(b) || null,
     '',
     current ? `Aktueller Text (verbessern / variieren, nicht 1:1 wiederholen):\n${current}` : 'Aktueller Text: (leer)',
     '',

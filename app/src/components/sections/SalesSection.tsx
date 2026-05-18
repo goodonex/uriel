@@ -1,45 +1,58 @@
+import type { ReactNode } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { HorizontalScroller } from '../HorizontalScroller'
 import { CardTile } from '../../modules/CardTile'
-import { ContactDetailModule } from '../../modules/sales/ContactDetailModule'
 import { SalesListDetailModule } from '../../modules/sales/SalesListDetailModule'
 import { SalesListsModule } from '../../modules/sales/SalesListsModule'
 import { useHorizontalPanelUrl } from '../../hooks/useHorizontalPanelUrl'
 import {
+  isSalesNewLeadPath,
   SALES_PANELS,
+  salesContactIdFromPath,
   salesPanelIndexFromPath,
   salesPathForPanel,
 } from '../../lib/horizontalPanels'
 import { CallModePage } from '../../pages/sales/CallModePage'
+import { ContactPage } from '../../pages/sales/ContactPage'
 import { SalesMode } from '../../pages/sales/SalesMode'
+import { SalesNewLeadPage } from '../../pages/sales/SalesNewLeadPage'
 import { ScrollSectionPanel } from './ScrollSectionPanel'
 import { SECTION_SHELL, SECTION_VIEWPORT } from './sectionLayout'
-
-const CONTACT_PANEL_W = 320
 
 function salesListIdFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/lists\/([^/]+)/)
   return m?.[1] ?? null
 }
 
-function salesContactIdFromPath(pathname: string): string | null {
-  const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)/)
-  if (!m?.[1]) return null
-  if (m[1] === 'lists' || m[1] === 'call-mode') return null
-  return m[1]
-}
-
-function salesView(pathname: string): 'call-mode' | 'list-detail' | 'horizontal' {
+function salesView(pathname: string): 'call-mode' | 'list-detail' | 'contact' | 'new-lead' | 'horizontal' {
   if (pathname.includes('/sales/call-mode')) return 'call-mode'
   if (salesListIdFromPath(pathname)) return 'list-detail'
+  if (isSalesNewLeadPath(pathname)) return 'new-lead'
+  if (salesContactIdFromPath(pathname)) return 'contact'
   return 'horizontal'
+}
+
+function SalesScrollPage({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        pointerEvents: 'auto',
+        padding: '4px 8px 28px',
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 export function SalesSection() {
   const { slug = '' } = useParams<{ slug: string }>()
   const { pathname } = useLocation()
   const view = salesView(pathname)
-  const contactId = salesContactIdFromPath(pathname)
   const { activeIndex, onIndexChange } = useHorizontalPanelUrl(
     slug,
     salesPanelIndexFromPath,
@@ -62,35 +75,28 @@ export function SalesSection() {
     )
   }
 
+  if (view === 'new-lead') {
+    return (
+      <ScrollSectionPanel section="sales">
+        <SalesScrollPage>
+          <SalesNewLeadPage />
+        </SalesScrollPage>
+      </ScrollSectionPanel>
+    )
+  }
+
+  if (view === 'contact') {
+    return (
+      <ScrollSectionPanel section="sales">
+        <SalesScrollPage>
+          <ContactPage variant="page" />
+        </SalesScrollPage>
+      </ScrollSectionPanel>
+    )
+  }
+
   const tabs = SALES_PANELS.map((p) => ({ id: p.id, label: p.label }))
-
-  const pipelinePanel = (
-    <div
-      style={{
-        position: 'relative',
-        height: '100%',
-        minHeight: 0,
-        paddingRight: contactId ? CONTACT_PANEL_W + 12 : 0,
-      }}
-    >
-      <SalesMode scrollEmbed />
-      {contactId ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: CONTACT_PANEL_W,
-            zIndex: 2,
-          }}
-        >
-          <ContactDetailModule />
-        </div>
-      ) : null}
-    </div>
-  )
-
+  const pipelinePanel = <SalesMode scrollEmbed />
   const panels = [pipelinePanel, <SalesListsModule key="lists" />]
 
   return (

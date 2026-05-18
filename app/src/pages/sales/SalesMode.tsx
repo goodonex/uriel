@@ -18,7 +18,6 @@ import { CSS } from '@dnd-kit/utilities'
 import { motion, type Variants } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Drawer } from '../../components/Drawer'
 import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
 import { EmailTemplatesDrawer } from '../../components/sales/EmailTemplatesDrawer'
@@ -41,6 +40,7 @@ import {
   type StageFilter,
 } from '../../lib/salesPipelineFilters'
 import { generateId } from '../../lib/storage'
+import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
 import { ContactListsContent } from './ContactListsContent'
 
 const STAGES: PipelineStage[] = [
@@ -995,42 +995,6 @@ export function SalesMode({
     [contacts],
   )
 
-  const [dupModal, setDupModal] = useState<{
-    partial: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>
-    existing: Contact
-    mode: 'empty' | 'quick'
-  } | null>(null)
-
-  const finishCreate = useCallback(
-    (partial: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>) => {
-      const r = contacts.create(partial, { skipDuplicateCheck: true })
-      if (r.ok) {
-        setDupModal(null)
-        navigate(`/brand/${slug}/sales/${r.contact.id}`)
-      }
-    },
-    [contacts, navigate, slug],
-  )
-
-  const tryCreate = useCallback(
-    (
-      partial: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>,
-      mode: 'empty' | 'quick',
-    ) => {
-      const r = contacts.create(partial)
-      if (r.ok) {
-        setDupModal(null)
-        if (mode === 'quick') {
-          setQuickOpen(false)
-        }
-        navigate(`/brand/${slug}/sales/${r.contact.id}`)
-      } else {
-        setDupModal({ partial, existing: r.duplicate, mode })
-      }
-    },
-    [contacts, navigate, slug],
-  )
-
   const callModeSearch = useMemo(() => {
     const p = new URLSearchParams()
     p.set('source', 'pipeline')
@@ -1040,6 +1004,8 @@ export function SalesMode({
     if (pipePotenzial !== 'all') p.set('pipePotenzial', pipePotenzial)
     return p.toString()
   }, [pipeFollow, pipePotenzial, pipeQ, pipeStage])
+
+  const quickLead = useSalesQuickLead(slug ?? '', callModeSearch)
 
   const pipelineStats = useMemo(() => {
     const items = contacts.items
@@ -1057,12 +1023,6 @@ export function SalesMode({
     }
   }, [contacts.items])
 
-  const [quickOpen, setQuickOpen] = useState(false)
-  const [qdName, setQdName] = useState('')
-  const [qdPhone, setQdPhone] = useState('')
-  const [qdEmail, setQdEmail] = useState('')
-  const [qdNote, setQdNote] = useState('')
-
   // Sales-Pro Drawer
   // Auto-seed default pipeline (Hook initialisiert sie selbst, wenn keine existiert)
   useSalesPipelines(slug)
@@ -1072,14 +1032,6 @@ export function SalesMode({
   const [importDrawerOpen, setImportDrawerOpen] = useState(false)
   const [meetingDrawerOpen, setMeetingDrawerOpen] = useState(false)
   const [bulkTagInput, setBulkTagInput] = useState('')
-
-  const openQuickDeal = useCallback(() => {
-    setQdName('')
-    setQdPhone('')
-    setQdEmail('')
-    setQdNote('')
-    setQuickOpen(true)
-  }, [])
 
   const handleCreateDeliverFromContact = useCallback(
     (contact: Contact) => {
@@ -1227,38 +1179,8 @@ export function SalesMode({
           </div>
         </div>
         {!contacts.loading && !contacts.error ? (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={`/brand/${slug}/sales/call-mode?${callModeSearch}`}
-              className="font-mono"
-              style={{
-                fontSize: 12,
-                padding: '10px 16px',
-                borderRadius: 12,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-3)',
-                color: 'var(--mode-sales)',
-                textDecoration: 'none',
-                display: 'inline-block',
-              }}
-            >
-              📞 Call Mode
-            </Link>
-            <button
-              type="button"
-              className="font-mono"
-              style={{
-                fontSize: 12,
-                padding: '10px 16px',
-                borderRadius: 12,
-                border: '1px solid var(--mode-sales)',
-                background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
-                color: 'var(--mode-sales)',
-              }}
-              onClick={openQuickDeal}
-            >
-              Schnell-Deal
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <quickLead.ActionBar />
             <button
               type="button"
               onClick={() => setTplDrawerOpen(true)}
@@ -1295,23 +1217,6 @@ export function SalesMode({
             >
               📅 Buchungslink
             </button>
-            <button
-              type="button"
-              className="font-mono"
-              style={{
-                fontSize: 12,
-                padding: '10px 16px',
-                borderRadius: 12,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-3)',
-                color: 'var(--mode-sales)',
-              }}
-              onClick={() => {
-                tryCreate({}, 'empty')
-              }}
-            >
-              + Kontakt
-            </button>
           </div>
         ) : null}
       </div>
@@ -1321,6 +1226,12 @@ export function SalesMode({
         <ContactListsContent slug={slug} embedded />
       ) : (
         <>
+          {scrollEmbed ? (
+            <div className="shrink-0" style={{ padding: '4px 4px 10px' }}>
+              <quickLead.ActionBar compact />
+            </div>
+          ) : null}
+
           {contacts.loading ? (
             <div
               className="animate-pulse"
@@ -1580,96 +1491,6 @@ export function SalesMode({
             </div>
           ) : null}
 
-          {dupModal ? (
-            <div
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 70,
-                background: 'rgba(0,0,0,0.55)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'auto',
-                padding: 16,
-              }}
-            >
-              <div
-                className="glass-2 font-mono"
-                role="dialog"
-                aria-modal="true"
-                style={{
-                  width: 'min(400px, 100%)',
-                  padding: 20,
-                  borderRadius: 16,
-                  border: '1px solid var(--glass-border-1)',
-                  fontSize: 12,
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <div style={{ marginBottom: 12, fontWeight: 600 }}>
-                  Mögliches Duplikat gefunden
-                </div>
-                <div style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
-                  {contactCardTitle(dupModal.existing)} — {(dupModal.existing.email || '—').trim() || '—'}{' '}
-                  — {STAGE_LABEL[dupModal.existing.pipeline_stage]}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => finishCreate(dupModal.partial)}
-                    style={{
-                      flex: '1 1 140px',
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      border: '1px solid var(--mode-sales)',
-                      background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
-                      color: 'var(--mode-sales)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Trotzdem anlegen
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ex = dupModal.existing
-                      const wasQuick = dupModal.mode === 'quick'
-                      setDupModal(null)
-                      if (wasQuick) setQuickOpen(false)
-                      navigate(`/brand/${slug}/sales/${ex.id}`)
-                    }}
-                    style={{
-                      flex: '1 1 140px',
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      border: '1px solid var(--accent-teal)',
-                      background: 'color-mix(in srgb, var(--accent-teal) 12%, transparent)',
-                      color: 'var(--accent-teal)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Zum bestehenden Kontakt
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDupModal(null)}
-                    style={{
-                      flex: '1 1 100%',
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      border: '1px solid var(--glass-border-2)',
-                      background: 'var(--glass-3)',
-                      color: 'var(--text-tertiary)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {!contacts.loading && !contacts.error &&
           panel === 'full' &&
@@ -1715,115 +1536,8 @@ export function SalesMode({
         </>
       )}
 
-      <Drawer
-        open={quickOpen}
-        onClose={() => setQuickOpen(false)}
-        title="Schnell-Deal"
-        width={360}
-      >
-        <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Name
-            </span>
-            <input
-              value={qdName}
-              onChange={(e) => setQdName(e.target.value)}
-              className="font-mono rounded-lg px-3 py-2"
-              style={{
-                fontSize: 13,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-1)',
-                color: 'var(--text-primary)',
-              }}
-              placeholder="Firma oder Person"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Telefon
-            </span>
-            <input
-              type="tel"
-              autoComplete="tel"
-              value={qdPhone}
-              onChange={(e) => setQdPhone(e.target.value)}
-              className="font-mono rounded-lg px-3 py-2"
-              style={{
-                fontSize: 13,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-1)',
-                color: 'var(--text-primary)',
-              }}
-              placeholder="+49 …"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              E-Mail
-            </span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={qdEmail}
-              onChange={(e) => setQdEmail(e.target.value)}
-              className="font-mono rounded-lg px-3 py-2"
-              style={{
-                fontSize: 13,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-1)',
-                color: 'var(--text-primary)',
-              }}
-              placeholder="name@…"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Erste Notiz
-            </span>
-            <textarea
-              value={qdNote}
-              onChange={(e) => setQdNote(e.target.value)}
-              rows={3}
-              className="font-mono rounded-lg px-3 py-2"
-              style={{
-                fontSize: 13,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-1)',
-                color: 'var(--text-primary)',
-                resize: 'vertical',
-              }}
-              placeholder="Kontext, Quelle, nächster Schritt…"
-            />
-          </label>
-          <button
-            type="button"
-            className="font-mono mt-1"
-            style={{
-              fontSize: 13,
-              padding: '12px 16px',
-              borderRadius: 12,
-              border: '1px solid var(--mode-sales)',
-              background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
-              color: 'var(--mode-sales)',
-            }}
-            onClick={() => {
-              tryCreate(
-                {
-                  name: qdName.trim() || 'Neuer Kontakt',
-                  email: qdEmail.trim(),
-                  phone: qdPhone.trim(),
-                  pipeline_stage: 'first_contact',
-                  notes: qdNote.trim(),
-                },
-                'quick',
-              )
-            }}
-          >
-            Speichern &amp; öffnen
-          </button>
-        </div>
-      </Drawer>
+      <quickLead.DrawerEl />
+      <quickLead.DupModalEl />
 
       <EmailTemplatesDrawer
         open={tplDrawerOpen}

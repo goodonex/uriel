@@ -1,8 +1,6 @@
+import { readInvokeErrorBody, withTimeout } from './functionInvoke'
 import { supabase, isSupabaseConfigured } from './supabase'
 import type { AssistantMessage } from '../types/assistant'
-
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
-const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? ''
 
 export interface BrandAssistantRequest {
   brandId: string
@@ -16,110 +14,86 @@ export interface BrandAssistantRequest {
   }>
 }
 
-export async function getAccessToken(): Promise<string | null> {
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
+type InvokePayload = BrandAssistantRequest & { stream?: boolean }
+
+const INVOKE_TIMEOUT_MS = 120_000
+
+function serializeHistory(history: AssistantMessage[]) {
+  return history.map((m) => ({ role: m.role, content: m.content }))
 }
 
-/** Stream assistant reply token-by-token (Anthropic SSE passthrough). */
+async function invokeComplete(req: InvokePayload): Promise<{ reply?: string; error?: string }> {
+  if (!supabase) return { error: 'Supabase nicht konfiguriert.' }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke<{
+        ok?: boolean
+        reply?: string
+        message?: string
+      }>('brand-assistant', {
+        body: {
+          ...req,
+          conversationHistory: serializeHistory(req.conversationHistory),
+          stream: false,
+        },
+      }),
+      INVOKE_TIMEOUT_MS,
+      'Brand-Assistent',
+    )
+
+    if (error) {
+      const ctx = await readInvokeErrorBody(error)
+      const raw = (error as Error).message ?? 'invoke_failed'
+      const detail = ctx?.message ?? raw
+      const rawLower = raw.toLowerCase()
+      if (
+        detail.includes('404') ||
+        detail.toLowerCase().includes('not found') ||
+        detail.toLowerCase().includes('function not found') ||
+        rawLower.includes('failed to send a request to the edge function')
+      ) {
+        return {
+          error:
+            'Edge Function „brand-assistant“ ist nicht erreichbar (noch nicht deployed oder Netzwerk). Im Projektordner: supabase functions deploy brand-assistant',
+        }
+      }
+      return { error: detail }
+    }
+
+    if (data && typeof data === 'object' && data.ok === false && data.message) {
+      return { error: data.message }
+    }
+
+    if (data?.reply?.trim()) return { reply: data.reply.trim() }
+    if (data?.message) return { error: data.message }
+    return { error: 'Assistent lieferte keine Antwort (leere API-Antwort).' }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Assistent-Anfrage fehlgeschlagen.' }
+  }
+}
+
+/** Liefert die Assistenten-Antwort (primär via invoke — zuverlässig wie Discovery). */
 export async function streamBrandAssistant(
   req: BrandAssistantRequest,
   onToken: (chunk: string) => void,
   onDone: () => void,
   onError: (msg: string) => void,
 ): Promise<void> {
-  if (!isSupabaseConfigured || !SUPABASE_URL) {
+  if (!isSupabaseConfigured) {
     onError('Supabase nicht konfiguriert.')
     return
   }
-  const token = await getAccessToken()
-  if (!token) {
-    onError('Nicht angemeldet.')
+
+  const complete = await invokeComplete(req)
+  if (complete.error) {
+    onError(complete.error)
     return
   }
-
-  const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/brand-assistant`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: SUPABASE_ANON,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      ...req,
-      conversationHistory: req.conversationHistory.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      stream: true,
-    }),
-  })
-
-  const ct = res.headers.get('content-type') ?? ''
-
-  if (!res.ok) {
-    let msg = `Assistent-Fehler (${res.status})`
-    try {
-      const j = (await res.json()) as { message?: string }
-      if (j.message) msg = j.message
-    } catch {
-      /* ignore */
-    }
-    onError(msg)
-    return
-  }
-
-  if (!ct.includes('text/event-stream') || !res.body) {
-    try {
-      const j = (await res.json()) as { reply?: string; message?: string }
-      if (j.reply) {
-        onToken(j.reply)
-        onDone()
-        return
-      }
-      onError(j.message ?? 'Leere Antwort.')
-    } catch {
-      onError('Unerwartete Antwort vom Assistenten.')
-    }
-    return
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const payload = line.slice(6).trim()
-        if (!payload || payload === '[DONE]') continue
-        try {
-          const evt = JSON.parse(payload) as {
-            type?: string
-            delta?: { type?: string; text?: string }
-          }
-          if (
-            evt.type === 'content_block_delta' &&
-            evt.delta?.type === 'text_delta' &&
-            typeof evt.delta.text === 'string'
-          ) {
-            onToken(evt.delta.text)
-          }
-        } catch {
-          /* partial JSON — skip */
-        }
-      }
-    }
+  if (complete.reply) {
+    onToken(complete.reply)
     onDone()
-  } catch (e) {
-    onError(e instanceof Error ? e.message : 'Stream unterbrochen.')
+    return
   }
+  onError('Assistent lieferte keine Antwort.')
 }

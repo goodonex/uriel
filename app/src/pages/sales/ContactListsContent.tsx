@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../../components/Toast'
 import { LIST_PRESETS, useContactListItems, useContactLists } from '../../hooks/useContactLists'
+import { ContactListCardMenu } from '../../components/sales/ContactListCardMenu'
+import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
 import { useContacts } from '../../hooks/useContacts'
 import { supabase } from '../../lib/supabase'
 import type { ContactListItemStatus } from '../../types/db'
@@ -72,6 +74,8 @@ export function ContactListsContent({
     loading: listsLoading,
     error: listsErr,
     createList,
+    updateListMeta,
+    deleteList,
     reload: reloadLists,
   } = useContactLists(slug)
   const {
@@ -82,6 +86,7 @@ export function ContactListsContent({
     updateItem,
   } = useContactListItems(listId, slug)
   const contacts = useContacts(slug)
+  const quickLead = useSalesQuickLead(slug)
 
   const existingEmailsLower = useMemo(() => {
     const s = new Set<string>()
@@ -98,8 +103,66 @@ export function ContactListsContent({
   )
 
   const [newListName, setNewListName] = useState('')
+  const [showHiddenLists, setShowHiddenLists] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | ContactListItemStatus>('all')
   const [search, setSearch] = useState('')
+
+  const hiddenListCount = useMemo(() => lists.filter((l) => l.is_hidden).length, [lists])
+
+  const visibleLists = useMemo(() => {
+    const base = showHiddenLists ? lists : lists.filter((l) => !l.is_hidden)
+    return [...base].sort((a, b) => {
+      if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1
+      return b.created_at.localeCompare(a.created_at)
+    })
+  }, [lists, showHiddenLists])
+
+  const handleToggleFavorite = useCallback(
+    async (list: (typeof lists)[0]) => {
+      try {
+        await updateListMeta(list.id, { is_favorite: !list.is_favorite })
+        show(
+          list.is_favorite ? 'Aus Favoriten entfernt' : 'Als Favorit markiert',
+          'success',
+        )
+      } catch (e) {
+        show(e instanceof Error ? e.message : 'Aktion fehlgeschlagen', 'error')
+      }
+    },
+    [show, updateListMeta],
+  )
+
+  const handleToggleHidden = useCallback(
+    async (list: (typeof lists)[0]) => {
+      try {
+        await updateListMeta(list.id, { is_hidden: !list.is_hidden })
+        show(list.is_hidden ? 'Liste wieder sichtbar' : 'Liste ausgeblendet', 'success')
+      } catch (e) {
+        show(e instanceof Error ? e.message : 'Aktion fehlgeschlagen', 'error')
+      }
+    },
+    [show, updateListMeta],
+  )
+
+  const handleDeleteList = useCallback(
+    async (list: (typeof lists)[0]) => {
+      if (
+        !window.confirm(
+          `Liste „${list.name}" wirklich löschen? Alle Einträge in dieser Liste gehen verloren.`,
+        )
+      ) {
+        return
+      }
+      try {
+        await deleteList(list.id)
+        if (listId === list.id) navigate(overviewBackTo)
+        show('Liste gelöscht', 'success')
+      } catch (e) {
+        show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+      }
+    },
+    [deleteList, listId, navigate, overviewBackTo, show],
+  )
 
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
@@ -289,7 +352,7 @@ export function ContactListsContent({
   const pushToPipeline = useCallback(
     async (row: (typeof items)[0]) => {
       if (!slug) return
-      const r = contacts.create({
+      const r = await contacts.create({
         name: row.name || 'Lead',
         email: row.email ?? '',
         phone: row.phone ?? '',
@@ -312,6 +375,7 @@ export function ContactListsContent({
 
   if (!listId) {
     return (
+      <>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -319,8 +383,11 @@ export function ContactListsContent({
         style={{ pointerEvents: 'auto', background: 'transparent' }}
       >
         {embedded ? (
-          <div className="font-mono mb-4" style={{ fontSize: 10, color: 'var(--mode-sales)' }}>
-            Kontakt-Listen
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="font-mono" style={{ fontSize: 10, color: 'var(--mode-sales)' }}>
+              Kontakt-Listen
+            </div>
+            <quickLead.ActionBar compact />
           </div>
         ) : (
           <>
@@ -415,6 +482,31 @@ export function ContactListsContent({
           </button>
         </div>
 
+        {hiddenListCount > 0 ? (
+          <div className="mb-4">
+            <button
+              type="button"
+              className="font-mono"
+              onClick={() => setShowHiddenLists((v) => !v)}
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                padding: '6px 10px',
+                borderRadius: 8,
+                border: '1px solid var(--glass-border-2)',
+                background: showHiddenLists ? 'var(--glass-3)' : 'transparent',
+                color: 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              {showHiddenLists
+                ? 'Ausgeblendete verbergen'
+                : `Ausgeblendete anzeigen (${hiddenListCount})`}
+            </button>
+          </div>
+        ) : null}
+
         {listsLoading ? (
           <div
             className="animate-pulse rounded-2xl"
@@ -422,46 +514,76 @@ export function ContactListsContent({
           />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {lists.map((l) => {
+            {visibleLists.map((l) => {
               const st = listStats[l.id] ?? { total: 0, called: 0, calledToday: 0 }
               const pct = st.total ? Math.round((st.called / st.total) * 100) : 0
               return (
-                <Link
+                <div
                   key={l.id}
-                  to={`${listsBase}/${l.id}`}
-                  className="glass-2 block rounded-2xl p-4 transition-opacity hover:opacity-95"
+                  className="glass-2 relative rounded-2xl transition-opacity hover:opacity-95"
                   style={{
-                    border: '1px solid var(--glass-border-1)',
-                    textDecoration: 'none',
+                    border: l.is_favorite
+                      ? '1px solid color-mix(in srgb, var(--mode-sales) 55%, var(--glass-border-1))'
+                      : '1px solid var(--glass-border-1)',
+                    opacity: l.is_hidden ? 0.72 : 1,
                   }}
                 >
-                  <div
-                    className="font-display"
-                    style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
+                  <ContactListCardMenu
+                    list={l}
+                    onToggleFavorite={() => void handleToggleFavorite(l)}
+                    onToggleHidden={() => void handleToggleHidden(l)}
+                    onDelete={() => void handleDeleteList(l)}
+                  />
+                  <Link
+                    to={`${listsBase}/${l.id}`}
+                    className="block rounded-2xl p-4 pr-12"
+                    style={{ textDecoration: 'none' }}
                   >
-                    {l.name}
-                  </div>
-                  {l.description ? (
-                    <div className="mt-1" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {l.description}
+                    <div className="flex items-start gap-2">
+                      {l.is_favorite ? (
+                        <span
+                          className="font-mono shrink-0"
+                          style={{ fontSize: 12, color: 'var(--mode-sales)' }}
+                          title="Favorit"
+                        >
+                          ★
+                        </span>
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-display"
+                          style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}
+                        >
+                          {l.name}
+                        </div>
+                        {l.description ? (
+                          <div
+                            className="mt-1"
+                            style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+                          >
+                            {l.description}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  ) : null}
-                  <div
-                    className="mt-3 flex flex-wrap gap-3 font-mono"
-                    style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
-                  >
-                    <span>{st.total} Einträge</span>
-                    <span>
-                      {st.called} angerufen ({pct}%)
-                    </span>
-                  </div>
-                </Link>
+                    <div
+                      className="mt-3 flex flex-wrap gap-3 font-mono"
+                      style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+                    >
+                      <span>{st.total} Einträge</span>
+                      <span>
+                        {st.called} angerufen ({pct}%)
+                      </span>
+                      {l.is_hidden ? <span>· ausgeblendet</span> : null}
+                    </div>
+                  </Link>
+                </div>
               )
             })}
           </div>
         )}
 
-        {!listsLoading && lists.length === 0 ? (
+        {!listsLoading && visibleLists.length === 0 ? (
           <p className="font-mono" style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
             Noch keine Liste — leg oben eine an oder importiere CSV in der Detailansicht.
           </p>
@@ -475,10 +597,14 @@ export function ContactListsContent({
           </div>
         ) : null}
       </motion.div>
+      <quickLead.DrawerEl />
+      <quickLead.DupModalEl />
+      </>
     )
   }
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -503,6 +629,8 @@ export function ContactListsContent({
             </p>
           ) : null}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <quickLead.ActionBar compact />
         {listId ? (
           <Link
             to={`/brand/${slug}/sales/call-mode?source=list&listId=${encodeURIComponent(listId)}`}
@@ -521,6 +649,7 @@ export function ContactListsContent({
             📞 Call Mode
           </Link>
         ) : null}
+        </div>
       </div>
 
       {itemsErr ? (
@@ -788,5 +917,8 @@ export function ContactListsContent({
         </div>
       )}
     </motion.div>
+    <quickLead.DrawerEl />
+    <quickLead.DupModalEl />
+    </>
   )
 }

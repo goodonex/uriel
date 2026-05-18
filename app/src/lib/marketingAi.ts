@@ -29,6 +29,13 @@ export interface MarketingAiContext {
   word_bank?: { yes?: string[]; no?: string[] }
 }
 
+/** Bereits ausgefüllte Ad-Felder — KI soll darauf abstimmen (bidirektional). */
+export interface AdCopySiblings {
+  hook?: string
+  body?: string
+  cta?: string
+}
+
 export interface MarketingAiInput {
   kind: MarketingKind
   field: RecruitingField | AdField
@@ -37,6 +44,8 @@ export interface MarketingAiInput {
   platform?: MarketingPlatform
   title?: string
   current_value?: string
+  /** Nur bei kind=ad: andere Felder der gleichen Anzeige */
+  ad_copy?: AdCopySiblings
   context?: MarketingAiContext
 }
 

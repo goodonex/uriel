@@ -21,6 +21,7 @@ import { usePositioning } from '../../hooks/usePositioning'
 import { useWordBank } from '../../hooks/useWordBank'
 import {
   generateMarketingText,
+  type AdCopySiblings,
   type AdField,
   type MarketingPlatform,
 } from '../../lib/marketingAi'
@@ -838,6 +839,7 @@ function CampaignEditor({
         brandId={brandId}
         brandName={brandName}
         aiContext={aiContext}
+        adCopy={{ hook: draft.hook, body: draft.body, cta: draft.cta }}
       />
       <AiField
         label="BODY"
@@ -851,6 +853,7 @@ function CampaignEditor({
         brandId={brandId}
         brandName={brandName}
         aiContext={aiContext}
+        adCopy={{ hook: draft.hook, body: draft.body, cta: draft.cta }}
       />
       <AiField
         label="CTA"
@@ -864,6 +867,7 @@ function CampaignEditor({
         brandId={brandId}
         brandName={brandName}
         aiContext={aiContext}
+        adCopy={{ hook: draft.hook, body: draft.body, cta: draft.cta }}
       />
 
       {/* Budget + Laufzeit */}
@@ -1063,6 +1067,7 @@ function AiField({
   brandId,
   brandName,
   aiContext,
+  adCopy,
 }: {
   label: string
   value: string
@@ -1075,6 +1080,7 @@ function AiField({
   brandId?: string
   brandName?: string
   aiContext: unknown
+  adCopy?: AdCopySiblings
 }) {
   const [variants, setVariants] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -1092,6 +1098,7 @@ function AiField({
       platform,
       title: campaignName,
       current_value: value,
+      ad_copy: adCopy,
       context: aiContext as never,
     })
     setLoading(false)

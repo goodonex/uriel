@@ -13,6 +13,7 @@ const PALETTE: FunnelNodeType[] = [
   'goal',
 ]
 
+/** Schwebende Einzel-Bausteine oben links — nicht am unteren Viewport-Rand. */
 export function NodePalette({
   onPickType,
 }: {
@@ -20,45 +21,62 @@ export function NodePalette({
 }) {
   return (
     <div
+      className="funnel-node-palette"
+      onWheel={(e) => e.stopPropagation()}
       style={{
         position: 'absolute',
-        left: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        zIndex: 20,
+        left: 14,
+        top: 14,
+        zIndex: 25,
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
-        maxWidth: 140,
-        pointerEvents: 'auto',
+        alignItems: 'center',
+        gap: 8,
+        pointerEvents: 'none',
       }}
     >
       {PALETTE.map((t) => (
         <button
           key={t}
           type="button"
+          title={nodeTypeLabel(t)}
+          aria-label={nodeTypeLabel(t)}
           draggable
           onDragStart={(ev) => {
             ev.dataTransfer.setData('application/x-funnel-node', t)
             ev.dataTransfer.effectAllowed = 'copy'
           }}
           onClick={() => onPickType(t)}
-          className="font-mono"
           style={{
-            fontSize: 10,
-            letterSpacing: '0.04em',
-            textAlign: 'left',
-            padding: '6px 10px',
-            borderRadius: 10,
-            border: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(10,10,20,0.75)',
-            backdropFilter: 'blur(12px)',
-            color: 'var(--text-secondary)',
+            pointerEvents: 'auto',
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            border: '1px solid color-mix(in srgb, var(--glass-border-2) 88%, transparent)',
+            background: 'rgba(8, 8, 16, 0.78)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            boxShadow: '0 6px 22px rgba(0,0,0,0.32)',
+            color: 'var(--text-primary)',
+            fontSize: 17,
+            lineHeight: 1,
+            padding: 0,
+            display: 'grid',
+            placeItems: 'center',
             cursor: 'grab',
-            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.4)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = ''
+            e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.32)'
           }}
         >
-          {nodeTypeEmoji(t)} {nodeTypeLabel(t)}
+          {nodeTypeEmoji(t)}
         </button>
       ))}
     </div>

@@ -133,23 +133,40 @@ export function CallModePage() {
             >
               Heute keine Anrufe geplant.
               <br />
-              <button
-                type="button"
-                onClick={() => navigate(`/brand/${slug}/sales`)}
-                className="font-mono"
-                style={{
-                  marginTop: 14,
-                  padding: '10px 16px',
-                  borderRadius: 9,
-                  border: '1px solid var(--mode-sales)',
-                  background: 'transparent',
-                  color: 'var(--mode-sales)',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                }}
-              >
-                → Pipeline öffnen
-              </button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/brand/${slug}/sales?action=new-contact`)}
+                  className="font-mono"
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: 9,
+                    border: '1px solid var(--mode-sales)',
+                    background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
+                    color: 'var(--mode-sales)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Lead anlegen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/brand/${slug}/sales`)}
+                  className="font-mono"
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: 9,
+                    border: '1px solid var(--glass-border-2)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  → Pipeline
+                </button>
+              </div>
             </div>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>

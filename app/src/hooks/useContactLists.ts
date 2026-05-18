@@ -17,8 +17,25 @@ function rowToList(row: Record<string, unknown>): ContactList {
     brand_id: row.brand_id as string,
     name: row.name as string,
     description: (row.description as string | null) ?? null,
+    is_favorite: Boolean(row.is_favorite),
+    is_hidden: Boolean(row.is_hidden),
     created_at: (row.created_at as string) ?? new Date().toISOString(),
   }
+}
+
+function normalizeList(row: ContactList): ContactList {
+  return {
+    ...row,
+    is_favorite: Boolean(row.is_favorite),
+    is_hidden: Boolean(row.is_hidden),
+  }
+}
+
+function sortLists(rows: ContactList[]): ContactList[] {
+  return [...rows].sort((a, b) => {
+    if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1
+    return b.created_at.localeCompare(a.created_at)
+  })
 }
 
 function rowToItem(row: Record<string, unknown>): ContactListItem {
@@ -64,7 +81,7 @@ export function useContactLists(brandSlug: string | undefined) {
 
   const loadLocal = useCallback(() => {
     if (!brandSlug) return
-    setLists(loadList<ContactList>([brandSlug, LISTS_KEY]))
+    setLists(sortLists(loadList<ContactList>([brandSlug, LISTS_KEY]).map(normalizeList)))
     setError(null)
   }, [brandSlug])
 
@@ -101,7 +118,9 @@ export function useContactLists(brandSlug: string | undefined) {
       setLoading(false)
       return
     }
-    setLists((data ?? []).map((r) => rowToList(r as Record<string, unknown>)))
+    setLists(
+      sortLists((data ?? []).map((r) => rowToList(r as Record<string, unknown>))),
+    )
     setError(null)
     setLoading(false)
   }, [brandId, brandSlug, loadLocal])
@@ -121,9 +140,11 @@ export function useContactLists(brandSlug: string | undefined) {
           brand_id: brandSlug,
           name,
           description,
+          is_favorite: false,
+          is_hidden: false,
           created_at: new Date().toISOString(),
         }
-        const next = [...listsRef.current, row]
+        const next = sortLists([...listsRef.current, row])
         setLists(next)
         persistLocal(next)
         return id
@@ -150,10 +171,20 @@ export function useContactLists(brandSlug: string | undefined) {
   )
 
   const updateListMeta = useCallback(
-    async (listId: string, patch: { name?: string; description?: string | null }) => {
+    async (
+      listId: string,
+      patch: {
+        name?: string
+        description?: string | null
+        is_favorite?: boolean
+        is_hidden?: boolean
+      },
+    ) => {
       if (!brandSlug) return
+      const apply = (rows: ContactList[]) =>
+        sortLists(rows.map((l) => (l.id === listId ? normalizeList({ ...l, ...patch }) : l)))
       if (!supabase || !brandId) {
-        const next = listsRef.current.map((l) => (l.id === listId ? { ...l, ...patch } : l))
+        const next = apply(listsRef.current)
         setLists(next)
         persistLocal(next)
         return
@@ -166,7 +197,7 @@ export function useContactLists(brandSlug: string | undefined) {
       if (err) {
         const msg = supabaseErrorMessage(err)
         if (shouldFallbackToLocalSupabase(msg)) {
-          const next = listsRef.current.map((l) => (l.id === listId ? { ...l, ...patch } : l))
+          const next = apply(listsRef.current)
           setLists(next)
           persistLocal(next)
           return
@@ -178,7 +209,37 @@ export function useContactLists(brandSlug: string | undefined) {
     [brandId, brandSlug, persistLocal, reload],
   )
 
-  return { lists, loading, error, reload, createList, updateListMeta }
+  const deleteList = useCallback(
+    async (listId: string) => {
+      if (!brandSlug) return
+      const remove = (rows: ContactList[]) => rows.filter((l) => l.id !== listId)
+      if (!supabase || !brandId) {
+        const next = remove(listsRef.current)
+        setLists(next)
+        persistLocal(next)
+        return
+      }
+      const { error: err } = await supabase
+        .from('contact_lists')
+        .delete()
+        .eq('id', listId)
+        .eq('brand_id', brandId)
+      if (err) {
+        const msg = supabaseErrorMessage(err)
+        if (shouldFallbackToLocalSupabase(msg)) {
+          const next = remove(listsRef.current)
+          setLists(next)
+          persistLocal(next)
+          return
+        }
+        throw err
+      }
+      await reload()
+    },
+    [brandId, brandSlug, persistLocal, reload],
+  )
+
+  return { lists, loading, error, reload, createList, updateListMeta, deleteList }
 }
 
 const ITEMS_PREFIX = 'contact-list-items' as const
