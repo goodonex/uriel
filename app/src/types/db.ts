@@ -360,6 +360,8 @@ export interface Contact {
   won_at?: string | null
   lost_at?: string | null
   lost_reason?: string
+  referred_by_id?: string | null
+  referral_source?: string
   updated_at: string
 }
 

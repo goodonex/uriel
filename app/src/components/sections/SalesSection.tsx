@@ -12,10 +12,13 @@ import {
   salesPanelIndexFromPath,
   salesPathForPanel,
 } from '../../lib/horizontalPanels'
+import { DailyWorkList } from '../sales/DailyWorkList'
+import { PostCallModal } from '../sales/PostCallModal'
 import { CallModePage } from '../../pages/sales/CallModePage'
 import { ContactPage } from '../../pages/sales/ContactPage'
 import { SalesMode } from '../../pages/sales/SalesMode'
 import { SalesNewLeadPage } from '../../pages/sales/SalesNewLeadPage'
+import { PostCallFlowProvider } from '../../hooks/usePostCallFlow'
 import { ScrollSectionPanel } from './ScrollSectionPanel'
 import { SECTION_SHELL, SECTION_VIEWPORT } from './sectionLayout'
 
@@ -87,19 +90,27 @@ export function SalesSection() {
 
   if (view === 'contact') {
     return (
-      <ScrollSectionPanel section="sales">
-        <SalesScrollPage>
-          <ContactPage variant="page" />
-        </SalesScrollPage>
-      </ScrollSectionPanel>
+      <PostCallFlowProvider>
+        <ScrollSectionPanel section="sales">
+          <SalesScrollPage>
+            <ContactPage variant="page" />
+          </SalesScrollPage>
+        </ScrollSectionPanel>
+        {slug ? <PostCallModal brandSlug={slug} /> : null}
+      </PostCallFlowProvider>
     )
   }
 
   const tabs = SALES_PANELS.map((p) => ({ id: p.id, label: p.label }))
   const pipelinePanel = <SalesMode scrollEmbed />
-  const panels = [pipelinePanel, <SalesListsModule key="lists" />]
+  const panels = [
+    pipelinePanel,
+    <SalesListsModule key="lists" />,
+    <DailyWorkList key="heute" />,
+  ]
 
   return (
+    <PostCallFlowProvider>
     <div data-scroll-section="sales" style={SECTION_SHELL}>
       <div style={SECTION_VIEWPORT}>
         <CardTile
@@ -126,5 +137,7 @@ export function SalesSection() {
         </CardTile>
       </div>
     </div>
+    {slug ? <PostCallModal brandSlug={slug} /> : null}
+    </PostCallFlowProvider>
   )
 }

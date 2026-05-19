@@ -30,15 +30,18 @@ import { ContactListPicker } from './ContactListPicker'
 import { CompanyPersonSection } from './CompanyPersonSection'
 import { isCompany } from '../../lib/crmContacts'
 import type { FollowUpType } from '../../types/db'
-import { ContactSequencesPanel } from './ContactSequencesPanel'
 import { EmailComposeDialog } from './EmailComposeDialog'
+import { usePostCallFlowOptional } from '../../hooks/usePostCallFlow'
 import { ContactPresenceEmbeds } from './ContactPresenceEmbeds'
 
 interface ContactOverviewPanelProps {
   brandSlug: string
   brandName?: string
   contact: Contact
-  onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
+  onField: (
+    patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
+    fieldKey?: string,
+  ) => void
   layout?: 'page' | 'narrow'
 }
 
@@ -52,10 +55,13 @@ const STAGES: Array<{ key: PipelineStage; label: string; color: string }> = [
 
 type ActionType = 'note' | 'call' | 'email' | 'meeting' | 'linkedin' | 'stage'
 
-const ACTIONS: Array<{ key: ActionType; label: string; icon: string; accent: string }> = [
+const PRIMARY_ACTIONS: Array<{ key: ActionType; label: string; icon: string; accent: string }> = [
   { key: 'meeting', label: 'Termin', icon: '◷', accent: 'var(--accent-teal)' },
   { key: 'note', label: 'Notiz', icon: '✎', accent: 'var(--text-secondary)' },
   { key: 'call', label: 'Anruf', icon: '☎', accent: 'var(--mode-sales)' },
+]
+
+const MORE_ACTIONS: Array<{ key: ActionType; label: string; icon: string; accent: string }> = [
   { key: 'email', label: 'E-Mail', icon: '✉', accent: 'var(--accent-blue)' },
   { key: 'linkedin', label: 'LinkedIn', icon: 'in', accent: '#0A66C2' },
   { key: 'stage', label: 'Stage-Wechsel', icon: '→', accent: 'var(--mode-sales)' },
@@ -119,9 +125,11 @@ export function ContactOverviewPanel({
   )
   const { show } = useToast()
   const { isMobile } = useViewport()
+  const postCallFlow = usePostCallFlowOptional()
 
   const [action, setAction] = useState<ActionType | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   // Timeline kombiniert: Aktivitäts-Notizen, Calls, Mails, Stage-Wechsel, abgeschlossene Tasks
   const timeline = useMemo<TimelineEntry[]>(() => {
@@ -198,12 +206,18 @@ export function ContactOverviewPanel({
     setAction(null)
   }
 
-  const logCall = async (outcome: SalesCallOutcome, notes: string) => {
-    await calls.log({ contact_id: contact.id, outcome, notes })
-    // Letzter-Kontakt automatisch aktualisieren
-    onField({ last_contact_at: new Date().toISOString() })
-    show('Anruf protokolliert', 'success')
+  const startCallFlow = () => {
+    const phone = contact.phone?.trim()
+    if (phone) {
+      const digits = phone.replace(/[^\d+]/g, '')
+      if (digits) window.location.href = `tel:${digits}`
+    }
+    postCallFlow?.openPostCall({
+      contactId: contact.id,
+      source: 'contact',
+    })
     setAction(null)
+    setMoreOpen(false)
   }
 
   const logLinkedInMessage = (text: string) => {
@@ -298,17 +312,19 @@ export function ContactOverviewPanel({
           contact={contact}
           action={action}
           setAction={setAction}
+          moreOpen={moreOpen}
+          setMoreOpen={setMoreOpen}
           onNote={addNote}
-          onCall={logCall}
+          onCall={startCallFlow}
           onLinkedIn={logLinkedInMessage}
           onMeeting={setMeeting}
           onStage={changeStage}
           onOpenEmail={() => {
             setComposeOpen(true)
             setAction(null)
+            setMoreOpen(false)
           }}
         />
-        <ContactSequencesPanel brandSlug={brandSlug} contactId={contact.id} />
         <TimelineCard
           items={timeline}
           mails={mails.items}
@@ -868,12 +884,16 @@ function DocumenterCard({
   onMeeting,
   onStage,
   onOpenEmail,
+  moreOpen,
+  setMoreOpen,
 }: {
   contact: Contact
   action: ActionType | null
   setAction: (a: ActionType | null) => void
   onNote: (text: string) => void
-  onCall: (outcome: SalesCallOutcome, notes: string) => Promise<void>
+  onCall: () => void
+  moreOpen: boolean
+  setMoreOpen: (open: boolean) => void
   onLinkedIn: (text: string) => void
   onMeeting: (when: string, type: FollowUpType, note: string) => void
   onStage: (next: PipelineStage, note: string) => void
@@ -899,16 +919,16 @@ function DocumenterCard({
       >
         DOKUMENTIEREN
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {ACTIONS.map((a) => {
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        {PRIMARY_ACTIONS.map((a) => {
           const on = action === a.key
           return (
             <button
               key={a.key}
               type="button"
               onClick={() => {
-                if (a.key === 'email') {
-                  onOpenEmail()
+                if (a.key === 'call') {
+                  onCall()
                   return
                 }
                 setAction(on ? null : a.key)
@@ -934,10 +954,76 @@ function DocumenterCard({
             </button>
           )
         })}
+        <div style={{ position: 'relative', marginLeft: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => setMoreOpen(!moreOpen)}
+            className="font-mono"
+            style={{
+              fontSize: 14,
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: '1px solid var(--glass-border-2)',
+              background: moreOpen ? 'var(--glass-3)' : 'var(--glass-2)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+            title="Weitere Aktionen"
+          >
+            •••
+          </button>
+          {moreOpen ? (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 6,
+                zIndex: 20,
+                minWidth: 160,
+                padding: 6,
+                borderRadius: 10,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-2)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              }}
+            >
+              {MORE_ACTIONS.map((a) => (
+                <button
+                  key={a.key}
+                  type="button"
+                  onClick={() => {
+                    if (a.key === 'email') {
+                      onOpenEmail()
+                      return
+                    }
+                    setMoreOpen(false)
+                    setAction(action === a.key ? null : a.key)
+                  }}
+                  className="font-mono"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: 11,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {a.icon} {a.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
-        {action ? (
+        {action && action !== 'call' ? (
           <motion.div
             key={action}
             initial={{ opacity: 0, height: 0 }}
@@ -948,8 +1034,6 @@ function DocumenterCard({
           >
             {action === 'note' ? (
               <InlineNoteForm onSave={onNote} onCancel={() => setAction(null)} />
-            ) : action === 'call' ? (
-              <InlineCallForm onSave={onCall} onCancel={() => setAction(null)} />
             ) : action === 'linkedin' ? (
               <InlineLinkedInForm onSave={onLinkedIn} onCancel={() => setAction(null)} />
             ) : action === 'meeting' ? (
@@ -1004,60 +1088,6 @@ function InlineNoteForm({
   )
 }
 
-function InlineCallForm({
-  onSave,
-  onCancel,
-}: {
-  onSave: (outcome: SalesCallOutcome, notes: string) => Promise<void>
-  onCancel: () => void
-}) {
-  const [outcome, setOutcome] = useState<SalesCallOutcome>('connected')
-  const [notes, setNotes] = useState('')
-  return (
-    <div style={inlineFormBox}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {CALL_OUTCOMES.map((o) => {
-          const on = outcome === o.key
-          return (
-            <button
-              key={o.key}
-              type="button"
-              onClick={() => setOutcome(o.key)}
-              className="font-mono"
-              style={{
-                fontSize: 10,
-                padding: '5px 9px',
-                borderRadius: 999,
-                border: on
-                  ? '1px solid var(--mode-sales)'
-                  : '1px solid var(--glass-border-2)',
-                background: on
-                  ? 'color-mix(in srgb, var(--mode-sales) 18%, transparent)'
-                  : 'var(--glass-2)',
-                color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
-                cursor: 'pointer',
-              }}
-            >
-              {o.label}
-            </button>
-          )
-        })}
-      </div>
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Worum ging es? Was sind die nächsten Schritte?"
-        rows={3}
-        style={textareaStyle}
-      />
-      <InlineActions
-        onSave={() => onSave(outcome, notes)}
-        onCancel={onCancel}
-        label="Anruf speichern"
-      />
-    </div>
-  )
-}
 
 function InlineLinkedInForm({
   onSave,
@@ -1322,6 +1352,7 @@ interface TimelineEntry {
   title: string
   meta: string
   bodyPreview?: string
+  inbound?: boolean
 }
 
 const KIND_META: Record<
@@ -1443,7 +1474,7 @@ function TimelineCard({
                     fontFamily: 'system-ui',
                   }}
                 >
-                  {meta.icon}
+                  {item.inbound ? '↙' : meta.icon}
                 </div>
 
                 {/* Content */}
@@ -1466,7 +1497,7 @@ function TimelineCard({
                         fontWeight: 600,
                       }}
                     >
-                      {meta.label.toUpperCase()}
+                      {(item.inbound ? 'E-MAIL' : meta.label).toUpperCase()}
                       {item.meta ? (
                         <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>
                           {' · '}

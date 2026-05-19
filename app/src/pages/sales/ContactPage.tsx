@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
-import { useToast } from '../../components/Toast'
 import { ContactTasksTab } from '../../components/tasks/ContactTasksTab'
 import { ContactCallsTab } from '../../components/sales/ContactCallsTab'
 import { ContactEmailsTab } from '../../components/sales/ContactEmailsTab'
@@ -10,7 +9,6 @@ import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPane
 import { ContactStatusDropdown } from '../../components/sales/ContactStatusDropdown'
 import { FollowUpBadge } from '../../components/sales/FollowUpBadge'
 import { ContactActivityTab } from '../../components/sales/ContactActivityTab'
-import { companyDisplayName } from '../../lib/crmContacts'
 import { useContactScrollLock } from '../../hooks/useContactScrollLock'
 import { useTasks } from '../../hooks/useTasks'
 import { generateId } from '../../lib/storage'
@@ -24,7 +22,11 @@ import {
 import { readContactsLocal, useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useFunnelCanvas } from '../../hooks/useFunnelCanvas'
-import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
+import { useContactFieldSave } from '../../hooks/useContactFieldSave'
+import { ContactSaveStatusIndicator } from '../../components/sales/ContactSaveStatusIndicator'
+import { ContactBccHint } from '../../components/sales/ContactBccHint'
+import { ContactSequencesPanel } from '../../components/sales/ContactSequencesPanel'
+import { companyDisplayName } from '../../lib/crmContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { Contact, PipelineStage, PotenzialTyp, SalesFieldItem } from '../../types/db'
 
@@ -100,7 +102,6 @@ function patchCfgField(
 export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' } = {}) {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
   const navigate = useNavigate()
-  const toast = useToast()
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
   const pieces = useContentPieces(slug)
@@ -156,7 +157,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
     [contactId, contacts, slug],
   )
 
-  const debouncedPush = useDebouncedCallback(pushPatch, 450)
+  const { state: saveState, onField: saveField } = useContactFieldSave(pushPatch)
 
   const lastCallNotes = useRef('')
 
@@ -165,15 +166,16 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   }, [contact?.id, contact?.call_notes])
 
   const onField = useCallback(
-    (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => {
+    (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>, fieldKey?: string) => {
       setDraft((prev) => {
         const base = prev ?? contact
         if (!base) return null
         return { ...base, ...patch }
       })
-      debouncedPush(patch)
+      const key = fieldKey ?? (Object.keys(patch)[0] as string) ?? 'field'
+      saveField(patch, key)
     },
-    [debouncedPush, contact],
+    [saveField, contact],
   )
 
   const [newNote, setNewNote] = useState('')
@@ -422,31 +424,10 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
           {companyDisplayName(d)}
         </h1>
         <ContactStatusDropdown contact={d} onField={onField} />
-        <button
-          type="button"
-          onClick={() => {
-            if (!contactId || !slug) return
-            const base = draft ?? contact
-            if (!base) return
-            // Persistiere alle aktuellen Felder sofort (umgeht den Debounce)
-            contacts.update(contactId, base)
-            toast.show('Gespeichert', 'success')
-          }}
-          className="font-mono"
-          style={{
-            fontSize: 11,
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: '1px solid var(--mode-sales)',
-            background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
-            color: 'var(--mode-sales)',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          ✓ Speichern
-        </button>
+        <ContactSaveStatusIndicator state={saveState} />
       </div>
+
+      {slug ? <ContactBccHint brandSlug={slug} /> : null}
 
       <div className="mb-3 flex flex-col gap-2">
         <FollowUpBadge contact={d} />
@@ -755,6 +736,17 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
                 style={{ ...FIELD, resize: 'vertical' }}
               />
             </div>
+
+            <ReferralFields
+              slug={slug}
+              contact={d}
+              contacts={contacts.items}
+              onField={onField}
+            />
+
+            {slug && contactId ? (
+              <ContactSequencesPanel brandSlug={slug} contactId={contactId} />
+            ) : null}
 
             {d.pipeline_stage === 'deal' ? (
               <div
@@ -1458,6 +1450,133 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
           </div>
         ) : null}
       </Drawer>
+    </div>
+  )
+}
+
+function ReferralFields({
+  slug,
+  contact,
+  contacts,
+  onField,
+}: {
+  slug: string
+  contact: Contact
+  contacts: Contact[]
+  onField: (
+    patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
+    fieldKey?: string,
+  ) => void
+}) {
+  const [q, setQ] = useState('')
+  const referred = contact.referred_by_id
+    ? contacts.find((c) => c.id === contact.referred_by_id)
+    : null
+
+  const options = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    return contacts
+      .filter((c) => c.id !== contact.id)
+      .filter((c) => {
+        if (!needle) return true
+        const label = (c.company || c.name || '').toLowerCase()
+        return label.includes(needle)
+      })
+      .slice(0, 12)
+  }, [contacts, contact.id, q])
+
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div>
+        <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+          Empfohlen von (Kontakt)
+        </label>
+        {referred ? (
+          <div className="mb-2">
+            <Link
+              to={`/brand/${slug}/sales/${referred.id}`}
+              className="font-mono"
+              style={{ fontSize: 12, color: 'var(--mode-sales)', textDecoration: 'none' }}
+            >
+              {companyDisplayName(referred)}
+            </Link>
+            <button
+              type="button"
+              className="font-mono ml-2"
+              onClick={() => onField({ referred_by_id: null }, 'referred_by_id')}
+              style={{
+                fontSize: 10,
+                border: 'none',
+                background: 'none',
+                color: 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              Entfernen
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Kontakt suchen …"
+              style={FIELD}
+            />
+            {q.trim() && options.length > 0 ? (
+              <ul
+                className="mt-1 list-none"
+                style={{
+                  maxHeight: 140,
+                  overflowY: 'auto',
+                  border: '1px solid var(--glass-border-2)',
+                  borderRadius: 8,
+                }}
+              >
+                {options.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className="font-mono w-full text-left"
+                      onClick={() => {
+                        onField({ referred_by_id: c.id, referral_source: '' }, 'referred_by_id')
+                        setQ('')
+                      }}
+                      style={{
+                        fontSize: 11,
+                        padding: '8px 10px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {companyDisplayName(c)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </div>
+      <div>
+        <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+          Empfohlen von (Freitext)
+        </label>
+        <input
+          value={contact.referral_source ?? ''}
+          onChange={(e) =>
+            onField(
+              { referral_source: e.target.value, referred_by_id: null },
+              'referral_source',
+            )
+          }
+          placeholder="z. B. Empfehlung über Messe"
+          style={FIELD}
+          disabled={Boolean(referred)}
+        />
+      </div>
     </div>
   )
 }

@@ -174,6 +174,8 @@ function normalizeContact(
     won_at: c.won_at ?? null,
     lost_at: c.lost_at ?? null,
     lost_reason: c.lost_reason ?? '',
+    referred_by_id: c.referred_by_id ?? null,
+    referral_source: c.referral_source ?? '',
     updated_at: c.updated_at ?? now,
   }
 }
@@ -243,6 +245,8 @@ function rowToContact(row: Record<string, unknown>): Contact {
     won_at: (row.won_at as string | null) ?? null,
     lost_at: (row.lost_at as string | null) ?? null,
     lost_reason: (row.lost_reason as string | undefined) ?? '',
+    referred_by_id: (row.referred_by_id as string | null) ?? null,
+    referral_source: (row.referral_source as string | undefined) ?? '',
     updated_at: row.updated_at as string,
   })
 }
@@ -350,6 +354,8 @@ function contactToRow(
     won_at: c.won_at,
     lost_at: c.lost_at,
     lost_reason: c.lost_reason ?? '',
+    referred_by_id: c.referred_by_id ?? null,
+    referral_source: c.referral_source ?? '',
     updated_at: c.updated_at,
   }
 }

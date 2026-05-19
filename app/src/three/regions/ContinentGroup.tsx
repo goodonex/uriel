@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RegionLabel } from './RegionLabel'
 import { RegionPatch } from './RegionPatch'
-import type { RegionDef } from './regionGeometry'
+import { SHOW_REGION_LABELS, type RegionDef } from './regionGeometry'
 
 interface ContinentGroupProps {
   def: RegionDef
@@ -20,12 +20,14 @@ export function ContinentGroup({ def, slug, planetRadius }: ContinentGroupProps)
         planetRadius={planetRadius}
         onHoverChange={setHovered}
       />
-      <RegionLabel
-        def={def}
-        slug={slug}
-        planetRadius={planetRadius}
-        hovered={hovered}
-      />
+      {SHOW_REGION_LABELS ? (
+        <RegionLabel
+          def={def}
+          slug={slug}
+          planetRadius={planetRadius}
+          hovered={hovered}
+        />
+      ) : null}
     </group>
   )
 }

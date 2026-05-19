@@ -11,6 +11,7 @@ import { buildIntelligenceSnapshot } from '../../lib/mockIntelligence'
 import { IntelligenceReports } from './IntelligenceReports'
 import { IntelligenceFocusTasksBlock } from './IntelligenceFocusTasksBlock'
 import { MorningBriefSection } from './MorningBriefSection'
+import { TopReferrersPanel } from '../../components/intelligence/TopReferrersPanel'
 
 export function IntelligenceMode() {
   const { slug } = useParams<{ slug: string }>()
@@ -80,6 +81,15 @@ export function IntelligenceMode() {
       </div>
 
       {slug ? <IntelligenceFocusTasksBlock slug={slug} /> : null}
+
+      {slug ? (
+        <div className="mb-8">
+          <SectionLabel accent="var(--mode-intelligence)" tight>
+            Top Empfehler
+          </SectionLabel>
+          <TopReferrersPanel slug={slug} contacts={contacts.items} />
+        </div>
+      ) : null}
 
       <SectionLabel accent="var(--mode-intelligence)">
         Pattern Recognition (Mock)

@@ -7,6 +7,9 @@ export { REGION_MATERIALS } from './continentGeometry'
 /** Gebäude auf der Planetenoberfläche — später wieder true setzen. */
 export const SHOW_REGION_BUILDINGS = false
 
+/** Kontinent-Labels (SALES, FOUNDATION, …) — wieder true wenn Regionen klickbar sind. */
+export const SHOW_REGION_LABELS = false
+
 export interface RegionDef {
   key: WorldRegion
   label: string

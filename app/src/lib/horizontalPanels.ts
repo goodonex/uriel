@@ -14,6 +14,7 @@ export const PROMO_PANELS = [
 export const SALES_PANELS = [
   { id: 'pipeline', label: 'Pipeline', segment: '' },
   { id: 'listen', label: 'Listen', segment: 'lists' },
+  { id: 'heute', label: 'Heute', segment: 'heute' },
 ] as const
 
 export const DELIVER_PANELS = [
@@ -54,6 +55,7 @@ export function salesContactIdFromPath(pathname: string): string | null {
 }
 
 export function salesPanelIndexFromPath(pathname: string): number {
+  if (pathname.includes('/sales/heute')) return 2
   if (pathname.includes('/sales/lists')) return 1
   if (/^\/brand\/[^/]+\/sales\/?$/.test(pathname)) return 0
   if (pathname.includes('/sales/call-mode')) return 0
@@ -63,8 +65,9 @@ export function salesPanelIndexFromPath(pathname: string): number {
 }
 
 export function salesPathForPanel(slug: string, index: number): string {
+  const panel = SALES_PANELS[index] ?? SALES_PANELS[0]
   const base = `/brand/${slug}/sales`
-  return index === 1 ? `${base}/lists` : base
+  return panel.segment ? `${base}/${panel.segment}` : base
 }
 
 export function deliverPanelIndexFromPath(pathname: string): number {

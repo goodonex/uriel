@@ -71,8 +71,8 @@ export function PlanetSurface({ slug }: { slug: string }) {
 
   return (
     <group>
-      <ambientLight intensity={0.32} />
-      <pointLight color={brandLight} intensity={3.5} distance={12} decay={2} position={[5, 10, 6]} />
+      <ambientLight intensity={0.2} />
+      <pointLight color={brandLight} intensity={1.4} distance={12} decay={2} position={[5, 10, 6]} />
       <pointLight color="#eef2ff" intensity={0.3} distance={45} decay={2} position={[-8, 6, -4]} />
 
       <Planet slug={slug} radius={PLANET_RADIUS} />
