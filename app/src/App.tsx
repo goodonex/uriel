@@ -30,7 +30,7 @@ import { SalesNewLeadPage } from './pages/sales/SalesNewLeadPage'
 import { SalesDefaultRouteGate } from './pages/sales/SalesDefaultRouteGate'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { UniversePage } from './pages/UniversePage'
-import { useWorldCameraSyncFromRoute } from './store/worldCamera'
+import { useWorldCamera, useWorldCameraSyncFromRoute } from './store/worldCamera'
 import { World } from './three/World'
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -147,6 +147,7 @@ function OwnerWorkspaceShell() {
 function App() {
   const location = useLocation()
   const { width } = useViewport()
+  const worldRegion = useWorldCamera((s) => s.region)
   const isHome = location.pathname === '/'
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
   const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
@@ -155,6 +156,10 @@ function App() {
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/onboarding') ||
     mobileWorldDisabled
+  const salesCanvasDim =
+    isBrandWorkspace &&
+    !hideCanvas &&
+    (worldRegion === 'sales' || /\/sales(\/|$)/.test(location.pathname))
 
   return (
     <ToastProvider>
@@ -181,6 +186,19 @@ function App() {
           <World />
         </Suspense>
       </Canvas>
+      ) : null}
+
+      {salesCanvasDim ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            background: 'rgba(0, 0, 0, 0.35)',
+            zIndex: 0,
+          }}
+        />
       ) : null}
 
       <div

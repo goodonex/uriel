@@ -33,6 +33,7 @@ import type { FollowUpType } from '../../types/db'
 import { EmailComposeDialog } from './EmailComposeDialog'
 import { usePostCallFlowOptional } from '../../hooks/usePostCallFlow'
 import { ContactPresenceEmbeds } from './ContactPresenceEmbeds'
+import { LeadQualityField } from './LeadQualityBadge'
 
 interface ContactOverviewPanelProps {
   brandSlug: string
@@ -603,6 +604,10 @@ function IdentityCard({
           value={c.website}
           onChange={(v) => onField({ website: v })}
           type="url"
+        />
+        <LeadQualityField
+          quality={c.lead_quality}
+          onChange={(q) => onField({ lead_quality: q })}
         />
         <EditField
           label="Instagram"

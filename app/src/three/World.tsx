@@ -13,9 +13,11 @@ import { BRAND_MOON_SURFACE_OFFSET, getBrandSystemPosition } from './worldLayout
 
 export function World() {
   const stage = useWorldCamera((s) => s.stage)
+  const region = useWorldCamera((s) => s.region)
   const brandSlug = useWorldCamera((s) => s.brandSlug)
   const anchor = getBrandSystemPosition(brandSlug)
 
+  const salesDimmed = stage === 'planet-surface' && region === 'sales'
   const showStars = stage === 'universe' || stage === 'brand-system'
 
   return (
@@ -32,7 +34,9 @@ export function World() {
         />
       ) : null}
       {stage === 'universe' ? <fog attach="fog" args={['#060610', 60, 120]} /> : null}
-      <ambientLight intensity={stage === 'universe' ? 0.45 : 0.25} />
+      <ambientLight
+        intensity={stage === 'universe' ? 0.45 : salesDimmed ? 0.08 : 0.25}
+      />
       <WorldCameraController />
       {stage === 'universe' ? <Universe /> : null}
       {stage === 'brand-system' && brandSlug ? (

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { LeadQuality } from '../../types/db'
 import { nextLeadQuality } from '../../lib/funnelEconomics'
 
@@ -23,6 +24,32 @@ const META: Record<
     color: 'var(--accent-coral)',
     border: 'color-mix(in srgb, var(--accent-coral) 45%, transparent)',
   },
+}
+
+const FIELD_LABEL: CSSProperties = {
+  fontSize: 9,
+  color: 'var(--text-tertiary)',
+  letterSpacing: '0.06em',
+}
+
+/** Lead-Qualität als Formularfeld (Label-Stil wie EditField in ContactOverviewPanel). */
+export function LeadQualityField({
+  quality,
+  onChange,
+}: {
+  quality: LeadQuality
+  onChange: (next: LeadQuality) => void
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span className="font-mono" style={FIELD_LABEL}>
+        Lead-Qualität
+      </span>
+      <div style={{ alignSelf: 'flex-start' }}>
+        <LeadQualityBadge quality={quality} onChange={onChange} size="md" />
+      </div>
+    </label>
+  )
 }
 
 export function LeadQualityBadge({

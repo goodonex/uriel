@@ -69,11 +69,28 @@ export function PlanetSurface({ slug }: { slug: string }) {
   const hasIntelligenceData =
     contacts.items.length > 0 || feed.items.length > 0 || content.items.length > 0
 
+  const salesDimmed = activeRegion === 'sales'
+  const ambientIntensity = salesDimmed ? 0.1 : 0.2
+  const brandLightIntensity = salesDimmed ? 0.8 : 1.4
+  const fillLightIntensity = salesDimmed ? 0.15 : 0.3
+
   return (
     <group>
-      <ambientLight intensity={0.2} />
-      <pointLight color={brandLight} intensity={1.4} distance={12} decay={2} position={[5, 10, 6]} />
-      <pointLight color="#eef2ff" intensity={0.3} distance={45} decay={2} position={[-8, 6, -4]} />
+      <ambientLight intensity={ambientIntensity} />
+      <pointLight
+        color={brandLight}
+        intensity={brandLightIntensity}
+        distance={12}
+        decay={2}
+        position={[5, 10, 6]}
+      />
+      <pointLight
+        color="#eef2ff"
+        intensity={fillLightIntensity}
+        distance={45}
+        decay={2}
+        position={[-8, 6, -4]}
+      />
 
       <Planet slug={slug} radius={PLANET_RADIUS} />
 
