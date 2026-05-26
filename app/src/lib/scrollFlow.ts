@@ -1,3 +1,5 @@
+import { isDeliverProjectDetailPath, salesContactIdFromPath } from './horizontalPanels'
+
 export const SECTION_ORDER = [
   'dashboard',
   'foundation',
@@ -43,6 +45,11 @@ export function getSectionScrollTop(
   const rootRect = scrollRoot.getBoundingClientRect()
   const elRect = sectionEl.getBoundingClientRect()
   return scrollRoot.scrollTop + (elRect.top - rootRect.top)
+}
+
+/** Kein Wechsel zu anderen Modus-Sections per Scroll (Kontakt- oder Projekt-Detail). */
+export function isSectionScrollLocked(pathname: string): boolean {
+  return Boolean(salesContactIdFromPath(pathname)) || isDeliverProjectDetailPath(pathname)
 }
 
 export function pathForSection(slug: string, section: SectionKey): string {

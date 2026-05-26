@@ -27,10 +27,10 @@ import { SalesImportDrawer } from '../../components/sales/SalesImportDrawer'
 import { SalesMeetingLinkDrawer } from '../../components/sales/SalesMeetingLinkDrawer'
 import { SectionLabel } from '../../components/SectionLabel'
 import { useToast } from '../../components/Toast'
-import { useDeliverProjects } from '../../hooks/useDeliverProjects'
-import { LeadQualityBadge } from '../../components/sales/LeadQualityBadge'
+import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
 import { useContacts } from '../../hooks/useContacts'
-import type { Contact, LeadQuality, PipelineStage } from '../../types/db'
+import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import type { Contact, DeliverProject, PipelineStage } from '../../types/db'
 import {
   filterPipelineContacts,
   formatEuroDe,
@@ -476,8 +476,9 @@ function SortableContactCard({
   slug,
   onSelect,
   onCreateDeliverProject,
+  onOpenDeliverProject,
+  deliverProjectId,
   onAppendActivity,
-  onLeadQualityChange,
   quickNoteOpen,
   setQuickNoteOpen,
   selected,
@@ -489,8 +490,9 @@ function SortableContactCard({
   slug: string
   onSelect: () => void
   onCreateDeliverProject: () => void
+  onOpenDeliverProject?: () => void
+  deliverProjectId?: string | null
   onAppendActivity: (contactId: string, text: string) => void
-  onLeadQualityChange: (contactId: string, quality: LeadQuality) => void
   quickNoteOpen: boolean
   setQuickNoteOpen: (open: boolean) => void
   selected: boolean
@@ -516,6 +518,7 @@ function SortableContactCard({
     '—'
 
   const [hover, setHover] = useState(false)
+  const swipeRef = useRef({ x: 0, swiped: false })
   const showChk = bulkActive || hover
   const potLabel = potenzialKanbanLabel(contact)
   const linkRight = overdue ? 64 : 6
@@ -568,7 +571,25 @@ function SortableContactCard({
           onSelect()
         }
       }}
-      onClick={onSelect}
+      onTouchStart={(e) => {
+        swipeRef.current.x = e.touches[0]?.clientX ?? 0
+        swipeRef.current.swiped = false
+      }}
+      onTouchEnd={(e) => {
+        if (!deliverProjectId || !onOpenDeliverProject) return
+        const dx = (e.changedTouches[0]?.clientX ?? 0) - swipeRef.current.x
+        if (dx > 80) {
+          swipeRef.current.swiped = true
+          onOpenDeliverProject()
+        }
+      }}
+      onClick={() => {
+        if (swipeRef.current.swiped) {
+          swipeRef.current.swiped = false
+          return
+        }
+        onSelect()
+      }}
     >
       {showChk ? (
         <label
@@ -585,28 +606,13 @@ function SortableContactCard({
           />
         </label>
       ) : null}
-      <div
-        style={{
-          position: 'absolute',
-          top: 6,
-          left: showChk ? 22 : 6,
-          zIndex: 3,
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <LeadQualityBadge
-          quality={contact.lead_quality}
-          onChange={(q) => onLeadQualityChange(contact.id, q)}
-        />
-      </div>
       {overdue ? (
         <span
           className="font-mono"
           style={{
             position: 'absolute',
             top: 6,
-            right: 6,
+            right: deliverProjectId ? 34 : 6,
             fontSize: 8,
             letterSpacing: '0.04em',
             padding: '3px 7px',
@@ -617,6 +623,35 @@ function SortableContactCard({
         >
           Überfällig
         </span>
+      ) : null}
+      {deliverProjectId && onOpenDeliverProject ? (
+        <button
+          type="button"
+          title="Zum Projekt"
+          className="font-mono"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenDeliverProject()
+          }}
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            fontSize: 13,
+            lineHeight: 1,
+            width: 24,
+            height: 24,
+            borderRadius: 8,
+            border: '1px solid color-mix(in srgb, var(--accent-teal) 45%, var(--glass-border-2))',
+            background: 'color-mix(in srgb, var(--accent-teal) 12%, var(--glass-2))',
+            color: 'var(--accent-teal)',
+            cursor: 'pointer',
+            zIndex: 4,
+          }}
+        >
+          ◈
+        </button>
       ) : null}
       <button
         type="button"
@@ -723,26 +758,49 @@ function SortableContactCard({
         </div>
       ) : null}
       {contact.pipeline_stage === 'deal' ? (
-        <button
-          type="button"
-          className="font-mono mt-2"
-          style={{
-            fontSize: 10,
-            padding: '6px 10px',
-            borderRadius: 8,
-            border: '1px solid var(--accent-teal)',
-            color: 'var(--accent-teal)',
-            background: 'var(--glass-2)',
-            width: '100%',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            onCreateDeliverProject()
-          }}
-        >
-          Projekt anlegen
-        </button>
+        deliverProjectId && onOpenDeliverProject ? (
+          <button
+            type="button"
+            className="font-mono mt-2"
+            style={{
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--accent-teal)',
+              color: 'var(--accent-teal)',
+              background: 'var(--glass-2)',
+              width: '100%',
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenDeliverProject()
+            }}
+          >
+            → Zum Projekt
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="font-mono mt-2"
+            style={{
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--accent-teal)',
+              color: 'var(--accent-teal)',
+              background: 'var(--glass-2)',
+              width: '100%',
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onCreateDeliverProject()
+            }}
+          >
+            Projekt anlegen
+          </button>
+        )
       ) : null}
     </motion.div>
   )
@@ -751,11 +809,11 @@ function SortableContactCard({
 function PipelineBoard({
   contacts,
   slug,
+  deliverProjects,
   onMoveToStage,
   onSelectContact,
   onCreateDeliverProject,
   onAppendActivity,
-  onLeadQualityChange,
   quickNoteId,
   setQuickNoteId,
   selectedIds,
@@ -766,11 +824,11 @@ function PipelineBoard({
 }: {
   contacts: Contact[]
   slug: string
+  deliverProjects: DeliverProject[]
   onMoveToStage: (contactId: string, stage: PipelineStage) => void
   onSelectContact: (id: string) => void
   onCreateDeliverProject: (contact: Contact) => void
   onAppendActivity: (contactId: string, text: string) => void
-  onLeadQualityChange: (contactId: string, quality: LeadQuality) => void
   quickNoteId: string | null
   setQuickNoteId: (id: string | null) => void
   selectedIds: Set<string>
@@ -779,6 +837,7 @@ function PipelineBoard({
   onColumnHover?: (stage: PipelineStage | null) => void
   scrollEmbed?: boolean
 }) {
+  const navigate = useNavigate()
   const skipClickRef = useRef(false)
   const markSkipClick = useCallback(() => {
     skipClickRef.current = true
@@ -856,26 +915,35 @@ function PipelineBoard({
                 items={list.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {list.map((c) => (
+                {list.map((c) => {
+                  const linkedProject = findDeliverProjectForContact(deliverProjects, c)
+                  const deliverProjectId = linkedProject?.id ?? c.deliver_project_id ?? null
+                  return (
                   <SortableContactCard
                     key={c.id}
                     contact={c}
                     slug={slug}
                     scrollEmbed={scrollEmbed}
+                    deliverProjectId={deliverProjectId}
+                    onOpenDeliverProject={
+                      deliverProjectId
+                        ? () => navigate(`/brand/${slug}/deliver/${deliverProjectId}`)
+                        : undefined
+                    }
                     onSelect={() => {
                       if (skipClickRef.current) return
                       onSelectContact(c.id)
                     }}
                     onCreateDeliverProject={() => onCreateDeliverProject(c)}
                     onAppendActivity={onAppendActivity}
-                    onLeadQualityChange={onLeadQualityChange}
                     quickNoteOpen={quickNoteId === c.id}
                     setQuickNoteOpen={(open) => setQuickNoteId(open ? c.id : null)}
                     selected={selectedIds.has(c.id)}
                     onToggleSelected={() => onToggleSelected(c.id)}
                     bulkActive={bulkActive}
                   />
-                ))}
+                  )
+                })}
               </SortableContext>
             </DroppableStageColumn>
           )
@@ -1086,16 +1154,17 @@ export function SalesMode({
   const handleCreateDeliverFromContact = useCallback(
     (contact: Contact) => {
       if (!slug) return
-      const proj = deliver.create({
-        name: `${contact.name || 'Kontakt'} — Projekt`,
-        client_name: contact.name ?? '',
-        client_email: contact.email?.trim() ?? '',
-        client_contact_id: contact.id,
-        internal_stage: 'onboarding',
-        client_stage: 'onboarding',
-        status: 'active',
-      })
-      navigate(`/brand/${slug}/deliver/${proj.id}`)
+      void deliver
+        .create({
+          name: `${contact.name || 'Kontakt'} — Projekt`,
+          client_name: contact.name ?? '',
+          client_email: contact.email?.trim() ?? '',
+          client_contact_id: contact.id,
+          internal_stage: 'onboarding',
+          client_stage: 'onboarding',
+          status: 'active',
+        })
+        .then((proj) => navigate(`/brand/${slug}/deliver/${proj.id}`))
     },
     [deliver, navigate, slug],
   )
@@ -1390,6 +1459,7 @@ export function SalesMode({
               <PipelineBoard
                 contacts={filteredPipeline}
                 slug={slug}
+                deliverProjects={deliver.items}
                 scrollEmbed={scrollEmbed}
                 onMoveToStage={(id, stage) =>
                   contacts.update(id, { pipeline_stage: stage })
@@ -1397,7 +1467,6 @@ export function SalesMode({
                 onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
                 onCreateDeliverProject={handleCreateDeliverFromContact}
                 onAppendActivity={appendActivity}
-                onLeadQualityChange={(id, quality) => contacts.update(id, { lead_quality: quality })}
                 quickNoteId={quickNoteId}
                 setQuickNoteId={setQuickNoteId}
                 selectedIds={selectedIds}

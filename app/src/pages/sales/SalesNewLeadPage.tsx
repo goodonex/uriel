@@ -1,12 +1,14 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { NewLeadWizardModal } from '../../components/sales/NewLeadWizardModal'
 import { useToast } from '../../components/Toast'
+import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
 
 export function SalesNewLeadPage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
+  const activities = useActivityEntries(slug)
   const { show: showToast } = useToast()
 
   return (
@@ -14,7 +16,7 @@ export function SalesNewLeadPage() {
       open
       onClose={() => navigate(`/brand/${slug}/sales`)}
       existingContacts={contacts.items}
-      onSubmit={async ({ company, person }, options) => {
+      onSubmit={async ({ company, person, initialNote }, options) => {
         const r1 = await contacts.create(company, {
           skipDuplicateCheck: options?.skipDuplicateCheck ?? false,
         })
@@ -28,6 +30,14 @@ export function SalesNewLeadPage() {
         )
         if (r1.syncWarning || (r2.ok && r2.syncWarning)) {
           showToast('Lokal gespeichert (Sync-Hinweis)', 'info')
+        }
+        if (initialNote && initialNote.trim()) {
+          const personId = r2.ok ? r2.contact.id : null
+          await activities.create({
+            contact_id: personId ?? r1.contact.id,
+            activity_type: 'notiz',
+            data: { text: initialNote.trim() },
+          })
         }
         navigate(`/brand/${slug}/sales/${r1.contact.id}`)
       }}

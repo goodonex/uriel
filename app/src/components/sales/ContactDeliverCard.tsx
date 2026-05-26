@@ -7,6 +7,10 @@ export function findDeliverProjectForContact(
   projects: ReturnType<typeof useDeliverProjects>['items'],
   contact: Contact,
 ) {
+  if (contact.deliver_project_id) {
+    const linked = projects.find((p) => p.id === contact.deliver_project_id)
+    if (linked) return linked
+  }
   const emailKey = (contact.email ?? '').trim().toLowerCase()
   return (
     projects.find(
@@ -66,16 +70,17 @@ export function ContactDeliverCard({
           type="button"
           className="font-mono"
           onClick={() => {
-            const proj = deliver.create({
-              name: `${contact.name || 'Kontakt'} — Projekt`,
-              client_name: contact.name || '',
-              client_email: contact.email?.trim() ?? '',
-              client_contact_id: contact.id,
-              internal_stage: 'onboarding',
-              client_stage: 'onboarding',
-              status: 'active',
-            })
-            navigate(`/brand/${brandSlug}/deliver/${proj.id}`)
+            void deliver
+              .create({
+                name: `${contact.name || 'Kontakt'} — Projekt`,
+                client_name: contact.name || '',
+                client_email: contact.email?.trim() ?? '',
+                client_contact_id: contact.id,
+                internal_stage: 'onboarding',
+                client_stage: 'onboarding',
+                status: 'active',
+              })
+              .then((proj) => navigate(`/brand/${brandSlug}/deliver/${proj.id}`))
           }}
           style={{
             fontSize: 12,

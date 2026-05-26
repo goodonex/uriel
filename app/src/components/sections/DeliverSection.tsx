@@ -1,4 +1,7 @@
+import type { ReactNode } from 'react'
+import { useRef } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useContactScrollLock } from '../../hooks/useContactScrollLock'
 import { HorizontalScroller } from '../HorizontalScroller'
 import { DeliverMoonStatusPanel } from '../deliver/DeliverMoonStatusPanel'
 import { DeliverProjectCardsPanel } from '../deliver/DeliverProjectCardsPanel'
@@ -12,6 +15,28 @@ import {
 import { DeliverProjectModule } from '../../modules/deliver/DeliverProjectModule'
 import { ScrollSectionPanel } from './ScrollSectionPanel'
 
+function DeliverScrollPage({ children }: { children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useContactScrollLock(scrollRef)
+
+  return (
+    <div
+      ref={scrollRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        pointerEvents: 'auto',
+        padding: '4px 8px 28px',
+        overscrollBehavior: 'contain',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function DeliverSection({ slug }: { slug: string }) {
   const { pathname } = useLocation()
   const { activeIndex, onIndexChange } = useHorizontalPanelUrl(
@@ -23,7 +48,9 @@ export function DeliverSection({ slug }: { slug: string }) {
   if (isDeliverProjectDetailPath(pathname)) {
     return (
       <ScrollSectionPanel section="deliver">
-        <DeliverProjectModule />
+        <DeliverScrollPage>
+          <DeliverProjectModule />
+        </DeliverScrollPage>
       </ScrollSectionPanel>
     )
   }

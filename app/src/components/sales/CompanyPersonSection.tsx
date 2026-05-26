@@ -16,11 +16,10 @@ const FIELD = {
 export function CompanyPersonSection({
   brandSlug,
   company,
-  onField,
 }: {
   brandSlug: string
   company: Contact
-  onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
+  onField?: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
 }) {
   const contacts = useContacts(brandSlug)
   const people = personsForCompany(contacts.items, company.id)
@@ -66,16 +65,41 @@ export function CompanyPersonSection({
         ANSPRECHPARTNER
       </div>
       <div className="flex flex-col gap-2">
-        {people.map((p) => (
+        {people.map((p, idx) => (
           <div
             key={p.id}
-            className="rounded-lg px-3 py-2"
-            style={{ border: '1px solid var(--glass-border-2)', background: 'var(--glass-2)' }}
+            style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{personDisplayName(p)}</div>
-            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              {[p.job_title, p.email, p.phone].filter(Boolean).join(' · ') || '—'}
+            <div
+              className="rounded-lg px-3 py-2"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--glass-2)',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{personDisplayName(p)}</div>
+              <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                {[p.job_title, p.email, p.phone].filter(Boolean).join(' · ') || '—'}
+              </div>
             </div>
+            {idx === 0 && !adding ? (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="font-mono"
+                style={{
+                  ...btn,
+                  flexShrink: 0,
+                  fontSize: 10,
+                  padding: '4px 10px',
+                  marginTop: 6,
+                }}
+              >
+                + AP
+              </button>
+            ) : null}
           </div>
         ))}
         {people.length === 0 && !adding ? (
@@ -102,17 +126,16 @@ export function CompanyPersonSection({
             </button>
           </div>
         </div>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)} className="font-mono mt-2" style={{ fontSize: 11, ...btn }}>
+      ) : people.length === 0 ? (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="font-mono mt-2"
+          style={{ ...btn, fontSize: 11 }}
+        >
           + Ansprechpartner hinzufügen
         </button>
-      )}
-      <div className="mt-3 flex flex-col gap-2">
-        <Edit label="Firmenname" value={company.name} onChange={(v) => onField({ name: v, company: v })} />
-        <Edit label="Website" value={company.website} onChange={(v) => onField({ website: v })} />
-        <Edit label="Telefon" value={company.phone} onChange={(v) => onField({ phone: v })} />
-        <Edit label="Adresse" value={company.address} onChange={(v) => onField({ address: v })} />
-      </div>
+      ) : null}
     </div>
   )
 }
@@ -127,12 +150,3 @@ const btn = {
 } as const
 
 const btnGhost = { ...btn, border: '1px solid var(--glass-border-2)', color: 'var(--text-secondary)' } as const
-
-function Edit({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="font-mono flex flex-col gap-1">
-      <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={FIELD} />
-    </label>
-  )
-}

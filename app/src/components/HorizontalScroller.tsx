@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { useViewport } from '../hooks/useViewport'
 
@@ -20,13 +19,26 @@ export interface HorizontalScrollerProps {
   onIndexChange?: (index: number) => void
 }
 
-const SETTLE_MS = 120
+const SETTLE_MS = 180
+const PANEL_SWITCH_BARRIER = 0.55
+const WHEEL_BARRIER_PX = 300
+const PANEL_EDGE_PX = 8
 
 function readIndexFromScroll(root: HTMLElement, panelCount: number): number {
   const slot = root.clientWidth
   if (slot <= 0) return 0
-  const idx = Math.round(root.scrollLeft / slot)
-  return Math.max(0, Math.min(panelCount - 1, idx))
+  const raw = root.scrollLeft / slot
+  const floor = Math.floor(raw)
+  const frac = raw - floor
+  const clampedFloor = Math.max(0, Math.min(panelCount - 1, floor))
+
+  if (frac >= 1 - PANEL_SWITCH_BARRIER) {
+    return Math.min(clampedFloor + 1, panelCount - 1)
+  }
+  if (frac <= PANEL_SWITCH_BARRIER && clampedFloor > 0) {
+    return clampedFloor - 1
+  }
+  return clampedFloor
 }
 
 function isIndexAligned(root: HTMLElement, index: number): boolean {
@@ -50,6 +62,7 @@ export function HorizontalScroller({
   const navFromScrollRef = useRef(false)
   const programmaticRef = useRef(false)
   const settleTimerRef = useRef<number | null>(null)
+  const wheelAccumRef = useRef(0)
 
   const routeIndex = controlledIndex ?? internalIndex
   const activeIndex = scrollIndex
@@ -140,15 +153,46 @@ export function HorizontalScroller({
     }
   }, [children.length, controlledIndex, onIndexChange, routeIndex])
 
-  const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
+  useEffect(() => {
     const root = scrollRef.current
     if (!root) return
-    const dx = Math.abs(e.deltaX)
-    const dy = Math.abs(e.deltaY)
-    if (dx > dy * 0.6) {
+
+    const onWheel = (e: WheelEvent) => {
+      const dx = Math.abs(e.deltaX)
+      const dy = Math.abs(e.deltaY)
+      if (dx <= dy * 0.55) return
+
       e.stopPropagation()
+
+      const slot = root.clientWidth
+      if (slot <= 0) return
+
+      const idx = Math.max(0, Math.min(children.length - 1, Math.floor(root.scrollLeft / slot)))
+      const offsetInPanel = root.scrollLeft - idx * slot
+      const atLeft = offsetInPanel <= PANEL_EDGE_PX
+      const atRight = offsetInPanel >= slot - PANEL_EDGE_PX
+      const scrollingRight = e.deltaX > 0
+      const scrollingLeft = e.deltaX < 0
+
+      const wantsNext = atRight && scrollingRight && idx < children.length - 1
+      const wantsPrev = atLeft && scrollingLeft && idx > 0
+
+      if (!wantsNext && !wantsPrev) {
+        wheelAccumRef.current = 0
+        return
+      }
+
+      wheelAccumRef.current += e.deltaX
+      if (Math.abs(wheelAccumRef.current) < WHEEL_BARRIER_PX) {
+        e.preventDefault()
+      } else {
+        wheelAccumRef.current = 0
+      }
     }
-  }
+
+    root.addEventListener('wheel', onWheel, { passive: false })
+    return () => root.removeEventListener('wheel', onWheel)
+  }, [children.length])
 
   return (
     <div
@@ -270,7 +314,6 @@ export function HorizontalScroller({
       <div
         ref={scrollRef}
         className="horizontal-scroller-track module-scroll"
-        onWheel={onWheel}
         style={{
           flex: 1,
           minHeight: 0,

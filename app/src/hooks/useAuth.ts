@@ -96,16 +96,28 @@ export function useAuth(): UseAuthResult {
     }
 
     let cancelled = false
+    let initialDone = false
 
     const finishInitial = () => {
-      if (!cancelled) setLoading(false)
+      if (cancelled || initialDone) return
+      initialDone = true
+      setLoading(false)
     }
 
     setLoading(true)
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      if (cancelled) return
-      void applySession(session?.user ?? null).finally(finishInitial)
-    })
+
+    const safetyTimer = window.setTimeout(finishInitial, 8000)
+
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => applySession(session?.user ?? null))
+      .catch((err) => {
+        console.warn('[useAuth] getSession fehlgeschlagen:', err)
+      })
+      .finally(() => {
+        window.clearTimeout(safetyTimer)
+        finishInitial()
+      })
 
     const {
       data: { subscription },
@@ -115,6 +127,7 @@ export function useAuth(): UseAuthResult {
 
     return () => {
       cancelled = true
+      window.clearTimeout(safetyTimer)
       subscription.unsubscribe()
     }
   }, [applySession])

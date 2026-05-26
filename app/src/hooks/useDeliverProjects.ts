@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { logActivity } from '../lib/activityLog'
 import {
-  coerceStoredDeliverItem,
   deliverProjectToInsertRow,
   deliverProjectToUpdateRow,
   emptyTiptapDoc,
   normalizeDeliverProject,
   rowRecordToDeliverProject,
 } from '../lib/deliverProjectCoercion'
-import { generateId, loadList, saveList } from '../lib/storage'
-import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
+import { generateId } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import type { DeliverProject } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -20,29 +18,13 @@ interface UseDeliverProjectsResult {
   error: string | null
   create: (
     partial?: Partial<Omit<DeliverProject, 'id' | 'brand_id' | 'updated_at'>>,
-  ) => DeliverProject
+  ) => Promise<DeliverProject>
   update: (
     id: string,
     patch: Partial<Omit<DeliverProject, 'id' | 'brand_id'>>,
-  ) => void
-  remove: (id: string) => void
-}
-
-const STORAGE_KEY = 'deliver-projects' as const
-
-function parseDeliverLocalList(brandSlug: string): {
-  raw: unknown[]
-  items: DeliverProject[]
-} {
-  const raw = loadList<unknown>([brandSlug, STORAGE_KEY])
-  const items = raw
-    .map((x) => coerceStoredDeliverItem(x, brandSlug))
-    .filter((x): x is DeliverProject => x != null)
-  return { raw, items }
-}
-
-export function readDeliverProjectsLocal(brandSlug: string): DeliverProject[] {
-  return parseDeliverLocalList(brandSlug).items
+  ) => Promise<void>
+  remove: (id: string) => Promise<void>
+  reload: () => Promise<void>
 }
 
 export function useDeliverProjects(brandSlug: string | undefined): UseDeliverProjectsResult {
@@ -52,29 +34,6 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<DeliverProject[]>([])
   itemsRef.current = items
-  const localOnlyRef = useRef(false)
-
-  const loadLocal = useCallback(() => {
-    if (!brandSlug) return
-    const { raw, items: next } = parseDeliverLocalList(brandSlug)
-    setItems(next)
-    try {
-      if (JSON.stringify(raw) !== JSON.stringify(next)) {
-        saveList([brandSlug, STORAGE_KEY], next)
-      }
-    } catch {
-      /* ignore */
-    }
-    setError(null)
-  }, [brandSlug])
-
-  const persistLocal = useCallback(
-    (next: DeliverProject[]) => {
-      if (!brandSlug) return
-      saveList([brandSlug, STORAGE_KEY], next)
-    },
-    [brandSlug],
-  )
 
   const reload = useCallback(async () => {
     if (!brandSlug) {
@@ -84,9 +43,9 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
       return
     }
     if (!supabase || !brandId) {
-      localOnlyRef.current = true
-      loadLocal()
+      setItems([])
       setLoading(false)
+      setError('Supabase nicht konfiguriert')
       return
     }
     setLoading(true)
@@ -94,70 +53,38 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
       .from('deliver_projects')
       .select('*')
       .eq('owner_brand_id', brandId)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
 
-    if (err && isMissingSupabaseTableError(err.message)) {
-      console.warn('[useDeliverProjects] → localStorage', err.message)
-      localOnlyRef.current = true
-      loadLocal()
-      setLoading(false)
-      return
-    }
     if (err) {
       setError(err.message)
-      const { items: localRows } = parseDeliverLocalList(brandSlug)
-      if (localRows.length > 0) {
-        console.warn('[useDeliverProjects] Supabase-Fehler — zeige localStorage')
-        localOnlyRef.current = true
-        setItems(localRows)
-      } else {
-        setItems([])
-      }
+      setItems([])
       setLoading(false)
       return
     }
-    const serverRows = (data ?? []).map((r) =>
-      rowRecordToDeliverProject(r as Record<string, unknown>),
-    )
-    const { items: localRows } = parseDeliverLocalList(brandSlug)
-
-    if (serverRows.length === 0 && localRows.length > 0) {
-      console.warn(
-        '[useDeliverProjects] Supabase liefert 0 Zeilen — nutze localStorage (leere DB / RLS / noch nicht migriert).',
-      )
-      localOnlyRef.current = true
-      setItems(localRows)
-      setLoading(false)
-      return
-    }
-
-    localOnlyRef.current = false
     setError(null)
-    const byId = new Map<string, DeliverProject>()
-    for (const l of localRows) byId.set(l.id, l)
-    for (const r of serverRows) byId.set(r.id, r)
-    const merged = Array.from(byId.values()).sort((a, b) =>
-      b.updated_at.localeCompare(a.updated_at),
+    setItems(
+      (data ?? []).map((r) => rowRecordToDeliverProject(r as Record<string, unknown>)),
     )
-    setItems(merged)
     setLoading(false)
-  }, [brandId, brandSlug, loadLocal])
+  }, [brandId, brandSlug])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
   const create = useCallback(
-    (
+    async (
       partial?: Partial<Omit<DeliverProject, 'id' | 'brand_id' | 'updated_at'>>,
-    ): DeliverProject => {
-      if (!brandSlug) throw new Error('Kein Brand-Slug')
+    ): Promise<DeliverProject> => {
+      if (!brandSlug || !brandId || !supabase) throw new Error('Supabase nicht konfiguriert')
       const now = new Date().toISOString()
       const item = normalizeDeliverProject(
         {
           id: generateId(),
           name: partial?.name ?? 'Neues Projekt',
           client_name: partial?.client_name ?? '',
+          client_email: partial?.client_email ?? '',
           client_contact_id: partial?.client_contact_id ?? null,
           status: partial?.status ?? 'active',
           internal_stage: partial?.internal_stage,
@@ -167,33 +94,27 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
           team_notes: partial?.team_notes ?? '',
           client_welcome_text: partial?.client_welcome_text ?? '',
           client_documents: partial?.client_documents,
+          deliverables: partial?.deliverables,
+          booking_url: partial?.booking_url,
           updated_at: now,
         },
-        localOnlyRef.current ? brandSlug : (brandId ?? brandSlug),
+        brandId,
       )
 
-      if (localOnlyRef.current || !supabase || !brandId) {
-        const next = [...itemsRef.current, item]
-        setItems(next)
-        persistLocal(next)
-        return item
+      const row = deliverProjectToInsertRow(item, brandId)
+      const { error: insErr } = await supabase.from('deliver_projects').insert(row)
+      if (insErr) {
+        setError(insErr.message)
+        throw new Error(insErr.message)
       }
 
-      const row = deliverProjectToInsertRow(item, brandId)
-      setItems([...itemsRef.current, item])
-      void supabase.from('deliver_projects').insert(row).then(({ error: insErr }) => {
-        if (insErr) {
-          if (isMissingSupabaseTableError(insErr.message)) {
-            localOnlyRef.current = true
-            const next = [...itemsRef.current, item]
-            persistLocal(next)
-            setItems(next)
-          } else {
-            setError(insErr.message)
-            void reload()
-          }
-        }
-      })
+      setItems((prev) => [item, ...prev])
+      if (item.client_contact_id) {
+        await supabase
+          .from('contacts')
+          .update({ deliver_project_id: item.id, updated_at: now })
+          .eq('id', item.client_contact_id)
+      }
       logActivity({
         brand_id: brandId,
         entity_type: 'project',
@@ -204,58 +125,57 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
       })
       return item
     },
-    [brandId, brandSlug, persistLocal, reload],
+    [brandId, brandSlug],
   )
 
   const update = useCallback(
-    (id: string, patch: Partial<Omit<DeliverProject, 'id' | 'brand_id'>>) => {
-      if (!brandSlug) return
-      const now = new Date().toISOString()
-      const prev = itemsRef.current.find((p) => p.id === id)
-      if (!prev) return
-      const merged = normalizeDeliverProject({ ...prev, ...patch, updated_at: now }, prev.brand_id)
-      const next = itemsRef.current.map((p) => (p.id === id ? merged : p))
-      setItems(next)
-      if (localOnlyRef.current || !supabase || !brandId) {
-        persistLocal(next)
+    async (id: string, patch: Partial<Omit<DeliverProject, 'id' | 'brand_id'>>) => {
+      if (!brandSlug || !brandId || !supabase) return
+
+      const { data: currentRow, error: fetchErr } = await supabase
+        .from('deliver_projects')
+        .select('*')
+        .eq('id', id)
+        .eq('owner_brand_id', brandId)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (fetchErr || !currentRow) {
+        setError(fetchErr?.message ?? 'Projekt nicht gefunden')
         return
       }
+
+      const prev = rowRecordToDeliverProject(currentRow as Record<string, unknown>)
+      const now = new Date().toISOString()
+      const merged = normalizeDeliverProject({ ...prev, ...patch, updated_at: now }, prev.brand_id)
       const row = deliverProjectToUpdateRow(patch, now)
-      void supabase
+
+      const { error: updErr } = await supabase
         .from('deliver_projects')
         .update(row)
         .eq('id', id)
         .eq('owner_brand_id', brandId)
-        .then(({ error: updErr }) => {
-          if (updErr) {
-            if (isMissingSupabaseTableError(updErr.message)) {
-              localOnlyRef.current = true
-              persistLocal(next)
-            } else {
-              setError(updErr.message)
-              void reload()
-            }
-          }
-        })
+        .is('deleted_at', null)
 
-      if (
-        patch.internal_stage &&
-        patch.internal_stage !== prev.internal_stage &&
-        brandId
-      ) {
+      if (updErr) {
+        setError(updErr.message)
+        await reload()
+        return
+      }
+
+      setItems((prevItems) => prevItems.map((p) => (p.id === id ? merged : p)))
+
+      if (patch.internal_stage && patch.internal_stage !== prev.internal_stage) {
         logActivity({
           brand_id: brandId,
           entity_type: 'project',
           entity_id: id,
           action: 'stage_changed',
           summary: `${prev.name}: ${prev.internal_stage.replace(/_/g, ' ')} → ${patch.internal_stage.replace(/_/g, ' ')}`,
-          metadata: {
-            from: prev.internal_stage,
-            to: patch.internal_stage,
-          },
+          metadata: { from: prev.internal_stage, to: patch.internal_stage },
         })
       }
-      if (patch.status && patch.status !== prev.status && brandId) {
+      if (patch.status && patch.status !== prev.status) {
         logActivity({
           brand_id: brandId,
           entity_type: 'project',
@@ -265,37 +185,33 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
         })
       }
     },
-    [brandId, brandSlug, persistLocal, reload],
+    [brandId, brandSlug, reload],
   )
 
   const remove = useCallback(
-    (id: string) => {
-      if (!brandSlug) return
-      const next = itemsRef.current.filter((p) => p.id !== id)
-      setItems(next)
-      if (localOnlyRef.current || !supabase || !brandId) {
-        persistLocal(next)
-        return
-      }
-      void supabase
+    async (id: string) => {
+      if (!brandSlug || !brandId || !supabase) return
+      const now = new Date().toISOString()
+      const { error: delErr } = await supabase
         .from('deliver_projects')
-        .delete()
+        .update({ deleted_at: now, updated_at: now })
         .eq('id', id)
         .eq('owner_brand_id', brandId)
-        .then(({ error: delErr }) => {
-          if (delErr) {
-            if (isMissingSupabaseTableError(delErr.message)) {
-              localOnlyRef.current = true
-              persistLocal(next)
-            } else {
-              setError(delErr.message)
-              void reload()
-            }
-          }
-        })
+        .is('deleted_at', null)
+
+      if (delErr) {
+        setError(delErr.message)
+        return
+      }
+      setItems((prev) => prev.filter((p) => p.id !== id))
     },
-    [brandId, brandSlug, persistLocal, reload],
+    [brandId, brandSlug],
   )
 
-  return { items, loading, error, create, update, remove }
+  return { items, loading, error, create, update, remove, reload }
+}
+
+/** @deprecated Preview-only — Supabase ist Single Source of Truth */
+export function readDeliverProjectsLocal(_brandSlug: string): DeliverProject[] {
+  return []
 }

@@ -51,6 +51,7 @@ export function NewLeadWizardModal({
   onSubmit: (payload: {
     company: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>
     person: Partial<Omit<Contact, 'id' | 'brand_id' | 'updated_at'>>
+    initialNote?: string
   }, options?: { skipDuplicateCheck?: boolean }) => void | Promise<void>
 }) {
   const { slug = '' } = useParams<{ slug: string }>()
@@ -135,7 +136,6 @@ export function NewLeadWizardModal({
         lead_source: leadSource,
         pipeline_stage: 'first_contact',
         contact_status: 'not_contacted',
-        notes: note.trim(),
       },
       person: {
         contact_type: 'person',
@@ -148,6 +148,7 @@ export function NewLeadWizardModal({
         pipeline_stage: 'first_contact',
         contact_status: 'not_contacted',
       },
+      initialNote: note.trim() || undefined,
     }, { skipDuplicateCheck: skipDup || forceCreate })
     reset()
     onClose()

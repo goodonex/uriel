@@ -236,6 +236,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/onboarding/:brandId" element={<OnboardingPublicPage />} />
+            <Route path="/portal/:projectId/crm" element={<PortalRoute crm />} />
             <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
             <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />

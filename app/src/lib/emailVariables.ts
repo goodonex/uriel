@@ -55,6 +55,18 @@ export function renderEmailTemplate(template: string, ctx: EmailVarContext): str
   return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, raw: string) => {
     const key = raw.trim()
     if (key === 'first_name') return firstName(ctx.contact.name ?? '')
+    if (key === 'datum') {
+      return new Date().toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    }
+    if (key === 'anrede') {
+      const parts = (ctx.contact.name ?? '').trim().split(/\s+/)
+      const last = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? ''
+      return last ? `Herr/Frau ${last}` : ''
+    }
     if (key === 'brand.name') return ctx.brandName ?? ''
     if (key === 'brand.positioning') return ctx.positioning?.statement ?? ''
     if (PRIMITIVE_KEYS.includes(key as keyof Contact)) {

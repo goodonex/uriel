@@ -1,11 +1,6 @@
 /**
- * send-email — Versendet eine E-Mail via Resend + injectet einen Open-Tracking-Pixel
- *                und schreibt einen Eintrag in sales_email_logs.
- *
- * Aufrufer (Client): per supabase.functions.invoke('send-email', { body })
- * Aufrufer (Worker process-sequences): mit Service-Role-Auth.
- *
- * Secrets: RESEND_API_KEY, optional RESEND_FROM_EMAIL, RESEND_FROM_NAME, PUBLIC_API_BASE
+ * send-email — Versendet E-Mails via Resend.
+ * Modes: sales (default) | project_message (Deliver notifications)
  */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -16,7 +11,8 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-interface SendBody {
+interface SalesSendBody {
+  mode?: 'sales'
   brand_id: string
   contact_id: string
   subject: string
@@ -28,6 +24,15 @@ interface SendBody {
   from_name?: string | null
 }
 
+interface ProjectMessageBody {
+  mode: 'project_message'
+  project_id: string
+  message_id: string
+  sender_role: 'owner' | 'client'
+}
+
+type SendBody = SalesSendBody | ProjectMessageBody
+
 interface ResendResp {
   id?: string
   message?: string
@@ -35,9 +40,7 @@ interface ResendResp {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
-  if (req.method !== 'POST') {
-    return json({ error: 'method_not_allowed' }, 405)
-  }
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
   if (!RESEND_API_KEY) return json({ error: 'resend_api_key_missing' }, 500)
@@ -45,17 +48,14 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const PUBLIC_API_BASE = Deno.env.get('PUBLIC_API_BASE') ?? SUPABASE_URL
+  const PUBLIC_APP_URL = (Deno.env.get('PUBLIC_APP_URL') ?? 'http://localhost:5173').replace(/\/$/, '')
 
   const auth = req.headers.get('authorization') ?? ''
-  // Wenn der Aufruf vom Client kommt, validieren wir gegen die User-JWT.
-  // Wenn intern (Worker), erlauben wir Service-Role-Auth (kein User).
   const isInternal = auth.includes(SERVICE_ROLE)
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: isInternal
-      ? undefined
-      : { headers: { Authorization: auth } },
+    global: isInternal ? undefined : { headers: { Authorization: auth } },
   })
 
   let payload: SendBody
@@ -65,12 +65,164 @@ Deno.serve(async (req) => {
     return json({ error: 'invalid_json' }, 400)
   }
 
+  if (payload.mode === 'project_message') {
+    return handleProjectMessage(
+      supabase,
+      payload,
+      auth,
+      isInternal,
+      RESEND_API_KEY,
+      PUBLIC_APP_URL,
+    )
+  }
+
+  return handleSalesEmail(
+    supabase,
+    payload as SalesSendBody,
+    auth,
+    isInternal,
+    RESEND_API_KEY,
+    PUBLIC_API_BASE,
+  )
+})
+
+async function handleProjectMessage(
+  supabase: ReturnType<typeof createClient>,
+  payload: ProjectMessageBody,
+  auth: string,
+  isInternal: boolean,
+  resendKey: string,
+  publicAppUrl: string,
+) {
+  if (!payload.project_id || !payload.message_id || !payload.sender_role) {
+    return json({ error: 'missing_fields' }, 400)
+  }
+
+  const { data: message, error: mErr } = await supabase
+    .from('project_messages')
+    .select('id, project_id, sender_role, sender_name, body')
+    .eq('id', payload.message_id)
+    .eq('project_id', payload.project_id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (mErr || !message) return json({ error: 'message_not_found' }, 404)
+
+  const { data: project, error: pErr } = await supabase
+    .from('deliver_projects')
+    .select('id, name, owner_brand_id, client_email, client_name, deleted_at')
+    .eq('id', payload.project_id)
+    .maybeSingle()
+
+  if (pErr || !project || project.deleted_at) {
+    return json({ error: 'project_not_found' }, 404)
+  }
+
+  const { data: brand, error: bErr } = await supabase
+    .from('brands')
+    .select('id, user_id, name, slug')
+    .eq('id', project.owner_brand_id)
+    .maybeSingle()
+
+  if (bErr || !brand) return json({ error: 'brand_not_found' }, 404)
+
+  if (!isInternal) {
+    const { data: userResp } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
+    if (!userResp.user) return json({ error: 'unauthorized' }, 401)
+    const uid = userResp.user.id
+    const isOwner = brand.user_id === uid
+    const isClient =
+      payload.sender_role === 'client' &&
+      (await clientOwnsProject(supabase, uid, payload.project_id))
+    const isOwnerSender =
+      payload.sender_role === 'owner' && isOwner
+    if (!isOwnerSender && !isClient) {
+      return json({ error: 'forbidden' }, 403)
+    }
+  }
+
+  let toEmail = ''
+  let subject = ''
+  let deepLink = ''
+  const preview = message.body.slice(0, 240)
+
+  if (payload.sender_role === 'client') {
+    const { data: ownerUser } = await supabase.auth.admin.getUserById(brand.user_id)
+    toEmail = ownerUser?.user?.email ?? ''
+    subject = `Neue Nachricht von ${message.sender_name ?? project.client_name ?? 'Kunde'} — ${project.name}`
+    deepLink = `${publicAppUrl}/brand/${brand.slug}/deliver/${project.id}`
+  } else {
+    toEmail = project.client_email ?? ''
+    subject = `Neue Nachricht zu „${project.name}"`
+    deepLink = `${publicAppUrl}/portal/${project.id}`
+  }
+
+  if (!toEmail) return json({ error: 'recipient_has_no_email' }, 400)
+
+  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@example.com'
+  const fromName = Deno.env.get('RESEND_FROM_NAME') ?? brand.name ?? 'Brand OS'
+
+  const htmlBody = `<!doctype html><html><body style="margin:0;padding:24px;background:#fafafa;">
+<div style="max-width:560px;margin:0 auto;background:#fff;padding:32px;border-radius:12px;font-family:system-ui,sans-serif;">
+  <h2 style="font-size:18px;margin:0 0 12px;color:#111;">${escapeHtml(subject)}</h2>
+  <p style="font-size:14px;line-height:1.6;color:#444;white-space:pre-wrap;">${escapeHtml(preview)}</p>
+  <p style="margin:24px 0 0;">
+    <a href="${deepLink}" style="display:inline-block;background:#111;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;">Nachricht öffnen</a>
+  </p>
+</div></body></html>`
+
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${resendKey}`,
+    },
+    body: JSON.stringify({
+      from: `${fromName} <${fromEmail}>`,
+      to: [toEmail],
+      subject,
+      html: htmlBody,
+      text: `${preview}\n\nNachricht öffnen: ${deepLink}`,
+    }),
+  })
+
+  const resendJson: ResendResp = await resendRes.json().catch(() => ({}))
+  if (!resendRes.ok) {
+    return json(
+      { ok: false, error: 'resend_failed', detail: resendJson.message ?? 'unknown' },
+      resendRes.status,
+    )
+  }
+
+  return json({ ok: true, resend_id: resendJson.id })
+}
+
+async function clientOwnsProject(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  projectId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('project_id')
+    .eq('user_id', userId)
+    .eq('role', 'client')
+    .maybeSingle()
+  return data?.project_id === projectId
+}
+
+async function handleSalesEmail(
+  supabase: ReturnType<typeof createClient>,
+  payload: SalesSendBody,
+  auth: string,
+  isInternal: boolean,
+  resendKey: string,
+  publicApiBase: string,
+) {
   if (!payload.brand_id || !payload.contact_id || !payload.subject || !payload.body) {
     return json({ error: 'missing_fields' }, 400)
   }
 
-  // Kontakt + E-Mail-Adresse laden (Service-Role umgeht RLS; für externe Aufrufer prüfen wir
-  // unten via brand_id ownership-check)
   const { data: contact, error: cErr } = await supabase
     .from('contacts')
     .select('id, brand_id, email, name')
@@ -81,7 +233,6 @@ Deno.serve(async (req) => {
   if (contact.brand_id !== payload.brand_id) return json({ error: 'brand_mismatch' }, 403)
   if (!contact.email) return json({ error: 'contact_has_no_email' }, 400)
 
-  // Brand laden (für Owner-Check + Defaults)
   const { data: brand } = await supabase
     .from('brands')
     .select('id, user_id, name')
@@ -90,16 +241,14 @@ Deno.serve(async (req) => {
   if (!brand) return json({ error: 'brand_not_found' }, 404)
 
   if (!isInternal) {
-    // Auth-Token validieren → user_id muss zur brand passen
     const { data: userResp } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
     if (!userResp.user || userResp.user.id !== brand.user_id) {
       return json({ error: 'unauthorized' }, 403)
     }
   }
 
-  // Tracking-ID + Pixel-URL bauen
   const trackingId = crypto.randomUUID()
-  const pixelUrl = `${PUBLIC_API_BASE}/functions/v1/track-open?id=${trackingId}`
+  const pixelUrl = `${publicApiBase}/functions/v1/track-open?id=${trackingId}`
 
   const fromEmail =
     (payload.from_email && payload.from_email.trim()) ||
@@ -111,16 +260,14 @@ Deno.serve(async (req) => {
     brand.name ||
     'Brand OS'
 
-  // HTML-Body bauen (mit Pixel) — bei Plain-Text wandeln wir Zeilenumbrüche in <br>
   const htmlBody = wrapHtml(payload.body, pixelUrl)
   const textBody = stripHtml(payload.body)
 
-  // Resend-API
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${RESEND_API_KEY}`,
+      Authorization: `Bearer ${resendKey}`,
     },
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
@@ -128,9 +275,7 @@ Deno.serve(async (req) => {
       subject: payload.subject,
       html: htmlBody,
       text: textBody,
-      headers: {
-        'X-Tracking-Id': trackingId,
-      },
+      headers: { 'X-Tracking-Id': trackingId },
     }),
   })
 
@@ -142,7 +287,6 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Log schreiben
   const { data: log, error: lErr } = await supabase
     .from('sales_email_logs')
     .insert({
@@ -163,11 +307,8 @@ Deno.serve(async (req) => {
     .select('id')
     .maybeSingle()
 
-  if (lErr) {
-    return json({ error: 'log_insert_failed', detail: lErr.message }, 500)
-  }
+  if (lErr) return json({ error: 'log_insert_failed', detail: lErr.message }, 500)
 
-  // Letzter-Kontakt + Activity-Log
   await supabase
     .from('contacts')
     .update({ last_contact_at: new Date().toISOString() })
@@ -179,7 +320,7 @@ Deno.serve(async (req) => {
     tracking_id: trackingId,
     resend_id: resendJson.id,
   })
-})
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -197,7 +338,6 @@ function escapeHtml(s: string): string {
 }
 
 function wrapHtml(rawBody: string, pixelUrl: string): string {
-  // Erkennt grob, ob der Body bereits HTML enthält
   const looksLikeHtml = /<\w+[^>]*>/.test(rawBody)
   const inner = looksLikeHtml
     ? rawBody

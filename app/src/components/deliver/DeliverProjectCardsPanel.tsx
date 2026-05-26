@@ -45,14 +45,19 @@ export function DeliverProjectCardsPanel({ filter }: { filter: Filter }) {
   const handleCreateFromDrawer = () => {
     if (!slug) return
     const c = contacts.items.find((x) => x.id === formContactId)
-    const p = projects.create({
-      name: formName.trim() || 'Neues Projekt',
-      client_contact_id: c ? c.id : null,
-      client_name: c ? (c.name || c.email || '') : '',
-      status: 'active',
-    })
-    setDrawerOpen(false)
-    navigate(`/brand/${slug}/deliver/${p.id}`, { state: { showClientInvite: true } })
+    void projects
+      .create({
+        name: formName.trim() || 'Neues Projekt',
+        client_contact_id: c ? c.id : null,
+        client_name: c ? (c.name || c.email || '') : '',
+        client_email: c?.email?.trim() ?? '',
+        status: 'active',
+      })
+      .then((p) => {
+        setDrawerOpen(false)
+        navigate(`/brand/${slug}/deliver/${p.id}`, { state: { showClientInvite: true } })
+      })
+      .catch(() => {})
   }
 
   const clientDisplay = (p: DeliverProject) => {

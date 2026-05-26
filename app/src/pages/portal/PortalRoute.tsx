@@ -62,18 +62,18 @@ function RequireClientPortalGate({ children }: { children: ReactNode }) {
 }
 
 /** Preview: ?preview=true — lädt Projekt aus localStorage (Entwicklung, kein Login). */
-export function PortalRoute() {
+export function PortalRoute({ crm = false }: { crm?: boolean }) {
   const [searchParams] = useSearchParams()
   const preview = searchParams.get('preview') === 'true'
 
   if (preview) {
-    return <ClientPortal preview />
+    return <ClientPortal preview crm={crm} />
   }
 
   return (
     <RequireAuthShell>
       <RequireClientPortalGate>
-        <ClientPortal preview={false} />
+        <ClientPortal preview={false} crm={crm} />
       </RequireClientPortalGate>
     </RequireAuthShell>
   )

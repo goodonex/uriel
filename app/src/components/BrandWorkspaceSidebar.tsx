@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { motion } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ModeKey } from '../types/db'
 import { useBrands } from '../hooks/useBrands'
@@ -14,7 +14,8 @@ import {
 } from '../context/ScrollSectionContext'
 import { useCommandPalette } from '../lib/commandPaletteContext'
 import { ClosedModulesTray } from './ClosedModulesTray'
-import { NotificationBell } from './NotificationBell'
+import { FlyoutLink, SidebarSubmenuFlyout } from './SidebarSubmenuFlyout'
+import { PROMO_PANELS, promoPathForPanel } from '../lib/horizontalPanels'
 
 const COLLAPSED_W = 64
 const EXPANDED_W = 240
@@ -143,9 +144,14 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const isDrawer = layout === 'drawer'
   const [hoverOpen, setHoverOpen] = useState(false)
   const [tapPinned, setTapPinned] = useState(false)
+  const hoverCloseTimer = useRef<number | null>(null)
 
-  const expanded = isDrawer || hoverOpen || tapPinned
-  const w = expanded ? EXPANDED_W : COLLAPSED_W
+  const cancelHoverClose = () => {
+    if (hoverCloseTimer.current !== null) {
+      window.clearTimeout(hoverCloseTimer.current)
+      hoverCloseTimer.current = null
+    }
+  }
 
   const base = `/brand/${slug}`
 
@@ -176,18 +182,94 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   )
 
   const [hoveredSection, setHoveredSection] = useState<BrandNavSection | null>(null)
+  const [flyoutPinned, setFlyoutPinned] = useState<
+    'sales' | 'deliver' | 'intelligence' | 'promo' | null
+  >(null)
+  const flyoutClearTimer = useRef<number | null>(null)
+
+  // Sidebar bleibt expanded, solange ein Flyout sichtbar ist, damit die Sub-Items
+  // (Listen, Projekte, …) auch erreichbar sind, ohne dass die Sidebar erst zuklappt.
+  const scheduleHoverClose = () => {
+    cancelHoverClose()
+    hoverCloseTimer.current = window.setTimeout(() => {
+      setHoverOpen(false)
+    }, 180)
+  }
+
+  const cancelFlyoutClear = () => {
+    if (flyoutClearTimer.current !== null) {
+      window.clearTimeout(flyoutClearTimer.current)
+      flyoutClearTimer.current = null
+    }
+  }
+
+  const scheduleFlyoutClear = () => {
+    cancelFlyoutClear()
+    flyoutClearTimer.current = window.setTimeout(() => {
+      setFlyoutPinned(null)
+      setHoveredSection(null)
+    }, 160)
+  }
+
+  const openFlyout = (section: 'sales' | 'deliver' | 'intelligence' | 'promo') => {
+    cancelHoverClose()
+    cancelFlyoutClear()
+    setHoveredSection(section)
+    setFlyoutPinned(section)
+  }
+
+  const collapseAll = () => {
+    cancelHoverClose()
+    cancelFlyoutClear()
+    setHoverOpen(false)
+    setHoveredSection(null)
+    setFlyoutPinned(null)
+  }
+
+  // Nach jedem Routenwechsel Hover-States zurücksetzen — sonst hängt die
+  // Sidebar offen, wenn man im Flyout auf einen Link klickt (das Flyout-DOM
+  // unmounted, bevor sein onMouseLeave feuern kann).
+  useEffect(() => {
+    if (isDrawer || tapPinned) return
+    collapseAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
+  // Sicherheitsnetz: wenn der Maus das Browserfenster verlässt oder Tab den
+  // Fokus verliert, Sidebar zumachen (ausser fest gepinnt).
+  useEffect(() => {
+    if (isDrawer || tapPinned) return
+    const onDocLeave = (e: MouseEvent) => {
+      if (e.relatedTarget === null) collapseAll()
+    }
+    const onBlur = () => collapseAll()
+    document.addEventListener('mouseleave', onDocLeave)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      document.removeEventListener('mouseleave', onDocLeave)
+      window.removeEventListener('blur', onBlur)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDrawer, tapPinned])
+
+  const anyFlyoutOpen = flyoutPinned !== null || hoveredSection !== null
+  const expanded = isDrawer || hoverOpen || tapPinned || anyFlyoutOpen
+  const w = expanded ? EXPANDED_W : COLLAPSED_W
+
   const signals = useSidebarSignals(slug)
   const { openPalette } = useCommandPalette()
   const platformShortcut = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl K'
   const deliverSectionActive = active === 'deliver'
-  const showDeliverSubmenu =
-    expanded &&
-    activeDeliverProjects.length > 0 &&
-    (hoveredSection === 'deliver' || deliverSectionActive)
+  const flyoutLeft = FLOAT_DOCK_INSET + w + 10
 
-  const salesSectionActive = salesBranchActive
-  const showSalesSubmenu =
-    expanded && (hoveredSection === 'sales' || salesSectionActive)
+  const showSalesFlyout =
+    flyoutPinned === 'sales' || hoveredSection === 'sales'
+  const showDeliverFlyout =
+    (flyoutPinned === 'deliver' || hoveredSection === 'deliver') &&
+    activeDeliverProjects.length > 0
+  const showIntelligenceFlyout =
+    flyoutPinned === 'intelligence' || hoveredSection === 'intelligence'
+  const showPromoFlyout = flyoutPinned === 'promo' || hoveredSection === 'promo'
 
   const floatDockStyle = {
     position: 'fixed' as const,
@@ -235,12 +317,13 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
       className="font-body flex flex-col"
       style={shellStyle}
       onMouseEnter={() => {
-        if (!isDrawer) setHoverOpen(true)
+        if (!isDrawer) {
+          cancelHoverClose()
+          setHoverOpen(true)
+        }
       }}
       onMouseLeave={() => {
-        if (!isDrawer) {
-          setHoverOpen(false)
-        }
+        if (!isDrawer) scheduleHoverClose()
       }}
     >
       <div
@@ -359,7 +442,6 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
               </>
             ) : null}
           </button>
-          <NotificationBell slug={slug} collapsed={!expanded} />
         </div>
 
         <nav className="space-y-0.5" style={{ marginRight: -4 }}>
@@ -375,11 +457,9 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
 
             const isDeliverItem = item.section === 'deliver'
             const isSalesItem = item.section === 'sales'
-            const submenuVisibleHere = isDeliverItem
-              ? showDeliverSubmenu
-              : isSalesItem
-                ? showSalesSubmenu
-                : false
+            const isIntelligenceItem = item.section === 'intelligence'
+            const isPromoItem = item.section === 'promo'
+            const hasFlyout = isDeliverItem || isSalesItem || isIntelligenceItem || isPromoItem
 
             const salesTo =
               isSalesItem && contactLists.lists.length === 1
@@ -391,10 +471,20 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
             return (
               <div
                 key={item.section}
-                onMouseEnter={() => setHoveredSection(item.section)}
-                onMouseLeave={() =>
-                  setHoveredSection((curr) => (curr === item.section ? null : curr))
-                }
+                onMouseEnter={() => {
+                  if (hasFlyout) {
+                    openFlyout(item.section as 'sales' | 'deliver' | 'intelligence' | 'promo')
+                  } else {
+                    setHoveredSection(item.section)
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (hasFlyout) {
+                    scheduleFlyoutClear()
+                  } else {
+                    setHoveredSection((curr) => (curr === item.section ? null : curr))
+                  }
+                }}
               >
                 <Link
                   to={isSalesItem ? salesTo : to}
@@ -407,9 +497,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     const key = navSectionToScrollKey(item.section)
                     scrollCtx.setActiveSection(key)
                     scrollCtx.scrollToSection(key)
-                    if (isSalesItem) {
-                      navigate(`${base}/sales`, { replace: true })
-                    }
+                    navigate(isSalesItem ? `${base}/sales` : to, { replace: true })
                   }}
                   className="group relative flex items-center rounded-lg"
                   style={{
@@ -525,181 +613,6 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     </span>
                   ) : null}
                 </Link>
-
-                <AnimatePresence initial={false}>
-                  {submenuVisibleHere && isDeliverItem ? (
-                    <motion.ul
-                      key="deliver-submenu"
-                      initial={{ opacity: 0, height: 0, y: -4 }}
-                      animate={{ opacity: 1, height: 'auto', y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -4 }}
-                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex flex-col gap-0.5 overflow-hidden"
-                      style={{
-                        marginLeft: 18,
-                        paddingLeft: 10,
-                        borderLeft: '1px solid var(--glass-border-1)',
-                        marginTop: 2,
-                        marginBottom: 4,
-                      }}
-                    >
-                      {activeDeliverProjects.map((p) => {
-                        const projectActive = activeProjectId === p.id
-                        return (
-                          <li key={p.id}>
-                            <Link
-                              to={`${base}/deliver/${p.id}`}
-                              title={p.name}
-                              data-no-scale
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                scrollCtx?.scrollToSection('deliver')
-                              }}
-                              className="flex items-center gap-2 rounded-lg truncate transition-colors"
-                              style={{
-                                textDecoration: 'none',
-                                padding: '5px 8px',
-                                fontSize: 11,
-                                color: projectActive
-                                  ? 'var(--accent-teal)'
-                                  : 'var(--text-secondary)',
-                                background: projectActive ? 'var(--glass-2)' : 'transparent',
-                                border: `1px solid ${
-                                  projectActive ? 'var(--glass-border-2)' : 'transparent'
-                                }`,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 4,
-                                  height: 4,
-                                  borderRadius: '50%',
-                                  background: projectActive
-                                    ? 'var(--accent-teal)'
-                                    : 'var(--text-tertiary)',
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span
-                                className="truncate"
-                                style={{ fontWeight: projectActive ? 600 : 400 }}
-                              >
-                                {p.name}
-                              </span>
-                            </Link>
-                          </li>
-                        )
-                      })}
-                    </motion.ul>
-                  ) : null}
-                  {submenuVisibleHere && isSalesItem ? (
-                    <motion.ul
-                      key="sales-submenu"
-                      initial={{ opacity: 0, height: 0, y: -4 }}
-                      animate={{ opacity: 1, height: 'auto', y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -4 }}
-                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex flex-col gap-0.5 overflow-hidden"
-                      style={{
-                        marginLeft: 18,
-                        paddingLeft: 10,
-                        borderLeft: '1px solid var(--glass-border-1)',
-                        marginTop: 2,
-                        marginBottom: 4,
-                      }}
-                    >
-                      <li>
-                        <Link
-                          to={`${base}/sales`}
-                          data-no-scale
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            scrollCtx?.scrollToSection('sales')
-                          }}
-                          className="flex items-center gap-2 rounded-lg truncate"
-                          style={{
-                            textDecoration: 'none',
-                            padding: '5px 8px',
-                            fontSize: 11,
-                            color:
-                              active === 'sales' && !activeSalesListId
-                                ? 'var(--mode-sales)'
-                                : 'var(--text-secondary)',
-                            background:
-                              active === 'sales' && !activeSalesListId
-                                ? 'var(--glass-2)'
-                                : 'transparent',
-                          }}
-                        >
-                          Pipeline
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          to={`${base}/sales/lists`}
-                          data-no-scale
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2 rounded-lg truncate"
-                          style={{
-                            textDecoration: 'none',
-                            padding: '5px 8px',
-                            fontSize: 11,
-                            color:
-                              active === 'sales_lists' && !activeSalesListId
-                                ? 'var(--mode-sales)'
-                                : 'var(--text-secondary)',
-                            background:
-                              active === 'sales_lists' && !activeSalesListId
-                                ? 'var(--glass-2)'
-                                : 'transparent',
-                          }}
-                        >
-                          Alle Listen
-                        </Link>
-                      </li>
-                      {contactLists.lists.map((l) => {
-                        const listActive = activeSalesListId === l.id
-                        return (
-                          <li key={l.id}>
-                            <Link
-                              to={`${base}/sales/lists/${l.id}`}
-                              title={l.name}
-                              data-no-scale
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                scrollCtx?.scrollToSection('sales')
-                              }}
-                              className="flex items-center gap-2 rounded-lg truncate"
-                              style={{
-                                textDecoration: 'none',
-                                padding: '5px 8px',
-                                fontSize: 11,
-                                color: listActive ? 'var(--mode-sales)' : 'var(--text-secondary)',
-                                background: listActive ? 'var(--glass-2)' : 'transparent',
-                                border: `1px solid ${
-                                  listActive ? 'var(--glass-border-2)' : 'transparent'
-                                }`,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 4,
-                                  height: 4,
-                                  borderRadius: '50%',
-                                  background: listActive
-                                    ? 'var(--mode-sales)'
-                                    : 'var(--text-tertiary)',
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span className="truncate">{l.name}</span>
-                            </Link>
-                          </li>
-                        )
-                      })}
-                    </motion.ul>
-                  ) : null}
-                </AnimatePresence>
               </div>
             )
           })}
@@ -752,13 +665,136 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   return (
     <div style={floatDockStyle}>
       {aside}
+      <SidebarSubmenuFlyout
+        visible={showSalesFlyout}
+        left={flyoutLeft}
+        title="Sales"
+        accentVar="--mode-sales"
+        onMouseEnter={() => openFlyout('sales')}
+        onMouseLeave={scheduleFlyoutClear}
+      >
+        <FlyoutLink
+          to={`${base}/sales`}
+          label="Pipeline"
+          accentVar="--mode-sales"
+          active={active === 'sales' && !activeSalesListId}
+          onClick={() => scrollCtx?.scrollToSection('sales')}
+        />
+        <FlyoutLink
+          to={`${base}/sales/lists`}
+          label="Alle Listen"
+          accentVar="--mode-sales"
+          active={active === 'sales_lists' && !activeSalesListId}
+        />
+        {contactLists.lists.map((l) => (
+          <FlyoutLink
+            key={l.id}
+            to={`${base}/sales/lists/${l.id}`}
+            label={l.name}
+            accentVar="--mode-sales"
+            active={activeSalesListId === l.id}
+            onClick={() => scrollCtx?.scrollToSection('sales')}
+          />
+        ))}
+      </SidebarSubmenuFlyout>
+
+      <SidebarSubmenuFlyout
+        visible={showDeliverFlyout}
+        left={flyoutLeft}
+        title="Deliver"
+        accentVar="--accent-teal"
+        onMouseEnter={() => openFlyout('deliver')}
+        onMouseLeave={scheduleFlyoutClear}
+      >
+        <FlyoutLink
+          to={`${base}/deliver`}
+          label="Alle Projekte"
+          accentVar="--accent-teal"
+          active={deliverSectionActive && !activeProjectId}
+          onClick={() => scrollCtx?.scrollToSection('deliver')}
+        />
+        {activeDeliverProjects.map((p) => (
+          <FlyoutLink
+            key={p.id}
+            to={`${base}/deliver/${p.id}`}
+            label={p.name}
+            accentVar="--accent-teal"
+            active={activeProjectId === p.id}
+            onClick={() => scrollCtx?.scrollToSection('deliver')}
+          />
+        ))}
+      </SidebarSubmenuFlyout>
+
+      <SidebarSubmenuFlyout
+        visible={showIntelligenceFlyout}
+        left={flyoutLeft}
+        title="Intelligence"
+        accentVar="--mode-intelligence"
+        onMouseEnter={() => openFlyout('intelligence')}
+        onMouseLeave={scheduleFlyoutClear}
+      >
+        <FlyoutLink
+          to={`${base}/intelligence`}
+          label="Übersicht"
+          accentVar="--mode-intelligence"
+          active={active === 'intelligence'}
+          onClick={() => scrollCtx?.scrollToSection('intelligence')}
+        />
+        <FlyoutLink
+          to={`${base}/intelligence`}
+          label="Morning Brief"
+          accentVar="--mode-intelligence"
+          active={false}
+          onClick={() => scrollCtx?.scrollToSection('intelligence')}
+        />
+        <FlyoutLink
+          to={`${base}/intelligence`}
+          label="Live Reports"
+          accentVar="--mode-intelligence"
+          active={false}
+          onClick={() => scrollCtx?.scrollToSection('intelligence')}
+        />
+        <FlyoutLink
+          to={`${base}/intelligence`}
+          label="Focus"
+          accentVar="--mode-intelligence"
+          active={false}
+          onClick={() => scrollCtx?.scrollToSection('intelligence')}
+        />
+      </SidebarSubmenuFlyout>
+
+      <SidebarSubmenuFlyout
+        visible={showPromoFlyout}
+        left={flyoutLeft}
+        title="Promo"
+        accentVar="--mode-promo"
+        onMouseEnter={() => openFlyout('promo')}
+        onMouseLeave={scheduleFlyoutClear}
+      >
+        {PROMO_PANELS.map((panel, index) => (
+          <FlyoutLink
+            key={panel.id}
+            to={promoPathForPanel(slug, index)}
+            label={panel.label}
+            accentVar="--mode-promo"
+            active={
+              active === 'promo' &&
+              (panel.segment
+                ? pathname.includes(`/promo/${panel.segment}`)
+                : /\/promo\/?$/.test(pathname))
+            }
+            onClick={() => scrollCtx?.scrollToSection('promo')}
+          />
+        ))}
+      </SidebarSubmenuFlyout>
     </div>
   )
 }
 
 /**
- * Abstand für Haupt-Module & Seiteninhalt: Dock links + **aufgeklappte** Sidebar-Breite + Luft,
- * damit Hover-Expand nicht über den Inhalt legt.
+ * Abstand für Haupt-Module & Seiteninhalt: Dock links + **eingeklappte** Sidebar-Breite + kleine Luft.
+ * Beim Hover-Expand floatet die (semi-transparente, blurred) Sidebar sauber über den Content,
+ * statt rechts daneben einen toten Streifen zu hinterlassen.
  */
-export const BRAND_FLOAT_MAIN_LEFT_X = FLOAT_DOCK_INSET + EXPANDED_W + 16
+export const BRAND_FLOAT_MAIN_LEFT_X = FLOAT_DOCK_INSET + COLLAPSED_W + 16
 export const BRAND_FLOAT_SIDEBAR_CLEARANCE_X = BRAND_FLOAT_MAIN_LEFT_X

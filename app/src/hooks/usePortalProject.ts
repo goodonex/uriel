@@ -104,6 +104,7 @@ export function usePortalProject(
         .from('deliver_projects')
         .select('*')
         .eq('id', projectId)
+        .is('deleted_at', null)
         .maybeSingle()
 
       if (cancelled) return

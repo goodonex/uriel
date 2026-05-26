@@ -362,6 +362,13 @@ export interface Contact {
   lost_reason?: string
   referred_by_id?: string | null
   referral_source?: string
+  /** Deliver-Portal: zugeordnetes Projekt */
+  deliver_project_id?: string | null
+  /** Client-sichtbarer Lead-Status im Portal */
+  portal_lead_status?: PortalLeadStatus
+  /** Client-Notizen pro Lead im Portal-CRM */
+  portal_notes?: string | null
+  created_at?: string
   updated_at: string
 }
 
@@ -471,12 +478,51 @@ export interface ContactListItem {
   created_at: string
 }
 
+export type PortalLeadStatus = 'new' | 'contacted' | 'qualified' | 'closed' | 'lost'
+
+export const PORTAL_LEAD_STATUS_LABEL: Record<PortalLeadStatus, string> = {
+  new: 'Neu',
+  contacted: 'Kontaktiert',
+  qualified: 'Qualifiziert',
+  closed: 'Abgeschlossen',
+  lost: 'Verloren',
+}
+
 export type DeliverableStatus = 'geplant' | 'in_arbeit' | 'fertig'
 
+export const DELIVERABLE_STATUS_LABEL: Record<DeliverableStatus, string> = {
+  geplant: 'Ausstehend',
+  in_arbeit: 'In Arbeit',
+  fertig: 'Fertig',
+}
+
+export type DeliverableType =
+  | 'brand_strategy'
+  | 'logo'
+  | 'brand_guidelines'
+  | 'color_palette'
+  | 'typography'
+  | 'moodboard'
+  | 'sitemap'
+  | 'design_concept'
+  | 'website_development'
+  | 'website_live_url'
+  | 'performance_score'
+  | 'custom'
+
+export type DeliverableArea = 'branding' | 'website' | 'leadgen'
+
 export interface DeliverableItem {
+  id: string
+  type?: DeliverableType
   title: string
   status: DeliverableStatus
   updated_at: string
+  url?: string
+  description?: string
+  added_at?: string
+  progress?: number
+  area?: DeliverableArea
 }
 
 export type DeliverProjectStage =
@@ -501,6 +547,16 @@ export interface ClientDocumentLink {
   description?: string
 }
 
+export type DeliverStageDurations = Record<DeliverProjectStage, string>
+
+export const DEFAULT_STAGE_DURATIONS: DeliverStageDurations = {
+  onboarding: '1 Woche',
+  discover: '2 Wochen',
+  inner_world: '2 Wochen',
+  visual_world: '3 Wochen',
+  execute: '4 Wochen',
+}
+
 export interface DeliverProject {
   id: string
   brand_id: string
@@ -519,7 +575,20 @@ export interface DeliverProject {
   client_documents: ClientDocumentLink[]
   deliverables: DeliverableItem[]
   booking_url: string
+  stage_durations: DeliverStageDurations
+  deleted_at: string | null
   updated_at: string
+}
+
+export interface ProjectMessage {
+  id: string
+  project_id: string
+  sender_role: 'owner' | 'client'
+  sender_name: string | null
+  body: string
+  read_at: string | null
+  deleted_at: string | null
+  created_at: string
 }
 
 /* --- Intelligence / Focus (Phase 6) --- */
@@ -595,8 +664,31 @@ export interface SalesEmailTemplate {
   stage: string | null
   variables: string[]
   sort_order: number
+  last_used_at: string | null
+  use_count: number
   created_at: string
   updated_at: string
+}
+
+export type ActivityEntryType =
+  | 'presetting'
+  | 'setting'
+  | 'closing'
+  | 'terminierung'
+  | 'unqualified'
+  | 'noshow'
+  | 'followup'
+  | 'formular'
+  | 'notiz'
+
+export interface ActivityEntry {
+  id: string
+  brand_id: string
+  contact_id: string
+  activity_type: ActivityEntryType
+  performed_by: string | null
+  data: Record<string, unknown>
+  created_at: string
 }
 
 export type SalesEmailDirection = 'outbound' | 'inbound'

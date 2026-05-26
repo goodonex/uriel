@@ -237,6 +237,8 @@ interface UseEmailTemplatesResult extends BaseResult<SalesEmailTemplate> {
   create: (input: Partial<SalesEmailTemplate> & { name: string }) => Promise<SalesEmailTemplate>
   update: (id: string, patch: Partial<SalesEmailTemplate>) => Promise<void>
   remove: (id: string) => Promise<void>
+  recordUsage: (id: string) => Promise<void>
+  ensureDefaults: () => Promise<void>
 }
 
 export function useEmailTemplates(brandSlug: string | undefined): UseEmailTemplatesResult {
@@ -296,6 +298,8 @@ export function useEmailTemplates(brandSlug: string | undefined): UseEmailTempla
         stage: input.stage ?? null,
         variables: input.variables ?? [],
         sort_order: input.sort_order ?? items.length,
+        last_used_at: input.last_used_at ?? null,
+        use_count: input.use_count ?? 0,
         created_at: nowIso(),
         updated_at: nowIso(),
       }
@@ -361,7 +365,33 @@ export function useEmailTemplates(brandSlug: string | undefined): UseEmailTempla
     [brandId, brandSlug, items],
   )
 
-  return { items, loading, error, reload, create, update, remove }
+  const recordUsage = useCallback(
+    async (id: string) => {
+      const t = items.find((x) => x.id === id)
+      if (!t) return
+      await update(id, {
+        last_used_at: nowIso(),
+        use_count: (t.use_count ?? 0) + 1,
+      })
+    },
+    [items, update],
+  )
+
+  const ensureDefaults = useCallback(async () => {
+    if (!brandSlug || localOnly.current) return
+    const { DEFAULT_EMAIL_TEMPLATE_SEEDS } = await import('../lib/seedEmailTemplates')
+    const existing = new Set(items.map((t) => t.name.toLowerCase()))
+    for (const seed of DEFAULT_EMAIL_TEMPLATE_SEEDS) {
+      if (existing.has(seed.name.toLowerCase())) continue
+      await create({
+        name: seed.name,
+        subject: seed.subject,
+        body: seed.body,
+      })
+    }
+  }, [brandSlug, items, create])
+
+  return { items, loading, error, reload, create, update, remove, recordUsage, ensureDefaults }
 }
 
 // =========================================================================

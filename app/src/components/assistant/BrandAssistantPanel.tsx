@@ -13,11 +13,13 @@ export function BrandAssistantPanel({
   brandAccent,
   assistant,
   onMinimize,
+  embedded = false,
 }: {
   brandName: string
   brandAccent: string
   assistant: AssistantApi
   onMinimize: () => void
+  embedded?: boolean
 }) {
   const [input, setInput] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -59,13 +61,16 @@ export function BrandAssistantPanel({
 
   const hasAttachments = pendingAttachments.length > 0
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92, originX: 1, originY: 1 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.92 }}
-      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-      style={{
+  const panelStyle: CSSProperties = embedded
+    ? {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        background: 'transparent',
+      }
+    : {
         position: 'fixed',
         bottom: 24,
         right: 24,
@@ -83,8 +88,21 @@ export function BrandAssistantPanel({
         WebkitBackdropFilter: 'blur(20px)',
         border: `1px solid color-mix(in srgb, ${brandAccent} 35%, rgba(255,255,255,0.1))`,
         boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
-      }}
-    >
+      }
+
+  const Wrapper = embedded ? 'div' : motion.div
+  const wrapperProps = embedded
+    ? { style: panelStyle }
+    : {
+        initial: { opacity: 0, scale: 0.92, originX: 1, originY: 1 },
+        animate: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 0.92 },
+        transition: { type: 'spring' as const, stiffness: 420, damping: 32 },
+        style: panelStyle,
+      }
+
+  return (
+    <Wrapper {...wrapperProps}>
       <header
         style={{
           padding: '14px 16px',
@@ -105,7 +123,7 @@ export function BrandAssistantPanel({
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <HeaderBtn label="Verlauf löschen" onClick={() => void clearHistory()} />
-          <HeaderBtn label="—" onClick={onMinimize} />
+          {!embedded ? <HeaderBtn label="—" onClick={onMinimize} /> : null}
         </div>
       </header>
 
@@ -231,7 +249,7 @@ export function BrandAssistantPanel({
           </button>
         </div>
       </footer>
-    </motion.div>
+    </Wrapper>
   )
 }
 

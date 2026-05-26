@@ -1,11 +1,15 @@
-import { loadList } from './storage'
+import { loadList, generateId } from './storage'
+import { mergeWithCatalogDeliverables } from './deliverableCatalog'
 import type {
   ClientDocumentLink,
+  DeliverableArea,
   DeliverableItem,
+  DeliverableType,
   DeliverProject,
   DeliverProjectStage,
+  DeliverStageDurations,
 } from '../types/db'
-import { DELIVER_STAGE_ORDER } from '../types/db'
+import { DEFAULT_STAGE_DURATIONS, DELIVER_STAGE_ORDER } from '../types/db'
 
 const STORAGE_KEY = 'deliver-projects' as const
 
@@ -20,8 +24,32 @@ function validStage(v: unknown): DeliverProjectStage {
   return 'onboarding'
 }
 
+function validDeliverableType(v: unknown): DeliverableType | undefined {
+  const types: DeliverableType[] = [
+    'brand_strategy',
+    'logo',
+    'brand_guidelines',
+    'color_palette',
+    'typography',
+    'moodboard',
+    'sitemap',
+    'design_concept',
+    'website_development',
+    'website_live_url',
+    'performance_score',
+    'custom',
+  ]
+  if (typeof v === 'string' && types.includes(v as DeliverableType)) return v as DeliverableType
+  return undefined
+}
+
+function validDeliverableArea(v: unknown): DeliverableArea | undefined {
+  if (v === 'branding' || v === 'website' || v === 'leadgen') return v
+  return undefined
+}
+
 function parseDeliverables(raw: unknown): DeliverableItem[] {
-  if (!Array.isArray(raw)) return []
+  if (!Array.isArray(raw)) return mergeWithCatalogDeliverables([])
   const out: DeliverableItem[] = []
   for (const x of raw) {
     if (!x || typeof x !== 'object') continue
@@ -31,13 +59,43 @@ function parseDeliverables(raw: unknown): DeliverableItem[] {
     const st = o.status
     const status: DeliverableItem['status'] =
       st === 'fertig' || st === 'in_arbeit' || st === 'geplant' ? st : 'geplant'
+    const type = validDeliverableType(o.type)
     const updated_at =
       typeof o.updated_at === 'string' && o.updated_at
         ? o.updated_at
         : new Date().toISOString()
-    out.push({ title, status, updated_at })
+    const id =
+      typeof o.id === 'string' && o.id
+        ? o.id
+        : type && type !== 'custom'
+          ? `dlv-${type}`
+          : generateId()
+    const url = typeof o.url === 'string' && o.url.trim() ? o.url.trim() : undefined
+    const description =
+      typeof o.description === 'string' && o.description.trim()
+        ? o.description.trim()
+        : undefined
+    const added_at =
+      typeof o.added_at === 'string' && o.added_at ? o.added_at : undefined
+    const progress =
+      typeof o.progress === 'number' && Number.isFinite(o.progress)
+        ? Math.max(0, Math.min(100, Math.round(o.progress)))
+        : undefined
+    const area = validDeliverableArea(o.area)
+    out.push({
+      id,
+      type,
+      title,
+      status,
+      updated_at,
+      ...(url ? { url } : {}),
+      ...(description ? { description } : {}),
+      ...(added_at ? { added_at } : {}),
+      ...(progress !== undefined ? { progress } : {}),
+      ...(area ? { area } : {}),
+    })
   }
-  return out
+  return mergeWithCatalogDeliverables(out)
 }
 
 function parseClientDocuments(raw: unknown): ClientDocumentLink[] {
@@ -64,6 +122,17 @@ function parseClientDocuments(raw: unknown): ClientDocumentLink[] {
 
 function isDocJson(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function parseStageDurations(raw: unknown): DeliverStageDurations {
+  const base = { ...DEFAULT_STAGE_DURATIONS }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base
+  const o = raw as Record<string, unknown>
+  for (const stage of DELIVER_STAGE_ORDER) {
+    const v = o[stage]
+    if (typeof v === 'string' && v.trim()) base[stage] = v.trim()
+  }
+  return base
 }
 
 /** Normalisiert gespeicherte Projekte (neu oder Legacy localStorage). */
@@ -94,6 +163,9 @@ export function normalizeDeliverProject(
     client_documents: parseClientDocuments(input.client_documents),
     deliverables: parseDeliverables(input.deliverables),
     booking_url: input.booking_url ?? '',
+    stage_durations: parseStageDurations(input.stage_durations),
+    deleted_at:
+      typeof input.deleted_at === 'string' && input.deleted_at ? input.deleted_at : null,
     updated_at: input.updated_at ?? now,
   }
 }
@@ -244,6 +316,9 @@ export function rowRecordToDeliverProject(
       client_documents: parseClientDocuments(row.client_documents),
       deliverables: parseDeliverables(row.deliverables),
       booking_url: (row.booking_url as string) ?? '',
+      stage_durations: parseStageDurations(row.stage_durations),
+      deleted_at:
+        typeof row.deleted_at === 'string' && row.deleted_at ? row.deleted_at : null,
       updated_at: (row.updated_at as string) ?? new Date().toISOString(),
     },
     owner,
@@ -273,6 +348,7 @@ export function deliverProjectToInsertRow(
     client_documents: p.client_documents,
     deliverables: p.deliverables,
     booking_url: p.booking_url,
+    stage_durations: p.stage_durations,
     updated_at: p.updated_at,
   }
 }
@@ -297,6 +373,7 @@ export function deliverProjectToUpdateRow(
     'client_documents',
     'deliverables',
     'booking_url',
+    'stage_durations',
   ] as const
   for (const k of keys) {
     if (patch[k] !== undefined) out[k] = patch[k]

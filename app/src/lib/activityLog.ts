@@ -22,6 +22,7 @@ export type ActivityAction =
   | 'archived'
   | 'linkedin_sent'
   | 'qualified'
+  | 'client_invited'
 
 export interface ActivityEntry {
   id: string

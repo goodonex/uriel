@@ -7,6 +7,7 @@ import {
   useSectionScrollSnap,
 } from '../hooks/useSectionScrollSnap'
 import {
+  isSectionScrollLocked,
   pathForSection,
   sectionFromPathname,
   SECTION_ORDER,
@@ -48,6 +49,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const pathSection = sectionFromPathname(pathname)
+  const scrollLocked = isSectionScrollLocked(pathname)
   const scrollCtx = useScrollSectionContext()
   const initialSyncDoneRef = useRef(false)
 
@@ -61,6 +63,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const { scrollToSection, navFromScrollRef } = useSectionScrollSnap({
     containerRef,
     pathSection,
+    scrollLocked,
     onActiveSection: (section) => scrollCtx?.setActiveSection(section),
     onNavigateSection: navigateSection,
   })
@@ -72,6 +75,13 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     })
     return () => scrollCtx.registerScrollToSection(null)
   }, [scrollCtx, scrollToSection])
+
+  useLayoutEffect(() => {
+    if (!scrollLocked) return
+    const root = containerRef.current
+    if (!root) return
+    scrollToSection(pathSection, 'auto')
+  }, [scrollLocked, pathSection, scrollToSection])
 
   useLayoutEffect(() => {
     if (navFromScrollRef.current) {
@@ -103,7 +113,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
       <div
         ref={containerRef}
-        className="brand-scroll-flow brand-scroll-flow--snap"
+        className={`brand-scroll-flow brand-scroll-flow--snap${scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
         style={{
           height: '100vh',
           overflowY: 'auto',

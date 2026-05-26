@@ -20,8 +20,9 @@ function resolveFrameStyle(
   stackIndex: number,
   mobile: boolean,
   hasOverlayRight: boolean,
+  hasSide: boolean,
 ): CSSProperties {
-  const base = slotStyle(slot, stackIndex, { hasOverlayRight })
+  const base = slotStyle(slot, stackIndex, { hasOverlayRight, hasSide })
   if (mobile && slot === 'main') {
     return {
       ...base,
@@ -55,6 +56,11 @@ export function ModuleRenderer({ slug, mobile }: ModuleRendererProps) {
     [modules],
   )
 
+  const hasSide = useMemo(
+    () => modules.some((m) => m.slot === 'side-top' || m.slot === 'side-bottom'),
+    [modules],
+  )
+
   const ordered = useMemo(() => {
     const list = [...modules]
     list.sort((a, b) => {
@@ -74,7 +80,7 @@ export function ModuleRenderer({ slug, mobile }: ModuleRendererProps) {
         const stackIdx = OVERLAY_SLOTS.includes(mod.slot)
           ? overlayStackIndex(modules, mod.slot, mod.id)
           : 0
-        const frameStyle = resolveFrameStyle(mod.slot, stackIdx, mobile, hasOverlayRight)
+        const frameStyle = resolveFrameStyle(mod.slot, stackIdx, mobile, hasOverlayRight, hasSide)
         const title = mod.title ?? mod.type
 
         return (

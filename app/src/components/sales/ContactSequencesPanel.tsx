@@ -9,9 +9,10 @@ import { useToast } from '../Toast'
 interface ContactSequencesPanelProps {
   brandSlug: string
   contactId: string
+  embedded?: boolean
 }
 
-export function ContactSequencesPanel({ brandSlug, contactId }: ContactSequencesPanelProps) {
+export function ContactSequencesPanel({ brandSlug, contactId, embedded = false }: ContactSequencesPanelProps) {
   const seqs = useEmailSequences(brandSlug)
   const enrollments = useEnrollments(brandSlug, { contactId })
   const { show } = useToast()
@@ -35,29 +36,36 @@ export function ContactSequencesPanel({ brandSlug, contactId }: ContactSequences
     setSelected('')
   }
 
-  return (
-    <section
-      style={{
+  const wrapperStyle: CSSProperties = embedded
+    ? {
+        minWidth: 0,
+        boxSizing: 'border-box',
+      }
+    : {
         background: 'var(--glass-1)',
         border: '1px solid var(--glass-border-1)',
         borderRadius: 12,
         padding: 14,
         minWidth: 0,
         boxSizing: 'border-box',
-      }}
-    >
+      }
+
+  return (
+    <section style={wrapperStyle}>
       <div style={{ marginBottom: 10, minWidth: 0 }}>
-        <div
-          className="font-mono"
-          style={{
-            fontSize: 9,
-            letterSpacing: '0.14em',
-            color: 'var(--text-tertiary)',
-            marginBottom: 8,
-          }}
-        >
-          MAIL-FLOWS
-        </div>
+        {embedded ? null : (
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 9,
+              letterSpacing: '0.14em',
+              color: 'var(--text-tertiary)',
+              marginBottom: 8,
+            }}
+          >
+            MAIL-FLOWS
+          </div>
+        )}
         <div
           style={{
             display: 'flex',

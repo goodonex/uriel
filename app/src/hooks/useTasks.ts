@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { logActivity } from '../lib/activityLog'
 import { useSaveStatus } from '../lib/saveStatusContext'
 import { generateId, loadList, saveList } from '../lib/storage'
-import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
+import {
+  isMissingSupabaseTableError,
+  shouldFallbackToLocalSupabase,
+} from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { Task, TaskPriority, TaskSource, TaskStatus } from '../types/db'
 import { useBrandId } from './useBrandId'
@@ -130,8 +133,16 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
       return
     }
     localOnlyRef.current = false
-    const rows = (data ?? []).map((r) => rowToTask(r as Record<string, unknown>, brandId))
-    setItems(sortTasks(rows))
+    const serverRows = (data ?? []).map((r) => rowToTask(r as Record<string, unknown>, brandId))
+    const localRows = readLocal(brandSlug)
+    const byId = new Map<string, Task>()
+    for (const r of serverRows) byId.set(r.id, r)
+    // Lokal-only Tasks (z.B. mit local-only contact_id, FK-Block in Supabase)
+    // beibehalten, damit sie nicht aus der UI verschwinden.
+    for (const l of localRows) {
+      if (!byId.has(l.id)) byId.set(l.id, l)
+    }
+    setItems(sortTasks(Array.from(byId.values())))
     setLoading(false)
     setError(null)
   }, [brandId, brandSlug])
@@ -187,6 +198,12 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
           if (insErr) {
             if (isMissingSupabaseTableError(insErr.message)) {
               localOnlyRef.current = true
+              persistLocal(brandSlug, next)
+              endSave(true)
+            } else if (shouldFallbackToLocalSupabase(insErr.message)) {
+              // FK-Constraint (z.B. contact_id existiert nur lokal), RLS o.ä.:
+              // Task lokal halten, keine Error-Pill zeigen, kein Reload (würde
+              // den Task aus der UI fegen).
               persistLocal(brandSlug, next)
               endSave(true)
             } else {
@@ -251,6 +268,9 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
           if (updErr) {
             if (isMissingSupabaseTableError(updErr.message)) {
               localOnlyRef.current = true
+              persistLocal(brandSlug, next)
+              endSave(true)
+            } else if (shouldFallbackToLocalSupabase(updErr.message)) {
               persistLocal(brandSlug, next)
               endSave(true)
             } else {
@@ -319,6 +339,9 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
           if (delErr) {
             if (isMissingSupabaseTableError(delErr.message)) {
               localOnlyRef.current = true
+              persistLocal(brandSlug, next)
+              endSave(true)
+            } else if (shouldFallbackToLocalSupabase(delErr.message)) {
               persistLocal(brandSlug, next)
               endSave(true)
             } else {

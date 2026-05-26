@@ -40,6 +40,7 @@ export function EmailComposeDialog({
   const { show } = useToast()
 
   const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? null)
+  const [templateQuery, setTemplateQuery] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
@@ -53,6 +54,11 @@ export function EmailComposeDialog({
     () => ({ contact, brandName, positioning: positioning.item ?? null }),
     [contact, brandName, positioning.item],
   )
+
+  useEffect(() => {
+    if (!open) return
+    void tpl.ensureDefaults()
+  }, [open, tpl.ensureDefaults])
 
   useEffect(() => {
     if (!open) return
@@ -235,7 +241,17 @@ export function EmailComposeDialog({
                 </div>
               ) : null}
 
-              <TemplateRow templates={tpl.items} selectedId={templateId} onSelect={setTemplateId} />
+              <TemplateRow
+                templates={tpl.items}
+                selectedId={templateId}
+                query={templateQuery}
+                onQueryChange={setTemplateQuery}
+                brandSlug={brandSlug}
+                onSelect={(id) => {
+                  setTemplateId(id)
+                  if (id) void tpl.recordUsage(id)
+                }}
+              />
 
               <Field label="Betreff">
                 <input
@@ -393,12 +409,34 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function TemplateRow({
   templates,
   selectedId,
+  query,
+  onQueryChange,
+  brandSlug,
   onSelect,
 }: {
   templates: SalesEmailTemplate[]
   selectedId: string | null
+  query: string
+  onQueryChange: (q: string) => void
+  brandSlug: string
   onSelect: (id: string | null) => void
 }) {
+  const recent = useMemo(
+    () =>
+      [...templates]
+        .filter((t) => t.last_used_at)
+        .sort((a, b) => (b.last_used_at ?? '').localeCompare(a.last_used_at ?? ''))
+        .slice(0, 4),
+    [templates],
+  )
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = [...templates].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    if (!q) return list
+    return list.filter((t) => t.name.toLowerCase().includes(q))
+  }, [templates, query])
+
   if (templates.length === 0) {
     return (
       <div
@@ -418,17 +456,47 @@ function TemplateRow({
   }
   return (
     <div style={{ marginBottom: 12 }}>
-      <div
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div className="font-mono" style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}>
+          TEMPLATE
+        </div>
+        <a
+          href={`/brand/${brandSlug}/sales`}
+          className="font-mono"
+          style={{ fontSize: 10, color: 'var(--mode-sales)', textDecoration: 'none' }}
+        >
+          Manage Templates →
+        </a>
+      </div>
+      <input
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        placeholder="Choose a template…"
         className="font-mono"
         style={{
-          fontSize: 9,
-          letterSpacing: '0.12em',
-          color: 'var(--text-tertiary)',
-          marginBottom: 4,
+          width: '100%',
+          marginBottom: 8,
+          padding: '7px 10px',
+          fontSize: 11,
+          borderRadius: 8,
+          border: '1px solid var(--glass-border-2)',
+          background: 'var(--glass-2)',
+          color: 'var(--text-primary)',
+          outline: 'none',
         }}
-      >
-        TEMPLATE
-      </div>
+      />
+      {recent.length > 0 && !query.trim() ? (
+        <>
+          <div className="font-mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+            RECENT
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {recent.map((t) => (
+              <TplChip key={t.id} t={t} on={selectedId === t.id} onClick={() => onSelect(t.id)} />
+            ))}
+          </div>
+        </>
+      ) : null}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         <button
           type="button"
@@ -446,36 +514,39 @@ function TemplateRow({
         >
           Freitext
         </button>
-        {templates.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => onSelect(t.id)}
-            className="font-mono"
-            style={{
-              fontSize: 11,
-              padding: '5px 10px',
-              borderRadius: 999,
-              border: `1px solid ${
-                selectedId === t.id ? 'var(--mode-sales)' : 'var(--glass-border-2)'
-              }`,
-              background:
-                selectedId === t.id
-                  ? 'color-mix(in srgb, var(--mode-sales) 16%, transparent)'
-                  : 'transparent',
-              color: selectedId === t.id ? 'var(--mode-sales)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
-          >
-            {t.name}
-            {t.stage ? (
-              <span style={{ fontSize: 9, marginLeft: 6, color: 'var(--text-tertiary)' }}>
-                · {t.stage}
-              </span>
-            ) : null}
-          </button>
+        {filtered.map((t) => (
+          <TplChip key={t.id} t={t} on={selectedId === t.id} onClick={() => onSelect(t.id)} />
         ))}
       </div>
     </div>
+  )
+}
+
+function TplChip({
+  t,
+  on,
+  onClick,
+}: {
+  t: SalesEmailTemplate
+  on: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-mono"
+      style={{
+        fontSize: 11,
+        padding: '5px 10px',
+        borderRadius: 999,
+        border: `1px solid ${on ? 'var(--mode-sales)' : 'var(--glass-border-2)'}`,
+        background: on ? 'color-mix(in srgb, var(--mode-sales) 16%, transparent)' : 'transparent',
+        color: on ? 'var(--mode-sales)' : 'var(--text-secondary)',
+        cursor: 'pointer',
+      }}
+    >
+      {t.name}
+    </button>
   )
 }

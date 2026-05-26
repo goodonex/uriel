@@ -88,6 +88,11 @@ a {
   scroll-snap-stop: always;
 }
 
+.brand-scroll-flow--locked {
+  scroll-snap-type: none;
+  overscroll-behavior-y: contain;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brand-scroll-flow--snap {
     scroll-behavior: auto;

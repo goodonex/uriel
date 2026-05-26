@@ -4,9 +4,26 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
+import {
+  OwnerClientPreviewPhaseContent,
+  OwnerDeliverPhaseContent,
+} from '../../components/deliver/OwnerDeliverPhaseContent'
+import { ProjectTimelinePanel } from '../../components/deliver/ProjectTimelinePanel'
+import { OutcomeHeader } from '../../components/phase/OutcomeHeader'
+import { PhaseDashboard } from '../../components/phase/PhaseDashboard'
 import { useToast } from '../../components/Toast'
 import { useDebouncedCallback } from '../../hooks/useDebouncedCallback'
-import { readDeliverProjectsLocal, useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { useAuth } from '../../hooks/useAuth'
+import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { useProjectLeads } from '../../hooks/useProjectLeads'
+import { useProjectOutcomes } from '../../hooks/useProjectOutcomes'
+import { inviteClient } from '../../lib/inviteClientService'
+import {
+  createCustomDeliverable,
+  DELIVERABLE_TYPE_OPTIONS,
+  deliverablesForArea,
+} from '../../lib/deliverableCatalog'
+import type { DeliverableArea } from '../../types/db'
 import type { ClientDocumentLink, DeliverableItem, DeliverProjectStage } from '../../types/db'
 import { DELIVER_STAGE_ORDER } from '../../types/db'
 import { DELIVER_STAGE_LABEL } from './stageLabels'
@@ -115,10 +132,17 @@ export function ProjectPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { show } = useToast()
+  const { user } = useAuth()
   const projects = useDeliverProjects(slug)
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [inviteState, setInviteState] = useState<
+    'idle' | 'sending' | 'sent' | 'error'
+  >('idle')
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [existingClientUser, setExistingClientUser] = useState<boolean | null>(null)
 
   useEffect(() => {
     const s = location.state as { showClientInvite?: boolean } | undefined
@@ -129,11 +153,21 @@ export function ProjectPage() {
   }, [location.state, location.pathname, navigate])
 
   const project = useMemo(() => {
-    const fromList = projects.items.find((p) => p.id === projectId) ?? null
-    if (fromList) return fromList
-    if (!slug || !projectId) return null
-    return readDeliverProjectsLocal(slug).find((p) => p.id === projectId) ?? null
-  }, [projects.items, projectId, slug])
+    if (!projectId) return null
+    return projects.items.find((p) => p.id === projectId) ?? null
+  }, [projects.items, projectId])
+
+  const { outcomes, loading: outcomesLoading } = useProjectOutcomes(slug, projectId)
+  const { leads } = useProjectLeads(slug, projectId, project?.client_contact_id ?? null)
+
+  const senderName =
+    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null) ??
+    'Team'
+
+  useEffect(() => {
+    if (project?.client_email) setInviteEmail(project.client_email)
+    if (project?.client_name) setInviteName(project.client_name)
+  }, [project?.id, project?.client_email, project?.client_name])
 
   const [tab, setTab] = useState<'internal' | 'client'>('internal')
 
@@ -225,6 +259,195 @@ export function ProjectPage() {
       debouncedBookingUrl(projectId, v)
     },
     [debouncedBookingUrl, projectId],
+  )
+
+  const renderDeliverablesEditor = useCallback(
+    (area: DeliverableArea) => {
+      const areaItems = deliverablesForArea(deliverablesLocal, area)
+      return (
+        <div>
+          <div className="font-mono mb-2" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+            Deliverables bearbeiten ({area})
+          </div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Status &amp; URL für Kundenportal
+            </span>
+            {area === 'branding' ? (
+              <button
+                type="button"
+                className="font-mono"
+                style={{
+                  fontSize: 10,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--glass-border-2)',
+                  color: 'var(--accent-teal)',
+                }}
+                onClick={() =>
+                  patchDeliverables([...deliverablesLocal, createCustomDeliverable()])
+                }
+              >
+                + Eigene Position
+              </button>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2">
+            {areaItems.map((row) => {
+              const i = deliverablesLocal.findIndex((d) => d.id === row.id)
+              if (i < 0) return null
+              return (
+                <div
+                  key={row.id}
+                  className="flex flex-col gap-2 rounded-xl p-3"
+                  style={{ border: '1px solid var(--glass-border-2)' }}
+                >
+                  <div className="flex flex-wrap gap-2">
+                    {row.type === 'custom' ? (
+                      <select
+                        value={row.type}
+                        onChange={(e) => {
+                          const next = deliverablesLocal.slice()
+                          const picked = DELIVERABLE_TYPE_OPTIONS.find(
+                            (o) => o.type === e.target.value,
+                          )
+                          next[i] = {
+                            ...row,
+                            type: e.target.value as DeliverableItem['type'],
+                            title: picked?.label ?? row.title,
+                            updated_at: new Date().toISOString(),
+                          }
+                          patchDeliverables(next)
+                        }}
+                        style={{ ...FIELD, flex: 1, minWidth: 140 }}
+                      >
+                        {DELIVERABLE_TYPE_OPTIONS.map((o) => (
+                          <option key={o.type} value={o.type}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div
+                        className="font-mono flex items-center px-3"
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--text-tertiary)',
+                          flex: 1,
+                          minWidth: 120,
+                        }}
+                      >
+                        {row.title}
+                        {row.area ? ` · ${row.area}` : ''}
+                      </div>
+                    )}
+                    <select
+                      value={row.status}
+                      onChange={(e) => {
+                        const status = e.target.value as DeliverableItem['status']
+                        const next = deliverablesLocal.slice()
+                        next[i] = {
+                          ...row,
+                          status,
+                          updated_at: new Date().toISOString(),
+                          added_at:
+                            status === 'fertig'
+                              ? row.added_at ?? new Date().toISOString()
+                              : row.added_at,
+                        }
+                        patchDeliverables(next)
+                      }}
+                      style={{ ...FIELD, flex: 1, minWidth: 120 }}
+                    >
+                      <option value="geplant">Ausstehend</option>
+                      <option value="in_arbeit">In Arbeit</option>
+                      <option value="fertig">Fertig</option>
+                    </select>
+                    {row.type === 'custom' ? (
+                      <button
+                        type="button"
+                        className="font-mono"
+                        style={{
+                          fontSize: 10,
+                          padding: '8px 10px',
+                          color: 'var(--accent-coral)',
+                          border: '1px solid var(--accent-coral)',
+                          borderRadius: 8,
+                        }}
+                        onClick={() => {
+                          patchDeliverables(deliverablesLocal.filter((_, j) => j !== i))
+                        }}
+                      >
+                        Entfernen
+                      </button>
+                    ) : null}
+                  </div>
+                  {row.type === 'custom' ? (
+                    <input
+                      type="text"
+                      value={row.title}
+                      placeholder="Titel"
+                      onChange={(e) => {
+                        const next = deliverablesLocal.slice()
+                        next[i] = {
+                          ...row,
+                          title: e.target.value,
+                          updated_at: new Date().toISOString(),
+                        }
+                        patchDeliverables(next)
+                      }}
+                      style={FIELD}
+                    />
+                  ) : null}
+                  <input
+                    type="url"
+                    value={row.url ?? ''}
+                    placeholder="URL / Download-Link (optional)"
+                    onChange={(e) => {
+                      const next = deliverablesLocal.slice()
+                      next[i] = {
+                        ...row,
+                        url: e.target.value.trim() || undefined,
+                        updated_at: new Date().toISOString(),
+                      }
+                      patchDeliverables(next)
+                    }}
+                    style={FIELD}
+                  />
+                  {row.type === 'website_development' ? (
+                    <div className="flex items-center gap-2">
+                      <label
+                        className="font-mono"
+                        style={{ fontSize: 10, color: 'var(--text-tertiary)' }}
+                      >
+                        Fortschritt {row.progress ?? 0}%
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={row.progress ?? 0}
+                        onChange={(e) => {
+                          const next = deliverablesLocal.slice()
+                          next[i] = {
+                            ...row,
+                            progress: Number(e.target.value),
+                            updated_at: new Date().toISOString(),
+                          }
+                          patchDeliverables(next)
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    },
+    [deliverablesLocal, patchDeliverables],
   )
 
   if (!slug || !projectId) {
@@ -410,13 +633,40 @@ export function ProjectPage() {
 
       {tab === 'internal' ? (
         <div className="flex flex-col gap-5">
+          <OutcomeHeader
+            outcomes={outcomes}
+            projectName={project.name}
+            startedAt={project.updated_at}
+            loading={outcomesLoading}
+          />
+
+          <PhaseDashboard
+            currentStage={project.internal_stage}
+            deliverables={deliverablesLocal}
+            stageDurations={project.stage_durations}
+            leadCount={leads.length}
+            renderPhaseContent={(phase) => (
+              <OwnerDeliverPhaseContent
+                phase={phase}
+                project={{ ...project, deliverables: deliverablesLocal }}
+                slug={slug}
+                senderName={senderName}
+                renderDeliverablesEditor={renderDeliverablesEditor}
+              />
+            )}
+          />
+
+          <ProjectTimelinePanel
+            project={project}
+            onStageChange={(s) => void projects.update(project.id, { internal_stage: s })}
+          />
           <div>
             <div className="font-mono mb-2" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
               Interne Projekt-Stages
             </div>
             <StageKanban
               current={project.internal_stage}
-              onPick={(s) => projects.update(project.id, { internal_stage: s })}
+              onPick={(s) => void projects.update(project.id, { internal_stage: s })}
             />
           </div>
           <div>
@@ -456,96 +706,6 @@ export function ProjectPage() {
           </div>
 
           <div>
-            <div className="font-mono mb-2" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-              Deliverables (Kundenportal: „Was ist fertig?“)
-            </div>
-            <div className="mb-2 flex justify-end">
-              <button
-                type="button"
-                className="font-mono"
-                style={{
-                  fontSize: 10,
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--glass-border-2)',
-                  color: 'var(--accent-teal)',
-                }}
-                onClick={() =>
-                  patchDeliverables([
-                    ...deliverablesLocal,
-                    {
-                      title: 'Neues Deliverable',
-                      status: 'geplant',
-                      updated_at: new Date().toISOString(),
-                    },
-                  ])
-                }
-              >
-                + Position
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {deliverablesLocal.map((row, i) => (
-                <div
-                  key={`${row.title}-${i}`}
-                  className="flex flex-col gap-2 rounded-xl p-3"
-                  style={{ border: '1px solid var(--glass-border-2)' }}
-                >
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      value={row.title}
-                      onChange={(e) => {
-                        const next = deliverablesLocal.slice()
-                        next[i] = {
-                          ...row,
-                          title: e.target.value,
-                          updated_at: new Date().toISOString(),
-                        }
-                        patchDeliverables(next)
-                      }}
-                      style={{ ...FIELD, flex: 2, minWidth: 120 }}
-                    />
-                    <select
-                      value={row.status}
-                      onChange={(e) => {
-                        const next = deliverablesLocal.slice()
-                        next[i] = {
-                          ...row,
-                          status: e.target.value as DeliverableItem['status'],
-                          updated_at: new Date().toISOString(),
-                        }
-                        patchDeliverables(next)
-                      }}
-                      style={{ ...FIELD, flex: 1, minWidth: 120 }}
-                    >
-                      <option value="geplant">Geplant</option>
-                      <option value="in_arbeit">In Arbeit</option>
-                      <option value="fertig">Fertig</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="font-mono"
-                      style={{
-                        fontSize: 10,
-                        padding: '8px 10px',
-                        color: 'var(--accent-coral)',
-                        border: '1px solid var(--accent-coral)',
-                        borderRadius: 8,
-                      }}
-                      onClick={() => {
-                        patchDeliverables(deliverablesLocal.filter((_, j) => j !== i))
-                      }}
-                    >
-                      Entfernen
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
             <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
               Calendly oder Buchungs-Link (Kundenportal)
             </label>
@@ -560,6 +720,31 @@ export function ProjectPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          <OutcomeHeader
+            outcomes={outcomes}
+            projectName={project.name}
+            startedAt={project.updated_at}
+            loading={outcomesLoading}
+          />
+
+          <div className="font-mono mb-1" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+            Vorschau — Kundenportal (client_stage)
+          </div>
+
+          <PhaseDashboard
+            currentStage={project.client_stage}
+            deliverables={deliverablesLocal}
+            stageDurations={project.stage_durations}
+            leadCount={leads.length}
+            readOnlyDeliverables
+            renderPhaseContent={(phase) => (
+              <OwnerClientPreviewPhaseContent
+                phase={phase}
+                project={{ ...project, deliverables: deliverablesLocal }}
+              />
+            )}
+          />
+
           <div>
             <label className="font-mono mb-1 block" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
               Willkommenstext (sichtbar für Kunden)
@@ -581,7 +766,7 @@ export function ProjectPage() {
             </div>
             <StageKanban
               current={project.client_stage}
-              onPick={(s) => projects.update(project.id, { client_stage: s })}
+              onPick={(s) => void projects.update(project.id, { client_stage: s })}
             />
           </div>
           <div>
@@ -688,10 +873,38 @@ export function ProjectPage() {
       >
         <div className="flex flex-col gap-4">
           <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-            Wir legen einen Supabase-Auth-Account an — der Kunde bekommt eine E-Mail. Noch nicht
-            angebunden: siehe TODO in{' '}
-            <code style={{ fontSize: 11 }}>supabase/functions/invite-client/index.ts</code>.
+            Der Kunde erhält eine E-Mail mit Magic Link zum Kundenportal. Falls bereits ein Account
+            existiert, wird er mit diesem Projekt verknüpft.
           </p>
+          {existingClientUser !== null ? (
+            <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+              {existingClientUser
+                ? 'Hinweis: Es existiert bereits ein Account mit dieser E-Mail.'
+                : 'Neuer Account wird angelegt.'}
+            </p>
+          ) : null}
+          {inviteState === 'sent' ? (
+            <p className="font-mono" style={{ fontSize: 12, color: 'var(--accent-teal)' }}>
+              Einladung gesendet. Der Kunde sollte die E-Mail in wenigen Minuten erhalten.
+            </p>
+          ) : null}
+          {inviteError ? (
+            <p className="font-mono" style={{ fontSize: 12, color: 'var(--accent-coral)' }}>
+              {inviteError}
+            </p>
+          ) : null}
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Name des Kunden
+            </span>
+            <input
+              type="text"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="Max Mustermann"
+              style={FIELD}
+            />
+          </label>
           <label className="flex flex-col gap-1.5">
             <span className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
               E-Mail des Kunden
@@ -708,6 +921,7 @@ export function ProjectPage() {
           <button
             type="button"
             className="font-mono"
+            disabled={inviteState === 'sending'}
             style={{
               fontSize: 12,
               padding: '12px 16px',
@@ -715,21 +929,39 @@ export function ProjectPage() {
               border: '1px solid var(--accent-teal)',
               background: 'color-mix(in srgb, var(--accent-teal) 18%, transparent)',
               color: 'var(--accent-teal)',
+              opacity: inviteState === 'sending' ? 0.6 : 1,
             }}
             onClick={() => {
-              // TODO: Edge Function invite-client — admin.createUser + user_roles insert
               if (!inviteEmail.trim()) {
                 show('Bitte eine E-Mail eingeben.', 'error')
                 return
               }
-              show(
-                'Einladungs-Flow folgt per Edge Function (invite-client).',
-                'success',
-              )
-              setInviteOpen(false)
+              setInviteState('sending')
+              setInviteError(null)
+              void inviteClient({
+                project_id: project.id,
+                client_email: inviteEmail.trim(),
+                client_name: inviteName.trim() || undefined,
+              }).then(async (result) => {
+                if (result.success) {
+                  setInviteState('sent')
+                  setExistingClientUser(result.existing_user ?? false)
+                  show('Einladung gesendet.', 'success')
+                  await projects.update(project.id, {
+                    client_email: inviteEmail.trim(),
+                    client_name: inviteName.trim() || project.client_name,
+                    client_stage: project.client_stage || 'onboarding',
+                  })
+                  await projects.reload()
+                } else {
+                  setInviteState('error')
+                  setInviteError(result.detail ?? result.error ?? 'Einladung fehlgeschlagen')
+                  show(result.detail ?? result.error ?? 'Einladung fehlgeschlagen', 'error')
+                }
+              })
             }}
           >
-            Einladung vorbereiten
+            {inviteState === 'sending' ? 'Wird gesendet…' : 'Einladung senden'}
           </button>
         </div>
       </Drawer>

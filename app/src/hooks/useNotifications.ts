@@ -70,10 +70,22 @@ export function useNotifications(slug: string | undefined) {
     return out
   }, [data])
 
+  /**
+   * Überfällige Follow-ups bleiben **immer** unread, bis der Lead erledigt wird
+   * (also `next_follow_up_at` zurückgesetzt / entfernt). Heutige Follow-ups
+   * können wie normale Activity-Items als read markiert werden.
+   */
   const unreadItems = useMemo(
-    () => items.filter((it) => !readIdsState.has(it.contact.id)),
+    () =>
+      items.filter((it) => {
+        if (it.kind === 'overdue') return true
+        return !readIdsState.has(it.contact.id)
+      }),
     [items, readIdsState],
   )
+
+  const overdueItems = useMemo(() => items.filter((it) => it.kind === 'overdue'), [items])
+  const todayItems = useMemo(() => items.filter((it) => it.kind === 'today'), [items])
 
   const followUpBadgeCount = unreadItems.length
 
@@ -90,13 +102,33 @@ export function useNotifications(slug: string | undefined) {
     [slug],
   )
 
+  const markTodayFollowUpsRead = useCallback(() => {
+    if (!slug) return
+    setReadIdsState((prev) => {
+      const next = new Set(prev)
+      let changed = false
+      for (const it of todayItems) {
+        if (!next.has(it.contact.id)) {
+          next.add(it.contact.id)
+          changed = true
+        }
+      }
+      if (!changed) return prev
+      writeIds(slug, next)
+      return next
+    })
+  }, [slug, todayItems])
+
   return {
     morningBrief: data,
     morningBriefLoading: loading,
     reloadMorningBrief: reload,
     followUpItems: items,
+    overdueFollowUps: overdueItems,
+    todayFollowUps: todayItems,
     unreadFollowUps: unreadItems,
     followUpBadgeCount,
     markFollowUpRead,
+    markTodayFollowUpsRead,
   }
 }

@@ -176,6 +176,9 @@ function normalizeContact(
     lost_reason: c.lost_reason ?? '',
     referred_by_id: c.referred_by_id ?? null,
     referral_source: c.referral_source ?? '',
+    deliver_project_id: c.deliver_project_id ?? null,
+    portal_lead_status: c.portal_lead_status ?? 'new',
+    created_at: c.created_at ?? now,
     updated_at: c.updated_at ?? now,
   }
 }
@@ -247,6 +250,9 @@ function rowToContact(row: Record<string, unknown>): Contact {
     lost_reason: (row.lost_reason as string | undefined) ?? '',
     referred_by_id: (row.referred_by_id as string | null) ?? null,
     referral_source: (row.referral_source as string | undefined) ?? '',
+    deliver_project_id: (row.deliver_project_id as string | null) ?? null,
+    portal_lead_status: (row.portal_lead_status as Contact['portal_lead_status']) ?? 'new',
+    created_at: (row.created_at as string | undefined) ?? undefined,
     updated_at: row.updated_at as string,
   })
 }
@@ -356,6 +362,8 @@ function contactToRow(
     lost_reason: c.lost_reason ?? '',
     referred_by_id: c.referred_by_id ?? null,
     referral_source: c.referral_source ?? '',
+    deliver_project_id: c.deliver_project_id ?? null,
+    portal_lead_status: c.portal_lead_status ?? 'new',
     updated_at: c.updated_at,
   }
 }

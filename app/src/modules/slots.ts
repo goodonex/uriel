@@ -38,6 +38,7 @@ const MAIN_RESERVE_RIGHT_BASE_PX = SIDE_COLUMN_WIDTH_PX + 56
 
 export interface MainSlotStyleOptions {
   hasOverlayRight: boolean
+  hasSide?: boolean
 }
 
 export function mainSlotStyle(
@@ -46,15 +47,21 @@ export function mainSlotStyle(
 ): CSSProperties {
   const reserveRight = opts.hasOverlayRight
     ? OVERLAY_RIGHT_WIDTH_PX + VIEWPORT_RIGHT_INSET_PX + MAIN_OVERLAY_GAP_PX
-    : MAIN_RESERVE_RIGHT_BASE_PX
+    : opts.hasSide
+      ? MAIN_RESERVE_RIGHT_BASE_PX
+      : VIEWPORT_RIGHT_INSET_PX
+  const availableExpr = `calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - ${reserveRight}px)`
+  const widthExpr = opts.hasOverlayRight || opts.hasSide
+    ? `min(52vw, ${availableExpr})`
+    : availableExpr
   return {
     position: 'fixed',
     pointerEvents: 'auto',
     boxSizing: 'border-box',
     top: 32,
     left: BRAND_FLOAT_MAIN_LEFT_X,
-    width: `min(52vw, calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - ${reserveRight}px))`,
-    maxWidth: `calc(100vw - ${BRAND_FLOAT_MAIN_LEFT_X}px - ${reserveRight}px)`,
+    width: widthExpr,
+    maxWidth: availableExpr,
     height: 'calc(100vh - 64px)',
     zIndex: Z.main + stackIndex,
   }
@@ -66,9 +73,10 @@ export function slotStyle(
   opts?: MainSlotStyleOptions,
 ): CSSProperties {
   const hasOverlayRight = opts?.hasOverlayRight ?? false
+  const hasSide = opts?.hasSide ?? false
 
   if (slot === 'main') {
-    return mainSlotStyle(stackIndex, { hasOverlayRight })
+    return mainSlotStyle(stackIndex, { hasOverlayRight, hasSide })
   }
 
   const base: CSSProperties = {
