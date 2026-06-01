@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
 import { useMeetingLinks } from '../../hooks/useSalesPro'
@@ -18,6 +19,37 @@ import {
 } from '../../types/callOutcomes'
 import type { Contact } from '../../types/db'
 import { useToast } from '../Toast'
+
+const MODAL_BACKDROP: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 200,
+  background: 'rgba(6, 6, 16, 0.82)',
+  backdropFilter: 'blur(20px)',
+  WebkitBackdropFilter: 'blur(20px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 16,
+  pointerEvents: 'auto',
+}
+
+const MODAL_PANEL: CSSProperties = {
+  width: 'min(480px, 100%)',
+  maxHeight: 'min(90vh, 720px)',
+  overflowY: 'auto',
+  borderRadius: 16,
+  border: '1px solid var(--glass-border-2)',
+  padding: 18,
+  background: '#12121f',
+  boxShadow: '0 28px 64px rgba(0, 0, 0, 0.72)',
+}
+
+const FIELD_SOLID: CSSProperties = {
+  border: '1px solid var(--glass-border-2)',
+  background: '#1a1a2e',
+  color: 'var(--text-primary)',
+}
 
 const ACTION_TYPES: Array<{ value: CallNextAction['type']; label: string }> = [
   { value: 'call', label: 'Anruf' },
@@ -293,37 +325,21 @@ export function CallOutcomeSection({
         </button>
       </section>
 
-      {overlayOpen && draftAction ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 95,
-            background: 'rgba(8,12,22,0.6)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            pointerEvents: 'auto',
-          }}
-          onClick={() => !busy && setOverlayOpen(false)}
-        >
-          <div
-            className="glass-2 font-mono"
-            style={{
-              width: 'min(480px, 100%)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              borderRadius: 16,
-              border: '1px solid var(--glass-border-2)',
-              padding: 18,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-display" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 6px' }}>
+      {overlayOpen && draftAction
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="call-outcome-dialog-title"
+              style={MODAL_BACKDROP}
+              onClick={() => !busy && setOverlayOpen(false)}
+            >
+              <div className="font-mono" style={MODAL_PANEL} onClick={(e) => e.stopPropagation()}>
+            <h3
+              id="call-outcome-dialog-title"
+              className="font-display"
+              style={{ fontSize: 16, fontWeight: 600, margin: '0 0 6px', color: 'var(--text-primary)' }}
+            >
               Anruf protokollieren
             </h3>
             <p className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)', margin: '0 0 14px' }}>
@@ -357,8 +373,8 @@ export function CallOutcomeSection({
                           ? '1px solid var(--mode-sales)'
                           : '1px solid var(--glass-border-2)',
                         background: on
-                          ? 'color-mix(in srgb, var(--mode-sales) 16%, transparent)'
-                          : 'var(--glass-1)',
+                          ? 'color-mix(in srgb, var(--mode-sales) 22%, #1a1a2e)'
+                          : '#1a1a2e',
                         color: on ? 'var(--mode-sales)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -386,9 +402,7 @@ export function CallOutcomeSection({
                   padding: 8,
                   fontSize: 12,
                   borderRadius: 8,
-                  border: '1px solid var(--glass-border-2)',
-                  background: 'var(--glass-1)',
-                  color: 'var(--text-primary)',
+                  ...FIELD_SOLID,
                   resize: 'vertical',
                 }}
               />
@@ -400,7 +414,7 @@ export function CallOutcomeSection({
                 padding: 12,
                 borderRadius: 10,
                 border: '1px solid color-mix(in srgb, var(--mode-sales) 35%, var(--glass-border-2))',
-                background: 'color-mix(in srgb, var(--mode-sales) 8%, var(--glass-1))',
+                background: 'color-mix(in srgb, var(--mode-sales) 12%, #1a1a2e)',
               }}
             >
               <div style={{ fontSize: 11, color: 'var(--mode-sales)', marginBottom: 10, fontWeight: 600 }}>
@@ -428,8 +442,8 @@ export function CallOutcomeSection({
                               ? '1px solid var(--mode-sales)'
                               : '1px solid var(--glass-border-2)',
                             background: active
-                              ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
-                              : 'var(--glass-2)',
+                              ? 'color-mix(in srgb, var(--mode-sales) 22%, #1a1a2e)'
+                              : '#1a1a2e',
                             color: active ? 'var(--mode-sales)' : 'var(--text-secondary)',
                             cursor: 'pointer',
                           }}
@@ -466,9 +480,7 @@ export function CallOutcomeSection({
                       padding: '6px 8px',
                       fontSize: 12,
                       borderRadius: 8,
-                      border: '1px solid var(--glass-border-2)',
-                      background: 'var(--glass-2)',
-                      color: 'var(--text-primary)',
+                      ...FIELD_SOLID,
                     }}
                   >
                     {ACTION_TYPES.map((t) => (
@@ -511,9 +523,7 @@ export function CallOutcomeSection({
                         padding: '6px 8px',
                         fontSize: 12,
                         borderRadius: 8,
-                        border: '1px solid var(--glass-border-2)',
-                        background: 'var(--glass-2)',
-                        color: 'var(--text-primary)',
+                        ...FIELD_SOLID,
                       }}
                     />
                   </label>
@@ -536,7 +546,7 @@ export function CallOutcomeSection({
                   padding: '8px 14px',
                   borderRadius: 8,
                   border: '1px solid var(--glass-border-2)',
-                  background: 'transparent',
+                  background: '#1a1a2e',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
                 }}
@@ -552,7 +562,7 @@ export function CallOutcomeSection({
                   padding: '8px 14px',
                   borderRadius: 8,
                   border: '1px solid var(--mode-sales)',
-                  background: 'color-mix(in srgb, var(--mode-sales) 20%, transparent)',
+                  background: 'color-mix(in srgb, var(--mode-sales) 28%, #1a1a2e)',
                   color: 'var(--mode-sales)',
                   fontWeight: 600,
                   cursor: busy ? 'wait' : 'pointer',
@@ -561,9 +571,11 @@ export function CallOutcomeSection({
                 {busy ? 'Speichert …' : 'Bestätigen'}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   )
 }
