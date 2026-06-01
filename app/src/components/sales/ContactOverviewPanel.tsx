@@ -1,7 +1,8 @@
 /**
  * Lead-Übersicht: links Hero + Metadaten, rechts Deliver + Verlauf.
  */
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCampaigns } from '../../hooks/useCampaigns'
 import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
@@ -11,6 +12,7 @@ import { companyDisplayName, isCompany } from '../../lib/crmContacts'
 import type { ActivityEntry, Contact } from '../../types/db'
 import { ContactDeliverCard } from './ContactDeliverCard'
 import { CompanyPersonSection } from './CompanyPersonSection'
+import { useToast } from '../Toast'
 import { ContactDeleteConfirm } from './ContactDeleteConfirm'
 import { ContactDetailsDrawer } from './ContactDetailsDrawer'
 import { ContactSequencesPanel } from './ContactSequencesPanel'
@@ -18,8 +20,6 @@ import { ContactActivityTimeline } from './activity/ContactActivityTimeline'
 import { ContactTasksPanel } from './activity/ContactTasksPanel'
 import { ContactDetailHero } from './activity/ContactDetailHero'
 import { CallOutcomeSection } from './CallOutcomeSection'
-import { Link } from 'react-router-dom'
-
 interface ContactOverviewPanelProps {
   brandSlug: string
   contact: Contact
@@ -49,11 +49,19 @@ export function ContactOverviewPanel({
   onEditActivity,
 }: ContactOverviewPanelProps) {
   const contacts = useContacts(brandSlug)
+  const navigate = useNavigate()
+  const { show } = useToast()
   const { isMobile } = useViewport()
 
-  const handleDelete = () => {
-    contacts.remove(contact.id)
-  }
+  const handleDelete = useCallback(async () => {
+    const ok = await contacts.remove(contact.id)
+    if (!ok) {
+      show(contacts.error ?? 'Kontakt konnte nicht gelöscht werden', 'error')
+      return
+    }
+    show('Kontakt gelöscht', 'success')
+    navigate(`/brand/${brandSlug}/sales`)
+  }, [brandSlug, contact.id, contacts, navigate, show])
 
   const compact = isMobile || layout === 'narrow'
 
@@ -130,7 +138,7 @@ export function ContactDetailLeftColumn({
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>, fieldKey?: string) => void
-  onDelete: () => void
+  onDelete: () => void | Promise<void>
   compact?: boolean
   brandSlug: string
   onTimelineRefresh?: () => void
@@ -163,7 +171,7 @@ function IdentityCard({
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
-  onDelete: () => void
+  onDelete: () => void | Promise<void>
   compact?: boolean
   brandSlug?: string
   onTimelineRefresh?: () => void
@@ -335,7 +343,7 @@ function IdentityCard({
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => {
           setDeleteOpen(false)
-          onDelete()
+          void onDelete()
         }}
       />
     </aside>

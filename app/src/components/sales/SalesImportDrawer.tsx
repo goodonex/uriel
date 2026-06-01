@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
+import { parseCsv } from '../../lib/csvParse'
 import { similarityPercent } from '../../lib/levenshtein'
 import type { ContactStatus } from '../../types/db'
 import { useToast } from '../Toast'
@@ -62,55 +63,31 @@ function normalizeStatusKey(raw: string): string {
     .replace(/[^a-z0-9]/g, '')
 }
 
-function parseCSV(text: string): string[][] {
-  // Einfacher CSV-Parser inkl. Quoted-Felder
-  const rows: string[][] = []
-  let cur: string[] = []
-  let field = ''
-  let inQuotes = false
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
-    if (inQuotes) {
-      if (ch === '"' && text[i + 1] === '"') {
-        field += '"'
-        i++
-      } else if (ch === '"') {
-        inQuotes = false
-      } else {
-        field += ch
-      }
-    } else {
-      if (ch === '"') inQuotes = true
-      else if (ch === ',' || ch === ';' || ch === '\t') {
-        cur.push(field)
-        field = ''
-      } else if (ch === '\n') {
-        cur.push(field)
-        rows.push(cur)
-        cur = []
-        field = ''
-      } else if (ch === '\r') {
-        /* skip */
-      } else {
-        field += ch
-      }
-    }
-  }
-  if (field.length > 0 || cur.length > 0) {
-    cur.push(field)
-    rows.push(cur)
-  }
-  return rows.filter((r) => r.some((c) => c.trim()))
-}
-
 function autoMap(header: string): FieldKey {
-  const h = header.toLowerCase().trim()
-  if (h.includes('firma') || h.includes('company') || h.includes('unternehmen')) return 'firma'
-  if (h.includes('ansprech')) return 'ansprechpartner'
-  if (h.includes('tel') || h.includes('phone')) return 'phone'
-  if (h.includes('web') || h.includes('url')) return 'website'
-  if (h.includes('standort') || h.includes('ort') || h.includes('city')) return 'standort'
-  if (h.includes('aufha') || h.includes('notiz') || h.includes('note')) return 'aufhaenger'
+  const h = header
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  if (
+    h.includes('firma') ||
+    h.includes('unternehmen') ||
+    h === 'company' ||
+    h.includes('firmenname')
+  ) {
+    return 'firma'
+  }
+  if (h.includes('ansprech') || h.includes('kontaktperson')) return 'ansprechpartner'
+  if (h.includes('telefon') || h.includes('tel') || h === 'phone' || h.includes('mobil')) {
+    return 'phone'
+  }
+  if (h.includes('website') || h === 'url' || h.includes('webseite')) return 'website'
+  if (h.includes('standort') || h === 'ort' || h.includes('stadt') || h.includes('city')) {
+    return 'standort'
+  }
+  if (h.includes('aufha') || h.includes('notiz') || h.includes('note') || h.includes('hook')) {
+    return 'aufhaenger'
+  }
   if (h.includes('status')) return 'status'
   return 'skip'
 }
@@ -135,7 +112,7 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
 
   const handleParse = (text: string) => {
     setRaw(text)
-    const parsed = parseCSV(text)
+    const parsed = parseCsv(text)
     setRows(parsed)
     if (parsed.length > 0) {
       const header = parsed[0]

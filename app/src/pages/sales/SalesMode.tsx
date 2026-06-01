@@ -1201,11 +1201,23 @@ export function SalesMode({
       !window.confirm(`${n} Kontakt${n === 1 ? '' : 'e'} wirklich löschen?`)
     )
       return
-    for (const c of selectedContactList) {
-      contacts.remove(c.id)
-    }
-    setSelectedIds(new Set())
-  }, [contacts, selectedContactList])
+    void (async () => {
+      let failed = 0
+      for (const c of selectedContactList) {
+        const ok = await contacts.remove(c.id)
+        if (!ok) failed++
+      }
+      setSelectedIds(new Set())
+      if (failed > 0) {
+        showToast(
+          `${failed} Kontakt${failed === 1 ? '' : 'e'} konnte${failed === 1 ? '' : 'n'} nicht gelöscht werden`,
+          'error',
+        )
+      } else if (n > 0) {
+        showToast(`${n} Kontakt${n === 1 ? '' : 'e'} gelöscht`, 'success')
+      }
+    })()
+  }, [contacts, selectedContactList, showToast])
 
   const applyBulkTag = useCallback(() => {
     const tag = bulkTagInput.trim()

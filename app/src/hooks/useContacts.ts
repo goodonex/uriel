@@ -384,7 +384,7 @@ interface UseContactsResult {
     id: string,
     patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
   ) => void
-  remove: (id: string) => void
+  remove: (id: string) => Promise<boolean>
 }
 
 export function readContactsLocal(brandSlug: string): Contact[] {
@@ -485,8 +485,9 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       b.updated_at.localeCompare(a.updated_at),
     )
     setItems(merged)
+    persistLocal(merged)
     setLoading(false)
-  }, [brandId, brandSlug, loadLocal])
+  }, [brandId, brandSlug, loadLocal, persistLocal])
 
   useEffect(() => {
     void reload()
@@ -634,33 +635,50 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
   )
 
   const remove = useCallback(
-    (id: string) => {
-      if (!brandSlug) return
-      const next = itemsRef.current.filter((c) => c.id !== id)
+    async (id: string): Promise<boolean> => {
+      if (!brandSlug) return false
+      const prev = itemsRef.current
+      const next = prev.filter((c) => c.id !== id)
+      if (next.length === prev.length) return false
+
       itemsRef.current = next
       setItems(next)
+      persistLocal(next)
+
       if (localOnlyRef.current || !supabase || !brandId) {
-        persistLocal(next)
-        return
+        return true
       }
-      void supabase
+
+      const { data, error: delErr } = await supabase
         .from('contacts')
         .delete()
         .eq('id', id)
         .eq('brand_id', brandId)
-        .then(({ error: delErr }) => {
-          if (delErr) {
-            if (isMissingSupabaseTableError(delErr.message)) {
-              localOnlyRef.current = true
-              persistLocal(next)
-            } else {
-              setError(delErr.message)
-              void reload()
-            }
-          }
-        })
+        .select('id')
+
+      if (delErr) {
+        if (isMissingSupabaseTableError(delErr.message)) {
+          localOnlyRef.current = true
+          return true
+        }
+        setError(delErr.message)
+        itemsRef.current = prev
+        setItems(prev)
+        persistLocal(prev)
+        return false
+      }
+
+      if (!data?.length) {
+        setError('Kontakt konnte nicht gelöscht werden (keine Berechtigung oder unbekannte ID).')
+        itemsRef.current = prev
+        setItems(prev)
+        persistLocal(prev)
+        return false
+      }
+
+      return true
     },
-    [brandId, brandSlug, persistLocal, reload],
+    [brandId, brandSlug, persistLocal],
   )
 
   return { items, loading, error, reload, create, update, remove }

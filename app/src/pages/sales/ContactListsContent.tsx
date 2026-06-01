@@ -6,6 +6,12 @@ import { LIST_PRESETS, useContactListItems, useContactLists } from '../../hooks/
 import { ContactListCardMenu } from '../../components/sales/ContactListCardMenu'
 import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
 import { useContacts } from '../../hooks/useContacts'
+import {
+  inferColumnMapping,
+  mapCsvRowToListImport,
+  type ContactListCsvMapKey,
+} from '../../lib/csvColumnMap'
+import { parseCsv } from '../../lib/csvParse'
 import { supabase } from '../../lib/supabase'
 import type { ContactListItemStatus } from '../../types/db'
 
@@ -32,35 +38,12 @@ function startOfToday(): Date {
   return d
 }
 
-function parseCsv(text: string): string[][] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
-  if (!lines.length) return []
-  const delim =
-    lines[0].split(';').length > lines[0].split(',').length ? ';' : ','
-  return lines.map((line) =>
-    line.split(delim).map((c) => c.trim().replace(/^"|"$/g, '')),
-  )
-}
-
-type MapKey =
-  | 'name'
-  | 'email'
-  | 'phone'
-  | 'company'
-  | 'linkedin'
-  | 'ansprechpartner'
-  | 'standort'
-  | 'aufhaenger_angriffsflaeche'
-  | 'outcome'
-  | 'prio'
-  | 'im_crm'
-  | 'g_ads'
-  | 'keyword'
-  | 'website'
-  | 'skip'
+type MapKey = ContactListCsvMapKey
 
 const MAP_LABEL: Record<MapKey, string> = {
   name: 'Name',
+  vorname: 'Vorname',
+  nachname: 'Nachname',
   email: 'E-Mail',
   phone: 'Telefon',
   company: 'Firma',
@@ -200,20 +183,20 @@ export function ContactListsContent({
 
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
-  const [colMap, setColMap] = useState<Record<string, MapKey>>({})
+  /** Pro Spaltenindex — nicht nach Header-Text (Duplikate/leere Überschriften). */
+  const [columnMapping, setColumnMapping] = useState<MapKey[]>([])
   const [csvBusy, setCsvBusy] = useState(false)
   const [skipImportDupes, setSkipImportDupes] = useState(false)
 
   const emailForMappedCsvRow = useCallback(
     (row: string[]) => {
       let out = ''
-      csvHeaders.forEach((h, idx) => {
-        const key = colMap[h] ?? 'skip'
+      columnMapping.forEach((key, idx) => {
         if (key === 'email') out = (row[idx] ?? '').trim().toLowerCase()
       })
       return out
     },
-    [colMap, csvHeaders],
+    [columnMapping],
   )
 
   const previewRowDupFlags = useMemo(() => {
@@ -315,103 +298,69 @@ export function ContactListsContent({
       if (grid.length < 2) {
         setCsvHeaders([])
         setCsvRows([])
+        show('CSV konnte nicht gelesen werden (mindestens Kopfzeile + eine Datenzeile).', 'info')
         return
       }
       const headers = grid[0].map((h, i) => h || `Spalte ${i + 1}`)
-      const initMap: Record<string, MapKey> = {}
-      for (const h of headers) initMap[h] = 'skip'
-      const lower = (s: string) => s.toLowerCase()
-      for (const h of headers) {
-        const L = lower(h)
-        if (L.includes('name') || L.includes('vorname')) initMap[h] = 'name'
-        else if (L.includes('mail')) initMap[h] = 'email'
-        else if (L.includes('tel') || L.includes('phone')) initMap[h] = 'phone'
-        else if (L.includes('firma') || L.includes('company')) initMap[h] = 'company'
-        else if (L.includes('linkedin')) initMap[h] = 'linkedin'
-        else if (L.includes('ansprech')) initMap[h] = 'ansprechpartner'
-        else if (L.includes('standort') || L.includes('ort') || L.includes('city')) initMap[h] = 'standort'
-        else if (L.includes('aufh') || L.includes('angriffs') || L.includes('pain') || L.includes('hook')) {
-          initMap[h] = 'aufhaenger_angriffsflaeche'
-        }
-        else if (L.includes('outcome')) initMap[h] = 'outcome'
-        else if (L.includes('prio') || L.includes('prior')) initMap[h] = 'prio'
-        else if (L.includes('im crm') || L.includes('crm')) initMap[h] = 'im_crm'
-        else if (L.includes('g ads') || L.includes('google ads') || L.includes('gads')) initMap[h] = 'g_ads'
-        else if (L.includes('keyword')) initMap[h] = 'keyword'
-        else if (L.includes('website') || L.includes('web') || L.includes('url')) initMap[h] = 'website'
-      }
-      setColMap(initMap)
+      const dataRows = grid.slice(1)
+      setColumnMapping(inferColumnMapping(headers, dataRows))
       setCsvHeaders(headers)
-      setCsvRows(grid.slice(1))
+      setCsvRows(dataRows)
     }
-    reader.readAsText(file)
-  }, [])
+    reader.readAsText(file, 'UTF-8')
+  }, [show])
 
   const previewRows = csvRows.slice(0, 3)
+
+  const mappedPreviewRows = useMemo(
+    () => previewRows.map((row) => mapCsvRowToListImport(row, columnMapping)),
+    [columnMapping, previewRows],
+  )
 
   const runImport = useCallback(async () => {
     if (!listId || csvRows.length === 0) return
     setCsvBusy(true)
     try {
-      const out: Array<{
-        name?: string
-        email?: string
-        phone?: string
-        company?: string
-        linkedin_url?: string
-        ansprechpartner?: string
-        standort?: string
-        aufhaenger_angriffsflaeche?: string
-        outcome?: string
-        prio?: string
-        im_crm?: boolean | null
-        g_ads?: string
-        keyword?: string
-        website?: string
-      }> = []
-      for (const row of csvRows) {
-        const o: Record<string, string> & { im_crm?: boolean | null } = {}
-        csvHeaders.forEach((h, idx) => {
-          const key = colMap[h] ?? 'skip'
-          if (key === 'skip') return
-          const cell = row[idx] ?? ''
-          if (key === 'linkedin') o.linkedin_url = cell
-          else if (key === 'im_crm') o.im_crm = parseBooleanCell(cell)
-          else o[key] = cell
-        })
-        out.push({
-          name: o.name,
-          email: o.email,
-          phone: o.phone,
-          company: o.company,
-          linkedin_url: o.linkedin_url,
-          ansprechpartner: o.ansprechpartner,
-          standort: o.standort,
-          aufhaenger_angriffsflaeche: o.aufhaenger_angriffsflaeche,
-          outcome: o.outcome,
-          prio: o.prio,
-          im_crm: o.im_crm ?? null,
-          g_ads: o.g_ads,
-          keyword: o.keyword,
-          website: o.website,
-        })
-      }
-      const toInsert = skipImportDupes
-        ? out.filter((o) => {
+      const out = csvRows.map((row) => mapCsvRowToListImport(row, columnMapping))
+      const meaningful = out.filter(
+        (o) =>
+          Boolean((o.name ?? '').trim()) ||
+          Boolean((o.company ?? '').trim()) ||
+          Boolean((o.email ?? '').trim()) ||
+          Boolean((o.phone ?? '').trim()),
+      )
+      const toInsert = (skipImportDupes
+        ? meaningful.filter((o) => {
             const e = (o.email ?? '').trim().toLowerCase()
             return !e || !existingEmailsLower.has(e)
           })
-        : out
+        : meaningful
+      )
+      if (toInsert.length === 0) {
+        show('Keine importierbaren Zeilen (leer oder nur Duplikate).', 'info')
+        return
+      }
       await insertRows(toInsert)
       setCsvHeaders([])
       setCsvRows([])
       await reloadLists()
+      show(`${toInsert.length} Zeilen importiert`, 'success')
     } catch (e) {
       console.error(e)
+      show(e instanceof Error ? e.message : 'Import fehlgeschlagen', 'error')
     } finally {
       setCsvBusy(false)
     }
-  }, [colMap, csvHeaders, csvRows, existingEmailsLower, insertRows, listId, reloadLists, skipImportDupes])
+  }, [
+    columnMapping,
+    csvRows,
+    existingEmailsLower,
+    insertRows,
+    listId,
+    reloadLists,
+    show,
+    skipImportDupes,
+  ])
 
   const telHref = (phone: string) => {
     const d = phone.replace(/[^\d+]/g, '')
@@ -871,13 +820,26 @@ export function ContactListsContent({
         {csvHeaders.length > 0 ? (
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {csvHeaders.map((h) => (
-                <label key={h} className="font-mono flex flex-col gap-1" style={{ fontSize: 10 }}>
-                  <span style={{ color: 'var(--text-tertiary)' }}>{h}</span>
+              {csvHeaders.map((h, colIdx) => {
+                const dupCount = csvHeaders.filter((x) => x === h).length
+                return (
+                <label key={colIdx} className="font-mono flex flex-col gap-1" style={{ fontSize: 10 }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    {h}
+                    {dupCount > 1 ? (
+                      <span style={{ color: 'var(--accent-amber)', marginLeft: 4 }}>
+                        (Spalte {colIdx + 1})
+                      </span>
+                    ) : null}
+                  </span>
                   <select
-                    value={colMap[h] ?? 'skip'}
+                    value={columnMapping[colIdx] ?? 'skip'}
                     onChange={(e) =>
-                      setColMap((m) => ({ ...m, [h]: e.target.value as MapKey }))
+                      setColumnMapping((m) => {
+                        const next = [...m]
+                        next[colIdx] = e.target.value as MapKey
+                        return next
+                      })
                     }
                     style={FIELD}
                   >
@@ -888,10 +850,10 @@ export function ContactListsContent({
                     ))}
                   </select>
                 </label>
-              ))}
+              )})}
             </div>
             <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-              Vorschau (erste 3 Zeilen)
+              Vorschau CSV (Rohdaten)
             </div>
             <label className="font-mono flex cursor-pointer items-center gap-2" style={{ fontSize: 10 }}>
               <input
@@ -944,6 +906,34 @@ export function ContactListsContent({
                           {r[j] ?? ''}
                         </td>
                       ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+              Vorschau Import (so landet es in der Liste)
+            </div>
+            <div
+              className="overflow-x-auto rounded-xl"
+              style={{ border: '1px solid var(--glass-border-2)' }}
+            >
+              <table className="w-full text-left font-mono" style={{ fontSize: 10 }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: 8, color: 'var(--text-tertiary)' }}>Name</th>
+                    <th style={{ padding: 8, color: 'var(--text-tertiary)' }}>Firma</th>
+                    <th style={{ padding: 8, color: 'var(--text-tertiary)' }}>Telefon</th>
+                    <th style={{ padding: 8, color: 'var(--text-tertiary)' }}>Ansprechpartner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mappedPreviewRows.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: 8, color: 'var(--text-secondary)' }}>{r.name}</td>
+                      <td style={{ padding: 8, color: 'var(--text-secondary)' }}>{r.company}</td>
+                      <td style={{ padding: 8, color: 'var(--text-secondary)' }}>{r.phone}</td>
+                      <td style={{ padding: 8, color: 'var(--text-secondary)' }}>{r.ansprechpartner}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1103,8 +1093,12 @@ export function ContactListsContent({
                       ) : null}
                     </button>
                   </td>
-                  <td style={{ padding: 12, color: 'var(--text-primary)' }}>{row.name}</td>
-                  <td style={{ padding: 12 }}>{row.company}</td>
+                  <td style={{ padding: 12, color: 'var(--text-primary)' }}>
+                    {row.name || row.company || '—'}
+                  </td>
+                  <td style={{ padding: 12 }}>
+                    {row.company && row.company !== row.name ? row.company : '—'}
+                  </td>
                   <td style={{ padding: 12 }}>
                     {telHref(row.phone) ? (
                       <a href={telHref(row.phone)} style={{ color: 'var(--accent-blue)' }}>
