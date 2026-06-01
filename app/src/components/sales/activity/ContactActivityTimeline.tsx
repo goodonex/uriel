@@ -4,6 +4,7 @@ import { useActivityEntries } from '../../../hooks/useActivityEntries'
 import { useAuth } from '../../../hooks/useAuth'
 import type { TimelineFilter } from '../../../lib/activityTypes'
 import { ACTIVITY_META } from '../../../lib/activityTypes'
+import { formatActivityDetails, hasActivityDetails } from '../../../lib/activityDetailFormat'
 import {
   filterTimeline,
   fmtRel,
@@ -260,32 +261,29 @@ function TimelineRow({
             </div>
           ) : null}
         </button>
-        {expanded && Object.keys(item.data).length > 0 ? (
-          <pre
-            className="font-mono"
-            style={{
-              marginTop: 8,
-              fontSize: 10,
-              padding: 8,
-              borderRadius: 8,
-              background: 'var(--glass-2)',
-              color: 'var(--text-secondary)',
-              whiteSpace: 'pre-wrap',
-              overflow: 'auto',
-            }}
-          >
-            {JSON.stringify(item.data, null, 2)}
-          </pre>
+        {expanded &&
+        hasActivityDetails(
+          item.activityType ?? (item.type === 'legacy_call' ? 'legacy_call' : item.type),
+          item.data,
+        ) ? (
+          <ActivityDetailBlock
+            activityType={
+              item.activityType ?? (item.type === 'legacy_call' ? 'legacy_call' : item.type)
+            }
+            data={item.data}
+          />
         ) : null}
         {item.bodyPreview ? (
           <div
             style={{
               marginTop: 6,
               fontSize: 12,
-              color: 'var(--text-secondary)',
-              background: 'var(--glass-2)',
-              padding: '6px 8px',
-              borderRadius: 6,
+              color: 'var(--text-primary)',
+              background: '#1a1a2e',
+              border: '1px solid var(--glass-border-2)',
+              padding: '8px 10px',
+              borderRadius: 8,
+              lineHeight: 1.45,
             }}
           >
             {item.bodyPreview}
@@ -315,6 +313,58 @@ function TimelineRow({
         ) : null}
       </div>
     </li>
+  )
+}
+
+function ActivityDetailBlock({
+  activityType,
+  data,
+}: {
+  activityType: string
+  data: Record<string, unknown>
+}) {
+  const rows = formatActivityDetails(activityType, data)
+  if (rows.length === 0) return null
+  return (
+    <div
+      className="font-mono"
+      style={{
+        marginTop: 8,
+        padding: 10,
+        borderRadius: 8,
+        background: '#1a1a2e',
+        border: '1px solid var(--glass-border-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: '0.08em',
+              color: 'var(--text-tertiary)',
+              marginBottom: 3,
+            }}
+          >
+            {r.label.toUpperCase()}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--text-primary)',
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {r.value}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

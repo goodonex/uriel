@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  SALES_FIELD_SOLID,
+  SALES_MODAL_BACKDROP,
+  SALES_MODAL_PANEL,
+} from './activity/salesModalUi'
 import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
 import { useMeetingLinks } from '../../hooks/useSalesPro'
@@ -11,8 +16,6 @@ import {
 } from '../../lib/callSequencer/getSuggestedNextAction'
 import {
   CALL_LOG_OUTCOME_OPTIONS,
-  CALL_OUTCOME_OPTIONS,
-  parseCallActivityData,
   type CallActivityData,
   type CallNextAction,
   type CallOutcome,
@@ -20,36 +23,11 @@ import {
 import type { Contact } from '../../types/db'
 import { useToast } from '../Toast'
 
-const MODAL_BACKDROP: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  zIndex: 200,
-  background: 'rgba(6, 6, 16, 0.82)',
-  backdropFilter: 'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 16,
-  pointerEvents: 'auto',
-}
-
-const MODAL_PANEL: CSSProperties = {
+const CALL_MODAL_PANEL = {
+  ...SALES_MODAL_PANEL,
   width: 'min(480px, 100%)',
-  maxHeight: 'min(90vh, 720px)',
-  overflowY: 'auto',
-  borderRadius: 16,
-  border: '1px solid var(--glass-border-2)',
   padding: 18,
-  background: '#12121f',
-  boxShadow: '0 28px 64px rgba(0, 0, 0, 0.72)',
-}
-
-const FIELD_SOLID: CSSProperties = {
-  border: '1px solid var(--glass-border-2)',
-  background: '#1a1a2e',
-  color: 'var(--text-primary)',
-}
+} as const
 
 const ACTION_TYPES: Array<{ value: CallNextAction['type']; label: string }> = [
   { value: 'call', label: 'Anruf' },
@@ -151,12 +129,6 @@ export function CallOutcomeSection({
     [activities.items],
   )
 
-  const lastCall = useMemo(() => {
-    const entry = activities.items.find((e) => e.activity_type === 'call')
-    if (!entry) return null
-    return parseCallActivityData(entry.data as Record<string, unknown>)
-  }, [activities.items])
-
   const resetOverlay = () => {
     setOutcome('not_reached')
     setNote('')
@@ -173,11 +145,6 @@ export function CallOutcomeSection({
     resetOverlay()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlayOpen])
-
-  const openOverlay = () => {
-    resetOverlay()
-    setOverlayOpen(true)
-  }
 
   const applyFollowUpPreset = (due_at: string) => {
     setDraftAction((d) => {
@@ -274,67 +241,16 @@ export function CallOutcomeSection({
     }
   }
 
-  return (
-    <>
-      <section
-        style={{
-          background: 'var(--glass-2)',
-          border: '1px solid var(--glass-border-1)',
-          borderRadius: 12,
-          padding: 12,
-        }}
-      >
-        <div
-          className="font-mono"
-          style={{
-            fontSize: 9,
-            letterSpacing: '0.12em',
-            color: 'var(--text-tertiary)',
-            marginBottom: 8,
-          }}
-        >
-          LETZTER ANRUF
-        </div>
-        {lastCall ? (
-          <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 10px' }}>
-            {CALL_OUTCOME_OPTIONS.find((o) => o.value === lastCall.outcome)?.label ?? lastCall.outcome}
-            {lastCall.note ? ` · ${lastCall.note}` : ''}
-          </p>
-        ) : (
-          <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 10px' }}>
-            Noch kein Outcome erfasst ({callCount} Anrufe in Timeline)
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={openOverlay}
-          className="font-mono"
-          style={{
-            fontSize: 11,
-            padding: '8px 12px',
-            borderRadius: 8,
-            border: '1px solid var(--mode-sales)',
-            background: 'color-mix(in srgb, var(--mode-sales) 14%, transparent)',
-            color: 'var(--mode-sales)',
-            cursor: 'pointer',
-            fontWeight: 600,
-            width: '100%',
-          }}
-        >
-          Anruf protokollieren
-        </button>
-      </section>
-
-      {overlayOpen && draftAction
+  return overlayOpen && draftAction
         ? createPortal(
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="call-outcome-dialog-title"
-              style={MODAL_BACKDROP}
+              style={SALES_MODAL_BACKDROP}
               onClick={() => !busy && setOverlayOpen(false)}
             >
-              <div className="font-mono" style={MODAL_PANEL} onClick={(e) => e.stopPropagation()}>
+              <div className="font-mono" style={CALL_MODAL_PANEL} onClick={(e) => e.stopPropagation()}>
             <h3
               id="call-outcome-dialog-title"
               className="font-display"
@@ -402,7 +318,7 @@ export function CallOutcomeSection({
                   padding: 8,
                   fontSize: 12,
                   borderRadius: 8,
-                  ...FIELD_SOLID,
+                  ...SALES_FIELD_SOLID,
                   resize: 'vertical',
                 }}
               />
@@ -480,7 +396,7 @@ export function CallOutcomeSection({
                       padding: '6px 8px',
                       fontSize: 12,
                       borderRadius: 8,
-                      ...FIELD_SOLID,
+                      ...SALES_FIELD_SOLID,
                     }}
                   >
                     {ACTION_TYPES.map((t) => (
@@ -523,7 +439,7 @@ export function CallOutcomeSection({
                         padding: '6px 8px',
                         fontSize: 12,
                         borderRadius: 8,
-                        ...FIELD_SOLID,
+                        ...SALES_FIELD_SOLID,
                       }}
                     />
                   </label>
@@ -575,7 +491,5 @@ export function CallOutcomeSection({
             </div>,
             document.body,
           )
-        : null}
-    </>
-  )
+        : null
 }

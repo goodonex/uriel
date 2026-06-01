@@ -49,8 +49,14 @@ export function summarizeActivity(entry: ActivityEntry): string {
   const d = entry.data ?? {}
   const t = entry.activity_type
   switch (t) {
-    case 'presetting':
-      return `Presetting: Termin ${str(d.termin_vereinbart) || '—'}${d.closing_termin ? ` · Closing ${fmtDe(str(d.closing_termin))}` : ''}`
+    case 'presetting': {
+      const termin = str(d.termin_vereinbart) || '—'
+      const rawNote = str(d.notizen).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      const noteBit = rawNote
+        ? ` · ${rawNote.length > 100 ? `${rawNote.slice(0, 100)}…` : rawNote}`
+        : ''
+      return `Presetting: Termin ${termin}${noteBit}`
+    }
     case 'setting':
       return `Setting: ${str(d.termin_stattgefunden) || '—'}${d.closing_termin_vereinbart === 'Ja' && d.closing_termin ? ` · Closing ${fmtDe(str(d.closing_termin))}` : ''}`
     case 'closing':

@@ -53,7 +53,7 @@ export function ContactActivityActionBar({
         ✉ E-Mail
       </button>
       <button type="button" className="font-mono" style={ghostBtn} onClick={onCall}>
-        ☎ Anruf protokollieren
+        ☎ Anruf
       </button>
       <div ref={menuRef} style={{ position: 'relative', marginLeft: variant === 'header' ? 0 : 'auto' }}>
           <button

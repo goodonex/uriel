@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { SALES_FIELD_SOLID, SALES_MODAL_BACKDROP, SALES_MODAL_Z } from './activity/salesModalUi'
 import { useEmailLogs, useEmailTemplates } from '../../hooks/useSalesPro'
 import { useBrandId } from '../../hooks/useBrandId'
 import { usePositioning } from '../../hooks/usePositioning'
@@ -134,45 +136,42 @@ export function EmailComposeDialog({
     setBody((b) => `${b}{{${key}}}`)
   }
 
-  return (
+  if (!open) return null
+
+  return createPortal(
     <AnimatePresence>
-      {open ? (
+      <motion.div
+        key="backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{
+          ...SALES_MODAL_BACKDROP,
+          zIndex: SALES_MODAL_Z,
+          padding: 24,
+        }}
+      >
         <motion.div
-          key="backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 z-[80]"
+          initial={{ y: 16, opacity: 0, scale: 0.98 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 16, opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="font-body"
           style={{
-            background: 'rgba(8, 12, 22, 0.55)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: 24,
+            width: '100%',
+            maxWidth: 720,
+            maxHeight: '88vh',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#12121f',
+            border: '1px solid var(--glass-border-2)',
+            borderRadius: 16,
+            boxShadow: '0 28px 64px rgba(0, 0, 0, 0.72)',
+            overflow: 'hidden',
           }}
         >
-          <motion.div
-            initial={{ y: 16, opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 16, opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
-            onClick={(e) => e.stopPropagation()}
-            className="font-body"
-            style={{
-              width: '100%',
-              maxWidth: 720,
-              maxHeight: '88vh',
-              display: 'flex',
-              flexDirection: 'column',
-              background: 'rgba(18,18,22,0.95)',
-              border: '1px solid var(--glass-border-2)',
-              borderRadius: 16,
-              boxShadow: '0 28px 60px rgba(0,0,0,0.55)',
-              overflow: 'hidden',
-            }}
-          >
             <header
               style={{
                 padding: '14px 18px',
@@ -371,21 +370,12 @@ export function EmailComposeDialog({
             </footer>
           </motion.div>
         </motion.div>
-      ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid var(--glass-border-2)',
-  background: 'var(--glass-1)',
-  color: 'var(--text-primary)',
-  fontSize: 13,
-  outline: 'none',
-}
+const inputStyle: React.CSSProperties = SALES_FIELD_SOLID
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -474,15 +464,9 @@ function TemplateRow({
         placeholder="Choose a template…"
         className="font-mono"
         style={{
-          width: '100%',
+          ...SALES_FIELD_SOLID,
           marginBottom: 8,
-          padding: '7px 10px',
           fontSize: 11,
-          borderRadius: 8,
-          border: '1px solid var(--glass-border-2)',
-          background: 'var(--glass-2)',
-          color: 'var(--text-primary)',
-          outline: 'none',
         }}
       />
       {recent.length > 0 && !query.trim() ? (
