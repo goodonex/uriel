@@ -120,9 +120,10 @@ function contactCardTitle(c: Contact): string {
 }
 
 /** Vergleicht Kalendertag (YYYY-MM-DD) mit heute — Follow-up heute oder früher = überfällig. */
-function isFollowUpOverdue(nextFollowUpAt: string | null): boolean {
-  if (!nextFollowUpAt) return false
-  const ymd = nextFollowUpAt.slice(0, 10)
+function isFollowUpOverdue(contact: Contact): boolean {
+  if (!contact.next_follow_up_at) return false
+  if (contact.pipeline_stage === 'deal' || contact.pipeline_stage === 'paused') return false
+  const ymd = contact.next_follow_up_at.slice(0, 10)
   const t = new Date()
   const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
   return ymd <= today
@@ -509,7 +510,7 @@ function SortableContactCard({
     isDragging,
   } = useSortable({ id: contact.id })
 
-  const overdue = isFollowUpOverdue(contact.next_follow_up_at)
+  const overdue = isFollowUpOverdue(contact)
   const stageColor = STAGE_ACCENT[contact.pipeline_stage]
   const title = contactCardTitle(contact)
   const subtitle =

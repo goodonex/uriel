@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useContacts } from '../../../hooks/useContacts'
 import { useTasks } from '../../../hooks/useTasks'
 import { copyBriefMailingJson } from '../../../lib/briefTaskExport'
+import { shouldClearContactFollowUp } from '../../../lib/contactFollowUpSync'
 import { followUpTaskTitle } from '../../../lib/followUpTask'
 import { useToast } from '../../Toast'
 import type { Contact, Task } from '../../../types/db'
@@ -127,9 +128,16 @@ export function ContactTasksPanel({
   ])
 
   const handleToggle = (task: Task) => {
+    const markingDone = task.status !== 'done' && task.status !== 'cancelled'
+    const otherOpen = contactTasks.filter(
+      (t) =>
+        t.id !== task.id &&
+        t.status !== 'done' &&
+        t.status !== 'cancelled',
+    )
     tasks.toggle(task.id)
-    if (task.source === 'follow_up' && task.status !== 'done' && onField) {
-      onField({ next_follow_up_at: null })
+    if (markingDone && onField && shouldClearContactFollowUp(contact, task, otherOpen)) {
+      onField({ next_follow_up_at: null, follow_up_type: '' })
     }
   }
 

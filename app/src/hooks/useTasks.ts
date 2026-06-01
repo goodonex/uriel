@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { logActivity } from '../lib/activityLog'
 import { useSaveStatus } from '../lib/saveStatusContext'
+import {
+  clearContactFollowUpRemote,
+  shouldClearContactFollowUp,
+} from '../lib/contactFollowUpSync'
+import { readContactsLocal } from './useContacts'
 import { generateId, loadList, saveList } from '../lib/storage'
 import {
   isMissingSupabaseTableError,
@@ -329,6 +334,19 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
       const next = sortTasks(itemsRef.current.map((t) => (t.id === id ? merged : t)))
       setItems(next)
       if (localOnlyRef.current || !supabase || !brandId) {
+        if (nextStatus === 'done' && prev.contact_id && brandSlug) {
+          const openSiblings = next.filter(
+            (t) =>
+              t.contact_id === prev.contact_id &&
+              t.id !== id &&
+              t.status !== 'done' &&
+              t.status !== 'cancelled',
+          )
+          const contact = readContactsLocal(brandSlug).find((c) => c.id === prev.contact_id)
+          if (contact && shouldClearContactFollowUp(contact, prev, openSiblings)) {
+            void clearContactFollowUpRemote(brandId, brandSlug, prev.contact_id)
+          }
+        }
         persistLocal(brandSlug, next)
         saveStatus.markSaved()
         return
@@ -340,10 +358,26 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
         nextItems = sortTasks(next.map((t) => (t.id === id ? mergedForRemote : t)))
         setItems(nextItems)
       }
+      const openSiblingsAfterDone =
+        nextStatus === 'done' && prev.contact_id
+          ? nextItems.filter(
+              (t) =>
+                t.contact_id === prev.contact_id &&
+                t.id !== remoteId &&
+                t.status !== 'done' &&
+                t.status !== 'cancelled',
+            )
+          : []
       persistLocal(brandSlug, nextItems)
       const endSave = saveStatus.begin()
       void writeTaskToSupabase(brandId, mergedForRemote, remoteId).then((result) => {
         if (result.ok) {
+          if (nextStatus === 'done' && prev.contact_id && brandSlug) {
+            const contact = readContactsLocal(brandSlug).find((c) => c.id === prev.contact_id)
+            if (contact && shouldClearContactFollowUp(contact, prev, openSiblingsAfterDone)) {
+              void clearContactFollowUpRemote(brandId, brandSlug, prev.contact_id)
+            }
+          }
           endSave(true)
           return
         }

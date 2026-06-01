@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CONTACT_FOLLOW_UP_CLEARED_EVENT } from '../lib/contactFollowUpSync'
 import { logActivity } from '../lib/activityLog'
 import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
@@ -490,6 +491,25 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!brandSlug) return
+    const onCleared = (e: Event) => {
+      const contactId = (e as CustomEvent<{ contactId: string }>).detail?.contactId
+      if (!contactId) return
+      setItems((prev) => {
+        const next = prev.map((c) =>
+          c.id === contactId
+            ? { ...c, next_follow_up_at: null, follow_up_type: '' as Contact['follow_up_type'] }
+            : c,
+        )
+        persistLocal(next)
+        return next
+      })
+    }
+    window.addEventListener(CONTACT_FOLLOW_UP_CLEARED_EVENT, onCleared)
+    return () => window.removeEventListener(CONTACT_FOLLOW_UP_CLEARED_EVENT, onCleared)
+  }, [brandSlug, persistLocal])
 
   const create = useCallback(
     async (
