@@ -11,7 +11,7 @@ import {
   mergeTimelineEntries,
   type MergedTimelineEntry,
 } from '../../../lib/activityTimeline'
-import type { Contact, SalesEmailLog } from '../../../types/db'
+import type { ActivityEntry, Contact, SalesEmailLog } from '../../../types/db'
 
 const FILTERS: Array<{ key: TimelineFilter; label: string }> = [
   { key: 'all', label: 'Alle' },
@@ -26,10 +26,12 @@ export function ContactActivityTimeline({
   brandSlug,
   contact,
   refreshToken,
+  onEditActivity,
 }: {
   brandSlug: string
   contact: Contact
   refreshToken?: number
+  onEditActivity?: (entry: ActivityEntry) => void
 }) {
   const calls = useCallLogs(brandSlug, { contactId: contact.id })
   const activities = useActivityEntries(brandSlug, { contactId: contact.id })
@@ -153,12 +155,14 @@ export function ContactActivityTimeline({
           {merged.map((item, idx) => (
             <TimelineRow
               key={item.id}
+              contact={contact}
               item={item}
               isLast={idx === merged.length - 1}
               expanded={expanded === item.id}
               onToggle={() => setExpanded((e) => (e === item.id ? null : item.id))}
               mails={mails.items}
               onUpdateMail={mails.update}
+              onEditActivity={onEditActivity}
             />
           ))}
         </ol>
@@ -168,19 +172,23 @@ export function ContactActivityTimeline({
 }
 
 function TimelineRow({
+  contact,
   item,
   isLast,
   expanded,
   onToggle,
   mails,
   onUpdateMail,
+  onEditActivity,
 }: {
+  contact: Contact
   item: MergedTimelineEntry
   isLast: boolean
   expanded: boolean
   onToggle: () => void
   mails: SalesEmailLog[]
   onUpdateMail: (id: string, patch: Partial<SalesEmailLog>) => void
+  onEditActivity?: (entry: ActivityEntry) => void
 }) {
   const meta =
     item.source === 'legacy'
@@ -194,6 +202,9 @@ function TimelineRow({
           : { label: item.type, icon: '•', color: 'var(--text-secondary)' }
 
   const mailLog = item.mailLogId ? mails.find((m) => m.id === item.mailLogId) : undefined
+  const activityEntryId = item.id.startsWith('activity:') ? item.id.slice('activity:'.length) : null
+  const canEdit =
+    Boolean(onEditActivity && activityEntryId && item.source === 'new' && item.activityType !== 'call')
 
   return (
     <li style={{ display: 'flex', gap: 12, paddingBottom: isLast ? 0 : 14, position: 'relative' }}>
@@ -272,6 +283,35 @@ function TimelineRow({
             }
             data={item.data}
           />
+        ) : null}
+        {expanded && canEdit && activityEntryId && onEditActivity ? (
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => {
+              onEditActivity({
+                id: activityEntryId,
+                brand_id: contact.brand_id,
+                contact_id: contact.id,
+                activity_type: item.activityType!,
+                performed_by: item.performedBy ?? null,
+                data: item.data,
+                created_at: item.timestamp,
+              })
+            }}
+            style={{
+              marginTop: 8,
+              fontSize: 10,
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: '1px solid var(--mode-sales)',
+              background: 'color-mix(in srgb, var(--mode-sales) 16%, #1a1a2e)',
+              color: 'var(--mode-sales)',
+              cursor: 'pointer',
+            }}
+          >
+            Bearbeiten
+          </button>
         ) : null}
         {item.bodyPreview ? (
           <div

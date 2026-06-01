@@ -8,7 +8,7 @@ import { useContentPieces } from '../../hooks/useContentPieces'
 import { useFunnelCanvas } from '../../hooks/useFunnelCanvas'
 import { useViewport } from '../../hooks/useViewport'
 import { companyDisplayName, isCompany } from '../../lib/crmContacts'
-import type { Contact } from '../../types/db'
+import type { ActivityEntry, Contact } from '../../types/db'
 import { ContactDeliverCard } from './ContactDeliverCard'
 import { CompanyPersonSection } from './CompanyPersonSection'
 import { ContactDeleteConfirm } from './ContactDeleteConfirm'
@@ -33,6 +33,7 @@ interface ContactOverviewPanelProps {
   onTimelineRefresh?: () => void
   callOutcomeOpen?: boolean
   onCallOutcomeOpenChange?: (open: boolean) => void
+  onEditActivity?: (entry: ActivityEntry) => void
 }
 
 export function ContactOverviewPanel({
@@ -45,6 +46,7 @@ export function ContactOverviewPanel({
   onTimelineRefresh,
   callOutcomeOpen,
   onCallOutcomeOpenChange,
+  onEditActivity,
 }: ContactOverviewPanelProps) {
   const contacts = useContacts(brandSlug)
   const { isMobile } = useViewport()
@@ -78,6 +80,7 @@ export function ContactOverviewPanel({
           brandSlug={brandSlug}
           contact={contact}
           refreshToken={timelineRefresh}
+          onEditActivity={onEditActivity}
         />
       </div>
     )
@@ -108,6 +111,7 @@ export function ContactOverviewPanel({
           brandSlug={brandSlug}
           contact={contact}
           refreshToken={timelineRefresh}
+          onEditActivity={onEditActivity}
         />
       </div>
     </div>

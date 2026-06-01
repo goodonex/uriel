@@ -112,7 +112,19 @@ export function ContactTasksPanel({
     } else if (followUpTask.due_at !== target || followUpTask.title !== title) {
       tasks.update(followUpTask.id, { due_at: target, title })
     }
-  }, [contact, followUpTask, tasks])
+  }, [
+    contact.id,
+    contact.name,
+    contact.company,
+    contact.next_follow_up_at,
+    followUpTask?.id,
+    followUpTask?.due_at,
+    followUpTask?.title,
+    followUpTask?.status,
+    tasks.loading,
+    tasks.create,
+    tasks.update,
+  ])
 
   const handleToggle = (task: Task) => {
     tasks.toggle(task.id)

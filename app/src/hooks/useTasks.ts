@@ -143,11 +143,18 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
     const localRows = readLocal(brandSlug)
     const byId = new Map<string, Task>()
     for (const r of serverRows) byId.set(r.id, r)
-    // Lokal-only Tasks (z.B. mit local-only contact_id, FK-Block in Supabase)
-    // beibehalten, damit sie nicht aus der UI verschwinden.
+    // Lokal-only oder neuer als Server-Stand (z. B. Toggle noch nicht repliziert)
     for (const l of localRows) {
-      if (!byId.has(l.id)) byId.set(l.id, l)
+      const existing = byId.get(l.id)
+      if (!existing) {
+        byId.set(l.id, l)
+        continue
+      }
+      const lu = new Date(l.updated_at).getTime()
+      const su = new Date(existing.updated_at).getTime()
+      if (!Number.isNaN(lu) && (Number.isNaN(su) || lu > su)) byId.set(l.id, l)
     }
+    persistLocal(brandSlug, Array.from(byId.values()))
     setItems(sortTasks(Array.from(byId.values())))
     setLoading(false)
     setError(null)
@@ -263,27 +270,42 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
         saveStatus.markSaved()
         return
       }
-      const row: Record<string, unknown> = { ...patch }
+      const row: Record<string, unknown> = {
+        title: merged.title,
+        notes: merged.notes,
+        due_at: merged.due_at,
+        status: merged.status,
+        priority: merged.priority,
+        source: merged.source,
+        completed_at: merged.completed_at,
+        contact_id: merged.contact_id,
+        project_id: merged.project_id,
+      }
+      persistLocal(brandSlug, next)
       const endSave = saveStatus.begin()
       void supabase
         .from('foundation_tasks')
         .update(row)
         .eq('id', id)
         .eq('brand_id', brandId)
-        .then(({ error: updErr }) => {
+        .select('id')
+        .maybeSingle()
+        .then(({ data: updatedRow, error: updErr }) => {
           if (updErr) {
             if (isMissingSupabaseTableError(updErr.message)) {
               localOnlyRef.current = true
-              persistLocal(brandSlug, next)
               endSave(true)
             } else if (shouldFallbackToLocalSupabase(updErr.message)) {
-              persistLocal(brandSlug, next)
               endSave(true)
             } else {
               setError(updErr.message)
               endSave(false, updErr.message)
               void reload()
             }
+          } else if (!updatedRow) {
+            setError('Task konnte nicht gespeichert werden')
+            endSave(false, 'Task konnte nicht gespeichert werden')
+            void reload()
           } else {
             endSave(true)
           }

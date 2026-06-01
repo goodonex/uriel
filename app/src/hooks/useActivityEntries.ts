@@ -39,6 +39,10 @@ interface UseActivityEntriesResult {
     activity_type: ActivityEntryType
     data?: Record<string, unknown>
   }) => Promise<{ entry: ActivityEntry | null; error?: string }>
+  update: (
+    id: string,
+    patch: { data?: Record<string, unknown> },
+  ) => Promise<{ entry: ActivityEntry | null; error?: string }>
 }
 
 export function useActivityEntries(
@@ -52,6 +56,8 @@ export function useActivityEntries(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const localOnly = useRef(false)
+  const itemsRef = useRef<ActivityEntry[]>([])
+  itemsRef.current = items
 
   const reload = useCallback(async () => {
     if (!brandSlug) {
@@ -146,5 +152,49 @@ export function useActivityEntries(
     [brandId, brandSlug, user?.id],
   )
 
-  return { items, loading, error, reload, create }
+  const update = useCallback(
+    async (
+      id: string,
+      patch: { data?: Record<string, unknown> },
+    ): Promise<{ entry: ActivityEntry | null; error?: string }> => {
+      if (!brandSlug) return { entry: null, error: 'Kein Brand' }
+      const prev = itemsRef.current.find((e) => e.id === id)
+      if (!prev) return { entry: null, error: 'Eintrag nicht gefunden' }
+      const merged: ActivityEntry = {
+        ...prev,
+        data: patch.data ?? prev.data,
+      }
+      setItems((cur) => cur.map((e) => (e.id === id ? merged : e)))
+      if (localOnly.current || !supabase || !brandId) {
+        const all = loadList<ActivityEntry>([brandSlug, STORAGE_KEY])
+        saveList(
+          [brandSlug, STORAGE_KEY],
+          all.map((e) => (e.id === id ? merged : e)),
+        )
+        return { entry: merged }
+      }
+      const { data, error: updErr } = await supabase
+        .from('activity_entries')
+        .update({ data: merged.data })
+        .eq('id', id)
+        .eq('brand_id', brandId)
+        .select('*')
+        .maybeSingle()
+      if (updErr) {
+        console.error('[activity_entries] update failed', updErr)
+        setItems((cur) => cur.map((e) => (e.id === id ? prev : e)))
+        setError(updErr.message)
+        return { entry: null, error: updErr.message }
+      }
+      if (data) {
+        const mapped = rowToEntry(data as Record<string, unknown>, brandId)
+        setItems((cur) => cur.map((e) => (e.id === id ? mapped : e)))
+        return { entry: mapped }
+      }
+      return { entry: merged }
+    },
+    [brandId, brandSlug],
+  )
+
+  return { items, loading, error, reload, create, update }
 }

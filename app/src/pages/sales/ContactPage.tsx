@@ -17,7 +17,7 @@ import { useContactFieldSave } from '../../hooks/useContactFieldSave'
 import { ContactSaveStatusIndicator } from '../../components/sales/ContactSaveStatusIndicator'
 import { ContactBccHint } from '../../components/sales/ContactBccHint'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
-import type { Contact, SalesFieldItem } from '../../types/db'
+import type { ActivityEntry, Contact, SalesFieldItem } from '../../types/db'
 const FIELD = {
   width: '100%',
   padding: '10px 12px',
@@ -116,6 +116,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   const { isMobile } = useViewport()
   const wideLayout = variant === 'page' && !isMobile
   const [activityModal, setActivityModal] = useState<ActivityModalType | null>(null)
+  const [editingActivity, setEditingActivity] = useState<ActivityEntry | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
   const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
   const [timelineRefresh, setTimelineRefresh] = useState(0)
@@ -128,6 +129,25 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   const handleLogCall = useCallback(() => {
     setCallOutcomeOpen(true)
   }, [])
+
+  const openActivityModal = useCallback((type: ActivityModalType) => {
+    setEditingActivity(null)
+    setActivityModal(type)
+  }, [])
+
+  const editActivity = useCallback((entry: ActivityEntry) => {
+    setActivityModal(null)
+    setEditingActivity(entry)
+  }, [])
+
+  const closeActivityModal = useCallback(() => {
+    setActivityModal(null)
+    setEditingActivity(null)
+  }, [])
+
+  const activeActivityModal: ActivityModalType | null = editingActivity
+    ? (editingActivity.activity_type as ActivityModalType)
+    : activityModal
 
   if (!slug || !contactId) {
     return <Navigate to="/" replace />
@@ -264,7 +284,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
               variant="header"
               brandSlug={slug}
               contact={d}
-              onOpenModal={setActivityModal}
+              onOpenModal={openActivityModal}
               onOpenEmail={() => setComposeOpen(true)}
               onCall={handleLogCall}
             />
@@ -285,6 +305,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
               column="right"
               timelineRefresh={timelineRefresh}
               onTimelineRefresh={() => setTimelineRefresh((n) => n + 1)}
+              onEditActivity={editActivity}
             />
           ) : null}
         </div>
@@ -295,8 +316,9 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
           <ActivityModalHost
             brandSlug={slug}
             contact={d}
-            modal={activityModal}
-            onClose={() => setActivityModal(null)}
+            modal={activeActivityModal}
+            editingEntry={editingActivity}
+            onClose={closeActivityModal}
             onDone={() => {
               setTimelineRefresh((n) => n + 1)
               void calls.reload()

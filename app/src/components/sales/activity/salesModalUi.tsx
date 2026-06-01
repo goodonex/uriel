@@ -7,13 +7,25 @@ export const SALES_MODAL_BACKDROP: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: SALES_MODAL_Z,
-  background: 'rgba(6, 6, 16, 0.82)',
-  backdropFilter: 'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)',
+  background: 'rgba(6, 6, 16, 0.58)',
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
   display: 'grid',
   placeItems: 'center',
   padding: 16,
   pointerEvents: 'auto',
+}
+
+/** Dropdown unter Aktivität ▾ — deckend, per Portal */
+export const SALES_DROPDOWN_PANEL: CSSProperties = {
+  minWidth: 240,
+  padding: 6,
+  borderRadius: 10,
+  border: '1px solid var(--glass-border-2)',
+  background: '#12121f',
+  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+  maxHeight: 360,
+  overflowY: 'auto',
 }
 
 export const SALES_MODAL_PANEL: CSSProperties = {

@@ -3,7 +3,7 @@ import type { ActivityModalType } from '../../../lib/activityTypes'
 import { ACTIVITY_META } from '../../../lib/activityTypes'
 import { useActivityEntries } from '../../../hooks/useActivityEntries'
 import { useTasks } from '../../../hooks/useTasks'
-import type { ActivityEntryType, Contact } from '../../../types/db'
+import type { ActivityEntry, ActivityEntryType, Contact } from '../../../types/db'
 import { useToast } from '../../Toast'
 import { FormField, ModalShell, fieldInput } from './activityFormUi'
 import { SimpleRichText } from './SimpleRichText'
@@ -12,10 +12,22 @@ type Props = {
   brandSlug: string
   contact: Contact
   modal: ActivityModalType | null
+  editingEntry?: ActivityEntry | null
   onClose: () => void
   onDone: () => void
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   onOpenCompose: () => void
+}
+
+function entryDataToForm(data: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(data)) {
+    if (v == null) out[k] = ''
+    else if (typeof v === 'string') out[k] = v
+    else if (typeof v === 'number' || typeof v === 'boolean') out[k] = String(v)
+    else out[k] = JSON.stringify(v)
+  }
+  return out
 }
 
 function draftKey(brandSlug: string, contactId: string, type: string) {
@@ -26,6 +38,7 @@ export function ActivityModalHost({
   brandSlug,
   contact,
   modal,
+  editingEntry = null,
   onClose,
   onDone,
   onField,
@@ -41,6 +54,10 @@ export function ActivityModalHost({
 
   useEffect(() => {
     if (!modal || !brandSlug) return
+    if (editingEntry) {
+      setData(entryDataToForm(editingEntry.data ?? {}))
+      return
+    }
     const key = draftKey(brandSlug, contact.id, modal)
     try {
       const raw = localStorage.getItem(key)
@@ -49,7 +66,7 @@ export function ActivityModalHost({
     } catch {
       setData({})
     }
-  }, [modal, brandSlug, contact.id])
+  }, [modal, brandSlug, contact.id, editingEntry])
 
   const set = (k: string, v: string) => setData((d) => ({ ...d, [k]: v }))
 
@@ -66,10 +83,25 @@ export function ActivityModalHost({
 
   const submit = useCallback(async () => {
     if (!activityType) return
+    const payload = { ...data }
+    if (editingEntry) {
+      const { entry: row, error: updateError } = await activities.update(editingEntry.id, {
+        data: payload,
+      })
+      if (!row) {
+        show(updateError ?? 'Änderungen konnten nicht gespeichert werden', 'error')
+        return
+      }
+      show(`${ACTIVITY_META[activityType].label} aktualisiert`, 'success')
+      onDone()
+      onClose()
+      return
+    }
+
     const { entry: row, error: createError } = await activities.create({
       contact_id: contact.id,
       activity_type: activityType,
-      data: { ...data },
+      data: payload,
     })
     if (!row) {
       console.error('[ActivityModalHost] create failed', activityType, createError)
@@ -108,6 +140,7 @@ export function ActivityModalHost({
     activities,
     contact,
     data,
+    editingEntry,
     onClose,
     onDone,
     onField,
@@ -118,14 +151,20 @@ export function ActivityModalHost({
 
   if (!modal || !activityType) return null
 
-  const title = modal === 'termin' ? 'Terminierung' : ACTIVITY_META[activityType].label
+  const label = ACTIVITY_META[activityType].label
+  const title = editingEntry
+    ? `${label} bearbeiten`
+    : modal === 'termin'
+      ? 'Terminierung'
+      : label
 
   return (
     <ModalShell
       title={title}
       onClose={onClose}
       onDone={() => void submit()}
-      onDraft={saveDraft}
+      onDraft={editingEntry ? undefined : saveDraft}
+      doneLabel={editingEntry ? 'Speichern' : 'Done'}
       doneDisabled={activityType === 'terminierung' && !data.termin_datum}
     >
       {activityType === 'presetting' ? (
