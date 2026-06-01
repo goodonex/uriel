@@ -75,7 +75,7 @@ export function ContactOverviewPanel({
   if (column === 'right') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-        <ContactDeliverCard brandSlug={brandSlug} contact={contact} />
+        <ContactDeliverCard brandSlug={brandSlug} contact={contact} onField={onField} />
         <ContactActivityTimeline
           brandSlug={brandSlug}
           contact={contact}
@@ -106,7 +106,7 @@ export function ContactOverviewPanel({
         onCallOutcomeOpenChange={onCallOutcomeOpenChange}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-        <ContactDeliverCard brandSlug={brandSlug} contact={contact} />
+        <ContactDeliverCard brandSlug={brandSlug} contact={contact} onField={onField} />
         <ContactActivityTimeline
           brandSlug={brandSlug}
           contact={contact}

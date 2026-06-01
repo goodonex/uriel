@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
+import { DeleteProjectConfirm } from '../../components/deliver/DeleteProjectConfirm'
 import {
   OwnerClientPreviewPhaseContent,
   OwnerDeliverPhaseContent,
@@ -136,6 +137,8 @@ export function ProjectPage() {
   const projects = useDeliverProjects(slug)
 
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [inviteState, setInviteState] = useState<
@@ -168,6 +171,21 @@ export function ProjectPage() {
     if (project?.client_email) setInviteEmail(project.client_email)
     if (project?.client_name) setInviteName(project.client_name)
   }, [project?.id, project?.client_email, project?.client_name])
+
+  const handleDeleteProject = useCallback(async () => {
+    if (!project || !slug) return
+    setDeleting(true)
+    try {
+      await projects.remove(project.id)
+      show('Projekt gelöscht', 'success')
+      setDeleteOpen(false)
+      navigate(`/brand/${slug}/deliver`)
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }, [navigate, project, projects, show, slug])
 
   const [tab, setTab] = useState<'internal' | 'client'>('internal')
 
@@ -558,6 +576,21 @@ export function ProjectPage() {
             }}
           >
             Portal-Link kopieren
+          </button>
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => setDeleteOpen(true)}
+            style={{
+              fontSize: 11,
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '1px solid color-mix(in srgb, var(--accent-coral) 40%, var(--glass-border-2))',
+              background: 'transparent',
+              color: 'var(--accent-coral)',
+            }}
+          >
+            Projekt löschen
           </button>
           {project.brand_id ? (
             <button
@@ -965,6 +998,14 @@ export function ProjectPage() {
           </button>
         </div>
       </Drawer>
+
+      <DeleteProjectConfirm
+        open={deleteOpen}
+        projectName={project.name}
+        busy={deleting}
+        onCancel={() => !deleting && setDeleteOpen(false)}
+        onConfirm={() => void handleDeleteProject()}
+      />
     </motion.div>
   )
 }

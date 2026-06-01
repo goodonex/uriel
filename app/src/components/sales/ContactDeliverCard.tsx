@@ -1,5 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { DeleteProjectConfirm } from '../deliver/DeleteProjectConfirm'
+import { useToast } from '../Toast'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import type { Contact } from '../../types/db'
 
@@ -25,17 +27,37 @@ export function findDeliverProjectForContact(
 export function ContactDeliverCard({
   brandSlug,
   contact,
+  onField,
 }: {
   brandSlug: string
   contact: Contact
+  onField?: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
 }) {
   const navigate = useNavigate()
   const deliver = useDeliverProjects(brandSlug)
+  const { show } = useToast()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const project = useMemo(
     () => findDeliverProjectForContact(deliver.items, contact),
     [deliver.items, contact],
   )
+
+  const handleDelete = async () => {
+    if (!project) return
+    setDeleting(true)
+    try {
+      await deliver.remove(project.id)
+      onField?.({ deliver_project_id: null })
+      show('Projekt gelöscht', 'success')
+      setDeleteOpen(false)
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   if (contact.pipeline_stage !== 'deal' && !project) return null
 
@@ -51,20 +73,40 @@ export function ContactDeliverCard({
         Deliver · Projekt
       </div>
       {project ? (
-        <button
-          type="button"
-          className="font-mono inline-flex max-w-full items-center gap-2 truncate rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--glass-2)]"
-          style={{
-            fontSize: 12,
-            color: 'var(--accent-teal)',
-            border: '1px solid var(--glass-border-2)',
-            background: 'transparent',
-            cursor: 'pointer',
-          }}
-          onClick={() => navigate(`/brand/${brandSlug}/deliver/${project.id}`)}
-        >
-          Zum Projekt · {project.name}
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="font-mono inline-flex max-w-full flex-1 items-center gap-2 truncate rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--glass-2)]"
+            style={{
+              fontSize: 12,
+              color: 'var(--accent-teal)',
+              border: '1px solid var(--glass-border-2)',
+              background: 'transparent',
+              cursor: 'pointer',
+              minWidth: 0,
+            }}
+            onClick={() => navigate(`/brand/${brandSlug}/deliver/${project.id}`)}
+          >
+            Zum Projekt · {project.name}
+          </button>
+          <button
+            type="button"
+            className="font-mono"
+            onClick={() => setDeleteOpen(true)}
+            style={{
+              fontSize: 10,
+              padding: '8px 10px',
+              borderRadius: 8,
+              border: '1px solid color-mix(in srgb, var(--accent-coral) 45%, var(--glass-border-2))',
+              background: 'transparent',
+              color: 'var(--accent-coral)',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Löschen
+          </button>
+        </div>
       ) : (
         <button
           type="button"
@@ -96,6 +138,13 @@ export function ContactDeliverCard({
           Projekt erstellen
         </button>
       )}
+      <DeleteProjectConfirm
+        open={deleteOpen}
+        projectName={project?.name ?? 'Projekt'}
+        busy={deleting}
+        onCancel={() => !deleting && setDeleteOpen(false)}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   )
 }

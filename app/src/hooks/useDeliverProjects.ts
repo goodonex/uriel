@@ -191,6 +191,7 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
   const remove = useCallback(
     async (id: string) => {
       if (!brandSlug || !brandId || !supabase) return
+      const prev = itemsRef.current.find((p) => p.id === id)
       const now = new Date().toISOString()
       const { error: delErr } = await supabase
         .from('deliver_projects')
@@ -201,9 +202,25 @@ export function useDeliverProjects(brandSlug: string | undefined): UseDeliverPro
 
       if (delErr) {
         setError(delErr.message)
-        return
+        throw new Error(delErr.message)
       }
+
+      await supabase
+        .from('contacts')
+        .update({ deliver_project_id: null, updated_at: now })
+        .eq('deliver_project_id', id)
+        .eq('brand_id', brandId)
+
       setItems((prev) => prev.filter((p) => p.id !== id))
+      if (prev) {
+        logActivity({
+          brand_id: brandId,
+          entity_type: 'project',
+          entity_id: id,
+          action: 'archived',
+          summary: `Projekt gelöscht: ${prev.name}`,
+        })
+      }
     },
     [brandId, brandSlug],
   )
