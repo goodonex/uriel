@@ -91,7 +91,6 @@ export function normalizeCsvGrid(rows: string[][]): string[][] {
 function scoreGrid(grid: string[][]): number {
   if (grid.length < 2) return 0
   const widths = grid.map((r) => r.length)
-  const maxW = Math.max(...widths)
   const modeW = widths.sort(
     (a, b) =>
       widths.filter((w) => w === b).length - widths.filter((w) => w === a).length,

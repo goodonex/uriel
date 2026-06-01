@@ -342,9 +342,12 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
               t.status !== 'done' &&
               t.status !== 'cancelled',
           )
-          const contact = readContactsLocal(brandSlug).find((c) => c.id === prev.contact_id)
-          if (contact && shouldClearContactFollowUp(contact, prev, openSiblings)) {
-            void clearContactFollowUpRemote(brandId, brandSlug, prev.contact_id)
+          const contactId = prev.contact_id
+          const contact = contactId
+            ? readContactsLocal(brandSlug).find((c) => c.id === contactId)
+            : undefined
+          if (contact && contactId && brandId && shouldClearContactFollowUp(contact, prev, openSiblings)) {
+            void clearContactFollowUpRemote(brandId, brandSlug, contactId)
           }
         }
         persistLocal(brandSlug, next)
@@ -373,9 +376,10 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
       void writeTaskToSupabase(brandId, mergedForRemote, remoteId).then((result) => {
         if (result.ok) {
           if (nextStatus === 'done' && prev.contact_id && brandSlug) {
-            const contact = readContactsLocal(brandSlug).find((c) => c.id === prev.contact_id)
-            if (contact && shouldClearContactFollowUp(contact, prev, openSiblingsAfterDone)) {
-              void clearContactFollowUpRemote(brandId, brandSlug, prev.contact_id)
+            const doneContactId = prev.contact_id
+            const contact = readContactsLocal(brandSlug).find((c) => c.id === doneContactId)
+            if (contact && brandId && shouldClearContactFollowUp(contact, prev, openSiblingsAfterDone)) {
+              void clearContactFollowUpRemote(brandId, brandSlug, doneContactId)
             }
           }
           endSave(true)
