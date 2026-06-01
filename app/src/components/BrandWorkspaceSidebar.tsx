@@ -7,6 +7,7 @@ import { useContactLists } from '../hooks/useContactLists'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useSidebarSignals } from '../hooks/useSidebarSignals'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
+import { sectionFromPathname } from '../lib/scrollFlow'
 import {
   navSectionToScrollKey,
   scrollKeyToNavSection,
@@ -127,12 +128,16 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const navigate = useNavigate()
   const location = useLocation()
   const { pathname } = location
+  const base = `/brand/${slug}`
   const { brands } = useBrands()
   const current = brands.find((b) => b.slug === slug)
   const scrollCtx = useScrollSectionContext()
   const pathActive = parseBrandNavSection(pathname)
+  const pathSectionKey = sectionFromPathname(pathname)
   const active =
-    scrollCtx?.syncEnabled && !scrollSyncUsesPathHighlight(pathname)
+    scrollCtx?.syncEnabled &&
+    !scrollSyncUsesPathHighlight(pathname) &&
+    pathSectionKey === 'dashboard'
       ? scrollKeyToNavSection(scrollCtx.activeSection)
       : pathActive
 
@@ -152,8 +157,6 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
       hoverCloseTimer.current = null
     }
   }
-
-  const base = `/brand/${slug}`
 
   const salesBranchActive = active === 'sales' || active === 'sales_lists'
 
@@ -495,9 +498,10 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
                     if (!scrollCtx?.syncEnabled) return
                     e.preventDefault()
                     const key = navSectionToScrollKey(item.section)
+                    const target = isSalesItem ? `${base}/sales` : to
+                    navigate(target, { replace: true })
                     scrollCtx.setActiveSection(key)
                     scrollCtx.scrollToSection(key)
-                    navigate(isSalesItem ? `${base}/sales` : to, { replace: true })
                   }}
                   className="group relative flex items-center rounded-lg"
                   style={{

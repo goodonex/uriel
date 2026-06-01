@@ -17,11 +17,10 @@ export function readSectionFromScroll(root: HTMLElement): SectionKey {
   const frac = raw - floor
   const clampedFloor = Math.max(0, Math.min(SECTION_ORDER.length - 1, floor))
 
+  // Nur am unteren Rand der Section zur nächsten wechseln.
+  // frac≈0 ist Section-Start — hier NICHT eine Section zurückspringen (sonst Sales→Promo).
   if (frac >= 1 - SECTION_SWITCH_BARRIER) {
     return SECTION_ORDER[Math.min(clampedFloor + 1, SECTION_ORDER.length - 1)]
-  }
-  if (frac <= SECTION_SWITCH_BARRIER && clampedFloor > 0) {
-    return SECTION_ORDER[clampedFloor - 1]
   }
   return SECTION_ORDER[clampedFloor]
 }
@@ -113,10 +112,13 @@ export function useSectionScrollSnap({
         return
       }
 
-      const section = readSectionFromScroll(root)
+      const pathSection = pathSectionRef.current
+      const section = isSectionAligned(root, pathSection)
+        ? pathSection
+        : readSectionFromScroll(root)
       onActiveSection(section)
 
-      if (section === pathSectionRef.current) return
+      if (section === pathSection) return
 
       navFromScrollRef.current = true
       onNavigateSection(section)
@@ -138,7 +140,11 @@ export function useSectionScrollSnap({
       }
 
       if (!programmaticRef.current) {
-        onActiveSection(readSectionFromScroll(root))
+        const pathSection = pathSectionRef.current
+        const section = isSectionAligned(root, pathSection)
+          ? pathSection
+          : readSectionFromScroll(root)
+        onActiveSection(section)
       }
       scheduleSettle()
     }

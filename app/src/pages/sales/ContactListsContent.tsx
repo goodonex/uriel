@@ -26,8 +26,6 @@ const STATUS_OPTIONS: { value: ContactListItemStatus; label: string }[] = [
   { value: 'in_pipeline', label: 'In Pipeline' },
 ]
 
-const DAILY_CALL_QUOTA = 30
-
 function startOfToday(): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
@@ -44,7 +42,22 @@ function parseCsv(text: string): string[][] {
   )
 }
 
-type MapKey = 'name' | 'email' | 'phone' | 'company' | 'linkedin' | 'skip'
+type MapKey =
+  | 'name'
+  | 'email'
+  | 'phone'
+  | 'company'
+  | 'linkedin'
+  | 'ansprechpartner'
+  | 'standort'
+  | 'aufhaenger_angriffsflaeche'
+  | 'outcome'
+  | 'prio'
+  | 'im_crm'
+  | 'g_ads'
+  | 'keyword'
+  | 'website'
+  | 'skip'
 
 const MAP_LABEL: Record<MapKey, string> = {
   name: 'Name',
@@ -52,7 +65,24 @@ const MAP_LABEL: Record<MapKey, string> = {
   phone: 'Telefon',
   company: 'Firma',
   linkedin: 'LinkedIn',
+  ansprechpartner: 'Ansprechpartner',
+  standort: 'Standort',
+  aufhaenger_angriffsflaeche: 'Aufhänger / Angriffsfläche',
+  outcome: 'Outcome',
+  prio: 'Prio',
+  im_crm: 'Im CRM (boolean)',
+  g_ads: 'G Ads',
+  keyword: 'Keyword',
+  website: 'Website',
   skip: '— ignorieren —',
+}
+
+function parseBooleanCell(value: string): boolean | null {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  if (['1', 'true', 'yes', 'y', 'ja', 'j'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'n', 'nein'].includes(normalized)) return false
+  return null
 }
 
 export function ContactListsContent({
@@ -84,6 +114,7 @@ export function ContactListsContent({
     error: itemsErr,
     insertRows,
     updateItem,
+    deleteItems,
   } = useContactListItems(listId, slug)
   const contacts = useContacts(slug)
   const quickLead = useSalesQuickLead(slug)
@@ -108,6 +139,7 @@ export function ContactListsContent({
   const [showHiddenLists, setShowHiddenLists] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | ContactListItemStatus>('all')
   const [search, setSearch] = useState('')
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
 
   const hiddenListCount = useMemo(() => lists.filter((l) => l.is_hidden).length, [lists])
 
@@ -236,12 +268,6 @@ export function ContactListsContent({
     }
   }, [slug, lists])
 
-  const calledTodayForList = useMemo(() => {
-    if (!listId) return 0
-    const t0 = startOfToday().getTime()
-    return items.filter((i) => i.called_at && new Date(i.called_at).getTime() >= t0).length
-  }, [items, listId])
-
   const filteredItems = useMemo(() => {
     let rows = items
     if (filterStatus !== 'all') rows = rows.filter((i) => i.status === filterStatus)
@@ -255,6 +281,17 @@ export function ContactListsContent({
     }
     return rows
   }, [items, filterStatus, search])
+
+  const filteredItemIds = useMemo(() => filteredItems.map((row) => row.id), [filteredItems])
+  const allFilteredSelected = useMemo(
+    () => filteredItemIds.length > 0 && filteredItemIds.every((id) => selectedItemIds.includes(id)),
+    [filteredItemIds, selectedItemIds],
+  )
+  const selectedRows = useMemo(
+    () => items.filter((row) => selectedItemIds.includes(row.id)),
+    [items, selectedItemIds],
+  )
+  const selectedCount = selectedRows.length
 
   const onCreateList = useCallback(async () => {
     if (!slug) return
@@ -291,6 +328,17 @@ export function ContactListsContent({
         else if (L.includes('tel') || L.includes('phone')) initMap[h] = 'phone'
         else if (L.includes('firma') || L.includes('company')) initMap[h] = 'company'
         else if (L.includes('linkedin')) initMap[h] = 'linkedin'
+        else if (L.includes('ansprech')) initMap[h] = 'ansprechpartner'
+        else if (L.includes('standort') || L.includes('ort') || L.includes('city')) initMap[h] = 'standort'
+        else if (L.includes('aufh') || L.includes('angriffs') || L.includes('pain') || L.includes('hook')) {
+          initMap[h] = 'aufhaenger_angriffsflaeche'
+        }
+        else if (L.includes('outcome')) initMap[h] = 'outcome'
+        else if (L.includes('prio') || L.includes('prior')) initMap[h] = 'prio'
+        else if (L.includes('im crm') || L.includes('crm')) initMap[h] = 'im_crm'
+        else if (L.includes('g ads') || L.includes('google ads') || L.includes('gads')) initMap[h] = 'g_ads'
+        else if (L.includes('keyword')) initMap[h] = 'keyword'
+        else if (L.includes('website') || L.includes('web') || L.includes('url')) initMap[h] = 'website'
       }
       setColMap(initMap)
       setCsvHeaders(headers)
@@ -311,14 +359,24 @@ export function ContactListsContent({
         phone?: string
         company?: string
         linkedin_url?: string
+        ansprechpartner?: string
+        standort?: string
+        aufhaenger_angriffsflaeche?: string
+        outcome?: string
+        prio?: string
+        im_crm?: boolean | null
+        g_ads?: string
+        keyword?: string
+        website?: string
       }> = []
       for (const row of csvRows) {
-        const o: Record<string, string> = {}
+        const o: Record<string, string> & { im_crm?: boolean | null } = {}
         csvHeaders.forEach((h, idx) => {
           const key = colMap[h] ?? 'skip'
           if (key === 'skip') return
           const cell = row[idx] ?? ''
           if (key === 'linkedin') o.linkedin_url = cell
+          else if (key === 'im_crm') o.im_crm = parseBooleanCell(cell)
           else o[key] = cell
         })
         out.push({
@@ -327,6 +385,15 @@ export function ContactListsContent({
           phone: o.phone,
           company: o.company,
           linkedin_url: o.linkedin_url,
+          ansprechpartner: o.ansprechpartner,
+          standort: o.standort,
+          aufhaenger_angriffsflaeche: o.aufhaenger_angriffsflaeche,
+          outcome: o.outcome,
+          prio: o.prio,
+          im_crm: o.im_crm ?? null,
+          g_ads: o.g_ads,
+          keyword: o.keyword,
+          website: o.website,
         })
       }
       const toInsert = skipImportDupes
@@ -351,27 +418,101 @@ export function ContactListsContent({
     return d ? `tel:${d}` : ''
   }
 
-  const pushToPipeline = useCallback(
-    async (row: (typeof items)[0]) => {
+  const pushListItemToPipeline = useCallback(
+    async (row: (typeof items)[0], navigateToContact: boolean) => {
       if (!slug) return
       const r = await contacts.create({
         name: row.name || 'Lead',
         email: row.email ?? '',
         phone: row.phone ?? '',
         company: row.company ?? '',
+        website: row.website ?? '',
         linkedin: row.linkedin_url ?? '',
+        ansprechpartner: row.ansprechpartner ?? '',
+        address: row.standort ?? '',
+        hauptproblem: row.aufhaenger_angriffsflaeche ?? '',
         pipeline_stage: 'first_contact',
         notes: row.notes ?? '',
+        custom_fields: {
+          outcome: row.outcome ?? '',
+          prio: row.prio ?? '',
+          im_crm: row.im_crm ?? false,
+          g_ads: (() => {
+            const parsed = parseBooleanCell(row.g_ads ?? '')
+            return parsed == null ? row.g_ads ?? '' : parsed
+          })(),
+          keyword: row.keyword ?? '',
+        },
       })
       const contact = r.ok ? r.contact : r.duplicate
       await updateItem(row.id, {
         status: 'in_pipeline',
         called_at: row.called_at ?? new Date().toISOString(),
       })
-      navigate(`/brand/${slug}/sales/${contact.id}`)
+      if (navigateToContact) {
+        navigate(`/brand/${slug}/sales/${contact.id}`)
+      }
     },
     [contacts, navigate, slug, updateItem],
   )
+
+  const pushToPipeline = useCallback(
+    async (row: (typeof items)[0]) => {
+      await pushListItemToPipeline(row, true)
+    },
+    [pushListItemToPipeline],
+  )
+
+  const toggleSelect = useCallback((itemId: string) => {
+    setSelectedItemIds((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId],
+    )
+  }, [])
+
+  const toggleSelectAllFiltered = useCallback(() => {
+    setSelectedItemIds((prev) => {
+      if (allFilteredSelected) {
+        return prev.filter((id) => !filteredItemIds.includes(id))
+      }
+      const merged = new Set(prev)
+      for (const id of filteredItemIds) merged.add(id)
+      return Array.from(merged)
+    })
+  }, [allFilteredSelected, filteredItemIds])
+
+  const runBulkDelete = useCallback(async () => {
+    if (selectedCount === 0) return
+    const ids = selectedRows.map((row) => row.id)
+    if (!window.confirm(`${selectedCount} ausgewählte Einträge wirklich löschen?`)) return
+    try {
+      await deleteItems(ids)
+      show(`${selectedCount} Einträge gelöscht`, 'success')
+      setSelectedItemIds([])
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+    }
+  }, [deleteItems, selectedCount, selectedRows, show])
+
+  const runBulkPushToPipeline = useCallback(async () => {
+    if (selectedCount === 0) return
+    let success = 0
+    let failed = 0
+    for (const row of selectedRows) {
+      try {
+        await pushListItemToPipeline(row, false)
+        success += 1
+      } catch {
+        failed += 1
+      }
+    }
+    if (success > 0) {
+      show(`${success} Einträge in Pipeline verschoben`, 'success')
+    }
+    if (failed > 0) {
+      show(`${failed} Einträge konnten nicht verschoben werden`, 'error')
+    }
+    setSelectedItemIds([])
+  }, [pushListItemToPipeline, selectedCount, selectedRows, show])
 
   const newListInputId = embedded ? 'contact-list-new-name-embedded' : 'contact-list-new-name'
 
@@ -714,35 +855,6 @@ export function ContactListsContent({
       ) : null}
 
       <div
-        className="glass-2 mb-6 rounded-2xl p-4"
-        style={{ border: '1px solid var(--glass-border-1)' }}
-      >
-        <div className="mb-2 font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-          Heute angerufen (Zeitstempel)
-        </div>
-        <div className="font-display mb-1" style={{ fontSize: 18, color: 'var(--text-primary)' }}>
-          {calledTodayForList} / {DAILY_CALL_QUOTA}
-        </div>
-        <div
-          style={{
-            height: 6,
-            borderRadius: 4,
-            background: 'var(--glass-3)',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              width: `${Math.min(100, (calledTodayForList / DAILY_CALL_QUOTA) * 100)}%`,
-              height: '100%',
-              background: 'var(--accent-teal)',
-              opacity: 0.85,
-            }}
-          />
-        </div>
-      </div>
-
-      <div
         className="glass-2 mb-8 rounded-2xl p-4"
         style={{ border: '1px solid var(--glass-border-1)' }}
       >
@@ -879,6 +991,40 @@ export function ContactListsContent({
             </option>
           ))}
         </select>
+        {selectedCount > 0 ? (
+          <>
+            <button
+              type="button"
+              className="font-mono"
+              onClick={() => void runBulkPushToPipeline()}
+              style={{
+                fontSize: 10,
+                padding: '8px 10px',
+                borderRadius: 8,
+                border: '1px solid var(--mode-sales)',
+                color: 'var(--mode-sales)',
+                background: 'transparent',
+              }}
+            >
+              {selectedCount} in Pipeline
+            </button>
+            <button
+              type="button"
+              className="font-mono"
+              onClick={() => void runBulkDelete()}
+              style={{
+                fontSize: 10,
+                padding: '8px 10px',
+                borderRadius: 8,
+                border: '1px solid var(--accent-coral)',
+                color: 'var(--accent-coral)',
+                background: 'transparent',
+              }}
+            >
+              {selectedCount} löschen
+            </button>
+          </>
+        ) : null}
       </div>
 
       {itemsLoading ? (
@@ -894,6 +1040,32 @@ export function ContactListsContent({
           <table className="w-full text-left" style={{ fontSize: 13 }}>
             <thead className="font-mono" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
               <tr>
+                <th style={{ padding: 12, width: 44 }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSelectAllFiltered()}
+                    aria-label="Alle gefilterten auswählen"
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                    style={{
+                      border: '1px solid var(--glass-border-2)',
+                      background: allFilteredSelected
+                        ? 'color-mix(in srgb, var(--mode-sales) 28%, transparent)'
+                        : 'transparent',
+                      color: 'var(--mode-sales)',
+                    }}
+                  >
+                    {allFilteredSelected ? (
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 999,
+                          background: 'currentColor',
+                        }}
+                      />
+                    ) : null}
+                  </button>
+                </th>
                 <th style={{ padding: 12 }}>Name</th>
                 <th style={{ padding: 12 }}>Firma</th>
                 <th style={{ padding: 12 }}>Telefon</th>
@@ -905,6 +1077,32 @@ export function ContactListsContent({
             <tbody>
               {filteredItems.map((row) => (
                 <tr key={row.id} style={{ borderTop: '1px solid var(--glass-border-1)' }}>
+                  <td style={{ padding: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(row.id)}
+                      aria-label={`${row.name || 'Lead'} auswählen`}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      style={{
+                        border: '1px solid var(--glass-border-2)',
+                        background: selectedItemIds.includes(row.id)
+                          ? 'color-mix(in srgb, var(--mode-sales) 28%, transparent)'
+                          : 'transparent',
+                        color: 'var(--mode-sales)',
+                      }}
+                    >
+                      {selectedItemIds.includes(row.id) ? (
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 999,
+                            background: 'currentColor',
+                          }}
+                        />
+                      ) : null}
+                    </button>
+                  </td>
                   <td style={{ padding: 12, color: 'var(--text-primary)' }}>{row.name}</td>
                   <td style={{ padding: 12 }}>{row.company}</td>
                   <td style={{ padding: 12 }}>

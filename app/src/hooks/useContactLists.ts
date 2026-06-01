@@ -60,6 +60,15 @@ function rowToItem(row: Record<string, unknown>): ContactListItem {
     phone: (row.phone as string) ?? '',
     company: (row.company as string) ?? '',
     linkedin_url: (row.linkedin_url as string) ?? '',
+    ansprechpartner: (row.ansprechpartner as string) ?? '',
+    standort: (row.standort as string) ?? '',
+    aufhaenger_angriffsflaeche: (row.aufhaenger_angriffsflaeche as string) ?? '',
+    outcome: (row.outcome as string) ?? '',
+    prio: (row.prio as string) ?? '',
+    im_crm: row.im_crm == null ? null : Boolean(row.im_crm),
+    g_ads: (row.g_ads as string) ?? '',
+    keyword: (row.keyword as string) ?? '',
+    website: (row.website as string) ?? '',
     notes: (row.notes as string) ?? '',
     status,
     called_at: (row.called_at as string | null) ?? null,
@@ -336,6 +345,15 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
         phone?: string
         company?: string
         linkedin_url?: string
+        ansprechpartner?: string
+        standort?: string
+        aufhaenger_angriffsflaeche?: string
+        outcome?: string
+        prio?: string
+        im_crm?: boolean | null
+        g_ads?: string
+        keyword?: string
+        website?: string
         notes?: string
       }>,
     ) => {
@@ -352,6 +370,15 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
             phone: r.phone ?? '',
             company: r.company ?? '',
             linkedin_url: r.linkedin_url ?? '',
+            ansprechpartner: r.ansprechpartner ?? '',
+            standort: r.standort ?? '',
+            aufhaenger_angriffsflaeche: r.aufhaenger_angriffsflaeche ?? '',
+            outcome: r.outcome ?? '',
+            prio: r.prio ?? '',
+            im_crm: r.im_crm ?? null,
+            g_ads: r.g_ads ?? '',
+            keyword: r.keyword ?? '',
+            website: r.website ?? '',
             notes: r.notes ?? '',
             status: 'offen' as const,
             called_at: null,
@@ -370,6 +397,15 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
         phone: r.phone ?? '',
         company: r.company ?? '',
         linkedin_url: r.linkedin_url ?? '',
+        ansprechpartner: r.ansprechpartner ?? '',
+        standort: r.standort ?? '',
+        aufhaenger_angriffsflaeche: r.aufhaenger_angriffsflaeche ?? '',
+        outcome: r.outcome ?? '',
+        prio: r.prio ?? '',
+        im_crm: r.im_crm ?? null,
+        g_ads: r.g_ads ?? '',
+        keyword: r.keyword ?? '',
+        website: r.website ?? '',
         notes: r.notes ?? '',
         status: 'offen' as const,
       }))
@@ -387,6 +423,15 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
               phone: r.phone ?? '',
               company: r.company ?? '',
               linkedin_url: r.linkedin_url ?? '',
+              ansprechpartner: r.ansprechpartner ?? '',
+              standort: r.standort ?? '',
+              aufhaenger_angriffsflaeche: r.aufhaenger_angriffsflaeche ?? '',
+              outcome: r.outcome ?? '',
+              prio: r.prio ?? '',
+              im_crm: r.im_crm ?? null,
+              g_ads: r.g_ads ?? '',
+              keyword: r.keyword ?? '',
+              website: r.website ?? '',
               notes: r.notes ?? '',
               status: 'offen' as const,
               called_at: null,
@@ -421,6 +466,17 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
       if (patch.phone !== undefined) clean.phone = patch.phone
       if (patch.company !== undefined) clean.company = patch.company
       if (patch.linkedin_url !== undefined) clean.linkedin_url = patch.linkedin_url
+      if (patch.ansprechpartner !== undefined) clean.ansprechpartner = patch.ansprechpartner
+      if (patch.standort !== undefined) clean.standort = patch.standort
+      if (patch.aufhaenger_angriffsflaeche !== undefined) {
+        clean.aufhaenger_angriffsflaeche = patch.aufhaenger_angriffsflaeche
+      }
+      if (patch.outcome !== undefined) clean.outcome = patch.outcome
+      if (patch.prio !== undefined) clean.prio = patch.prio
+      if (patch.im_crm !== undefined) clean.im_crm = patch.im_crm
+      if (patch.g_ads !== undefined) clean.g_ads = patch.g_ads
+      if (patch.keyword !== undefined) clean.keyword = patch.keyword
+      if (patch.website !== undefined) clean.website = patch.website
       if (patch.notes !== undefined) clean.notes = patch.notes
       if (patch.status !== undefined) clean.status = patch.status
       if (patch.called_at !== undefined) clean.called_at = patch.called_at
@@ -447,7 +503,38 @@ export function useContactListItems(listId: string | undefined, brandSlug: strin
     [brandId, listId, persistItemsLocal, reload],
   )
 
-  return { items, loading, error, reload, insertRows, updateItem }
+  const deleteItems = useCallback(
+    async (itemIds: string[]) => {
+      if (!listId || itemIds.length === 0) return
+      const ids = [...new Set(itemIds)]
+      const removeLocal = () => {
+        const next = itemsRef.current.filter((it) => !ids.includes(it.id))
+        setItems(next)
+        persistItemsLocal(next)
+      }
+      if (!supabase || !brandId) {
+        removeLocal()
+        return
+      }
+      const { error: err } = await supabase
+        .from('contact_list_items')
+        .delete()
+        .eq('list_id', listId)
+        .in('id', ids)
+      if (err) {
+        const msg = supabaseErrorMessage(err)
+        if (shouldFallbackToLocalSupabase(msg)) {
+          removeLocal()
+          return
+        }
+        throw err
+      }
+      await reload()
+    },
+    [brandId, listId, persistItemsLocal, reload],
+  )
+
+  return { items, loading, error, reload, insertRows, updateItem, deleteItems }
 }
 
 /** Listen-IDs, in denen der Kontakt (per E-Mail) bereits vorkommt. */
@@ -514,6 +601,15 @@ export async function addContactToList(
     phone: contact.phone ?? '',
     company: contact.company ?? '',
     linkedin_url: contact.linkedin ?? '',
+    ansprechpartner: contact.ansprechpartner ?? '',
+    standort: contact.address ?? '',
+    aufhaenger_angriffsflaeche: contact.hauptproblem ?? '',
+    outcome: '',
+    prio: '',
+    im_crm: null as boolean | null,
+    g_ads: '',
+    keyword: '',
+    website: contact.website ?? '',
     notes: extraNotes?.trim() || contact.notes?.trim() || '',
   }
 
@@ -543,6 +639,15 @@ export async function addContactToList(
     phone: row.phone,
     company: row.company,
     linkedin_url: row.linkedin_url,
+    ansprechpartner: row.ansprechpartner,
+    standort: row.standort,
+    aufhaenger_angriffsflaeche: row.aufhaenger_angriffsflaeche,
+    outcome: row.outcome,
+    prio: row.prio,
+    im_crm: row.im_crm,
+    g_ads: row.g_ads,
+    keyword: row.keyword,
+    website: row.website,
     notes: row.notes,
     status: 'offen',
   })

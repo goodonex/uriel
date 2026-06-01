@@ -172,6 +172,38 @@ Migration `0010_deliver_projects.sql` ergänzt die erweiterten Spalten; UI sync 
 
 `client_documents` (JSONB): Array von `{ label, url, description? }` für das Kundenportal.
 
+### activity_entries (Sales CRM Timeline, Migration 0040 + 0041)
+```sql
+id              uuid PK
+brand_id        uuid FK brands
+contact_id      uuid FK contacts
+activity_type   text   -- presetting | setting | closing | … | notiz | call
+performed_by    uuid FK auth.users nullable
+data            jsonb  -- typ-spezifisch
+created_at      timestamptz
+```
+
+**`activity_type = 'call'`** (Call Sequencer, Migration 0041):
+```json
+{
+  "outcome": "not_reached | voicemail | no_interest | later | follow_up | meeting | direct_yes",
+  "note": "optional",
+  "next_action": {
+    "type": "call | brief_task | task | reminder | blocklist",
+    "due_at": "ISO-8601 optional",
+    "title": "optional",
+    "pipeline_stage": "first_contact | conversation | proposal | deal | paused",
+    "open_calendar": false,
+    "include_brief": false
+  }
+}
+```
+
+Firma und Person sind beide Zeilen in `contacts` (`contact_type`, `parent_company_id`, Migration 0036).
+
+### foundation_tasks — `source: brief_task` (Migration 0042)
+Zusätzlicher Task-Typ für Brief-Vorbereitung (Call Sequencer). UI: Briefumschlag-Icon + JSON-Export für DirectMailing.ai (`name`, `company`, `website`, `address`).
+
 ### user_roles (Auth / Rollen)
 ```sql
 user_id      uuid PK FK auth.users

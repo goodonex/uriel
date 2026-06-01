@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContacts } from '../../../hooks/useContacts'
 import { useTasks } from '../../../hooks/useTasks'
+import { copyBriefMailingJson } from '../../../lib/briefTaskExport'
 import { followUpTaskTitle } from '../../../lib/followUpTask'
+import { useToast } from '../../Toast'
 import type { Contact, Task } from '../../../types/db'
 
 function dueColor(due: string | null, status: Task['status']): string {
@@ -60,6 +63,8 @@ export function ContactTasksPanel({
   onField?: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
 }) {
   const tasks = useTasks(brandSlug)
+  const contacts = useContacts(brandSlug)
+  const { show } = useToast()
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
   const [due, setDue] = useState('')
@@ -258,7 +263,16 @@ export function ContactTasksPanel({
             key={t.id}
             task={t}
             highlight={t.source === 'follow_up'}
+            isBrief={t.source === 'brief_task'}
             onToggle={() => handleToggle(t)}
+            onExportBrief={async () => {
+              try {
+                await copyBriefMailingJson(contact, contacts.items)
+                show('Brief-Daten in Zwischenablage kopiert', 'success')
+              } catch {
+                show('Kopieren fehlgeschlagen', 'error')
+              }
+            }}
           />
         ))}
         {openTasks.length === 0 && !adding ? (
@@ -287,7 +301,21 @@ export function ContactTasksPanel({
           </button>
           {showDone
             ? doneTasks.map((t) => (
-                <TaskRow key={t.id} task={t} onToggle={() => handleToggle(t)} done />
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  isBrief={t.source === 'brief_task'}
+                  onToggle={() => handleToggle(t)}
+                  onExportBrief={async () => {
+                    try {
+                      await copyBriefMailingJson(contact, contacts.items)
+                      show('Brief-Daten in Zwischenablage kopiert', 'success')
+                    } catch {
+                      show('Kopieren fehlgeschlagen', 'error')
+                    }
+                  }}
+                  done
+                />
               ))
             : null}
         </div>
@@ -496,11 +524,15 @@ function TaskRow({
   onToggle,
   done = false,
   highlight = false,
+  isBrief = false,
+  onExportBrief,
 }: {
   task: Task
   onToggle: () => void
   done?: boolean
   highlight?: boolean
+  isBrief?: boolean
+  onExportBrief?: () => void
 }) {
   return (
     <div
@@ -510,12 +542,16 @@ function TaskRow({
         gap: 8,
         padding: '6px 8px',
         borderRadius: 8,
-        background: highlight
-          ? 'color-mix(in srgb, var(--accent-amber) 12%, var(--glass-2))'
-          : 'var(--glass-2)',
-        border: highlight
-          ? '1px solid color-mix(in srgb, var(--accent-amber) 45%, transparent)'
-          : '1px solid transparent',
+        background: isBrief
+          ? 'color-mix(in srgb, var(--accent-teal) 10%, var(--glass-2))'
+          : highlight
+            ? 'color-mix(in srgb, var(--accent-amber) 12%, var(--glass-2))'
+            : 'var(--glass-2)',
+        border: isBrief
+          ? '1px solid color-mix(in srgb, var(--accent-teal) 40%, transparent)'
+          : highlight
+            ? '1px solid color-mix(in srgb, var(--accent-amber) 45%, transparent)'
+            : '1px solid transparent',
         opacity: done ? 0.55 : 1,
       }}
     >
@@ -564,9 +600,29 @@ function TaskRow({
           color: 'var(--text-primary)',
         }}
       >
-        {task.priority === 1 ? '⚡ ' : ''}
+        {isBrief ? '✉ ' : task.priority === 1 ? '⚡ ' : ''}
         {task.title}
       </span>
+      {isBrief && onExportBrief ? (
+        <button
+          type="button"
+          onClick={onExportBrief}
+          className="font-mono"
+          title="JSON für DirectMailing kopieren"
+          style={{
+            fontSize: 9,
+            padding: '4px 7px',
+            borderRadius: 6,
+            border: '1px solid var(--accent-teal)',
+            background: 'color-mix(in srgb, var(--accent-teal) 12%, transparent)',
+            color: 'var(--accent-teal)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          Export
+        </button>
+      ) : null}
       <span className="font-mono" style={{ fontSize: 10, color: dueColor(task.due_at, task.status) }}>
         {fmtDue(task.due_at)}
       </span>

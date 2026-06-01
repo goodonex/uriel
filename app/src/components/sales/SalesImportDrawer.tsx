@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
+import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
-import type { Contact, PipelineStage } from '../../types/db'
+import { similarityPercent } from '../../lib/levenshtein'
+import type { ContactStatus } from '../../types/db'
 import { useToast } from '../Toast'
 
 interface SalesImportDrawerProps {
@@ -11,43 +13,53 @@ interface SalesImportDrawerProps {
 }
 
 type FieldKey =
-  | 'name'
-  | 'email'
-  | 'phone'
-  | 'company'
-  | 'website'
+  | 'firma'
   | 'ansprechpartner'
-  | 'notes'
-  | 'pipeline_stage'
-  | 'potenzial_betrag'
-  | 'tags'
+  | 'phone'
+  | 'website'
+  | 'standort'
+  | 'aufhaenger'
+  | 'status'
   | 'skip'
 
 const FIELDS: Array<{ key: FieldKey; label: string }> = [
   { key: 'skip', label: '— Nicht importieren —' },
-  { key: 'name', label: 'Name' },
-  { key: 'email', label: 'E-Mail' },
-  { key: 'phone', label: 'Telefon' },
-  { key: 'company', label: 'Firma' },
-  { key: 'website', label: 'Website' },
+  { key: 'firma', label: 'Firma' },
   { key: 'ansprechpartner', label: 'Ansprechpartner' },
-  { key: 'notes', label: 'Notizen' },
-  { key: 'pipeline_stage', label: 'Pipeline-Stage' },
-  { key: 'potenzial_betrag', label: 'Potenzial €' },
-  { key: 'tags', label: 'Tags (komma)' },
+  { key: 'phone', label: 'Telefon (Kontakt)' },
+  { key: 'website', label: 'Website' },
+  { key: 'standort', label: 'Standort' },
+  { key: 'aufhaenger', label: 'Aufhänger (Notiz)' },
+  { key: 'status', label: 'Status' },
 ]
 
-const STAGE_MAP: Record<string, PipelineStage> = {
-  first_contact: 'first_contact',
-  erstkontakt: 'first_contact',
-  gespraech: 'conversation',
-  gespräch: 'conversation',
-  conversation: 'conversation',
-  angebot: 'proposal',
-  proposal: 'proposal',
-  deal: 'deal',
-  pause: 'paused',
-  paused: 'paused',
+const STATUS_MAP: Record<string, ContactStatus> = {
+  nichtkontaktiert: 'not_contacted',
+  notcontacted: 'not_contacted',
+  nichterreicht: 'not_reached',
+  notreached: 'not_reached',
+  inkontakt: 'in_contact',
+  incontact: 'in_contact',
+  highpotential: 'high_potential',
+  followupgeplant: 'followup_planned',
+  followupplanned: 'followup_planned',
+  angebotgemacht: 'offer_made',
+  offermade: 'offer_made',
+  unqualifiziert: 'unqualified',
+  unqualified: 'unqualified',
+  dealgewonnen: 'deal_won',
+  dealwon: 'deal_won',
+  dealverloren: 'deal_lost',
+  deallost: 'deal_lost',
+}
+
+function normalizeStatusKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
 }
 
 function parseCSV(text: string): string[][] {
@@ -93,22 +105,19 @@ function parseCSV(text: string): string[][] {
 
 function autoMap(header: string): FieldKey {
   const h = header.toLowerCase().trim()
-  if (/(^| )name|vorname|nachname/.test(h)) return 'name'
-  if (h.includes('mail')) return 'email'
-  if (h.includes('tel') || h.includes('phone')) return 'phone'
-  if (h.includes('firma') || h.includes('company') || h.includes('unternehmen')) return 'company'
-  if (h.includes('web') || h.includes('url')) return 'website'
+  if (h.includes('firma') || h.includes('company') || h.includes('unternehmen')) return 'firma'
   if (h.includes('ansprech')) return 'ansprechpartner'
-  if (h.includes('note') || h.includes('notiz')) return 'notes'
-  if (h.includes('stage') || h.includes('phase') || h.includes('status')) return 'pipeline_stage'
-  if (h.includes('potenzial') || h.includes('budget') || h.includes('value') || h.includes('€'))
-    return 'potenzial_betrag'
-  if (h.includes('tag')) return 'tags'
+  if (h.includes('tel') || h.includes('phone')) return 'phone'
+  if (h.includes('web') || h.includes('url')) return 'website'
+  if (h.includes('standort') || h.includes('ort') || h.includes('city')) return 'standort'
+  if (h.includes('aufha') || h.includes('notiz') || h.includes('note')) return 'aufhaenger'
+  if (h.includes('status')) return 'status'
   return 'skip'
 }
 
 export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawerProps) {
   const contacts = useContacts(brandSlug)
+  const activityEntries = useActivityEntries(brandSlug)
   const { show } = useToast()
   const [raw, setRaw] = useState('')
   const [rows, setRows] = useState<string[][]>([])
@@ -137,13 +146,11 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
   const dataRows = useMemo(() => (hasHeader ? rows.slice(1) : rows), [rows, hasHeader])
 
   const validCount = useMemo(() => {
-    const nameIdx = mapping.indexOf('name')
-    const emailIdx = mapping.indexOf('email')
-    if (nameIdx < 0 && emailIdx < 0) return 0
+    const companyIdx = mapping.indexOf('firma')
+    if (companyIdx < 0) return 0
     return dataRows.filter((r) => {
-      const n = nameIdx >= 0 ? (r[nameIdx] ?? '').trim() : ''
-      const e = emailIdx >= 0 ? (r[emailIdx] ?? '').trim() : ''
-      return n.length > 0 || e.length > 0
+      const company = (r[companyIdx] ?? '').trim()
+      return company.length > 0
     }).length
   }, [dataRows, mapping])
 
@@ -154,50 +161,99 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
     }
     setBusy(true)
     let success = 0
-    let dups = 0
+    let skipped = 0
     let errors = 0
+    const knownCompanies = contacts.items
+      .filter((c) => c.contact_type === 'company')
+      .map((c) => (c.name || c.company || '').trim())
+      .filter(Boolean)
+
     for (const row of dataRows) {
-      const partial: Partial<Contact> = {}
+      const parsed: Partial<Record<FieldKey, string>> = {}
       mapping.forEach((key, idx) => {
         const raw = (row[idx] ?? '').trim()
         if (!raw || key === 'skip') return
-        switch (key) {
-          case 'name':
-          case 'email':
-          case 'phone':
-          case 'company':
-          case 'website':
-          case 'ansprechpartner':
-          case 'notes':
-            partial[key] = raw as never
-            break
-          case 'pipeline_stage': {
-            const m = STAGE_MAP[raw.toLowerCase()]
-            if (m) partial.pipeline_stage = m
-            break
-          }
-          case 'potenzial_betrag': {
-            const n = parseInt(raw.replace(/[^\d]/g, ''), 10)
-            if (Number.isFinite(n)) partial.potenzial_betrag = n
-            break
-          }
-          case 'tags':
-            partial.tags = raw.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
-            break
-        }
+        parsed[key] = raw
       })
-      if (!partial.name && !partial.email) continue
+
+      const companyName = (parsed.firma ?? '').trim()
+      if (!companyName) continue
+
+      let duplicate = false
+      for (const existingName of knownCompanies) {
+        if (similarityPercent(companyName, existingName) > 80) {
+          duplicate = true
+          break
+        }
+      }
+      if (duplicate) {
+        skipped++
+        continue
+      }
+
+      const normalizedStatus = normalizeStatusKey(parsed.status ?? '')
+      const mappedStatus = STATUS_MAP[normalizedStatus] ?? 'not_contacted'
+      const personName = (parsed.ansprechpartner ?? '').trim()
+      const [firstName = '', ...lastNameParts] = personName.split(/\s+/).filter(Boolean)
+      const lastName = lastNameParts.join(' ')
+
       try {
-        const result = await contacts.create(partial)
-        if (result.ok) success++
-        else dups++
+        const companyCreate = await contacts.create(
+          {
+            contact_type: 'company',
+            name: companyName,
+            company: companyName,
+            website: (parsed.website ?? '').trim(),
+            address: (parsed.standort ?? '').trim(),
+            contact_status: mappedStatus,
+            pipeline_stage: 'first_contact',
+          },
+          { skipDuplicateCheck: true },
+        )
+
+        if (!companyCreate.ok) {
+          skipped++
+          continue
+        }
+
+        const personCreate = await contacts.create(
+          {
+            contact_type: 'person',
+            parent_company_id: companyCreate.contact.id,
+            first_name: firstName,
+            last_name: lastName,
+            name: personName || 'Ansprechpartner',
+            phone: (parsed.phone ?? '').trim(),
+            company: companyName,
+            contact_status: mappedStatus,
+            pipeline_stage: 'first_contact',
+          },
+          { skipDuplicateCheck: true },
+        )
+
+        if (!personCreate.ok) {
+          errors++
+          continue
+        }
+
+        const note = (parsed.aufhaenger ?? '').trim()
+        if (note) {
+          await activityEntries.create({
+            contact_id: companyCreate.contact.id,
+            activity_type: 'notiz',
+            data: { text: note },
+          })
+        }
+
+        knownCompanies.push(companyName)
+        success++
       } catch {
         errors++
       }
     }
     setBusy(false)
     show(
-      `Import: ${success} neu, ${dups} Duplikate, ${errors} Fehler`,
+      `Import abgeschlossen: ${success} importiert, ${skipped} übersprungen, ${errors} Fehler`,
       success > 0 ? 'success' : 'info',
     )
     onClose()
@@ -291,7 +347,7 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
                     value={raw}
                     onChange={(e) => handleParse(e.target.value)}
                     rows={14}
-                    placeholder="Name,Email,Telefon,Firma\nMax Mustermann,max@ex.de,..."
+                    placeholder="firma,ansprechpartner,telefon,website,standort,aufhaenger,status\nMuster GmbH,Max Mustermann,+49...,https://...,Berlin,Warmer Lead,nicht kontaktiert"
                     style={{
                       width: '100%',
                       padding: 10,

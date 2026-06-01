@@ -84,7 +84,10 @@ export function TasksModule() {
                   border: '1px solid var(--glass-border-2)',
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{t.title || 'Task'}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {t.source === 'brief_task' ? '✉ ' : ''}
+                  {t.title || 'Task'}
+                </span>
                 {t.due_at ? (
                   <span style={{ color: 'var(--text-tertiary)', marginLeft: 6 }}>
                     {t.due_at.slice(0, 10)}

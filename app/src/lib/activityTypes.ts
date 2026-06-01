@@ -8,6 +8,7 @@ export const ACTIVITY_TYPES = [
   'followup',
   'formular',
   'notiz',
+  'call',
 ] as const
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number]
@@ -29,6 +30,7 @@ export const ACTIVITY_META: Record<
   followup: { label: 'Follow Up', icon: '⚑', color: '#f97316', category: 'other' },
   formular: { label: 'Formular', icon: '📄', color: 'var(--text-tertiary)', category: 'other' },
   notiz: { label: 'Notiz', icon: '💬', color: 'var(--text-secondary)', category: 'notiz' },
+  call: { label: 'Anruf', icon: '☎', color: 'var(--mode-sales)', category: 'gespraech' },
 }
 
 export type TimelineFilter = 'all' | 'wichtig' | 'gespraeche' | 'notizen'

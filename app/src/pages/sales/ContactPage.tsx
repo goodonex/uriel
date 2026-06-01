@@ -117,6 +117,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   const wideLayout = variant === 'page' && !isMobile
   const [activityModal, setActivityModal] = useState<ActivityModalType | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
+  const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
   const [timelineRefresh, setTimelineRefresh] = useState(0)
   const calls = useCallLogs(slug, { contactId: contactId ?? '' })
 
@@ -124,16 +125,9 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
     if (!d) return null
     return findDeliverProjectForContact(deliver.items, d)
   }, [deliver.items, d])
-  const handleActivityCall = useCallback(() => {
-    const base = draft ?? contact
-    if (!base) return
-    const phone = base.phone?.trim()
-    if (phone) {
-      const digits = phone.replace(/[^\d+]/g, '')
-      if (digits) window.location.href = `tel:${digits}`
-    }
-    setActivityModal('presetting')
-  }, [contact, draft])
+  const handleLogCall = useCallback(() => {
+    setCallOutcomeOpen(true)
+  }, [])
 
   if (!slug || !contactId) {
     return <Navigate to="/" replace />
@@ -256,6 +250,9 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
             onField={onField}
             layout={variant === 'page' ? 'page' : 'narrow'}
             column="left"
+            callOutcomeOpen={callOutcomeOpen}
+            onCallOutcomeOpenChange={setCallOutcomeOpen}
+            onTimelineRefresh={() => setTimelineRefresh((n) => n + 1)}
           />
         ) : null}
 
@@ -269,7 +266,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
               contact={d}
               onOpenModal={setActivityModal}
               onOpenEmail={() => setComposeOpen(true)}
-              onCall={handleActivityCall}
+              onCall={handleLogCall}
             />
           ) : null}
 
@@ -287,6 +284,7 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
               layout={variant === 'page' ? 'page' : 'narrow'}
               column="right"
               timelineRefresh={timelineRefresh}
+              onTimelineRefresh={() => setTimelineRefresh((n) => n + 1)}
             />
           ) : null}
         </div>

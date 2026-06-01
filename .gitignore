@@ -39,3 +39,6 @@ coverage/
 
 # Supabase CLI cache
 supabase/.temp/
+
+# Local Netlify folder
+.netlify

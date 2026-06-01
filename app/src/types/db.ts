@@ -472,6 +472,15 @@ export interface ContactListItem {
   phone: string
   company: string
   linkedin_url: string
+  ansprechpartner: string
+  standort: string
+  aufhaenger_angriffsflaeche: string
+  outcome: string
+  prio: string
+  im_crm: boolean | null
+  g_ads: string
+  keyword: string
+  website: string
   notes: string
   status: ContactListItemStatus
   called_at: string | null
@@ -615,7 +624,7 @@ export interface FocusTask {
 
 export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled'
 export type TaskPriority = 1 | 2 | 3
-export type TaskSource = 'manual' | 'follow_up' | 'system' | 'onboarding'
+export type TaskSource = 'manual' | 'follow_up' | 'system' | 'onboarding' | 'brief_task'
 
 export interface Task {
   id: string
@@ -680,6 +689,7 @@ export type ActivityEntryType =
   | 'followup'
   | 'formular'
   | 'notiz'
+  | 'call'
 
 export interface ActivityEntry {
   id: string

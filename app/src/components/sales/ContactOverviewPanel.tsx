@@ -17,6 +17,7 @@ import { ContactSequencesPanel } from './ContactSequencesPanel'
 import { ContactActivityTimeline } from './activity/ContactActivityTimeline'
 import { ContactTasksPanel } from './activity/ContactTasksPanel'
 import { ContactDetailHero } from './activity/ContactDetailHero'
+import { CallOutcomeSection } from './CallOutcomeSection'
 import { Link } from 'react-router-dom'
 
 interface ContactOverviewPanelProps {
@@ -29,6 +30,9 @@ interface ContactOverviewPanelProps {
   layout?: 'page' | 'narrow'
   column?: 'left' | 'right' | 'full'
   timelineRefresh?: number
+  onTimelineRefresh?: () => void
+  callOutcomeOpen?: boolean
+  onCallOutcomeOpenChange?: (open: boolean) => void
 }
 
 export function ContactOverviewPanel({
@@ -38,6 +42,9 @@ export function ContactOverviewPanel({
   layout = 'page',
   column = 'full',
   timelineRefresh = 0,
+  onTimelineRefresh,
+  callOutcomeOpen,
+  onCallOutcomeOpenChange,
 }: ContactOverviewPanelProps) {
   const contacts = useContacts(brandSlug)
   const { isMobile } = useViewport()
@@ -56,6 +63,9 @@ export function ContactOverviewPanel({
         onDelete={handleDelete}
         compact={compact}
         brandSlug={brandSlug}
+        onTimelineRefresh={onTimelineRefresh}
+        callOutcomeOpen={callOutcomeOpen}
+        onCallOutcomeOpenChange={onCallOutcomeOpenChange}
       />
     )
   }
@@ -88,6 +98,9 @@ export function ContactOverviewPanel({
         onDelete={handleDelete}
         compact={compact}
         brandSlug={brandSlug}
+        onTimelineRefresh={onTimelineRefresh}
+        callOutcomeOpen={callOutcomeOpen}
+        onCallOutcomeOpenChange={onCallOutcomeOpenChange}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <ContactDeliverCard brandSlug={brandSlug} contact={contact} />
@@ -107,12 +120,18 @@ export function ContactDetailLeftColumn({
   onDelete,
   compact = false,
   brandSlug,
+  onTimelineRefresh,
+  callOutcomeOpen,
+  onCallOutcomeOpenChange,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>, fieldKey?: string) => void
   onDelete: () => void
   compact?: boolean
   brandSlug: string
+  onTimelineRefresh?: () => void
+  callOutcomeOpen?: boolean
+  onCallOutcomeOpenChange?: (open: boolean) => void
 }) {
   return (
     <IdentityCard
@@ -121,6 +140,9 @@ export function ContactDetailLeftColumn({
       onDelete={onDelete}
       compact={compact}
       brandSlug={brandSlug}
+      onTimelineRefresh={onTimelineRefresh}
+      callOutcomeOpen={callOutcomeOpen}
+      onCallOutcomeOpenChange={onCallOutcomeOpenChange}
     />
   )
 }
@@ -131,12 +153,18 @@ function IdentityCard({
   onDelete,
   compact = false,
   brandSlug,
+  onTimelineRefresh,
+  callOutcomeOpen,
+  onCallOutcomeOpenChange,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   onDelete: () => void
   compact?: boolean
   brandSlug?: string
+  onTimelineRefresh?: () => void
+  callOutcomeOpen?: boolean
+  onCallOutcomeOpenChange?: (open: boolean) => void
 }) {
   const c = contact
   const [sourceOpen, setSourceOpen] = useState(false)
@@ -193,6 +221,17 @@ function IdentityCard({
 
       {brandSlug ? (
         <ContactTasksPanel brandSlug={brandSlug} contact={c} onField={onField} />
+      ) : null}
+
+      {brandSlug ? (
+        <CallOutcomeSection
+          brandSlug={brandSlug}
+          contact={c}
+          onField={onField}
+          onTimelineRefresh={onTimelineRefresh}
+          open={callOutcomeOpen}
+          onOpenChange={onCallOutcomeOpenChange}
+        />
       ) : null}
 
       <EditField

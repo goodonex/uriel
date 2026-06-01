@@ -41,7 +41,13 @@ function isTaskPriority(x: unknown): x is TaskPriority {
   return x === 1 || x === 2 || x === 3
 }
 function isTaskSource(x: unknown): x is TaskSource {
-  return x === 'manual' || x === 'follow_up' || x === 'system' || x === 'onboarding'
+  return (
+    x === 'manual' ||
+    x === 'follow_up' ||
+    x === 'system' ||
+    x === 'onboarding' ||
+    x === 'brief_task'
+  )
 }
 
 function rowToTask(row: Record<string, unknown>, fallbackBrand: string): Task {

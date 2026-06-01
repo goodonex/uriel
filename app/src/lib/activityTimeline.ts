@@ -1,4 +1,5 @@
 import type { ActivityType } from './activityTypes'
+import { CALL_OUTCOME_OPTIONS, parseCallActivityData } from '../types/callOutcomes'
 import type { ActivityEntry, SalesCallLog, SalesCallOutcome } from '../types/db'
 
 export type MergedTimelineEntry = {
@@ -66,6 +67,15 @@ export function summarizeActivity(entry: ActivityEntry): string {
       return `Formular: ${str(d.gesendet) || '—'}`
     case 'notiz':
       return str(d.text) || str(d.notizen) || 'Notiz'
+    case 'call': {
+      const parsed = parseCallActivityData(d as Record<string, unknown>)
+      if (!parsed) return 'Anruf'
+      const label =
+        CALL_OUTCOME_OPTIONS.find((o) => o.value === parsed.outcome)?.label ?? parsed.outcome
+      const parts = [`Anruf: ${label}`]
+      if (parsed.note?.trim()) parts.push(parsed.note.trim())
+      return parts.join(' · ')
+    }
     default:
       return String(t)
   }
@@ -141,10 +151,11 @@ export function filterTimeline(
     return items.filter(
       (e) =>
         e.source === 'legacy' ||
-        ['presetting', 'setting', 'closing'].includes(e.type) ||
+        ['presetting', 'setting', 'closing', 'call'].includes(e.type) ||
         e.activityType === 'presetting' ||
         e.activityType === 'setting' ||
-        e.activityType === 'closing',
+        e.activityType === 'closing' ||
+        e.activityType === 'call',
     )
   }
   if (filter === 'notizen') {
