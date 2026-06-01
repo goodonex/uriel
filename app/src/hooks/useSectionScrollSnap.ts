@@ -52,6 +52,8 @@ interface UseSectionScrollSnapOptions {
   containerRef: RefObject<HTMLElement | null>
   pathSection: SectionKey
   scrollLocked?: boolean
+  /** false = freies Scrollen, kein Section-Snap / kein Wheel-Wechsel */
+  snapEnabled?: boolean
   onActiveSection: (section: SectionKey) => void
   onNavigateSection: (section: SectionKey) => void
 }
@@ -73,6 +75,7 @@ export function useSectionScrollSnap({
   containerRef,
   pathSection,
   scrollLocked = false,
+  snapEnabled = true,
   onActiveSection,
   onNavigateSection,
 }: UseSectionScrollSnapOptions) {
@@ -101,7 +104,7 @@ export function useSectionScrollSnap({
 
   useEffect(() => {
     const root = containerRef.current
-    if (!root) return
+    if (!root || !snapEnabled) return
 
     const settle = () => {
       programmaticRef.current = false
@@ -218,7 +221,7 @@ export function useSectionScrollSnap({
       root.removeEventListener('wheel', onWheel)
       if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current)
     }
-  }, [containerRef, scrollLocked, onActiveSection, onNavigateSection])
+  }, [containerRef, scrollLocked, snapEnabled, onActiveSection, onNavigateSection])
 
   return { scrollToSection, navFromScrollRef, programmaticRef }
 }

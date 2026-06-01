@@ -1202,11 +1202,13 @@ export function SalesMode({
     )
       return
     void (async () => {
+      contacts.clearError()
       let failed = 0
       for (const c of selectedContactList) {
         const ok = await contacts.remove(c.id)
         if (!ok) failed++
       }
+      void contacts.reload()
       setSelectedIds(new Set())
       if (failed > 0) {
         showToast(

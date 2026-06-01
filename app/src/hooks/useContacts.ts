@@ -370,6 +370,25 @@ function contactToRow(
 }
 
 const STORAGE_KEY = 'contacts' as const
+const DELETED_IDS_KEY = 'contacts-deleted-ids' as const
+
+function readDeletedContactIds(brandSlug: string): Set<string> {
+  const raw = loadList<string>([brandSlug, DELETED_IDS_KEY])
+  if (!Array.isArray(raw)) return new Set()
+  return new Set(raw.filter((id) => typeof id === 'string' && id.length > 0))
+}
+
+function markContactDeleted(brandSlug: string, id: string): void {
+  const ids = readDeletedContactIds(brandSlug)
+  ids.add(id)
+  saveList([brandSlug, DELETED_IDS_KEY], [...ids])
+}
+
+function withoutDeleted(brandSlug: string, rows: Contact[]): Contact[] {
+  const deleted = readDeletedContactIds(brandSlug)
+  if (deleted.size === 0) return rows
+  return rows.filter((c) => !deleted.has(c.id))
+}
 
 interface UseContactsResult {
   items: Contact[]
@@ -385,6 +404,7 @@ interface UseContactsResult {
     patch: Partial<Omit<Contact, 'id' | 'brand_id'>>,
   ) => void
   remove: (id: string) => Promise<boolean>
+  clearError: () => void
 }
 
 export function readContactsLocal(brandSlug: string): Contact[] {
@@ -406,7 +426,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
 
   const loadLocal = useCallback(() => {
     if (!brandSlug) return
-    setItems(readContactsLocal(brandSlug))
+    setItems(withoutDeleted(brandSlug, readContactsLocal(brandSlug)))
     setError(null)
   }, [brandSlug])
 
@@ -478,11 +498,14 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       const local = localRows.find((l) => l.id === r.id)
       byId.set(r.id, enrichContactFromLocal(r, local))
     }
+    const deletedIds = readDeletedContactIds(brandSlug)
     for (const l of localRows) {
+      if (deletedIds.has(l.id)) continue
       if (!byId.has(l.id)) byId.set(l.id, l)
     }
-    const merged = Array.from(byId.values()).sort((a, b) =>
-      b.updated_at.localeCompare(a.updated_at),
+    const merged = withoutDeleted(
+      brandSlug,
+      Array.from(byId.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     )
     setItems(merged)
     persistLocal(merged)
@@ -634,6 +657,8 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     [brandId, brandSlug, persistLocal, reload],
   )
 
+  const clearError = useCallback(() => setError(null), [])
+
   const remove = useCallback(
     async (id: string): Promise<boolean> => {
       if (!brandSlug) return false
@@ -641,6 +666,7 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       const next = prev.filter((c) => c.id !== id)
       if (next.length === prev.length) return false
 
+      markContactDeleted(brandSlug, id)
       itemsRef.current = next
       setItems(next)
       persistLocal(next)
@@ -656,24 +682,14 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         .eq('brand_id', brandId)
         .select('id')
 
-      if (delErr) {
-        if (isMissingSupabaseTableError(delErr.message)) {
-          localOnlyRef.current = true
-          return true
+      if (delErr && !isMissingSupabaseTableError(delErr.message)) {
+        console.warn('[useContacts] delete failed', delErr.message)
+      } else if (!data?.length) {
+        const { data: remote } = await supabase.from('contacts').select('id').eq('id', id).maybeSingle()
+        if (remote) {
+          const { error: retryErr } = await supabase.from('contacts').delete().eq('id', id).select('id')
+          if (retryErr) console.warn('[useContacts] delete retry failed', retryErr.message)
         }
-        setError(delErr.message)
-        itemsRef.current = prev
-        setItems(prev)
-        persistLocal(prev)
-        return false
-      }
-
-      if (!data?.length) {
-        setError('Kontakt konnte nicht gelöscht werden (keine Berechtigung oder unbekannte ID).')
-        itemsRef.current = prev
-        setItems(prev)
-        persistLocal(prev)
-        return false
       }
 
       return true
@@ -681,5 +697,5 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
     [brandId, brandSlug, persistLocal],
   )
 
-  return { items, loading, error, reload, create, update, remove }
+  return { items, loading, error, reload, create, update, remove, clearError }
 }

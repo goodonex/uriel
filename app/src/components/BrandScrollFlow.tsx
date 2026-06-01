@@ -51,6 +51,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
   const pathSection = sectionFromPathname(pathname)
   const scrollLocked = isSectionScrollLocked(pathname)
   const scrollCtx = useScrollSectionContext()
+  const snapEnabled = scrollCtx?.effectiveSectionScroll ?? false
   const initialSyncDoneRef = useRef(false)
 
   const navigateSection = useCallback(
@@ -64,6 +65,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     containerRef,
     pathSection,
     scrollLocked,
+    snapEnabled,
     onActiveSection: (section) => scrollCtx?.setActiveSection(section),
     onNavigateSection: navigateSection,
   })
@@ -113,7 +115,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
       <div
         ref={containerRef}
-        className={`brand-scroll-flow brand-scroll-flow--snap${scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
+        className={`brand-scroll-flow${snapEnabled && !scrollLocked ? ' brand-scroll-flow--snap' : ''}${scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
         style={{
           height: '100vh',
           overflowY: 'auto',
@@ -129,7 +131,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
           ))}
         </div>
       </div>
-      <SectionDotNav onSelect={jumpToSection} />
+      {snapEnabled ? <SectionDotNav onSelect={jumpToSection} /> : null}
     </ScrollFlowProvider>
   )
 }

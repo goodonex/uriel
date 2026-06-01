@@ -629,8 +629,52 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
             marginTop: 10,
             paddingTop: 10,
             borderTop: '1px solid var(--glass-border-1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
           }}
         >
+          {scrollCtx?.syncEnabled ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                scrollCtx.setSectionScrollEnabled(!scrollCtx.sectionScrollEnabled)
+              }}
+              title={
+                scrollCtx.sectionScrollEnabled
+                  ? 'Section-Scrollen deaktivieren'
+                  : 'Section-Scrollen aktivieren'
+              }
+              data-no-scale
+              className="flex w-full items-center font-mono transition-colors"
+              style={{
+                fontSize: 9,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                padding: expanded ? '8px 10px' : '8px 0',
+                justifyContent: expanded ? 'flex-start' : 'center',
+                gap: 8,
+                borderRadius: 10,
+                border: scrollCtx.sectionScrollEnabled
+                  ? '1px solid color-mix(in srgb, var(--accent-teal) 45%, var(--glass-border-2))'
+                  : '1px solid var(--glass-border-2)',
+                background: scrollCtx.sectionScrollEnabled
+                  ? 'color-mix(in srgb, var(--accent-teal) 12%, transparent)'
+                  : 'var(--glass-1)',
+                color: scrollCtx.sectionScrollEnabled ? 'var(--accent-teal)' : 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.4}>
+                <path d="M4 6 L8 2 L12 6" />
+                <path d="M4 10 L8 14 L12 10" />
+              </svg>
+              {expanded ? (
+                <span>{scrollCtx.sectionScrollEnabled ? 'Section-Scroll an' : 'Section-Scroll aus'}</span>
+              ) : null}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={(e) => {

@@ -12,10 +12,16 @@ import { useLocation } from 'react-router-dom'
 import type { SectionKey } from '../lib/scrollFlow'
 import { sectionFromPathname } from '../lib/scrollFlow'
 import type { BrandNavSection } from '../lib/brandNav'
+import { readSectionScrollEnabled, writeSectionScrollEnabled } from '../lib/sectionScrollPref'
 
 interface ScrollSectionContextValue {
-  /** Desktop Scroll-Flow aktiv */
+  /** Desktop Scroll-Flow aktiv (Viewport) */
   syncEnabled: boolean
+  /** Nutzer: vertikales Section-Scrollen / Snap */
+  sectionScrollEnabled: boolean
+  setSectionScrollEnabled: (enabled: boolean) => void
+  /** Snap + URL-Sync aus Scroll */
+  effectiveSectionScroll: boolean
   activeSection: SectionKey
   setActiveSection: (section: SectionKey) => void
   registerScrollToSection: (fn: ((section: SectionKey) => void) | null) => void
@@ -34,7 +40,15 @@ export function ScrollSectionProvider({
   const { pathname } = useLocation()
   const pathSection = sectionFromPathname(pathname)
   const [activeSection, setActiveSection] = useState<SectionKey>(pathSection)
+  const [sectionScrollEnabled, setSectionScrollEnabledState] = useState(readSectionScrollEnabled)
   const scrollToRef = useRef<((section: SectionKey) => void) | null>(null)
+
+  const setSectionScrollEnabled = useCallback((next: boolean) => {
+    setSectionScrollEnabledState(next)
+    writeSectionScrollEnabled(next)
+  }, [])
+
+  const effectiveSectionScroll = enabled && sectionScrollEnabled
 
   useEffect(() => {
     setActiveSection(pathSection)
@@ -44,22 +58,35 @@ export function ScrollSectionProvider({
     scrollToRef.current = fn
   }, [])
 
-  const scrollToSection = useCallback((section: SectionKey) => {
-    if (enabled && scrollToRef.current) {
-      scrollToRef.current(section)
-      return
-    }
-  }, [enabled])
+  const scrollToSection = useCallback(
+    (section: SectionKey) => {
+      if (enabled && scrollToRef.current) {
+        scrollToRef.current(section)
+      }
+    },
+    [enabled],
+  )
 
   const value = useMemo(
     () => ({
       syncEnabled: enabled,
+      sectionScrollEnabled,
+      setSectionScrollEnabled,
+      effectiveSectionScroll,
       activeSection,
       setActiveSection,
       registerScrollToSection,
       scrollToSection,
     }),
-    [enabled, activeSection, registerScrollToSection, scrollToSection],
+    [
+      enabled,
+      sectionScrollEnabled,
+      setSectionScrollEnabled,
+      effectiveSectionScroll,
+      activeSection,
+      registerScrollToSection,
+      scrollToSection,
+    ],
   )
 
   return <ScrollSectionContext.Provider value={value}>{children}</ScrollSectionContext.Provider>
