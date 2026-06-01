@@ -80,6 +80,84 @@ function persistLocal(brandSlug: string, items: Task[]): void {
   saveList([brandSlug, STORAGE_KEY], items)
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+}
+
+function taskToRemoteRow(task: Task, brandId: string, id = task.id): Record<string, unknown> {
+  return {
+    id,
+    brand_id: brandId,
+    title: task.title,
+    notes: task.notes ?? '',
+    due_at: task.due_at,
+    status: task.status,
+    priority: task.priority,
+    source: task.source,
+    completed_at: task.completed_at,
+    contact_id: task.contact_id,
+    project_id: task.project_id,
+  }
+}
+
+/** Update; wenn Zeile fehlt (nur lokal angelegt) → Upsert. */
+async function writeTaskToSupabase(
+  brandId: string,
+  task: Task,
+  taskId: string,
+): Promise<{ ok: true } | { ok: false; message: string; fallbackLocal: boolean }> {
+  const client = supabase
+  if (!client) return { ok: false, message: 'Kein Supabase', fallbackLocal: true }
+
+  const write = (payload: Record<string, unknown>) =>
+    client
+      .from('foundation_tasks')
+      .update(payload)
+      .eq('id', payload.id as string)
+      .select('id')
+      .maybeSingle()
+      .then(async (upd) => {
+        if (upd.error) return upd
+        if (upd.data) return upd
+        return client
+          .from('foundation_tasks')
+          .upsert(payload, { onConflict: 'id' })
+          .select('id')
+          .maybeSingle()
+      })
+
+  let payload = taskToRemoteRow(task, brandId, taskId)
+  let res = await write(payload)
+
+  if (!res.error && res.data) return { ok: true }
+
+  const msg = res.error?.message ?? ''
+  if (msg && shouldFallbackToLocalSupabase(msg)) {
+    if (payload.contact_id) {
+      payload = { ...payload, contact_id: null }
+      res = await write(payload)
+      if (!res.error && res.data) return { ok: true }
+      if (res.error && shouldFallbackToLocalSupabase(res.error.message)) {
+        return { ok: false, message: res.error.message, fallbackLocal: true }
+      }
+    } else {
+      return { ok: false, message: msg, fallbackLocal: true }
+    }
+  }
+
+  if (isMissingSupabaseTableError(msg)) {
+    return { ok: false, message: msg, fallbackLocal: true }
+  }
+
+  return {
+    ok: false,
+    message: res.error?.message ?? 'Task konnte nicht gespeichert werden',
+    fallbackLocal: false,
+  }
+}
+
 function sortTasks(list: Task[]): Task[] {
   const order: Record<TaskStatus, number> = { open: 0, in_progress: 0, cancelled: 2, done: 3 }
   return [...list].sort((a, b) => {
@@ -193,41 +271,26 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
       }
 
       const endSave = saveStatus.begin()
-      void supabase
-        .from('foundation_tasks')
-        .insert({
-          id: task.id,
-          brand_id: brandId,
-          contact_id: task.contact_id,
-          project_id: task.project_id,
-          title: task.title,
-          notes: task.notes,
-          due_at: task.due_at,
-          status: task.status,
-          priority: task.priority,
-          source: task.source,
-        })
-        .then(({ error: insErr }) => {
-          if (insErr) {
-            if (isMissingSupabaseTableError(insErr.message)) {
-              localOnlyRef.current = true
-              persistLocal(brandSlug, next)
-              endSave(true)
-            } else if (shouldFallbackToLocalSupabase(insErr.message)) {
-              // FK-Constraint (z.B. contact_id existiert nur lokal), RLS o.ä.:
-              // Task lokal halten, keine Error-Pill zeigen, kein Reload (würde
-              // den Task aus der UI fegen).
-              persistLocal(brandSlug, next)
-              endSave(true)
-            } else {
-              setError(insErr.message)
-              endSave(false, insErr.message)
-              void reload()
-            }
-          } else {
-            endSave(true)
-          }
-        })
+      void writeTaskToSupabase(brandId, task, task.id).then((result) => {
+        if (result.ok) {
+          persistLocal(brandSlug, next)
+          endSave(true)
+          return
+        }
+        if (result.fallbackLocal) {
+          localOnlyRef.current = true
+          persistLocal(brandSlug, next)
+          endSave(true)
+          return
+        }
+        setError(result.message)
+        endSave(false, result.message)
+        setItems((cur) => cur.filter((t) => t.id !== task.id))
+        persistLocal(
+          brandSlug,
+          itemsRef.current.filter((t) => t.id !== task.id),
+        )
+      })
       logActivity({
         brand_id: brandId,
         entity_type: 'task',
@@ -270,46 +333,28 @@ export function useTasks(brandSlug: string | undefined): UseTasksResult {
         saveStatus.markSaved()
         return
       }
-      const row: Record<string, unknown> = {
-        title: merged.title,
-        notes: merged.notes,
-        due_at: merged.due_at,
-        status: merged.status,
-        priority: merged.priority,
-        source: merged.source,
-        completed_at: merged.completed_at,
-        contact_id: merged.contact_id,
-        project_id: merged.project_id,
+      const remoteId = isUuid(id) ? id : generateId()
+      const mergedForRemote = { ...merged, id: remoteId, brand_id: brandId }
+      let nextItems = next
+      if (remoteId !== id) {
+        nextItems = sortTasks(next.map((t) => (t.id === id ? mergedForRemote : t)))
+        setItems(nextItems)
       }
-      persistLocal(brandSlug, next)
+      persistLocal(brandSlug, nextItems)
       const endSave = saveStatus.begin()
-      void supabase
-        .from('foundation_tasks')
-        .update(row)
-        .eq('id', id)
-        .eq('brand_id', brandId)
-        .select('id')
-        .maybeSingle()
-        .then(({ data: updatedRow, error: updErr }) => {
-          if (updErr) {
-            if (isMissingSupabaseTableError(updErr.message)) {
-              localOnlyRef.current = true
-              endSave(true)
-            } else if (shouldFallbackToLocalSupabase(updErr.message)) {
-              endSave(true)
-            } else {
-              setError(updErr.message)
-              endSave(false, updErr.message)
-              void reload()
-            }
-          } else if (!updatedRow) {
-            setError('Task konnte nicht gespeichert werden')
-            endSave(false, 'Task konnte nicht gespeichert werden')
-            void reload()
-          } else {
-            endSave(true)
-          }
-        })
+      void writeTaskToSupabase(brandId, mergedForRemote, remoteId).then((result) => {
+        if (result.ok) {
+          endSave(true)
+          return
+        }
+        if (result.fallbackLocal) {
+          localOnlyRef.current = true
+          endSave(true)
+          return
+        }
+        setError(result.message)
+        endSave(false, result.message)
+      })
 
       if (patch.status === 'done' && prev.status !== 'done' && brandId) {
         logActivity({
