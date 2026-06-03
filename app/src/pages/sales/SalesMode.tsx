@@ -16,7 +16,15 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { motion, type Variants } from 'framer-motion'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
@@ -108,6 +116,38 @@ function startOfWeekMondayMs(): number {
 function isFollowUpDueTodayOrBefore(nextFollowUpAt: string | null): boolean {
   if (!nextFollowUpAt) return false
   return nextFollowUpAt.slice(0, 10) <= ymdToday()
+}
+
+/** Überfällige / früheste Follow-ups oben in der Spalte. */
+function sortContactsForKanbanColumn(list: Contact[]): Contact[] {
+  return [...list].sort((a, b) => {
+    const aOver = isFollowUpOverdue(a) ? 0 : 1
+    const bOver = isFollowUpOverdue(b) ? 0 : 1
+    if (aOver !== bOver) return aOver - bOver
+    const ax = a.next_follow_up_at?.slice(0, 10) ?? '9999-12-31'
+    const bx = b.next_follow_up_at?.slice(0, 10) ?? '9999-12-31'
+    if (ax !== bx) return ax.localeCompare(bx)
+    return contactCardTitle(a).localeCompare(contactCardTitle(b), 'de')
+  })
+}
+
+function followUpIsoDaysFromNow(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  d.setHours(9, 0, 0, 0)
+  return d.toISOString()
+}
+
+const cardQuickBtn: CSSProperties = {
+  fontSize: 10,
+  padding: '4px 8px',
+  borderRadius: 999,
+  border: '1px solid var(--glass-border-2)',
+  background: 'var(--glass-2)',
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  lineHeight: 1.2,
 }
 
 function contactCardTitle(c: Contact): string {
@@ -491,6 +531,7 @@ function SortableContactCard({
   onToggleSelected,
   bulkActive,
   scrollEmbed = false,
+  onSetFollowUpDays,
 }: {
   contact: Contact
   slug: string
@@ -505,6 +546,7 @@ function SortableContactCard({
   onToggleSelected: () => void
   bulkActive: boolean
   scrollEmbed?: boolean
+  onSetFollowUpDays: (contactId: string, daysFromNow: number) => void
 }) {
   const {
     attributes,
@@ -527,6 +569,9 @@ function SortableContactCard({
   const swipeRef = useRef({ x: 0, swiped: false })
   const showChk = bulkActive || hover
   const potLabel = potenzialKanbanLabel(contact)
+  const phone = contact.phone?.trim()
+  const email = contact.email?.trim()
+  const showQuickRow = (hover || quickNoteOpen) && (phone || email || contact.pipeline_stage !== 'deal')
   const linkRight = overdue ? 64 : 6
   const noteRight = overdue ? 110 : 52
 
@@ -745,9 +790,53 @@ function SortableContactCard({
       {contact.next_follow_up_at ? (
         <div
           className="font-mono mt-1"
-          style={{ fontSize: 9, color: 'var(--text-tertiary)' }}
+          style={{
+            fontSize: 9,
+            color: overdue ? 'var(--accent-coral)' : 'var(--text-tertiary)',
+            fontWeight: overdue ? 600 : 400,
+          }}
         >
-          Next: {contact.next_follow_up_at.slice(0, 10)}
+          FU: {contact.next_follow_up_at.slice(0, 10)}
+        </div>
+      ) : null}
+      {showQuickRow ? (
+        <div
+          className="mt-2 flex flex-wrap gap-1"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {phone ? (
+            <a href={`tel:${phone.replace(/\s/g, '')}`} className="font-mono" style={cardQuickBtn}>
+              ☎
+            </a>
+          ) : null}
+          {email ? (
+            <a href={`mailto:${email}`} className="font-mono" style={cardQuickBtn}>
+              ✉
+            </a>
+          ) : null}
+          {contact.pipeline_stage !== 'deal' ? (
+            <>
+              <button
+                type="button"
+                className="font-mono"
+                style={cardQuickBtn}
+                title="Follow-up morgen"
+                onClick={() => onSetFollowUpDays(contact.id, 1)}
+              >
+                FU +1T
+              </button>
+              <button
+                type="button"
+                className="font-mono"
+                style={cardQuickBtn}
+                title="Follow-up in 3 Tagen"
+                onClick={() => onSetFollowUpDays(contact.id, 3)}
+              >
+                +3T
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
       {potLabel ? (
@@ -827,6 +916,7 @@ function PipelineBoard({
   bulkActive,
   onColumnHover,
   scrollEmbed = false,
+  onSetFollowUpDays,
 }: {
   contacts: Contact[]
   slug: string
@@ -834,6 +924,7 @@ function PipelineBoard({
   onMoveToStage: (contactId: string, stage: PipelineStage) => void
   onSelectContact: (id: string) => void
   onCreateDeliverProject: (contact: Contact) => void
+  onSetFollowUpDays: (contactId: string, daysFromNow: number) => void
   onAppendActivity: (contactId: string, text: string) => void
   quickNoteId: string | null
   setQuickNoteId: (id: string | null) => void
@@ -908,7 +999,9 @@ function PipelineBoard({
         onPointerLeave={() => onColumnHover?.(null)}
       >
         {STAGES.map((stage) => {
-          const list = contacts.filter((c) => c.pipeline_stage === stage)
+          const list = sortContactsForKanbanColumn(
+            contacts.filter((c) => c.pipeline_stage === stage),
+          )
           return (
             <DroppableStageColumn
               key={stage}
@@ -947,6 +1040,7 @@ function PipelineBoard({
                     selected={selectedIds.has(c.id)}
                     onToggleSelected={() => onToggleSelected(c.id)}
                     bulkActive={bulkActive}
+                    onSetFollowUpDays={onSetFollowUpDays}
                   />
                   )
                 })}
@@ -1135,6 +1229,21 @@ export function SalesMode({
       setQuickNoteId(null)
     },
     [contacts],
+  )
+
+  const handleSetFollowUpDays = useCallback(
+    (contactId: string, daysFromNow: number) => {
+      const iso = followUpIsoDaysFromNow(daysFromNow)
+      contacts.update(contactId, {
+        next_follow_up_at: iso,
+        follow_up_type: 'call',
+      })
+      showToast(
+        daysFromNow === 1 ? 'Follow-up: morgen' : `Follow-up: +${daysFromNow} Tage`,
+        'success',
+      )
+    },
+    [contacts, showToast],
   )
 
   const callModeSearch = useMemo(() => {
@@ -1582,6 +1691,7 @@ export function SalesMode({
                 onToggleSelected={toggleSelect}
                 bulkActive={bulkActive}
                 onColumnHover={setColumnHover}
+                onSetFollowUpDays={handleSetFollowUpDays}
               />
             )
           ) : null}
