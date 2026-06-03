@@ -49,6 +49,7 @@ import {
   type PotenzialFilter,
   type StageFilter,
 } from '../../lib/salesPipelineFilters'
+import { followUpIsoDaysFromNow } from '../../lib/callContactPatch'
 import { generateId } from '../../lib/storage'
 import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
 import { CrmToolbar } from '../../components/sales/CrmToolbar'
@@ -131,12 +132,6 @@ function sortContactsForKanbanColumn(list: Contact[]): Contact[] {
   })
 }
 
-function followUpIsoDaysFromNow(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  d.setHours(9, 0, 0, 0)
-  return d.toISOString()
-}
 
 const cardQuickBtn: CSSProperties = {
   fontSize: 10,
@@ -901,6 +896,8 @@ function SortableContactCard({
   )
 }
 
+const KANBAN_COLUMN_CAP = 50
+
 function PipelineBoard({
   contacts,
   slug,
@@ -944,6 +941,7 @@ function PipelineBoard({
   }, [])
 
   const [activeDrag, setActiveDrag] = useState<Contact | null>(null)
+  const [expandedStages, setExpandedStages] = useState<Set<PipelineStage>>(() => new Set())
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1002,6 +1000,10 @@ function PipelineBoard({
           const list = sortContactsForKanbanColumn(
             contacts.filter((c) => c.pipeline_stage === stage),
           )
+          const expanded = expandedStages.has(stage)
+          const capped = !expanded && list.length > KANBAN_COLUMN_CAP
+          const visible = capped ? list.slice(0, KANBAN_COLUMN_CAP) : list
+          const hiddenCount = capped ? list.length - KANBAN_COLUMN_CAP : 0
           return (
             <DroppableStageColumn
               key={stage}
@@ -1011,10 +1013,10 @@ function PipelineBoard({
               columnMotionVariants={KANBAN_COLUMN_VARIANTS}
             >
               <SortableContext
-                items={list.map((c) => c.id)}
+                items={visible.map((c) => c.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {list.map((c) => {
+                {visible.map((c) => {
                   const linkedProject = findDeliverProjectForContact(deliverProjects, c)
                   const deliverProjectId = linkedProject?.id ?? c.deliver_project_id ?? null
                   return (
@@ -1045,6 +1047,51 @@ function PipelineBoard({
                   )
                 })}
               </SortableContext>
+              {hiddenCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedStages((prev) => new Set([...prev, stage]))
+                  }
+                  style={{
+                    marginTop: 8,
+                    width: '100%',
+                    fontSize: 11,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: '1px dashed var(--glass-border-2)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  +{hiddenCount} weitere anzeigen
+                </button>
+              ) : expanded && list.length > KANBAN_COLUMN_CAP ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedStages((prev) => {
+                      const next = new Set(prev)
+                      next.delete(stage)
+                      return next
+                    })
+                  }
+                  style={{
+                    marginTop: 8,
+                    width: '100%',
+                    fontSize: 11,
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-tertiary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Weniger anzeigen
+                </button>
+              ) : null}
             </DroppableStageColumn>
           )
         })}
@@ -1233,7 +1280,7 @@ export function SalesMode({
 
   const handleSetFollowUpDays = useCallback(
     (contactId: string, daysFromNow: number) => {
-      const iso = followUpIsoDaysFromNow(daysFromNow)
+      const iso = followUpIsoDaysFromNow(daysFromNow, 9)
       contacts.update(contactId, {
         next_follow_up_at: iso,
         follow_up_type: 'call',

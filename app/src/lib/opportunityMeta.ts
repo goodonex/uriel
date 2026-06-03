@@ -1,4 +1,4 @@
-import type { OpportunityProduct, OpportunityStage } from '../types/db'
+import type { OpportunityProduct, OpportunityStage, PipelineStage } from '../types/db'
 
 export const OPPORTUNITY_PRODUCTS: OpportunityProduct[] = ['herrmann', 'wertavio', 'culturefit']
 
@@ -29,6 +29,14 @@ export const OPPORTUNITY_MAIN_STAGES: OpportunityStage[] = [
   'pitch',
   'deal',
 ]
+
+/** Pipeline-Kontakt → Opportunity-Stage (ein Produkt pro Kontakt, mehrere Opportunities möglich). */
+export const PIPELINE_TO_OPPORTUNITY: Partial<Record<PipelineStage, OpportunityStage>> = {
+  first_contact: 'erstkontakt',
+  conversation: 'gespraech',
+  proposal: 'pitch',
+  deal: 'deal',
+}
 
 export const OPPORTUNITY_STAGE_LABEL: Record<OpportunityStage, string> = {
   erstkontakt: 'Erstkontakt',

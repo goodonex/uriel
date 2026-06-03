@@ -23,6 +23,8 @@ export function ContactPhaseHeader({
   error,
   onOpportunityStage,
   onCreatePitchProject,
+  availableOpportunityProducts = [],
+  onAddOpportunity,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
@@ -32,6 +34,8 @@ export function ContactPhaseHeader({
   error?: string | null
   onOpportunityStage: (id: string, stage: OpportunityStage) => void
   onCreatePitchProject: () => void
+  availableOpportunityProducts?: OpportunityProduct[]
+  onAddOpportunity?: (product: OpportunityProduct) => void
 }) {
   const navigate = useNavigate()
   const areaChips = useMemo(() => getProjectAreaChips(project ?? null), [project])
@@ -59,12 +63,6 @@ export function ContactPhaseHeader({
     })
   }, [opportunities])
 
-  const showProjectNav =
-    activeOpportunity?.stage === 'deal' && Boolean(brandSlug) && Boolean(project)
-
-  const hideStatusControl =
-    activeOpportunity?.stage === 'deal' || contact.pipeline_stage === 'deal'
-
   const productMeta = activeOpportunity
     ? OPPORTUNITY_PRODUCT_META[activeOpportunity.product]
     : null
@@ -72,10 +70,37 @@ export function ContactPhaseHeader({
   const pipelineStage: PipelineStage =
     contact.pipeline_stage === 'paused' ? 'paused' : contact.pipeline_stage
 
+  /** Deliver-Leiste nur im echten Deal — nicht bei Pitch-Projekt / Pipeline Pitch. */
+  const showDealDeliverNav =
+    Boolean(brandSlug && project) &&
+    contact.pipeline_stage === 'deal' &&
+    (opportunities.length === 0 || activeOpportunity?.stage === 'deal')
+
   const showPitchProjectAction =
     !project &&
     (activeOpportunity?.stage === 'pitch' ||
       (opportunities.length === 0 && contact.pipeline_stage === 'proposal'))
+
+  const compactProjectLink =
+    Boolean(brandSlug && project) && !showDealDeliverNav ? (
+      <button
+        type="button"
+        className="font-mono"
+        onClick={() => navigate(`/brand/${brandSlug}/deliver/${project!.id}`)}
+        style={{
+          fontSize: 10,
+          padding: '4px 8px',
+          borderRadius: 999,
+          border: '1px solid var(--glass-border-2)',
+          background: 'var(--glass-2)',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
+      >
+        → Pitch-Projekt
+      </button>
+    ) : null
 
   const pitchProjectBtn = showPitchProjectAction ? (
     <button
@@ -91,36 +116,149 @@ export function ContactPhaseHeader({
         color: 'var(--text-secondary)',
         cursor: 'pointer',
         flexShrink: 0,
-        marginBottom: 4,
       }}
     >
       + Pitch-Projekt
     </button>
   ) : null
 
+  const customerToggleBtn = showDealDeliverNav ? (
+    <button
+      type="button"
+      className="font-mono"
+      onClick={() =>
+        onField({
+          contact_status:
+            contact.contact_status === 'customer_inactive'
+              ? 'deal_won'
+              : 'customer_inactive',
+        })
+      }
+      style={{
+        fontSize: 9,
+        padding: '3px 7px',
+        borderRadius: 999,
+        border: '1px solid var(--glass-border-2)',
+        background: 'var(--glass-2)',
+        color: 'var(--text-tertiary)',
+        cursor: 'pointer',
+      }}
+    >
+      {contact.contact_status === 'customer_inactive'
+        ? 'Kunde wieder aktiv'
+        : 'Kunde nicht aktiv'}
+    </button>
+  ) : null
+
+  const opportunityTabs =
+    opportunities.length > 0 && activeOpportunity && productMeta ? (
+      <div
+        className="font-mono"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          alignItems: 'center',
+          fontSize: 9,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {OPPORTUNITY_PRODUCTS.map((product) => {
+          const opp = opportunities.find((o) => o.product === product)
+          const meta = OPPORTUNITY_PRODUCT_META[product]
+          if (opp) {
+            const active = activeOpportunity.id === opp.id
+            return (
+              <button
+                key={opp.id}
+                type="button"
+                onClick={() => setActiveProduct(product)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  border: active ? `1px solid ${meta.color}` : '1px solid transparent',
+                  background: active ? meta.bg : 'transparent',
+                  color: active ? meta.color : 'var(--text-tertiary)',
+                  cursor: 'pointer',
+                }}
+              >
+                {meta.label}
+              </button>
+            )
+          }
+          if (!availableOpportunityProducts.includes(product) || !onAddOpportunity) return null
+          return (
+            <button
+              key={product}
+              type="button"
+              onClick={() => onAddOpportunity(product)}
+              title={`${meta.label} als Opportunity anlegen`}
+              style={{
+                padding: '4px 8px',
+                borderRadius: 999,
+                border: '1px dashed var(--glass-border-2)',
+                background: 'transparent',
+                color: 'var(--text-tertiary)',
+                cursor: 'pointer',
+              }}
+            >
+              + {meta.label}
+            </button>
+          )
+        })}
+      </div>
+    ) : null
+
+  const stageControl =
+    opportunities.length > 0 && activeOpportunity && productMeta ? (
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <OpportunityStageStepper
+          current={activeOpportunity.stage}
+          accentColor={productMeta.color}
+          onChange={(stage) => onOpportunityStage(activeOpportunity.id, stage)}
+        />
+        {compactProjectLink}
+        {pitchProjectBtn}
+      </div>
+    ) : (
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <ContactStageStepper
+            current={pipelineStage}
+            onChange={(stage) => onField({ pipeline_stage: stage })}
+            inline
+            fullWidth
+          />
+        </div>
+        {compactProjectLink}
+        {pitchProjectBtn}
+      </div>
+    )
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 16,
+        gap: 12,
         width: '100%',
       }}
     >
-      {!hideStatusControl ? (
+      {!showDealDeliverNav ? (
         <div style={{ flexShrink: 0, paddingTop: 1 }}>
-          <ContactStatusDropdown contact={contact} onField={onField} compact />
+          <ContactStatusDropdown contact={contact} onField={onField} compact mini />
         </div>
       ) : null}
 
-      <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {error ? (
           <p className="font-mono" style={{ fontSize: 10, color: 'var(--accent-coral)', margin: 0 }}>
             {error}
           </p>
         ) : null}
 
-        {showProjectNav ? (
+        {showDealDeliverNav ? (
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <button
               type="button"
@@ -155,8 +293,8 @@ export function ContactPhaseHeader({
                     : null
                 }
                 style={{
-                  fontSize: 11,
-                  padding: '6px 12px',
+                  fontSize: 10,
+                  padding: '4px 8px',
                   borderRadius: 999,
                   border: '1px solid var(--accent-teal)',
                   color: 'var(--accent-teal)',
@@ -167,108 +305,12 @@ export function ContactPhaseHeader({
                 {chip.label}
               </button>
             ))}
-            <button
-              type="button"
-              className="font-mono"
-              onClick={() =>
-                onField({
-                  contact_status:
-                    contact.contact_status === 'customer_inactive'
-                      ? 'deal_won'
-                      : 'customer_inactive',
-                })
-              }
-              style={{
-                fontSize: 10,
-                padding: '6px 10px',
-                borderRadius: 999,
-                border: '1px solid var(--glass-border-2)',
-                background: 'var(--glass-2)',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-              }}
-            >
-              {contact.contact_status === 'customer_inactive'
-                ? 'Kunde wieder aktiv'
-                : 'Kunde nicht aktiv'}
-            </button>
+            {customerToggleBtn}
           </div>
-        ) : opportunities.length > 0 && activeOpportunity && productMeta ? (
-          <>
-            {opportunities.length > 1 ? (
-              <div
-                className="font-mono"
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 4,
-                  fontSize: 9,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {OPPORTUNITY_PRODUCTS.map((product) => {
-                  const opp = opportunities.find((o) => o.product === product)
-                  if (!opp) return null
-                  const meta = OPPORTUNITY_PRODUCT_META[product]
-                  const active = activeOpportunity.id === opp.id
-                  return (
-                    <button
-                      key={opp.id}
-                      type="button"
-                      onClick={() => setActiveProduct(product)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        border: active
-                          ? `1px solid ${meta.color}`
-                          : '1px solid transparent',
-                        background: active ? meta.bg : 'transparent',
-                        color: active ? meta.color : 'var(--text-tertiary)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {meta.label}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <div
-                className="font-mono"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: '0.14em',
-                  color: productMeta.color,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {productMeta.label}
-              </div>
-            )}
+        ) : null}
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-              <OpportunityStageStepper
-                current={activeOpportunity.stage}
-                accentColor={productMeta.color}
-                onChange={(stage) => onOpportunityStage(activeOpportunity.id, stage)}
-              />
-              {pitchProjectBtn}
-            </div>
-          </>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-              <ContactStageStepper
-                current={pipelineStage}
-                onChange={(stage) => onField({ pipeline_stage: stage })}
-                inline
-                fullWidth
-              />
-            </div>
-            {pitchProjectBtn}
-          </div>
-        )}
+        {opportunityTabs}
+        {stageControl}
       </div>
     </div>
   )

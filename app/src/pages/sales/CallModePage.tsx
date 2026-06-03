@@ -15,6 +15,10 @@ import { useToast } from '../../components/Toast'
 import { useContacts } from '../../hooks/useContacts'
 import { useCallLogs } from '../../hooks/useSalesPro'
 import type { Contact, SalesCallOutcome } from '../../types/db'
+import {
+  activityTextForCallOutcome,
+  contactPatchAfterCallOutcome,
+} from '../../lib/callContactPatch'
 import { generateId } from '../../lib/storage'
 
 const OUTCOMES: Array<{ key: SalesCallOutcome; label: string; tone: 'good' | 'neutral' | 'bad' }> = [
@@ -184,22 +188,16 @@ export function CallModePage() {
           setStep={setStep}
           onLogCall={async (outcome, notes) => {
             await calls.log({ contact_id: active.id, outcome, notes })
-            // Letzter-Kontakt updaten, Follow-up entfernen (nutzer setzt neu in Notes oder ContactPage)
-            contacts.update(active.id, {
-              last_contact_at: new Date().toISOString(),
-              next_follow_up_at: outcome === 'callback_requested' ? active.next_follow_up_at : null,
-            })
-            // Wenn Notiz: zusätzlich als ActivityEntry am Lead
-            if (notes.trim()) {
-              const entry = {
-                id: generateId(),
-                text: `Call (${outcome}): ${notes.trim()}`,
-                at: new Date().toISOString(),
-              }
-              contacts.update(active.id, {
-                activity_log: [entry, ...(active.activity_log ?? [])],
-              })
+            const autoPatch = contactPatchAfterCallOutcome(active, outcome)
+            const entry = {
+              id: generateId(),
+              text: activityTextForCallOutcome(outcome, notes),
+              at: new Date().toISOString(),
             }
+            contacts.update(active.id, {
+              ...autoPatch,
+              activity_log: [entry, ...(active.activity_log ?? [])],
+            })
             show('Call gespeichert · weiter', 'success')
             advanceQueue()
           }}

@@ -8,6 +8,7 @@ import { ContactActivityActionBar } from '../../components/sales/activity/Contac
 import { ActivityModalHost } from '../../components/sales/activity/ActivityModalHost'
 import { EmailComposeDialog } from '../../components/sales/EmailComposeDialog'
 import type { ActivityModalType } from '../../lib/activityTypes'
+import { usePostCallFlowOptional } from '../../hooks/usePostCallFlow'
 import { useCallLogs } from '../../hooks/useSalesPro'
 import { useViewport } from '../../hooks/useViewport'
 import { useContactScrollLock } from '../../hooks/useContactScrollLock'
@@ -19,7 +20,7 @@ import { ContactBccHint } from '../../components/sales/ContactBccHint'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useOpportunities } from '../../hooks/useOpportunities'
 import { pitchWebsiteDeliverables } from '../../lib/deliverableCatalog'
-import { OPPORTUNITY_PRODUCTS } from '../../lib/opportunityMeta'
+import { OPPORTUNITY_PRODUCTS, PIPELINE_TO_OPPORTUNITY } from '../../lib/opportunityMeta'
 import { useToast } from '../../components/Toast'
 import type {
   ActivityEntry,
@@ -143,25 +144,50 @@ export function ContactPage({
   const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
   const [timelineRefresh, setTimelineRefresh] = useState(0)
   const calls = useCallLogs(slug, { contactId: contactId ?? '' })
+  const postCallFlow = usePostCallFlowOptional()
   const opportunities = useOpportunities()
   const { show: showToast } = useToast()
+
+  const ensuredOpportunityRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!contactId) return
     void opportunities.loadByContact(contactId)
   }, [contactId, opportunities.loadByContact])
 
+  useEffect(() => {
+    if (!contactId || !d) return
+    if (opportunities.items.length > 0) return
+    const oppStage = PIPELINE_TO_OPPORTUNITY[d.pipeline_stage]
+    if (!oppStage || oppStage === 'erstkontakt') return
+    if (ensuredOpportunityRef.current === contactId) return
+    ensuredOpportunityRef.current = contactId
+    void (async () => {
+      const created = await opportunities.create(contactId, 'herrmann')
+      if (created) await opportunities.updateStage(created.id, oppStage)
+    })()
+  }, [contactId, d, opportunities.create, opportunities.items.length, opportunities.updateStage])
+
   const handleCreateOpportunity = useCallback(
     async (product: OpportunityProduct) => {
       if (!contactId) return
       const created = await opportunities.create(contactId, product)
       if (created) {
+        const oppStage =
+          d?.pipeline_stage != null
+            ? PIPELINE_TO_OPPORTUNITY[d.pipeline_stage]
+            : undefined
+        if (oppStage && oppStage !== 'erstkontakt') {
+          await opportunities.updateStage(created.id, oppStage)
+          const pipelineStage = OPPORTUNITY_TO_PIPELINE[oppStage]
+          if (pipelineStage) onField({ pipeline_stage: pipelineStage })
+        }
         showToast('Opportunity angelegt', 'success')
         return
       }
       if (opportunities.error) showToast(opportunities.error, 'error')
     },
-    [contactId, opportunities, showToast],
+    [contactId, d?.pipeline_stage, onField, opportunities, showToast],
   )
 
   const handleOpportunityStage = useCallback(
@@ -192,8 +218,14 @@ export function ContactPage({
     [opportunities.items],
   )
   const handleLogCall = useCallback(() => {
+    if (!contactId) return
+    if (postCallFlow) {
+      postCallFlow.openPostCall({ contactId, source: 'contact' })
+      setCallOutcomeOpen(false)
+      return
+    }
     setCallOutcomeOpen(true)
-  }, [])
+  }, [contactId, postCallFlow])
 
   const handleCreatePitchProject = useCallback(() => {
     if (!d || !slug) return
@@ -214,7 +246,19 @@ export function ContactPage({
     }
     void deliver
       .create(payload)
-      .then((proj) => {
+      .then(async (proj) => {
+        if (!opportunities.items.some((o) => o.product === 'herrmann')) {
+          const created = await opportunities.create(d.id, 'herrmann')
+          if (created) await opportunities.updateStage(created.id, 'pitch')
+        } else {
+          const herrmann = opportunities.items.find((o) => o.product === 'herrmann')
+          if (herrmann && herrmann.stage !== 'pitch' && herrmann.stage !== 'deal') {
+            await opportunities.updateStage(herrmann.id, 'pitch')
+          }
+        }
+        if (d.pipeline_stage !== 'proposal') {
+          onField({ pipeline_stage: 'proposal' })
+        }
         showToast('Pitch-Projekt angelegt', 'success')
         navigate(`/brand/${slug}/deliver/${proj.id}`)
       })
@@ -395,6 +439,10 @@ export function ContactPage({
             project={duplicateProject}
             opportunities={opportunities.items}
             error={opportunities.error}
+            availableOpportunityProducts={availableOpportunityProducts}
+            onAddOpportunity={(product) => {
+              void handleCreateOpportunity(product)
+            }}
             onOpportunityStage={(id, stage) => {
               void handleOpportunityStage(id, stage)
             }}

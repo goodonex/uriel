@@ -5,10 +5,13 @@ export function ContactStatusDropdown({
   contact,
   onField,
   compact = false,
+  mini = false,
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   compact?: boolean
+  /** Kleineres Pill für Kontakt-Header neben Opportunity-Stepper. */
+  mini?: boolean
 }) {
   const meta = contactStatusMeta(contact.contact_status)
 
@@ -28,14 +31,14 @@ export function ContactStatusDropdown({
         className="font-mono"
         title="Kontakt-Status"
         style={{
-          fontSize: 11,
-          padding: '8px 12px',
+          fontSize: mini ? 9 : 11,
+          padding: mini ? '4px 8px' : '8px 12px',
           borderRadius: 999,
           border: `1px solid color-mix(in srgb, ${meta.color} 55%, var(--glass-border-2))`,
           background: `color-mix(in srgb, ${meta.color} 12%, var(--glass-2))`,
           color: meta.color,
           cursor: 'pointer',
-          maxWidth: 200,
+          maxWidth: mini ? 160 : 200,
         }}
       >
         {CONTACT_STATUS_OPTIONS.map((o) => (

@@ -3,19 +3,15 @@ import { useContacts } from '../../hooks/useContacts'
 import { usePostCallFlow } from '../../hooks/usePostCallFlow'
 import { useCallLogs } from '../../hooks/useSalesPro'
 import { generateId } from '../../lib/storage'
-import type {
-  ContactActivityEntry,
-  FollowUpType,
-  PipelineStage,
-  SalesCallOutcome,
-} from '../../types/db'
+import {
+  defaultFollowUpAfterPostCall,
+  mapPostCallToSalesOutcome,
+  pipelineStageAfterPostCall,
+  type PostCallResult,
+} from '../../lib/callContactPatch'
+import type { ContactActivityEntry, FollowUpType } from '../../types/db'
 
-export type PostCallResult =
-  | 'not_reached'
-  | 'no_interest'
-  | 'conversation'
-  | 'meeting'
-  | 'offer_requested'
+export type { PostCallResult } from '../../lib/callContactPatch'
 
 const RESULTS: Array<{ key: PostCallResult; label: string }> = [
   { key: 'not_reached', label: 'Nicht erreicht' },
@@ -31,27 +27,6 @@ const FU_TYPES: Array<{ key: FollowUpType; label: string }> = [
   { key: 'email', label: 'E-Mail' },
   { key: 'other', label: 'Sonstiges' },
 ]
-
-function mapOutcome(result: PostCallResult): SalesCallOutcome {
-  if (result === 'not_reached') return 'no_pickup'
-  return 'connected'
-}
-
-function defaultStage(result: PostCallResult): PipelineStage | null {
-  if (result === 'meeting') return 'conversation'
-  if (result === 'offer_requested') return 'proposal'
-  return null
-}
-
-function ymdTomorrow(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function defaultTime(): string {
-  return '10:00'
-}
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
@@ -102,31 +77,29 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
     [contacts.items, session],
   )
 
+  const initialFu = defaultFollowUpAfterPostCall('conversation')
   const [result, setResult] = useState<PostCallResult>('conversation')
-  const [fuDate, setFuDate] = useState(ymdTomorrow())
-  const [fuTime, setFuTime] = useState(defaultTime())
-  const [fuType, setFuType] = useState<FollowUpType>('call')
+  const [fuDate, setFuDate] = useState(initialFu.dateYmd)
+  const [fuTime, setFuTime] = useState(initialFu.time)
+  const [fuType, setFuType] = useState<FollowUpType>(initialFu.type)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!session) return
     setResult('conversation')
-    setFuDate(ymdTomorrow())
-    setFuTime(defaultTime())
-    setFuType('call')
+    const defaults = defaultFollowUpAfterPostCall('conversation')
+    setFuDate(defaults.dateYmd)
+    setFuTime(defaults.time)
+    setFuType(defaults.type)
     setNote('')
   }, [session?.contactId, session])
 
   useEffect(() => {
-    if (result === 'meeting') {
-      setFuType('meeting')
-      const d = new Date()
-      d.setDate(d.getDate() + 3)
-      setFuDate(
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-      )
-    }
+    const defaults = defaultFollowUpAfterPostCall(result)
+    setFuDate(defaults.dateYmd)
+    setFuTime(defaults.time)
+    setFuType(defaults.type)
   }, [result])
 
   useEffect(() => {
@@ -142,7 +115,7 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
       if (!session || !contact) return
       setSaving(true)
       try {
-        const outcome = mapOutcome(result)
+        const outcome = mapPostCallToSalesOutcome(result)
         const noteText = note.trim()
         await calls.log({
           contact_id: contact.id,
@@ -154,8 +127,12 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
           last_contact_at: new Date().toISOString(),
         }
 
-        const stage = defaultStage(result)
+        const stage = pipelineStageAfterPostCall(result, contact.pipeline_stage)
         if (stage) patch.pipeline_stage = stage
+
+        if (result === 'no_interest' && contact.pipeline_stage !== 'paused') {
+          patch.pipeline_stage = 'paused'
+        }
 
         if (fuDate.trim()) {
           const iso = new Date(`${fuDate}T${fuTime || '12:00'}:00`).toISOString()
