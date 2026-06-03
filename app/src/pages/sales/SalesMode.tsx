@@ -110,6 +110,83 @@ function isFollowUpDueTodayOrBefore(nextFollowUpAt: string | null): boolean {
   return nextFollowUpAt.slice(0, 10) <= ymdToday()
 }
 
+function PipelineDueTodayStrip({
+  contacts,
+  slug,
+  onShowAllDue,
+}: {
+  contacts: Contact[]
+  slug: string
+  onShowAllDue: () => void
+}) {
+  if (contacts.length === 0) return null
+  const preview = contacts.slice(0, 8)
+  const more = contacts.length - preview.length
+
+  return (
+    <div
+      className="glass-2 mb-4 rounded-2xl p-4"
+      style={{
+        border: '1px solid color-mix(in srgb, var(--mode-sales) 35%, var(--glass-border-1))',
+        background: 'color-mix(in srgb, var(--mode-sales) 6%, var(--glass-2))',
+      }}
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="font-mono" style={{ fontSize: 10, color: 'var(--mode-sales)' }}>
+          Heute fällig · {contacts.length}
+        </div>
+        <button
+          type="button"
+          className="font-mono"
+          onClick={onShowAllDue}
+          style={{
+            fontSize: 10,
+            padding: '4px 10px',
+            borderRadius: 999,
+            border: '1px solid var(--glass-border-2)',
+            background: 'var(--glass-2)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+          }}
+        >
+          Nur diese anzeigen
+        </button>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {preview.map((c) => (
+          <li key={c.id}>
+            <Link
+              to={`/brand/${slug}/sales/${c.id}`}
+              className="font-mono block rounded-lg px-3 py-2 transition-colors hover:bg-[var(--glass-3)]"
+              style={{
+                fontSize: 12,
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                border: '1px solid var(--glass-border-2)',
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>{contactCardTitle(c)}</span>
+              <span style={{ color: 'var(--text-tertiary)', marginLeft: 8 }}>
+                {STAGE_LABEL[c.pipeline_stage]}
+              </span>
+              {c.next_follow_up_at ? (
+                <span style={{ color: 'var(--text-tertiary)', marginLeft: 8 }}>
+                  {c.next_follow_up_at.slice(0, 10)}
+                </span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? (
+        <p className="font-mono mt-2" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+          +{more} weitere — Filter „Heute fällig“ nutzen
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function contactCardTitle(c: Contact): string {
   const n = c.name?.trim()
   if (n) return n
@@ -1428,19 +1505,33 @@ export function SalesMode({
                   {
                     k: 'Gesamt in Pipeline',
                     v: String(pipelineStats.totalInPipeline),
+                    onClick: undefined as (() => void) | undefined,
                   },
-                  { k: 'Heute fällig', v: String(pipelineStats.dueTodayCount) },
+                  {
+                    k: 'Heute fällig',
+                    v: String(pipelineStats.dueTodayCount),
+                    onClick: () => setPipeFollow('today'),
+                  },
                   {
                     k: 'Diese Woche abgeschlossen',
                     v: String(pipelineStats.weekClosedCount),
+                    onClick: undefined,
                   },
-                  { k: 'Pipeline-Wert', v: formatEuroDe(pipelineValue) },
+                  { k: 'Pipeline-Wert', v: formatEuroDe(pipelineValue), onClick: undefined },
                 ] as const
               ).map((s) => (
-                <div
+                <button
                   key={s.k}
+                  type="button"
                   className="glass-2 rounded-xl px-4 py-3"
-                  style={{ border: '1px solid var(--glass-border-1)' }}
+                  onClick={s.onClick}
+                  style={{
+                    border: '1px solid var(--glass-border-1)',
+                    textAlign: 'left',
+                    cursor: s.onClick ? 'pointer' : 'default',
+                    background: 'var(--glass-2)',
+                    width: '100%',
+                  }}
                 >
                   <div
                     className="font-mono"
@@ -1454,7 +1545,7 @@ export function SalesMode({
                   >
                     {s.v}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : null}
@@ -1506,6 +1597,17 @@ export function SalesMode({
                 filtersActive={filtersActive}
               />
             </div>
+          ) : null}
+
+          {!contacts.loading &&
+          !contacts.error &&
+          panel === 'full' &&
+          pipelineStats.dueTodayList.length > 0 ? (
+            <PipelineDueTodayStrip
+              contacts={pipelineStats.dueTodayList}
+              slug={slug}
+              onShowAllDue={() => setPipeFollow('today')}
+            />
           ) : null}
 
           {!scrollEmbed ? (
@@ -1699,47 +1801,6 @@ export function SalesMode({
           ) : null}
 
 
-          {!contacts.loading && !contacts.error &&
-          panel === 'full' &&
-          pipelineStats.dueTodayList.length > 0 ? (
-            <div
-              className="glass-2 mt-6 rounded-2xl p-4"
-              style={{ border: '1px solid var(--glass-border-1)' }}
-            >
-              <div
-                className="font-mono mb-3"
-                style={{ fontSize: 10, color: 'var(--mode-sales)' }}
-              >
-                Heute fällig
-              </div>
-              <ul className="flex flex-col gap-2">
-                {pipelineStats.dueTodayList.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      to={`/brand/${slug}/sales/${c.id}`}
-                      className="font-mono block rounded-lg px-3 py-2 transition-colors hover:bg-[var(--glass-3)]"
-                      style={{
-                        fontSize: 12,
-                        color: 'var(--text-primary)',
-                        textDecoration: 'none',
-                        border: '1px solid var(--glass-border-2)',
-                      }}
-                    >
-                      <span style={{ fontWeight: 600 }}>{contactCardTitle(c)}</span>
-                      <span style={{ color: 'var(--text-tertiary)', marginLeft: 8 }}>
-                        {STAGE_LABEL[c.pipeline_stage]}
-                      </span>
-                      {c.next_follow_up_at ? (
-                        <span style={{ color: 'var(--text-tertiary)', marginLeft: 8 }}>
-                          {c.next_follow_up_at.slice(0, 10)}
-                        </span>
-                      ) : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </>
       )}
 
