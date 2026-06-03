@@ -1,6 +1,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { getPhaseState, type PhaseKey } from '../../lib/phaseMapping'
+import { isPitchProject } from '../../lib/projectAreas'
 import { usePortalLeads } from '../../hooks/useProjectLeads'
 import { useProjectOutcomes } from '../../hooks/useProjectOutcomes'
 import type { DeliverProject } from '../../types/db'
@@ -27,6 +28,8 @@ export function PortalShell({
   preview = false,
   onSignOut,
 }: PortalShellProps) {
+  const pitchMode = isPitchProject(project)
+  const dashboardPhases: PhaseKey[] | undefined = pitchMode ? ['website'] : undefined
   const { leads } = usePortalLeads(project.id)
   const { outcomes, loading: outcomesLoading } = useProjectOutcomes(undefined, project.id)
   const { unreadCount } = useProjectMessages(project.id, 'client', senderName)
@@ -110,6 +113,7 @@ export function PortalShell({
           accentColor={accentColor}
           leadCount={leadCount}
           readOnlyDeliverables
+          phases={dashboardPhases}
           renderPhaseContent={renderPhaseContent}
           renderPhaseFooter={renderPhaseFooter}
         />

@@ -17,7 +17,25 @@ import { useContactFieldSave } from '../../hooks/useContactFieldSave'
 import { ContactSaveStatusIndicator } from '../../components/sales/ContactSaveStatusIndicator'
 import { ContactBccHint } from '../../components/sales/ContactBccHint'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
-import type { ActivityEntry, Contact, SalesFieldItem } from '../../types/db'
+import { useOpportunities } from '../../hooks/useOpportunities'
+import { pitchWebsiteDeliverables } from '../../lib/deliverableCatalog'
+import { OPPORTUNITY_PRODUCTS } from '../../lib/opportunityMeta'
+import { useToast } from '../../components/Toast'
+import type {
+  ActivityEntry,
+  Contact,
+  OpportunityProduct,
+  OpportunityStage,
+  PipelineStage,
+  SalesFieldItem,
+} from '../../types/db'
+
+const OPPORTUNITY_TO_PIPELINE: Partial<Record<OpportunityStage, PipelineStage>> = {
+  erstkontakt: 'first_contact',
+  gespraech: 'conversation',
+  pitch: 'proposal',
+  deal: 'deal',
+}
 const FIELD = {
   width: '100%',
   padding: '10px 12px',
@@ -28,7 +46,10 @@ const FIELD = {
   fontSize: 13,
 } as const
 
-export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' } = {}) {
+export function ContactPage({
+  variant = 'page',
+  scrollInParent = false,
+}: { variant?: 'page' | 'module'; scrollInParent?: boolean } = {}) {
   const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
@@ -112,7 +133,8 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
 
   const d = draft ?? contact
   const scrollRef = useRef<HTMLDivElement>(null)
-  useContactScrollLock(scrollRef as RefObject<HTMLElement | null>)
+  const ownScroll = variant === 'page' && !scrollInParent
+  useContactScrollLock(ownScroll ? (scrollRef as RefObject<HTMLElement | null>) : { current: null })
   const { isMobile } = useViewport()
   const wideLayout = variant === 'page' && !isMobile
   const [activityModal, setActivityModal] = useState<ActivityModalType | null>(null)
@@ -121,14 +143,103 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
   const [callOutcomeOpen, setCallOutcomeOpen] = useState(false)
   const [timelineRefresh, setTimelineRefresh] = useState(0)
   const calls = useCallLogs(slug, { contactId: contactId ?? '' })
+  const opportunities = useOpportunities()
+  const { show: showToast } = useToast()
+
+  useEffect(() => {
+    if (!contactId) return
+    void opportunities.loadByContact(contactId)
+  }, [contactId, opportunities.loadByContact])
+
+  const handleCreateOpportunity = useCallback(
+    async (product: OpportunityProduct) => {
+      if (!contactId) return
+      const created = await opportunities.create(contactId, product)
+      if (created) {
+        showToast('Opportunity angelegt', 'success')
+        return
+      }
+      if (opportunities.error) showToast(opportunities.error, 'error')
+    },
+    [contactId, opportunities, showToast],
+  )
+
+  const handleOpportunityStage = useCallback(
+    async (id: string, stage: OpportunityStage) => {
+      const ok = await opportunities.updateStage(id, stage)
+      if (!ok) {
+        if (opportunities.error) showToast(opportunities.error, 'error')
+        return
+      }
+      const pipelineStage = OPPORTUNITY_TO_PIPELINE[stage]
+      if (pipelineStage) {
+        onField({ pipeline_stage: pipelineStage })
+      }
+      if (stage === 'deal' && d?.contact_status !== 'customer_inactive') {
+        onField({ contact_status: 'deal_won' })
+      }
+    },
+    [d?.contact_status, onField, opportunities, showToast],
+  )
 
   const duplicateProject = useMemo(() => {
     if (!d) return null
     return findDeliverProjectForContact(deliver.items, d)
   }, [deliver.items, d])
+
+  const availableOpportunityProducts = useMemo(
+    () => OPPORTUNITY_PRODUCTS.filter((p) => !opportunities.items.some((o) => o.product === p)),
+    [opportunities.items],
+  )
   const handleLogCall = useCallback(() => {
     setCallOutcomeOpen(true)
   }, [])
+
+  const handleCreatePitchProject = useCallback(() => {
+    if (!d || !slug) return
+    const existing = findDeliverProjectForContact(deliver.items, d)
+    if (existing) {
+      navigate(`/brand/${slug}/deliver/${existing.id}`)
+      return
+    }
+    const payload = {
+      name: `${d.name || 'Kontakt'} — Pitch`,
+      client_name: d.name ?? '',
+      client_email: d.email?.trim() ?? '',
+      client_contact_id: d.id,
+      internal_stage: 'inner_world' as const,
+      client_stage: 'inner_world' as const,
+      status: 'active' as const,
+      deliverables: pitchWebsiteDeliverables(),
+    }
+    void deliver
+      .create(payload)
+      .then((proj) => {
+        showToast('Pitch-Projekt angelegt', 'success')
+        navigate(`/brand/${slug}/deliver/${proj.id}`)
+      })
+      .catch(async (err) => {
+        // Fallback: einige Kontakte sind nicht FK-kompatibel (z. B. legacy/local IDs).
+        // Dann Projekt trotzdem anlegen, nur ohne harte Kontaktverknüpfung.
+        try {
+          const fallback = await deliver.create({
+            ...payload,
+            client_contact_id: null,
+          })
+          showToast('Pitch-Projekt angelegt (ohne Kontaktverknüpfung)', 'info')
+          navigate(`/brand/${slug}/deliver/${fallback.id}`)
+          return
+        } catch (fallbackErr) {
+          const msg =
+            fallbackErr instanceof Error
+              ? fallbackErr.message
+              : err instanceof Error
+                ? err.message
+                : 'Pitch-Projekt konnte nicht angelegt werden'
+          showToast(msg, 'error')
+        }
+      })
+  }, [d, slug, deliver, navigate, showToast])
 
   const openActivityModal = useCallback((type: ActivityModalType) => {
     setEditingActivity(null)
@@ -177,13 +288,13 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
 
   return (
     <div
-      ref={scrollRef}
+      ref={ownScroll ? scrollRef : undefined}
       style={{
         pointerEvents: 'auto',
         background: 'transparent',
-        maxHeight: variant === 'page' ? 'calc(100vh - 120px)' : undefined,
-        overflowY: variant === 'page' ? 'auto' : undefined,
-        overscrollBehavior: 'contain',
+        maxHeight: ownScroll ? 'calc(100vh - 120px)' : undefined,
+        overflowY: ownScroll ? 'auto' : undefined,
+        overscrollBehavior: ownScroll ? 'contain' : undefined,
       }}
     >
       <div
@@ -277,7 +388,18 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
         ) : null}
 
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <ContactPhaseHeader contact={d} onField={onField} />
+          <ContactPhaseHeader
+            contact={d}
+            onField={onField}
+            brandSlug={slug}
+            project={duplicateProject}
+            opportunities={opportunities.items}
+            error={opportunities.error}
+            onOpportunityStage={(id, stage) => {
+              void handleOpportunityStage(id, stage)
+            }}
+            onCreatePitchProject={handleCreatePitchProject}
+          />
 
           {slug ? (
             <ContactActivityActionBar
@@ -287,6 +409,10 @@ export function ContactPage({ variant = 'page' }: { variant?: 'page' | 'module' 
               onOpenModal={openActivityModal}
               onOpenEmail={() => setComposeOpen(true)}
               onCall={handleLogCall}
+              addOpportunityProducts={availableOpportunityProducts}
+              onAddOpportunity={(product) => {
+                void handleCreateOpportunity(product)
+              }}
             />
           ) : null}
 

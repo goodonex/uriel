@@ -1,5 +1,6 @@
 import { loadList, generateId } from './storage'
 import { mergeWithCatalogDeliverables } from './deliverableCatalog'
+import { isPitchProject } from './projectAreas'
 import type {
   ClientDocumentLink,
   DeliverableArea,
@@ -48,8 +49,8 @@ function validDeliverableArea(v: unknown): DeliverableArea | undefined {
   return undefined
 }
 
-function parseDeliverables(raw: unknown): DeliverableItem[] {
-  if (!Array.isArray(raw)) return mergeWithCatalogDeliverables([])
+function parseDeliverables(raw: unknown, websiteOnly = false): DeliverableItem[] {
+  if (!Array.isArray(raw)) return mergeWithCatalogDeliverables([], websiteOnly)
   const out: DeliverableItem[] = []
   for (const x of raw) {
     if (!x || typeof x !== 'object') continue
@@ -95,7 +96,7 @@ function parseDeliverables(raw: unknown): DeliverableItem[] {
       ...(area ? { area } : {}),
     })
   }
-  return mergeWithCatalogDeliverables(out)
+  return mergeWithCatalogDeliverables(out, websiteOnly)
 }
 
 function parseClientDocuments(raw: unknown): ClientDocumentLink[] {
@@ -144,6 +145,9 @@ export function normalizeDeliverProject(
   const doc = isDocJson(input.internal_notes_doc)
     ? input.internal_notes_doc
     : emptyTiptapDoc()
+  const pitch = isPitchProject({ name: input.name ?? '' })
+  const stage = pitch ? 'inner_world' : validStage(input.internal_stage)
+  const clientStage = pitch ? 'inner_world' : validStage(input.client_stage)
   return {
     id: input.id,
     brand_id: input.brand_id ?? brandKey,
@@ -152,8 +156,8 @@ export function normalizeDeliverProject(
     client_email: input.client_email ?? '',
     client_contact_id: input.client_contact_id ?? null,
     status: input.status === 'completed' ? 'completed' : 'active',
-    internal_stage: validStage(input.internal_stage),
-    client_stage: validStage(input.client_stage),
+    internal_stage: stage,
+    client_stage: clientStage,
     internal_notes_doc: doc,
     internal_file_links: Array.isArray(input.internal_file_links)
       ? input.internal_file_links.filter((x): x is string => typeof x === 'string')
@@ -161,7 +165,10 @@ export function normalizeDeliverProject(
     team_notes: input.team_notes ?? '',
     client_welcome_text: input.client_welcome_text ?? '',
     client_documents: parseClientDocuments(input.client_documents),
-    deliverables: parseDeliverables(input.deliverables),
+    deliverables: parseDeliverables(
+      input.deliverables,
+      isPitchProject({ name: input.name ?? '' }),
+    ),
     booking_url: input.booking_url ?? '',
     stage_durations: parseStageDurations(input.stage_durations),
     deleted_at:

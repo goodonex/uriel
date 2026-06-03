@@ -64,6 +64,7 @@ const CONTACT_STATUSES: ContactStatus[] = [
   'offer_made',
   'unqualified',
   'deal_won',
+  'customer_inactive',
   'deal_lost',
 ]
 
@@ -609,6 +610,10 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
         if (patch.pipeline_stage === 'deal' && !prev.won_at) {
           basePatch.won_at = now
           basePatch.lost_at = null
+          // Deal bedeutet Kunde aktiv, außer es wurde explizit bereits auf inaktiv gesetzt.
+          if (prev.contact_status !== 'customer_inactive') {
+            basePatch.contact_status = 'deal_won'
+          }
         }
       }
       const merged = normalizeContact({ ...prev, ...basePatch, updated_at: now })

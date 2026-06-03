@@ -8,9 +8,8 @@ import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useFunnelCanvas } from '../../hooks/useFunnelCanvas'
 import { useViewport } from '../../hooks/useViewport'
-import { companyDisplayName, isCompany } from '../../lib/crmContacts'
+import { companyDisplayName, isCompany, personDisplayName, personsForCompany } from '../../lib/crmContacts'
 import type { ActivityEntry, Contact } from '../../types/db'
-import { ContactDeliverCard } from './ContactDeliverCard'
 import { CompanyPersonSection } from './CompanyPersonSection'
 import { useToast } from '../Toast'
 import { ContactDeleteConfirm } from './ContactDeleteConfirm'
@@ -73,6 +72,7 @@ export function ContactOverviewPanel({
         onDelete={handleDelete}
         compact={compact}
         brandSlug={brandSlug}
+        allContacts={contacts.items}
         onTimelineRefresh={onTimelineRefresh}
         callOutcomeOpen={callOutcomeOpen}
         onCallOutcomeOpenChange={onCallOutcomeOpenChange}
@@ -83,7 +83,6 @@ export function ContactOverviewPanel({
   if (column === 'right') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-        <ContactDeliverCard brandSlug={brandSlug} contact={contact} onField={onField} />
         <ContactActivityTimeline
           brandSlug={brandSlug}
           contact={contact}
@@ -109,12 +108,12 @@ export function ContactOverviewPanel({
         onDelete={handleDelete}
         compact={compact}
         brandSlug={brandSlug}
+        allContacts={contacts.items}
         onTimelineRefresh={onTimelineRefresh}
         callOutcomeOpen={callOutcomeOpen}
         onCallOutcomeOpenChange={onCallOutcomeOpenChange}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-        <ContactDeliverCard brandSlug={brandSlug} contact={contact} onField={onField} />
         <ContactActivityTimeline
           brandSlug={brandSlug}
           contact={contact}
@@ -132,6 +131,7 @@ export function ContactDetailLeftColumn({
   onDelete,
   compact = false,
   brandSlug,
+  allContacts,
   onTimelineRefresh,
   callOutcomeOpen,
   onCallOutcomeOpenChange,
@@ -141,6 +141,7 @@ export function ContactDetailLeftColumn({
   onDelete: () => void | Promise<void>
   compact?: boolean
   brandSlug: string
+  allContacts: Contact[]
   onTimelineRefresh?: () => void
   callOutcomeOpen?: boolean
   onCallOutcomeOpenChange?: (open: boolean) => void
@@ -152,6 +153,7 @@ export function ContactDetailLeftColumn({
       onDelete={onDelete}
       compact={compact}
       brandSlug={brandSlug}
+      allContacts={allContacts}
       onTimelineRefresh={onTimelineRefresh}
       callOutcomeOpen={callOutcomeOpen}
       onCallOutcomeOpenChange={onCallOutcomeOpenChange}
@@ -165,6 +167,7 @@ function IdentityCard({
   onDelete,
   compact = false,
   brandSlug,
+  allContacts,
   onTimelineRefresh,
   callOutcomeOpen,
   onCallOutcomeOpenChange,
@@ -174,6 +177,7 @@ function IdentityCard({
   onDelete: () => void | Promise<void>
   compact?: boolean
   brandSlug?: string
+  allContacts?: Contact[]
   onTimelineRefresh?: () => void
   callOutcomeOpen?: boolean
   onCallOutcomeOpenChange?: (open: boolean) => void
@@ -184,6 +188,19 @@ function IdentityCard({
   const [flowsOpen, setFlowsOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const phoneChoices = useMemo(() => {
+    const choices: Array<{ label: string; value: string }> = []
+    const companyPhone = (c.phone ?? '').trim()
+    if (companyPhone) choices.push({ label: 'Firma', value: companyPhone })
+    if (isCompany(c) && allContacts) {
+      for (const person of personsForCompany(allContacts, c.id)) {
+        const phone = (person.phone ?? '').trim()
+        if (!phone || phone === companyPhone) continue
+        choices.push({ label: personDisplayName(person), value: phone })
+      }
+    }
+    return choices
+  }, [allContacts, c])
 
   return (
     <aside
@@ -204,6 +221,7 @@ function IdentityCard({
         contact={c}
         onField={onField}
         embedded
+        phoneChoices={phoneChoices}
         channelTrailing={
           <button
             type="button"

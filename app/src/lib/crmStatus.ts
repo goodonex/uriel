@@ -17,7 +17,8 @@ export const CONTACT_STATUS_OPTIONS: readonly ContactStatusMeta[] = [
   { value: 'followup_planned', label: 'Follow-up geplant', color: 'var(--accent-teal)' },
   { value: 'offer_made', label: 'Angebot gemacht', color: '#a78bfa' },
   { value: 'unqualified', label: 'Unqualifiziert', color: 'var(--accent-coral)' },
-  { value: 'deal_won', label: 'Deal gewonnen', color: '#4ade80', bold: true },
+  { value: 'deal_won', label: 'Kunde (aktiv)', color: '#4ade80', bold: true },
+  { value: 'customer_inactive', label: 'Kunde (nicht aktiv)', color: 'var(--text-tertiary)' },
   { value: 'deal_lost', label: 'Deal verloren', color: 'var(--accent-coral)', strikethrough: true },
 ] as const
 

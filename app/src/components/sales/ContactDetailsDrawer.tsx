@@ -6,7 +6,7 @@ import { LEAD_SOURCE_OPTIONS } from '../../lib/crmLeadSource'
 const STAGE_OPTIONS: Array<{ key: PipelineStage; label: string }> = [
   { key: 'first_contact', label: 'Erstkontakt' },
   { key: 'conversation', label: 'Gespräch' },
-  { key: 'proposal', label: 'Angebot' },
+  { key: 'proposal', label: 'Pitch' },
   { key: 'deal', label: 'Deal' },
   { key: 'paused', label: 'Pause' },
 ]

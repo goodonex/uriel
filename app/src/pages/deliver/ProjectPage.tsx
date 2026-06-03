@@ -2,7 +2,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Drawer } from '../../components/Drawer'
 import { DeleteProjectConfirm } from '../../components/deliver/DeleteProjectConfirm'
 import {
@@ -24,6 +24,8 @@ import {
   DELIVERABLE_TYPE_OPTIONS,
   deliverablesForArea,
 } from '../../lib/deliverableCatalog'
+import { isPitchProject } from '../../lib/projectAreas'
+import type { PhaseKey } from '../../lib/phaseMapping'
 import type { DeliverableArea } from '../../types/db'
 import type { ClientDocumentLink, DeliverableItem, DeliverProjectStage } from '../../types/db'
 import { DELIVER_STAGE_ORDER } from '../../types/db'
@@ -88,16 +90,21 @@ function InternalNotesEditor({
   )
 }
 
+const PITCH_STAGE_ORDER: DeliverProjectStage[] = ['inner_world']
+const PITCH_PHASES: PhaseKey[] = ['website']
+
 function StageKanban({
   current,
   onPick,
+  stages = DELIVER_STAGE_ORDER,
 }: {
   current: DeliverProjectStage
   onPick: (s: DeliverProjectStage) => void
+  stages?: DeliverProjectStage[]
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {DELIVER_STAGE_ORDER.map((s) => {
+      {stages.map((s) => {
         const active = s === current
         return (
           <button
@@ -132,6 +139,7 @@ export function ProjectPage() {
   const { slug, projectId } = useParams<{ slug: string; projectId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { show } = useToast()
   const { user } = useAuth()
   const projects = useDeliverProjects(slug)
@@ -159,6 +167,10 @@ export function ProjectPage() {
     if (!projectId) return null
     return projects.items.find((p) => p.id === projectId) ?? null
   }, [projects.items, projectId])
+
+  const pitchMode = isPitchProject(project)
+  const dashboardPhases = pitchMode ? PITCH_PHASES : undefined
+  const stageKanbanOrder = pitchMode ? PITCH_STAGE_ORDER : DELIVER_STAGE_ORDER
 
   const { outcomes, loading: outcomesLoading } = useProjectOutcomes(slug, projectId)
   const { leads } = useProjectLeads(slug, projectId, project?.client_contact_id ?? null)
@@ -188,6 +200,30 @@ export function ProjectPage() {
   }, [navigate, project, projects, show, slug])
 
   const [tab, setTab] = useState<'internal' | 'client'>('internal')
+
+  useEffect(() => {
+    if (!project) return
+    const area = searchParams.get('area')
+    if (!area) return
+    const stageByArea: Record<string, DeliverProjectStage> = pitchMode
+      ? { website: 'inner_world' }
+      : {
+          branding: 'discover',
+          website: 'inner_world',
+          leadgen: 'execute',
+        }
+    const target = stageByArea[area]
+    if (!target) return
+    setTab('internal')
+    if (project.internal_stage !== target) {
+      void projects.update(project.id, { internal_stage: target })
+    }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('area')
+      return next
+    }, { replace: true })
+  }, [pitchMode, project, projects, searchParams, setSearchParams])
 
   const [linksText, setLinksText] = useState('')
   useEffect(() => {
@@ -678,6 +714,7 @@ export function ProjectPage() {
             deliverables={deliverablesLocal}
             stageDurations={project.stage_durations}
             leadCount={leads.length}
+            phases={dashboardPhases}
             renderPhaseContent={(phase) => (
               <OwnerDeliverPhaseContent
                 phase={phase}
@@ -699,6 +736,7 @@ export function ProjectPage() {
             </div>
             <StageKanban
               current={project.internal_stage}
+              stages={stageKanbanOrder}
               onPick={(s) => void projects.update(project.id, { internal_stage: s })}
             />
           </div>
@@ -770,6 +808,7 @@ export function ProjectPage() {
             stageDurations={project.stage_durations}
             leadCount={leads.length}
             readOnlyDeliverables
+            phases={dashboardPhases}
             renderPhaseContent={(phase) => (
               <OwnerClientPreviewPhaseContent
                 phase={phase}
@@ -799,6 +838,7 @@ export function ProjectPage() {
             </div>
             <StageKanban
               current={project.client_stage}
+              stages={stageKanbanOrder}
               onPick={(s) => void projects.update(project.id, { client_stage: s })}
             />
           </div>

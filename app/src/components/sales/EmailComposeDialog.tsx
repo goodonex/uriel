@@ -5,6 +5,7 @@ import { SALES_FIELD_SOLID, SALES_MODAL_BACKDROP, SALES_MODAL_Z } from './activi
 import { useEmailLogs, useEmailTemplates } from '../../hooks/useSalesPro'
 import { useBrandId } from '../../hooks/useBrandId'
 import { usePositioning } from '../../hooks/usePositioning'
+import { useContacts } from '../../hooks/useContacts'
 import { sendEmail } from '../../lib/emailService'
 import {
   availableVariables,
@@ -12,6 +13,7 @@ import {
   renderEmailTemplate,
 } from '../../lib/emailVariables'
 import type { Contact, SalesEmailTemplate } from '../../types/db'
+import { isCompany, personDisplayName, personsForCompany } from '../../lib/crmContacts'
 import { useToast } from '../Toast'
 
 interface EmailComposeDialogProps {
@@ -38,6 +40,7 @@ export function EmailComposeDialog({
   const tpl = useEmailTemplates(brandSlug)
   const logs = useEmailLogs(brandSlug, { contactId: contact.id })
   const positioning = usePositioning(brandSlug)
+  const contacts = useContacts(brandSlug)
   const brandId = useBrandId(brandSlug)
   const { show } = useToast()
 
@@ -46,6 +49,36 @@ export function EmailComposeDialog({
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const recipientOptions = useMemo(() => {
+    const options: Array<{ key: string; label: string; email: string }> = []
+    const companyEmail = (contact.email ?? '').trim()
+    if (companyEmail) {
+      options.push({ key: 'company', label: 'Firmen-E-Mail', email: companyEmail })
+    }
+    if (isCompany(contact)) {
+      for (const person of personsForCompany(contacts.items, contact.id)) {
+        const personEmail = (person.email ?? '').trim()
+        if (!personEmail) continue
+        if (personEmail.toLowerCase() === companyEmail.toLowerCase()) continue
+        options.push({
+          key: person.id,
+          label: `Ansprechpartner · ${personDisplayName(person)}`,
+          email: personEmail,
+        })
+      }
+    }
+    return options
+  }, [contact, contacts.items])
+  const [recipientKey, setRecipientKey] = useState('company')
+  const selectedRecipient = useMemo(
+    () => recipientOptions.find((o) => o.key === recipientKey) ?? recipientOptions[0] ?? null,
+    [recipientKey, recipientOptions],
+  )
+
+  useEffect(() => {
+    if (!open) return
+    setRecipientKey('company')
+  }, [open, contact.id])
 
   const selectedTpl = useMemo(
     () => tpl.items.find((t) => t.id === templateId) ?? null,
@@ -79,14 +112,17 @@ export function EmailComposeDialog({
 
   const handleSend = async () => {
     if (sending) return
-    if (!contact.email) {
+    if (!selectedRecipient?.email) {
       show('Kontakt hat keine E-Mail-Adresse', 'info')
       return
     }
     const finalSubject = subject || '(Kein Betreff)'
     const finalBody = body
     setSending(true)
-    if (brandId) {
+    const canUseResend =
+      brandId &&
+      selectedRecipient.email.trim().toLowerCase() === (contact.email ?? '').trim().toLowerCase()
+    if (canUseResend) {
       // Versand über Edge-Function (Resend + Pixel + Log)
       const res = await sendEmail({
         brand_id: brandId,
@@ -102,7 +138,7 @@ export function EmailComposeDialog({
         show('RESEND_API_KEY fehlt — Mail-Versand inaktiv', 'info')
       } else {
         // Fallback auf mailto, wenn Edge-Function nicht erreichbar
-        const url = buildMailtoUrl({ to: contact.email, subject: finalSubject, body: finalBody })
+        const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: finalBody })
         window.location.href = url
         await logs.log({
           contact_id: contact.id,
@@ -114,7 +150,7 @@ export function EmailComposeDialog({
       }
     } else {
       // Kein Brand-ID → reines mailto + Local-Log
-      const url = buildMailtoUrl({ to: contact.email, subject: finalSubject, body: finalBody })
+      const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: finalBody })
       window.location.href = url
       await logs.log({
         contact_id: contact.id,
@@ -224,7 +260,7 @@ export function EmailComposeDialog({
             </header>
 
             <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
-              {!contact.email ? (
+              {!selectedRecipient?.email ? (
                 <div
                   style={{
                     padding: 10,
@@ -251,6 +287,24 @@ export function EmailComposeDialog({
                   if (id) void tpl.recordUsage(id)
                 }}
               />
+
+              {recipientOptions.length > 0 ? (
+                <Field label="An">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {recipientOptions.map((option) => (
+                      <label key={option.key} className="font-mono" style={{ fontSize: 11, display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          type="radio"
+                          checked={recipientKey === option.key}
+                          onChange={() => setRecipientKey(option.key)}
+                        />
+                        <span style={{ color: 'var(--text-secondary)' }}>{option.label}</span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>{option.email}</span>
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              ) : null}
 
               <Field label="Betreff">
                 <input
@@ -362,7 +416,7 @@ export function EmailComposeDialog({
                 >
                   {sending
                     ? 'Senden …'
-                    : contact.email
+                    : selectedRecipient?.email
                       ? '↗ Senden via Resend'
                       : 'Nur Loggen'}
                 </button>

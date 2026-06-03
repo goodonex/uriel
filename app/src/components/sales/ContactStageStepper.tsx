@@ -4,7 +4,7 @@ import type { PipelineStage } from '../../types/db'
 const STAGES: Array<{ key: PipelineStage; label: string; color: string }> = [
   { key: 'first_contact', label: 'Erstkontakt', color: 'var(--text-tertiary)' },
   { key: 'conversation', label: 'Gespräch', color: 'var(--accent-blue)' },
-  { key: 'proposal', label: 'Angebot', color: 'var(--mode-sales)' },
+  { key: 'proposal', label: 'Pitch', color: 'var(--mode-sales)' },
   { key: 'deal', label: 'Deal', color: 'var(--accent-teal)' },
 ]
 

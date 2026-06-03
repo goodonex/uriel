@@ -85,8 +85,10 @@ export function useSectionScrollSnap({
   const wheelAccumRef = useRef(0)
   const pathSectionRef = useRef(pathSection)
   const scrollLockedRef = useRef(scrollLocked)
+  const snapEnabledRef = useRef(snapEnabled)
   pathSectionRef.current = pathSection
   scrollLockedRef.current = scrollLocked
+  snapEnabledRef.current = snapEnabled
 
   const scrollToSection = useCallback(
     (section: SectionKey, behavior: ScrollBehavior = 'smooth') => {
@@ -104,12 +106,14 @@ export function useSectionScrollSnap({
 
   useEffect(() => {
     const root = containerRef.current
-    if (!root || !snapEnabled) return
+    if (!root) return
+
+    const sectionLocked = () => scrollLockedRef.current || !snapEnabledRef.current
 
     const settle = () => {
       programmaticRef.current = false
 
-      if (scrollLockedRef.current) {
+      if (sectionLocked()) {
         clampToSection(root, pathSectionRef.current)
         onActiveSection(pathSectionRef.current)
         return
@@ -136,7 +140,7 @@ export function useSectionScrollSnap({
     }
 
     const onScroll = () => {
-      if (scrollLockedRef.current) {
+      if (sectionLocked()) {
         clampToSection(root, pathSectionRef.current)
         onActiveSection(pathSectionRef.current)
         return
@@ -175,7 +179,7 @@ export function useSectionScrollSnap({
       const lockedSection = pathSectionRef.current
       const lockedIdx = SECTION_ORDER.indexOf(lockedSection)
 
-      if (scrollLockedRef.current && lockedIdx >= 0) {
+      if (sectionLocked() && lockedIdx >= 0) {
         const sectionTop = lockedIdx * slot
         const sectionBottom = sectionTop + slot
         const scrollTop = root.scrollTop
@@ -187,6 +191,8 @@ export function useSectionScrollSnap({
         }
         return
       }
+
+      if (!snapEnabledRef.current) return
 
       const idx = Math.max(0, Math.min(SECTION_ORDER.length - 1, Math.floor(root.scrollTop / slot)))
       const offsetInSection = root.scrollTop - idx * slot

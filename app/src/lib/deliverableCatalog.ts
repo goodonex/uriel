@@ -107,12 +107,37 @@ function deliverableId(type: DeliverableType): string {
   return `dlv-${type}`
 }
 
+/** Nur Website-Deliverables aus dem Katalog (Pitch-Projekte). */
+export function pitchWebsiteDeliverables(): DeliverableItem[] {
+  const now = new Date().toISOString()
+  return DELIVERABLE_CATALOG.filter((tpl) => tpl.area === 'website').map((tpl) => ({
+    id: deliverableId(tpl.type),
+    type: tpl.type,
+    area: tpl.area,
+    title: tpl.title,
+    description: tpl.description,
+    status: 'geplant' as const,
+    updated_at: now,
+  }))
+}
+
 /** Vollständige Deliverable-Liste: Katalog + gespeicherte Werte mergen. */
-export function mergeWithCatalogDeliverables(stored: DeliverableItem[]): DeliverableItem[] {
+export function mergeWithCatalogDeliverables(
+  stored: DeliverableItem[],
+  websiteOnly = false,
+): DeliverableItem[] {
   const byType = new Map<DeliverableType, DeliverableItem>()
   const customs: DeliverableItem[] = []
+  const explicitAreas = new Set<DeliverableArea>()
 
-  for (const item of stored) {
+  const storedFiltered = websiteOnly
+    ? stored.filter((item) => item.area === 'website')
+    : stored
+
+  for (const item of storedFiltered) {
+    if (item.area === 'branding' || item.area === 'website' || item.area === 'leadgen') {
+      explicitAreas.add(item.area)
+    }
     if (item.type && item.type !== 'custom') {
       byType.set(item.type, item)
     } else if (item.type === 'custom' || !item.type) {
@@ -124,7 +149,16 @@ export function mergeWithCatalogDeliverables(stored: DeliverableItem[]): Deliver
     }
   }
 
-  const catalogItems = DELIVERABLE_CATALOG.map((tpl) => {
+  // Pitch / explizit nur Website: nur Website-Katalog mergen.
+  const catalogSource =
+    websiteOnly ||
+    (storedFiltered.length > 0 &&
+      explicitAreas.size === 1 &&
+      explicitAreas.has('website'))
+      ? DELIVERABLE_CATALOG.filter((tpl) => tpl.area === 'website')
+      : DELIVERABLE_CATALOG
+
+  const catalogItems = catalogSource.map((tpl) => {
     const existing = byType.get(tpl.type)
     const now = new Date().toISOString()
     if (existing) {

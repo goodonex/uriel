@@ -30,6 +30,7 @@ import { useToast } from '../../components/Toast'
 import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
 import { useContacts } from '../../hooks/useContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { useOpportunities } from '../../hooks/useOpportunities'
 import type { Contact, DeliverProject, PipelineStage } from '../../types/db'
 import {
   filterPipelineContacts,
@@ -61,7 +62,7 @@ const STAGES: PipelineStage[] = [
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
-  proposal: 'Angebot',
+  proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
 }
@@ -338,7 +339,7 @@ function PipelineFilterBar({
               ['all', 'Alle'],
               ['first_contact', 'Erstkontakt'],
               ['conversation', 'Gespräch'],
-              ['proposal', 'Angebot'],
+              ['proposal', 'Pitch'],
               ['deal', 'Deal'],
               ['paused', 'Pause'],
             ] as const
@@ -1004,6 +1005,7 @@ export function SalesMode({
 
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)
+  const opportunities = useOpportunities()
   const contactLists = useContactLists(slug)
 
   const [viewMode, setViewMode] = useState<PipelineViewMode>(() => (slug ? loadPipelineView(slug) : 'cards'))
@@ -1022,6 +1024,16 @@ export function SalesMode({
   const [pipeStage, setPipeStage] = useState<StageFilter>('all')
   const [pipeFollow, setPipeFollow] = useState<FollowFilter>('all')
   const [pipePotenzial, setPipePotenzial] = useState<PotenzialFilter>('all')
+  const [productFilter, setProductFilter] = useState<'all' | 'herrmann' | 'wertavio' | 'culturefit'>('all')
+
+  useEffect(() => {
+    const ids = contacts.items.map((c) => c.id)
+    if (ids.length === 0) {
+      void opportunities.loadForContacts([])
+      return
+    }
+    void opportunities.loadForContacts(ids)
+  }, [contacts.items, opportunities.loadForContacts])
 
   const filteredPipeline = useMemo(() => {
     const base = filterPipelineContacts(contacts.items, {
@@ -1030,8 +1042,15 @@ export function SalesMode({
       follow: pipeFollow,
       potenzial: pipePotenzial,
     })
-    return applyCrmFilters(base, crmFilters)
-  }, [contacts.items, crmFilters, pipeFollow, pipePotenzial, pipeQ, pipeStage])
+    const crmFiltered = applyCrmFilters(base, crmFilters)
+    if (productFilter === 'all') return crmFiltered
+    const contactIds = new Set(
+      opportunities.items
+        .filter((o) => o.product === productFilter)
+        .map((o) => o.contact_id),
+    )
+    return crmFiltered.filter((c) => contactIds.has(c.id))
+  }, [contacts.items, crmFilters, opportunities.items, pipeFollow, pipePotenzial, pipeQ, pipeStage, productFilter])
 
   const crmFiltersActive = useMemo(() => {
     return (
@@ -1442,6 +1461,38 @@ export function SalesMode({
 
           {!contacts.loading && !contacts.error ? (
             <div className="mb-5">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {([
+                  ['all', 'Alle'],
+                  ['herrmann', 'Herrmann & Co'],
+                  ['wertavio', 'Wertavio'],
+                  ['culturefit', 'CultureFit'],
+                ] as const).map(([key, label]) => {
+                  const on = productFilter === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className="font-mono"
+                      onClick={() => setProductFilter(key)}
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.06em',
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        border: on ? '1px solid var(--mode-sales)' : '1px solid var(--glass-border-2)',
+                        background: on
+                          ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
+                          : 'var(--glass-2)',
+                        color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
               <PipelineFilterBar
                 q={pipeQ}
                 setQ={setPipeQ}

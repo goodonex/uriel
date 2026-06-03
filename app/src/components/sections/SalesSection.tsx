@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { useRef } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
+import { useContactScrollLock } from '../../hooks/useContactScrollLock'
 import { HorizontalScroller } from '../HorizontalScroller'
 import { CardTile } from '../../modules/CardTile'
 import { SalesListDetailModule } from '../../modules/sales/SalesListDetailModule'
@@ -36,8 +38,12 @@ function salesView(pathname: string): 'call-mode' | 'list-detail' | 'contact' | 
 }
 
 function SalesScrollPage({ children }: { children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useContactScrollLock(scrollRef)
+
   return (
     <div
+      ref={scrollRef}
       style={{
         position: 'absolute',
         inset: 0,
@@ -45,6 +51,7 @@ function SalesScrollPage({ children }: { children: ReactNode }) {
         overflowX: 'hidden',
         pointerEvents: 'auto',
         padding: '4px 8px 28px',
+        overscrollBehavior: 'contain',
       }}
     >
       {children}
@@ -93,7 +100,7 @@ export function SalesSection() {
       <PostCallFlowProvider>
         <ScrollSectionPanel section="sales">
           <SalesScrollPage>
-            <ContactPage variant="page" />
+            <ContactPage variant="page" scrollInParent />
           </SalesScrollPage>
         </ScrollSectionPanel>
         {slug ? <PostCallModal brandSlug={slug} /> : null}

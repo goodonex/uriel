@@ -17,11 +17,13 @@ export function ContactDetailHero({
   onField,
   embedded = false,
   channelTrailing,
+  phoneChoices = [],
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   embedded?: boolean
   channelTrailing?: React.ReactNode
+  phoneChoices?: Array<{ label: string; value: string }>
 }) {
   const initials = initialsOf(isCompany(contact) ? contact.name || contact.company : contact.name)
 
@@ -70,7 +72,12 @@ export function ContactDetailHero({
             </div>
           ) : null}
           <div style={{ marginTop: 10 }}>
-            <ContactChannelButtons contact={contact} onField={onField} trailing={channelTrailing} />
+            <ContactChannelButtons
+              contact={contact}
+              onField={onField}
+              trailing={channelTrailing}
+              phoneChoices={phoneChoices}
+            />
           </div>
         </div>
       </div>

@@ -16,6 +16,7 @@ const FIELD = {
 export function CompanyPersonSection({
   brandSlug,
   company,
+  onField,
 }: {
   brandSlug: string
   company: Contact
@@ -29,6 +30,10 @@ export function CompanyPersonSection({
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [title, setTitle] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftEmail, setDraftEmail] = useState('')
+  const [draftPhone, setDraftPhone] = useState('')
 
   if (!isCompany(company)) return null
 
@@ -59,6 +64,27 @@ export function CompanyPersonSection({
     }
   }
 
+  const savePerson = async (personId: string) => {
+    const person = people.find((p) => p.id === personId)
+    if (!person) return
+    const fullName = draftName.trim()
+    const [firstName = '', ...rest] = fullName.split(/\s+/)
+    const lastName = rest.join(' ')
+    contacts.update(personId, {
+      name: fullName || person.name,
+      first_name: firstName,
+      last_name: lastName,
+      email: draftEmail.trim(),
+      phone: draftPhone.trim(),
+    })
+    if (personId === people[0]?.id) {
+      onField?.({
+        ansprechpartner: fullName || personDisplayName(person),
+      })
+    }
+    setEditingId(null)
+  }
+
   return (
     <div style={{ marginTop: 12 }}>
       <div className="font-mono mb-2" style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}>
@@ -79,10 +105,62 @@ export function CompanyPersonSection({
                 background: 'var(--glass-2)',
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{personDisplayName(p)}</div>
-              <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-                {[p.job_title, p.email, p.phone].filter(Boolean).join(' · ') || '—'}
-              </div>
+              {editingId === p.id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <input
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    placeholder="Name"
+                    style={FIELD}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void savePerson(p.id)
+                    }}
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <input
+                      value={draftEmail}
+                      onChange={(e) => setDraftEmail(e.target.value)}
+                      placeholder="E-Mail"
+                      style={FIELD}
+                      onBlur={() => void savePerson(p.id)}
+                    />
+                    <input
+                      value={draftPhone}
+                      onChange={(e) => setDraftPhone(e.target.value)}
+                      placeholder="Telefon"
+                      style={FIELD}
+                      onBlur={() => void savePerson(p.id)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(p.id)
+                      setDraftName(personDisplayName(p))
+                      setDraftEmail(p.email ?? '')
+                      setDraftPhone(p.phone ?? '')
+                    }}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      padding: 0,
+                      textAlign: 'left',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'text',
+                    }}
+                  >
+                    {personDisplayName(p)}
+                  </button>
+                  <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                    {[p.job_title, p.email, p.phone].filter(Boolean).join(' · ') || '—'}
+                  </div>
+                </>
+              )}
             </div>
             {idx === 0 && !adding ? (
               <button

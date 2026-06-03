@@ -8,7 +8,7 @@ import type { ContactList, PipelineStage } from '../../types/db'
 const STAGES: { value: PipelineStage; label: string }[] = [
   { value: 'first_contact', label: 'Erstkontakt' },
   { value: 'conversation', label: 'Gespräch' },
-  { value: 'proposal', label: 'Angebot' },
+  { value: 'proposal', label: 'Pitch' },
   { value: 'deal', label: 'Deal' },
   { value: 'paused', label: 'Pause' },
 ]

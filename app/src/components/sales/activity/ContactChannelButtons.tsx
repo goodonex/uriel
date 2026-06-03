@@ -27,10 +27,12 @@ export function ContactChannelButtons({
   contact,
   onField,
   trailing,
+  phoneChoices = [],
 }: {
   contact: Contact
   onField: (patch: Partial<Omit<Contact, 'id' | 'brand_id'>>) => void
   trailing?: React.ReactNode
+  phoneChoices?: Array<{ label: string; value: string }>
 }) {
   const { show } = useToast()
   const [openKey, setOpenKey] = useState<ChannelKey | null>(null)
@@ -168,7 +170,28 @@ export function ContactChannelButtons({
                         }
                       }}
                     />
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      {has && ch.key === 'phone' ? (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {(phoneChoices.length > 0 ? phoneChoices : [{ label: 'Telefon', value }]).map((choice) => (
+                            <a
+                              key={`${choice.label}-${choice.value}`}
+                              href={`tel:${choice.value.replace(/[^\d+]/g, '')}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-mono"
+                              style={{
+                                ...popoverBtn,
+                                textDecoration: 'none',
+                                fontSize: 10,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              {choice.label}
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => {

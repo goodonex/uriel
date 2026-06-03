@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ActivityModalType } from '../../../lib/activityTypes'
 import { ACTIVITY_META, DROPDOWN_ACTIVITIES } from '../../../lib/activityTypes'
-import type { Contact } from '../../../types/db'
+import type { Contact, OpportunityProduct } from '../../../types/db'
+import { OPPORTUNITY_PRODUCT_META } from '../../../lib/opportunityMeta'
 import { SALES_DROPDOWN_PANEL, SALES_MODAL_Z } from './salesModalUi'
 import { ContactListMenuItems } from './ContactListMenuItems'
 
@@ -13,6 +14,8 @@ export function ContactActivityActionBar({
   onOpenEmail,
   onCall,
   variant = 'card',
+  addOpportunityProducts,
+  onAddOpportunity,
 }: {
   brandSlug: string
   contact: Contact
@@ -20,22 +23,34 @@ export function ContactActivityActionBar({
   onOpenEmail: () => void
   onCall: () => void
   variant?: 'card' | 'header'
+  addOpportunityProducts?: OpportunityProduct[]
+  onAddOpportunity?: (product: OpportunityProduct) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [oppMenuOpen, setOppMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
+  const oppMenuRef = useRef<HTMLDivElement>(null)
+  const oppTriggerRef = useRef<HTMLButtonElement>(null)
+
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen && !oppMenuOpen) return
     const close = (e: MouseEvent) => {
       const t = e.target as Node
-      if (menuRef.current?.contains(t) || triggerRef.current?.contains(t)) return
-      setMenuOpen(false)
+      if (menuOpen) {
+        if (menuRef.current?.contains(t) || triggerRef.current?.contains(t)) return
+        setMenuOpen(false)
+      }
+      if (oppMenuOpen) {
+        if (oppMenuRef.current?.contains(t) || oppTriggerRef.current?.contains(t)) return
+        setOppMenuOpen(false)
+      }
     }
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
-  }, [menuOpen])
+  }, [menuOpen, oppMenuOpen])
 
   useEffect(() => {
     if (!menuOpen || !triggerRef.current) return
@@ -116,8 +131,64 @@ export function ContactActivityActionBar({
       </div>
     ) : null
 
+  const showAddOpportunity =
+    addOpportunityProducts && addOpportunityProducts.length > 0 && onAddOpportunity
+
+  const oppMenuPanel =
+    oppMenuOpen && showAddOpportunity ? (
+      <div
+        ref={oppMenuRef}
+        className="font-mono"
+        role="menu"
+        style={{
+          ...SALES_DROPDOWN_PANEL,
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          minWidth: 180,
+          zIndex: SALES_MODAL_Z - 1,
+        }}
+      >
+        {addOpportunityProducts.map((product) => (
+          <button
+            key={product}
+            type="button"
+            role="menuitem"
+            className="font-mono"
+            onClick={() => {
+              setOppMenuOpen(false)
+              onAddOpportunity(product)
+            }}
+            style={menuItemStyle}
+          >
+            {OPPORTUNITY_PRODUCT_META[product].label}
+          </button>
+        ))}
+      </div>
+    ) : null
+
   const buttons = (
     <>
+      {showAddOpportunity ? (
+        <div style={{ position: 'relative' }}>
+          <button
+            ref={oppTriggerRef}
+            type="button"
+            className="font-mono"
+            style={{
+              ...ghostBtn,
+              border: oppMenuOpen ? '1px solid var(--mode-sales)' : ghostBtn.border,
+              color: oppMenuOpen ? 'var(--mode-sales)' : ghostBtn.color,
+            }}
+            onClick={() => setOppMenuOpen((o) => !o)}
+            aria-expanded={oppMenuOpen}
+            aria-haspopup="menu"
+          >
+            + Opportunity
+          </button>
+          {oppMenuPanel}
+        </div>
+      ) : null}
       <button type="button" className="font-mono" style={ghostBtn} onClick={() => onOpenModal('termin')}>
         ◷ Termin
       </button>

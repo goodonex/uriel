@@ -115,7 +115,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
     <ScrollFlowProvider slug={slug} containerRef={containerRef}>
       <div
         ref={containerRef}
-        className={`brand-scroll-flow${snapEnabled && !scrollLocked ? ' brand-scroll-flow--snap' : ''}${scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
+        className={`brand-scroll-flow${snapEnabled && !scrollLocked ? ' brand-scroll-flow--snap' : ''}${!snapEnabled || scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
         style={{
           height: '100vh',
           overflowY: 'auto',

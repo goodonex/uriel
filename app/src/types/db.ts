@@ -289,6 +289,7 @@ export type ContactStatus =
   | 'offer_made'
   | 'unqualified'
   | 'deal_won'
+  | 'customer_inactive'
   | 'deal_lost'
 
 export type LeadSource =
@@ -699,6 +700,25 @@ export interface ActivityEntry {
   performed_by: string | null
   data: Record<string, unknown>
   created_at: string
+}
+
+export type OpportunityProduct = 'herrmann' | 'wertavio' | 'culturefit'
+export type OpportunityStage =
+  | 'erstkontakt'
+  | 'gespraech'
+  | 'pitch'
+  | 'deal'
+  | 'pause'
+  | 'verloren'
+
+export interface Opportunity {
+  id: string
+  contact_id: string
+  product: OpportunityProduct
+  stage: OpportunityStage
+  notes: string
+  created_at: string
+  updated_at: string
 }
 
 export type SalesEmailDirection = 'outbound' | 'inbound'
