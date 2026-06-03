@@ -7,6 +7,7 @@ import { SectionLabel } from '../SectionLabel'
 import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useContacts } from '../../hooks/useContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
+import { isPitchProject } from '../../lib/projectAreas'
 import type { DeliverProject } from '../../types/db'
 import { DELIVER_STAGE_LABEL } from '../../pages/deliver/stageLabels'
 
@@ -158,21 +159,40 @@ export function DeliverProjectCardsPanel({ filter }: { filter: Filter }) {
                     {clientDisplay(p)}
                   </div>
                 </div>
-                <span
-                  className="font-mono shrink-0"
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    padding: '5px 10px',
-                    borderRadius: 999,
-                    border: '1px solid var(--glass-border-2)',
-                    color: 'var(--accent-teal)',
-                    background: 'var(--glass-1)',
-                  }}
-                >
-                  {DELIVER_STAGE_LABEL[p.internal_stage]}
-                </span>
+                <div className="flex shrink-0 flex-wrap gap-1">
+                  {isPitchProject(p) ? (
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        padding: '5px 10px',
+                        borderRadius: 999,
+                        border: '1px solid var(--mode-sales)',
+                        color: 'var(--mode-sales)',
+                        background: 'color-mix(in srgb, var(--mode-sales) 10%, transparent)',
+                      }}
+                    >
+                      Pitch
+                    </span>
+                  ) : null}
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '5px 10px',
+                      borderRadius: 999,
+                      border: '1px solid var(--glass-border-2)',
+                      color: 'var(--accent-teal)',
+                      background: 'var(--glass-1)',
+                    }}
+                  >
+                    {DELIVER_STAGE_LABEL[p.internal_stage]}
+                  </span>
+                </div>
               </div>
               <div className="font-mono mb-4" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
                 Zuletzt {p.updated_at.slice(0, 10) || '—'}
