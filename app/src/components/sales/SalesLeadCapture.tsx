@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../Toast'
 import { useContacts } from '../../hooks/useContacts'
@@ -10,6 +18,35 @@ const STAGE_LABEL: Record<Contact['pipeline_stage'], string> = {
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
+}
+
+/** Gleiche Pill-Größe wie HorizontalScroller-Tabs / Filter-Pills. */
+const SALES_ACTION_BTN_BASE: CSSProperties = {
+  fontSize: 10,
+  letterSpacing: '0.06em',
+  padding: '6px 12px',
+  borderRadius: 999,
+  lineHeight: 1.2,
+  flexShrink: 0,
+}
+
+const SALES_ACTION_BTN_LEAD: CSSProperties = {
+  ...SALES_ACTION_BTN_BASE,
+  border: '1px solid var(--mode-sales)',
+  background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
+  color: 'var(--mode-sales)',
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+
+const SALES_ACTION_BTN_CALL: CSSProperties = {
+  ...SALES_ACTION_BTN_BASE,
+  border: '1px solid var(--glass-border-2)',
+  background: 'var(--glass-1)',
+  color: 'var(--text-tertiary)',
+  textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
 }
 
 function contactCardTitle(c: Contact): string {
@@ -90,51 +127,53 @@ export function useSalesQuickLead(brandSlug: string, callModeSearch = '') {
     : `/brand/${brandSlug}/sales/call-mode`
 
   const ActionBar = useCallback(
-    function SalesLeadActionBar({ compact = false }: { compact?: boolean }) {
+    function SalesLeadActionBar({
+      compact = false,
+      mountRef,
+    }: {
+      compact?: boolean
+      /** Portal-Ziel in der HorizontalScroller-Tab-Zeile. */
+      mountRef?: RefObject<HTMLElement | null>
+    }) {
+      const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+      useLayoutEffect(() => {
+        if (!mountRef) {
+          setPortalTarget(null)
+          return
+        }
+        setPortalTarget(mountRef.current)
+      })
+
       if (contacts.loading || contacts.error) return null
-      return (
+      const bar = (
         <div
-          className="flex flex-wrap items-center gap-2"
+          className="flex items-center gap-2"
           style={{
-            marginBottom: compact ? 10 : 0,
+            marginBottom: mountRef ? 0 : compact ? 10 : 0,
             flexShrink: 0,
+            gap: 8,
           }}
         >
           <button
             type="button"
-            className="font-mono"
+            className="font-mono shrink-0"
             onClick={openQuickLead}
-            style={{
-              fontSize: compact ? 11 : 12,
-              padding: compact ? '8px 14px' : '10px 16px',
-              borderRadius: 12,
-              border: '1px solid var(--mode-sales)',
-              background: 'color-mix(in srgb, var(--mode-sales) 18%, transparent)',
-              color: 'var(--mode-sales)',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            style={SALES_ACTION_BTN_LEAD}
           >
             + Lead
           </button>
           <Link
             to={callModeHref}
-            className="font-mono"
-            style={{
-              fontSize: compact ? 11 : 12,
-              padding: compact ? '8px 14px' : '10px 16px',
-              borderRadius: 12,
-              border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-2)',
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
+            className="font-mono shrink-0"
+            style={SALES_ACTION_BTN_CALL}
           >
             📞 Call Mode
           </Link>
         </div>
       )
+      if (portalTarget) return createPortal(bar, portalTarget)
+      if (mountRef) return null
+      return bar
     },
     [callModeHref, contacts.error, contacts.loading, openQuickLead],
   )

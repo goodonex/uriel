@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { useContactScrollLock } from '../../hooks/useContactScrollLock'
 import { HorizontalScroller } from '../HorizontalScroller'
@@ -68,6 +68,12 @@ export function SalesSection() {
     salesPanelIndexFromPath,
     salesPathForPanel,
   )
+  const headerActionsRef = useRef<HTMLDivElement | null>(null)
+  const [headerActionsReady, setHeaderActionsReady] = useState(false)
+  const bindHeaderActionsRef = useCallback((el: HTMLDivElement | null) => {
+    headerActionsRef.current = el
+    setHeaderActionsReady(Boolean(el))
+  }, [])
 
   if (view === 'call-mode') {
     return (
@@ -109,7 +115,13 @@ export function SalesSection() {
   }
 
   const tabs = SALES_PANELS.map((p) => ({ id: p.id, label: p.label }))
-  const pipelinePanel = <SalesMode scrollEmbed />
+  const pipelinePanel = (
+    <SalesMode
+      scrollEmbed
+      headerActionsRef={headerActionsRef}
+      headerActionsReady={headerActionsReady}
+    />
+  )
   const panels = [
     pipelinePanel,
     <SalesListsModule key="lists" />,
@@ -139,6 +151,7 @@ export function SalesSection() {
             tabs={tabs}
             activeIndex={activeIndex}
             onIndexChange={onIndexChange}
+            headerEnd={<div ref={bindHeaderActionsRef} className="flex items-center gap-2" />}
             children={panels}
           />
         </CardTile>

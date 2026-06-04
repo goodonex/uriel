@@ -3,28 +3,31 @@ import {
   DragOverlay,
   PointerSensor,
   closestCorners,
+  pointerWithin,
+  rectIntersection,
+  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { motion, type Variants } from 'framer-motion'
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
@@ -54,9 +57,27 @@ import { generateId } from '../../lib/storage'
 import { useSalesQuickLead } from '../../components/sales/SalesLeadCapture'
 import { CrmToolbar } from '../../components/sales/CrmToolbar'
 import { CrmFilterPanel } from '../../components/sales/CrmFilterPanel'
+import { PipelineCarouselView } from '../../components/sales/PipelineCarouselView'
+import { PipelineListView } from '../../components/sales/PipelineListView'
 import { PipelineTableView } from '../../components/sales/PipelineTableView'
 import { applyCrmFilters, EMPTY_CRM_FILTERS, type CrmFilterState } from '../../lib/crmFilters'
-import { loadCrmFilters, loadPipelineView, saveCrmFilters, savePipelineView, type PipelineViewMode } from '../../lib/crmViewStorage'
+import {
+  loadCrmFilters,
+  loadKanbanColumnSort,
+  loadPipelineView,
+  PIPELINE_VIEW_LABEL,
+  PIPELINE_VIEW_MODES,
+  saveCrmFilters,
+  saveKanbanColumnSort,
+  savePipelineView,
+  type KanbanColumnSort,
+  type PipelineViewMode,
+} from '../../lib/crmViewStorage'
+import {
+  contactCardTitle,
+  KANBAN_SORT_LABEL,
+  sortPipelineContacts,
+} from '../../lib/pipelineContactSort'
 import { useContactLists } from '../../hooks/useContactLists'
 import { ContactListsContent } from './ContactListsContent'
 
@@ -101,6 +122,17 @@ const KANBAN_COLUMN_VARIANTS: Variants = {
   },
 }
 
+/** Scroll-Embed: keine Opacity-0-Spalten (sonst leere Pipeline nach Navigation). */
+const KANBAN_EMBED_VARIANTS: Variants = {
+  hidden: { opacity: 1 },
+  visible: { opacity: 1, transition: { staggerChildren: 0 } },
+}
+
+const KANBAN_EMBED_COLUMN_VARIANTS: Variants = {
+  hidden: { opacity: 1, x: 0 },
+  visible: { opacity: 1, x: 0 },
+}
+
 function ymdToday(): string {
   const t = new Date()
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
@@ -119,17 +151,22 @@ function isFollowUpDueTodayOrBefore(nextFollowUpAt: string | null): boolean {
   return nextFollowUpAt.slice(0, 10) <= ymdToday()
 }
 
-/** Überfällige / früheste Follow-ups oben in der Spalte. */
-function sortContactsForKanbanColumn(list: Contact[]): Contact[] {
-  return [...list].sort((a, b) => {
-    const aOver = isFollowUpOverdue(a) ? 0 : 1
-    const bOver = isFollowUpOverdue(b) ? 0 : 1
-    if (aOver !== bOver) return aOver - bOver
-    const ax = a.next_follow_up_at?.slice(0, 10) ?? '9999-12-31'
-    const bx = b.next_follow_up_at?.slice(0, 10) ?? '9999-12-31'
-    if (ax !== bx) return ax.localeCompare(bx)
-    return contactCardTitle(a).localeCompare(contactCardTitle(b), 'de')
+/** Stage-Spalten zuerst treffen — leere Spalten und Rückwärts-Moves zuverlässig. */
+const kanbanCollisionDetection: CollisionDetection = (args) => {
+  const stageContainers = args.droppableContainers.filter((c) =>
+    (STAGES as readonly string[]).includes(String(c.id)),
+  )
+  const pointerHits = pointerWithin({
+    ...args,
+    droppableContainers: stageContainers,
   })
+  if (pointerHits.length > 0) return pointerHits
+  const intersections = rectIntersection({
+    ...args,
+    droppableContainers: stageContainers,
+  })
+  if (intersections.length > 0) return intersections
+  return closestCorners(args)
 }
 
 
@@ -143,16 +180,6 @@ const cardQuickBtn: CSSProperties = {
   cursor: 'pointer',
   textDecoration: 'none',
   lineHeight: 1.2,
-}
-
-function contactCardTitle(c: Contact): string {
-  const n = c.name?.trim()
-  if (n) return n
-  const em = c.email?.trim()
-  if (em) return em
-  const ph = c.phone?.trim()
-  if (ph) return ph
-  return 'Unbenannt'
 }
 
 /** Vergleicht Kalendertag (YYYY-MM-DD) mit heute — Follow-up heute oder früher = überfällig. */
@@ -240,6 +267,8 @@ function QuickNotePopover({
   )
 }
 
+type ProductFilter = 'all' | 'herrmann' | 'wertavio' | 'culturefit'
+
 function PipelineFilterBar({
   q,
   setQ,
@@ -249,8 +278,14 @@ function PipelineFilterBar({
   setFollow,
   potenzial,
   setPotenzial,
+  productFilter,
+  setProductFilter,
   onReset,
   filtersActive,
+  kanbanColumnSort,
+  onKanbanColumnSortChange,
+  viewMode,
+  onViewModeChange,
 }: {
   q: string
   setQ: (s: string) => void
@@ -260,8 +295,14 @@ function PipelineFilterBar({
   setFollow: (f: FollowFilter) => void
   potenzial: PotenzialFilter
   setPotenzial: (p: PotenzialFilter) => void
+  productFilter: ProductFilter
+  setProductFilter: (p: ProductFilter) => void
   onReset: () => void
   filtersActive: boolean
+  kanbanColumnSort: KanbanColumnSort
+  onKanbanColumnSortChange: (sort: KanbanColumnSort) => void
+  viewMode: PipelineViewMode
+  onViewModeChange: (mode: PipelineViewMode) => void
 }) {
   const pill = (on: boolean) => ({
     fontSize: 10,
@@ -282,10 +323,82 @@ function PipelineFilterBar({
     (follow !== 'all' ? 1 : 0) +
     (potenzial !== 'all' ? 1 : 0)
   const [open, setOpen] = useState(activeCount > 0)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [viewOpen, setViewOpen] = useState(false)
+  const sortAnchorRef = useRef<HTMLDivElement>(null)
+  const sortPortalRef = useRef<HTMLDivElement>(null)
+  const viewAnchorRef = useRef<HTMLDivElement>(null)
+  const viewPortalRef = useRef<HTMLDivElement>(null)
+  const [sortMenuPos, setSortMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const [viewMenuPos, setViewMenuPos] = useState<{ top: number; left: number } | null>(null)
 
   useEffect(() => {
     if (activeCount > 0) setOpen(true)
   }, [activeCount])
+
+  useLayoutEffect(() => {
+    if (!sortOpen) {
+      setSortMenuPos(null)
+      return
+    }
+    const anchor = sortAnchorRef.current
+    if (!anchor) return
+    const update = () => {
+      const r = anchor.getBoundingClientRect()
+      setSortMenuPos({ top: r.bottom + 6, left: r.left })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [sortOpen])
+
+  useLayoutEffect(() => {
+    if (!viewOpen) {
+      setViewMenuPos(null)
+      return
+    }
+    const anchor = viewAnchorRef.current
+    if (!anchor) return
+    const update = () => {
+      const r = anchor.getBoundingClientRect()
+      setViewMenuPos({ top: r.bottom + 6, left: r.left })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [viewOpen])
+
+  useEffect(() => {
+    if (!sortOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (sortAnchorRef.current?.contains(t)) return
+      if (sortPortalRef.current?.contains(t)) return
+      setSortOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [sortOpen])
+
+  useEffect(() => {
+    if (!viewOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (viewAnchorRef.current?.contains(t)) return
+      if (viewPortalRef.current?.contains(t)) return
+      setViewOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [viewOpen])
 
   return (
     <div
@@ -293,35 +406,49 @@ function PipelineFilterBar({
       style={{ border: '1px solid var(--glass-border-1)' }}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Suche: Name, Firma, E-Mail …"
-          className="font-mono min-w-[200px] flex-1 rounded-lg px-3 py-2"
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {(
+            [
+              ['all', 'Alle'],
+              ['herrmann', 'Herrmann & Co'],
+              ['wertavio', 'Wertavio'],
+              ['culturefit', 'CultureFit'],
+            ] as const
+          ).map(([key, label]) => {
+            const on = productFilter === key
+            return (
+              <button
+                key={key}
+                type="button"
+                className="font-mono whitespace-nowrap"
+                onClick={() => setProductFilter(key)}
+                style={pill(on)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <div
+          aria-hidden
+          className="shrink-0"
           style={{
-            fontSize: 12,
-            border: '1px solid var(--glass-border-2)',
-            background: 'var(--glass-1)',
-            color: 'var(--text-primary)',
+            width: 1,
+            height: 22,
+            margin: '0 6px',
+            background: 'color-mix(in srgb, var(--glass-border-2) 85%, transparent)',
+            alignSelf: 'center',
           }}
         />
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="font-mono inline-flex items-center gap-1.5"
+          className="font-mono inline-flex shrink-0 items-center gap-1.5"
           style={{
-            fontSize: 11,
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: activeCount > 0
-              ? '1px solid var(--mode-sales)'
-              : '1px solid var(--glass-border-2)',
-            background: activeCount > 0
-              ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
-              : 'var(--glass-3)',
-            color: activeCount > 0 ? 'var(--mode-sales)' : 'var(--text-secondary)',
-            cursor: 'pointer',
+            ...pill(activeCount > 0),
+            padding: '6px 10px',
+            gap: 6,
           }}
         >
           <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -348,23 +475,205 @@ function PipelineFilterBar({
             {open ? '▲' : '▼'}
           </span>
         </button>
+          <div ref={sortAnchorRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setSortOpen((o) => !o)}
+              className="font-mono inline-flex shrink-0 items-center gap-1.5"
+              style={{
+                ...pill(kanbanColumnSort !== 'follow_up' || sortOpen),
+                padding: '6px 10px',
+                gap: 6,
+              }}
+              aria-expanded={sortOpen}
+              aria-haspopup="listbox"
+            >
+              <svg
+                width={11}
+                height={11}
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path d="M4 6 L8 2 L12 6" />
+                <path d="M4 10 L8 14 L12 10" />
+              </svg>
+              Sortieren
+              <span style={{ fontSize: 8, marginLeft: 2, opacity: 0.65 }}>
+                {sortOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            {sortOpen && sortMenuPos
+              ? createPortal(
+                  <div
+                    ref={sortPortalRef}
+                    className="glass-2 font-mono flex flex-col gap-2 rounded-xl p-2.5"
+                    style={{
+                      position: 'fixed',
+                      top: sortMenuPos.top,
+                      left: sortMenuPos.left,
+                      zIndex: 200,
+                      minWidth: 200,
+                      border: '1px solid var(--glass-border-1)',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+                      pointerEvents: 'auto',
+                    }}
+                    role="listbox"
+                    aria-label="Sortierung der Kontakte in Kanban-Spalten"
+                  >
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--text-tertiary)',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      Aktuell: {KANBAN_SORT_LABEL[kanbanColumnSort]}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {(Object.keys(KANBAN_SORT_LABEL) as KanbanColumnSort[]).map((key) => {
+                        const on = kanbanColumnSort === key
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            role="option"
+                            aria-selected={on}
+                            className="font-mono text-left whitespace-nowrap"
+                            style={{
+                              ...pill(on),
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: 8,
+                            }}
+                            onClick={() => {
+                              onKanbanColumnSortChange(key)
+                              setSortOpen(false)
+                            }}
+                          >
+                            {KANBAN_SORT_LABEL[key]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>,
+                  document.body,
+                )
+              : null}
+          </div>
+        <div ref={viewAnchorRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewOpen((o) => !o)}
+              className="font-mono inline-flex shrink-0 items-center gap-1.5"
+              style={{
+                ...pill(viewMode !== 'cards' || viewOpen),
+                padding: '6px 10px',
+                gap: 6,
+              }}
+              aria-expanded={viewOpen}
+              aria-haspopup="listbox"
+            >
+              <svg
+                width={11}
+                height={11}
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <rect x="2" y="3" width="5" height="4" rx="1" />
+                <rect x="9" y="3" width="5" height="4" rx="1" />
+                <rect x="2" y="9" width="12" height="4" rx="1" />
+              </svg>
+              Ansicht
+              <span style={{ fontSize: 8, marginLeft: 2, opacity: 0.65 }}>
+                {viewOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            {viewOpen && viewMenuPos
+              ? createPortal(
+                  <div
+                    ref={viewPortalRef}
+                    className="glass-2 font-mono flex flex-col gap-2 rounded-xl p-2.5"
+                    style={{
+                      position: 'fixed',
+                      top: viewMenuPos.top,
+                      left: viewMenuPos.left,
+                      zIndex: 200,
+                      minWidth: 180,
+                      border: '1px solid var(--glass-border-1)',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+                      pointerEvents: 'auto',
+                    }}
+                    role="listbox"
+                    aria-label="Pipeline-Ansicht"
+                  >
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--text-tertiary)',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      Aktuell: {PIPELINE_VIEW_LABEL[viewMode]}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {PIPELINE_VIEW_MODES.map((key) => {
+                        const on = viewMode === key
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            role="option"
+                            aria-selected={on}
+                            className="font-mono text-left whitespace-nowrap"
+                            style={{
+                              ...pill(on),
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: 8,
+                            }}
+                            onClick={() => {
+                              onViewModeChange(key)
+                              setViewOpen(false)
+                            }}
+                          >
+                            {PIPELINE_VIEW_LABEL[key]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>,
+                  document.body,
+                )
+              : null}
+          </div>
         {filtersActive ? (
           <button
             type="button"
-            className="font-mono"
+            className="font-mono shrink-0 whitespace-nowrap"
             onClick={onReset}
-            style={{
-              fontSize: 10,
-              padding: '8px 12px',
-              borderRadius: 10,
-              border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-3)',
-              color: 'var(--text-secondary)',
-            }}
+            style={pill(false)}
           >
             Zurücksetzen
           </button>
         ) : null}
+        </div>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Suche: Name, Firma, E-Mail …"
+          className="font-mono min-w-[160px] flex-1 rounded-lg px-3 py-2"
+          style={{
+            fontSize: 12,
+            border: '1px solid var(--glass-border-2)',
+            background: 'var(--glass-1)',
+            color: 'var(--text-primary)',
+          }}
+        />
       </div>
       {open ? (
       <>
@@ -467,52 +776,127 @@ function DroppableStageColumn({
   onStageHover,
   scrollEmbed = false,
   columnMotionVariants,
+  isDragActive,
+  isDropTarget,
+  cardCount,
 }: {
   stage: PipelineStage
   children: ReactNode
   onStageHover?: (stage: PipelineStage | null) => void
   scrollEmbed?: boolean
   columnMotionVariants?: Variants
+  isDragActive?: boolean
+  isDropTarget?: boolean
+  cardCount?: number
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
-  return (
-    <motion.div
-      ref={setNodeRef}
-      variants={columnMotionVariants}
-      className={scrollEmbed ? 'shrink-0' : 'glass-2 shrink-0'}
-      onPointerEnter={() => onStageHover?.(stage)}
-      style={{
-        flex: scrollEmbed ? '1 1 160px' : undefined,
-        width: scrollEmbed ? undefined : 'min(200px, calc(100vw - 48px))',
-        minWidth: scrollEmbed ? 160 : 'min(200px, calc(100vw - 48px))',
-        borderRadius: 14,
-        padding: 10,
-        border: isOver
-          ? '2px solid var(--mode-sales)'
-          : '1px solid var(--glass-border-1)',
-        background: scrollEmbed ? 'rgba(8, 8, 16, 0.45)' : undefined,
-        backdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
-        WebkitBackdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
-        minHeight: 120,
-      }}
-    >
+  const highlighted = isOver || isDropTarget
+  const emptyWhileDragging = isDragActive && (cardCount ?? 0) === 0
+  const columnStyle: CSSProperties = {
+    flex: scrollEmbed ? '1 1 160px' : undefined,
+    width: scrollEmbed ? undefined : 'min(200px, calc(100vw - 48px))',
+    minWidth: scrollEmbed ? 160 : 'min(200px, calc(100vw - 48px))',
+    borderRadius: 14,
+    padding: 10,
+    border: highlighted
+      ? '2px solid var(--mode-sales)'
+      : '1px solid var(--glass-border-1)',
+    background: scrollEmbed
+      ? highlighted
+        ? 'rgba(12, 12, 24, 0.72)'
+        : 'rgba(8, 8, 16, 0.45)'
+      : highlighted
+        ? 'color-mix(in srgb, var(--mode-sales) 8%, var(--glass-2))'
+        : undefined,
+    backdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
+    WebkitBackdropFilter: scrollEmbed ? 'blur(14px)' : 'var(--blur-md)',
+    minHeight: isDragActive ? (emptyWhileDragging ? 220 : 160) : 120,
+    transform: highlighted ? 'translateY(-10px)' : undefined,
+    boxShadow: highlighted
+      ? '0 20px 48px rgba(0, 0, 0, 0.38), 0 0 0 1px color-mix(in srgb, var(--mode-sales) 35%, transparent)'
+      : isDragActive
+        ? '0 8px 24px rgba(0, 0, 0, 0.18)'
+        : undefined,
+    zIndex: highlighted ? 30 : isDragActive ? 2 : 1,
+    transition:
+      'transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, min-height 140ms ease',
+    position: 'relative',
+  }
+  const columnClass = scrollEmbed ? 'shrink-0' : 'glass-2 shrink-0'
+  const columnBody = (
+    <>
       <div
-        className="font-mono mb-2"
+        className="font-mono mb-2 flex items-center justify-between gap-2"
         style={{
           fontSize: 10,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: 'var(--text-tertiary)',
+          color: highlighted ? 'var(--mode-sales)' : 'var(--text-tertiary)',
         }}
       >
-        {STAGE_LABEL[stage]}
+        <span>{STAGE_LABEL[stage]}</span>
+        {cardCount != null ? (
+          <span
+            style={{
+              fontSize: 9,
+              padding: '2px 6px',
+              borderRadius: 999,
+              background: 'var(--glass-1)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {cardCount}
+          </span>
+        ) : null}
       </div>
-      <div className="flex flex-col gap-2">{children}</div>
+      <div className="flex flex-col gap-2 min-h-0 flex-1">
+        {children}
+        {emptyWhileDragging ? (
+          <div
+            className="font-mono flex flex-1 items-center justify-center rounded-lg border border-dashed"
+            style={{
+              minHeight: 120,
+              marginTop: 4,
+              fontSize: 10,
+              color: 'var(--mode-sales)',
+              borderColor: 'color-mix(in srgb, var(--mode-sales) 45%, var(--glass-border-2))',
+              background: 'color-mix(in srgb, var(--mode-sales) 6%, transparent)',
+            }}
+          >
+            Hier ablegen
+          </div>
+        ) : null}
+      </div>
+    </>
+  )
+
+  if (scrollEmbed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={columnClass}
+        onPointerEnter={() => onStageHover?.(stage)}
+        style={columnStyle}
+      >
+        {columnBody}
+      </div>
+    )
+  }
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      variants={columnMotionVariants}
+      className={columnClass}
+      onPointerEnter={() => onStageHover?.(stage)}
+      style={columnStyle}
+    >
+      {columnBody}
     </motion.div>
   )
 }
 
-function SortableContactCard({
+function DraggableContactCard({
   contact,
   slug,
   onSelect,
@@ -543,14 +927,9 @@ function SortableContactCard({
   scrollEmbed?: boolean
   onSetFollowUpDays: (contactId: string, daysFromNow: number) => void
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: contact.id })
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: contact.id,
+  })
 
   const overdue = isFollowUpOverdue(contact)
   const stageColor = STAGE_ACCENT[contact.pipeline_stage]
@@ -571,11 +950,9 @@ function SortableContactCard({
   const noteRight = overdue ? 110 : 52
 
   const style = {
-    transform: isDragging
-      ? `${CSS.Transform.toString(transform) ?? ''} scale(1.02)`
-      : CSS.Transform.toString(transform),
-    transition: isDragging ? 'box-shadow 160ms ease' : transition,
-    opacity: isDragging ? 0.95 : 1,
+    transform: isDragging ? undefined : CSS.Translate.toString(transform),
+    transition: isDragging ? 'opacity 120ms ease' : undefined,
+    opacity: isDragging ? 0.28 : 1,
     padding: scrollEmbed ? 12 : 10,
     paddingLeft: scrollEmbed ? 14 : 12,
     minHeight: scrollEmbed ? 72 : undefined,
@@ -914,6 +1291,7 @@ function PipelineBoard({
   onColumnHover,
   scrollEmbed = false,
   onSetFollowUpDays,
+  columnSort,
 }: {
   contacts: Contact[]
   slug: string
@@ -930,6 +1308,7 @@ function PipelineBoard({
   bulkActive: boolean
   onColumnHover?: (stage: PipelineStage | null) => void
   scrollEmbed?: boolean
+  columnSort: KanbanColumnSort
 }) {
   const navigate = useNavigate()
   const skipClickRef = useRef(false)
@@ -941,6 +1320,8 @@ function PipelineBoard({
   }, [])
 
   const [activeDrag, setActiveDrag] = useState<Contact | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<PipelineStage | null>(null)
+  const lastOverStageRef = useRef<PipelineStage | null>(null)
   const [expandedStages, setExpandedStages] = useState<Set<PipelineStage>>(() => new Set())
 
   const sensors = useSensors(
@@ -961,44 +1342,60 @@ function PipelineBoard({
     [contacts],
   )
 
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const stage = resolveTargetStage(event.over?.id)
+      lastOverStageRef.current = stage
+      setDragOverStage(stage)
+    },
+    [resolveTargetStage],
+  )
+
   const handleDragEnd = (event: DragEndEvent) => {
     markSkipClick()
     setActiveDrag(null)
+    setDragOverStage(null)
     const { active, over } = event
-    if (!over) return
-    const target = resolveTargetStage(over.id)
+    const target =
+      resolveTargetStage(over?.id) ?? lastOverStageRef.current
+    lastOverStageRef.current = null
+    if (!target) return
     const activeId = String(active.id)
     const contact = contacts.find((c) => c.id === activeId)
-    if (!contact || !target || contact.pipeline_stage === target) return
+    if (!contact || contact.pipeline_stage === target) return
     onMoveToStage(activeId, target)
   }
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={kanbanCollisionDetection}
       onDragStart={({ active }: DragStartEvent) => {
         setActiveDrag(
           contacts.find((c) => c.id === String(active.id)) ?? null,
         )
       }}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={() => {
         markSkipClick()
         setActiveDrag(null)
+        setDragOverStage(null)
+        lastOverStageRef.current = null
       }}
     >
       <motion.div
         className="flex overflow-x-auto pb-2 overscroll-x-contain sales-scroll-kanban"
         style={{ WebkitOverflowScrolling: 'touch', gap: 12 }}
-        variants={KANBAN_WRAP_VARIANTS}
+        variants={scrollEmbed ? KANBAN_EMBED_VARIANTS : KANBAN_WRAP_VARIANTS}
         initial="hidden"
         animate="visible"
         onPointerLeave={() => onColumnHover?.(null)}
       >
         {STAGES.map((stage) => {
-          const list = sortContactsForKanbanColumn(
+          const list = sortPipelineContacts(
             contacts.filter((c) => c.pipeline_stage === stage),
+            columnSort,
           )
           const expanded = expandedStages.has(stage)
           const capped = !expanded && list.length > KANBAN_COLUMN_CAP
@@ -1010,17 +1407,18 @@ function PipelineBoard({
               stage={stage}
               onStageHover={onColumnHover}
               scrollEmbed={scrollEmbed}
-              columnMotionVariants={KANBAN_COLUMN_VARIANTS}
+              cardCount={list.length}
+              isDragActive={!!activeDrag}
+              isDropTarget={dragOverStage === stage}
+              columnMotionVariants={
+                scrollEmbed ? KANBAN_EMBED_COLUMN_VARIANTS : KANBAN_COLUMN_VARIANTS
+              }
             >
-              <SortableContext
-                items={visible.map((c) => c.id)}
-                strategy={verticalListSortingStrategy}
-              >
                 {visible.map((c) => {
                   const linkedProject = findDeliverProjectForContact(deliverProjects, c)
                   const deliverProjectId = linkedProject?.id ?? c.deliver_project_id ?? null
                   return (
-                  <SortableContactCard
+                  <DraggableContactCard
                     key={c.id}
                     contact={c}
                     slug={slug}
@@ -1046,7 +1444,6 @@ function PipelineBoard({
                   />
                   )
                 })}
-              </SortableContext>
               {hiddenCount > 0 ? (
                 <button
                   type="button"
@@ -1101,18 +1498,27 @@ function PipelineBoard({
           <div
             style={{
               padding: 10,
+              paddingLeft: 12,
               borderRadius: 10,
-              background: 'var(--glass-2)',
-              border: '1px solid var(--glass-border-2)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+              background: 'var(--glass-3)',
+              border: '1px solid var(--mode-sales)',
+              borderLeft: `4px solid ${STAGE_ACCENT[activeDrag.pipeline_stage]}`,
+              boxShadow: '0 22px 48px rgba(0,0,0,0.42)',
               minWidth: 168,
+              cursor: 'grabbing',
             }}
           >
             <div
               className="font-display"
               style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}
             >
-              {activeDrag.name}
+              {contactCardTitle(activeDrag)}
+            </div>
+            <div
+              className="font-mono"
+              style={{ fontSize: 9, marginTop: 4, color: 'var(--text-tertiary)' }}
+            >
+              → {dragOverStage ? STAGE_LABEL[dragOverStage] : 'Spalte wählen'}
             </div>
           </div>
         ) : null}
@@ -1124,7 +1530,14 @@ function PipelineBoard({
 export function SalesMode({
   panel = 'full',
   scrollEmbed = false,
-}: { panel?: 'full' | 'pipeline'; scrollEmbed?: boolean } = {}) {
+  headerActionsRef,
+  headerActionsReady = false,
+}: {
+  panel?: 'full' | 'pipeline'
+  scrollEmbed?: boolean
+  headerActionsRef?: RefObject<HTMLDivElement | null>
+  headerActionsReady?: boolean
+} = {}) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   // brandId wird in den Hooks (useBrandId) intern verwendet; hier nicht mehr direkt nötig.
@@ -1154,12 +1567,19 @@ export function SalesMode({
   const contactLists = useContactLists(slug)
 
   const [viewMode, setViewMode] = useState<PipelineViewMode>(() => (slug ? loadPipelineView(slug) : 'cards'))
+  const [kanbanColumnSort, setKanbanColumnSort] = useState<KanbanColumnSort>(() =>
+    slug ? loadKanbanColumnSort(slug) : 'follow_up',
+  )
   const [crmFilters, setCrmFilters] = useState<CrmFilterState>(() => (slug ? loadCrmFilters(slug) : EMPTY_CRM_FILTERS))
   const [filterOpen, setFilterOpen] = useState(false)
 
   useEffect(() => {
     if (slug) savePipelineView(slug, viewMode)
   }, [slug, viewMode])
+
+  useEffect(() => {
+    if (slug) saveKanbanColumnSort(slug, kanbanColumnSort)
+  }, [slug, kanbanColumnSort])
 
   useEffect(() => {
     if (slug) saveCrmFilters(slug, crmFilters)
@@ -1196,6 +1616,11 @@ export function SalesMode({
     )
     return crmFiltered.filter((c) => contactIds.has(c.id))
   }, [contacts.items, crmFilters, opportunities.items, pipeFollow, pipePotenzial, pipeQ, pipeStage, productFilter])
+
+  const sortedPipeline = useMemo(
+    () => sortPipelineContacts(filteredPipeline, kanbanColumnSort),
+    [filteredPipeline, kanbanColumnSort],
+  )
 
   const crmFiltersActive = useMemo(() => {
     return (
@@ -1495,8 +1920,6 @@ export function SalesMode({
           <div className="flex flex-wrap items-center gap-2" style={{ position: 'relative' }}>
             <CrmToolbar
               onNewLead={() => quickLead.openQuickLead()}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
               onToggleFilter={() => setFilterOpen((v) => !v)}
               filterActive={crmFiltersActive}
             />
@@ -1552,7 +1975,9 @@ export function SalesMode({
         <ContactListsContent slug={slug} embedded />
       ) : (
         <>
-          {scrollEmbed ? (
+          {scrollEmbed && headerActionsRef && headerActionsReady ? (
+            <quickLead.ActionBar compact mountRef={headerActionsRef} />
+          ) : scrollEmbed && !headerActionsRef ? (
             <div className="shrink-0" style={{ padding: '4px 4px 10px' }}>
               <quickLead.ActionBar compact />
             </div>
@@ -1660,38 +2085,6 @@ export function SalesMode({
 
           {!contacts.loading && !contacts.error ? (
             <div className="mb-5">
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                {([
-                  ['all', 'Alle'],
-                  ['herrmann', 'Herrmann & Co'],
-                  ['wertavio', 'Wertavio'],
-                  ['culturefit', 'CultureFit'],
-                ] as const).map(([key, label]) => {
-                  const on = productFilter === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className="font-mono"
-                      onClick={() => setProductFilter(key)}
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: '0.06em',
-                        padding: '6px 10px',
-                        borderRadius: 999,
-                        border: on ? '1px solid var(--mode-sales)' : '1px solid var(--glass-border-2)',
-                        background: on
-                          ? 'color-mix(in srgb, var(--mode-sales) 14%, transparent)'
-                          : 'var(--glass-2)',
-                        color: on ? 'var(--mode-sales)' : 'var(--text-tertiary)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
               <PipelineFilterBar
                 q={pipeQ}
                 setQ={setPipeQ}
@@ -1701,8 +2094,14 @@ export function SalesMode({
                 setFollow={setPipeFollow}
                 potenzial={pipePotenzial}
                 setPotenzial={setPipePotenzial}
+                productFilter={productFilter}
+                setProductFilter={setProductFilter}
                 onReset={resetFilters}
                 filtersActive={filtersActive}
+                kanbanColumnSort={kanbanColumnSort}
+                onKanbanColumnSortChange={setKanbanColumnSort}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
               />
             </div>
           ) : null}
@@ -1716,8 +2115,18 @@ export function SalesMode({
           {!contacts.loading && !contacts.error ? (
             viewMode === 'table' ? (
               <PipelineTableView
-                contacts={filteredPipeline}
+                contacts={sortedPipeline}
                 allContacts={contacts.items}
+                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+              />
+            ) : viewMode === 'list' ? (
+              <PipelineListView
+                contacts={sortedPipeline}
+                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+              />
+            ) : viewMode === 'carousel' ? (
+              <PipelineCarouselView
+                contacts={sortedPipeline}
                 onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
               />
             ) : (
@@ -1726,6 +2135,7 @@ export function SalesMode({
                 slug={slug}
                 deliverProjects={deliver.items}
                 scrollEmbed={scrollEmbed}
+                columnSort={kanbanColumnSort}
                 onMoveToStage={(id, stage) =>
                   contacts.update(id, { pipeline_stage: stage })
                 }

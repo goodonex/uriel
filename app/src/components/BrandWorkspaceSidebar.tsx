@@ -6,6 +6,7 @@ import { useBrands } from '../hooks/useBrands'
 import { useContactLists } from '../hooks/useContactLists'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useSidebarSignals } from '../hooks/useSidebarSignals'
+import { useUiTheme } from '../hooks/useUiTheme'
 import { parseBrandNavSection, type BrandNavSection } from '../lib/brandNav'
 import { sectionFromPathname } from '../lib/scrollFlow'
 import {
@@ -260,6 +261,7 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
   const w = expanded ? EXPANDED_W : COLLAPSED_W
 
   const signals = useSidebarSignals(slug)
+  const { isPlainLight, togglePlainLight } = useUiTheme()
   const { openPalette } = useCommandPalette()
   const platformShortcut = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl K'
   const deliverSectionActive = active === 'deliver'
@@ -675,6 +677,38 @@ export function BrandWorkspaceSidebar({ slug, layout = 'float' }: BrandWorkspace
               ) : null}
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              togglePlainLight()
+            }}
+            title={isPlainLight ? 'Dunklen Modus aktivieren' : 'Hellen Modus aktivieren'}
+            data-no-scale
+            className="flex w-full items-center font-mono transition-colors"
+            style={{
+              fontSize: 9,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              padding: expanded ? '8px 10px' : '8px 0',
+              justifyContent: expanded ? 'flex-start' : 'center',
+              gap: 8,
+              borderRadius: 10,
+              border: isPlainLight
+                ? '1px solid color-mix(in srgb, var(--accent-amber) 50%, var(--glass-border-2))'
+                : '1px solid var(--glass-border-2)',
+              background: isPlainLight
+                ? 'color-mix(in srgb, var(--accent-amber) 14%, transparent)'
+                : 'var(--glass-1)',
+              color: isPlainLight ? 'var(--accent-amber)' : 'var(--text-tertiary)',
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 13 }}>{isPlainLight ? '☀' : '◐'}</span>
+            {expanded ? (
+              <span>{isPlainLight ? 'Hell an' : 'Hellmodus'}</span>
+            ) : null}
+          </button>
           <button
             type="button"
             onClick={(e) => {

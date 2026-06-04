@@ -89,15 +89,11 @@ export function ContactPage({
   // Save (der nur ein einzelnes Feld aktualisiert) die noch im Debounce schwebenden
   // Änderungen an anderen Feldern → Status/Tasks/Termin wirken "nicht gespeichert".
   useEffect(() => {
-    if (contact) setDraft(contact)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDraft(null)
   }, [contactId])
 
-  // Beim allerersten Laden (falls contact erst verspätet aus dem Hook kommt)
-  // einmalig den Draft initialisieren.
   useEffect(() => {
-    if (!contact) return
-    setDraft((prev) => (prev ? prev : contact))
+    if (contact) setDraft(contact)
   }, [contact])
 
   useEffect(() => {
@@ -218,14 +214,19 @@ export function ContactPage({
     [opportunities.items],
   )
   const handleLogCall = useCallback(() => {
-    if (!contactId) return
+    if (!contactId || !d) return
+    const phone = (d.phone ?? '').trim()
+    if (phone) {
+      window.location.href = `tel:${phone.replace(/[^\d+]/g, '')}`
+      return
+    }
     if (postCallFlow) {
       postCallFlow.openPostCall({ contactId, source: 'contact' })
       setCallOutcomeOpen(false)
       return
     }
     setCallOutcomeOpen(true)
-  }, [contactId, postCallFlow])
+  }, [contactId, d, postCallFlow])
 
   const handleCreatePitchProject = useCallback(() => {
     if (!d || !slug) return
@@ -327,7 +328,18 @@ export function ContactPage({
   }
 
   if (!d) {
-    return null
+    return (
+      <div
+        className="animate-pulse font-mono"
+        style={{
+          minHeight: 280,
+          borderRadius: 16,
+          background: 'var(--glass-1)',
+          border: '1px solid var(--glass-border-1)',
+          pointerEvents: 'auto',
+        }}
+      />
+    )
   }
 
   return (

@@ -4,12 +4,61 @@ import { EMPTY_CRM_FILTERS } from './crmFilters'
 const VIEW_KEY = 'crm-pipeline-view'
 const FILTER_KEY = 'crm-filters'
 
-export type PipelineViewMode = 'cards' | 'table'
+export type PipelineViewMode = 'cards' | 'table' | 'list' | 'carousel'
+
+export const PIPELINE_VIEW_MODES: PipelineViewMode[] = ['cards', 'table', 'list', 'carousel']
+
+export const PIPELINE_VIEW_LABEL: Record<PipelineViewMode, string> = {
+  cards: 'Kanban',
+  table: 'Tabelle',
+  list: 'Liste',
+  carousel: 'Carousel',
+}
+
+/** Sortierung der Kontakte innerhalb jeder Kanban-Spalte */
+export type KanbanColumnSort =
+  | 'follow_up'
+  | 'created_desc'
+  | 'created_asc'
+  | 'updated_desc'
+  | 'updated_asc'
+  | 'name_asc'
+  | 'name_desc'
+
+const KANBAN_SORT_KEY = 'crm-kanban-column-sort'
+
+export function loadKanbanColumnSort(brandSlug: string): KanbanColumnSort {
+  try {
+    const v = localStorage.getItem(`${KANBAN_SORT_KEY}:${brandSlug}`)
+    const allowed: KanbanColumnSort[] = [
+      'follow_up',
+      'created_desc',
+      'created_asc',
+      'updated_desc',
+      'updated_asc',
+      'name_asc',
+      'name_desc',
+    ]
+    return allowed.includes(v as KanbanColumnSort) ? (v as KanbanColumnSort) : 'follow_up'
+  } catch {
+    return 'follow_up'
+  }
+}
+
+export function saveKanbanColumnSort(brandSlug: string, sort: KanbanColumnSort): void {
+  try {
+    localStorage.setItem(`${KANBAN_SORT_KEY}:${brandSlug}`, sort)
+  } catch {
+    /* ignore */
+  }
+}
 
 export function loadPipelineView(brandSlug: string): PipelineViewMode {
   try {
     const v = localStorage.getItem(`${VIEW_KEY}:${brandSlug}`)
-    return v === 'table' ? 'table' : 'cards'
+    return PIPELINE_VIEW_MODES.includes(v as PipelineViewMode)
+      ? (v as PipelineViewMode)
+      : 'cards'
   } catch {
     return 'cards'
   }

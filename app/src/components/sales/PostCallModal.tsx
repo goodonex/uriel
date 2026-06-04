@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { usePostCallFlow } from '../../hooks/usePostCallFlow'
 import { useCallLogs } from '../../hooks/useSalesPro'
@@ -9,6 +10,7 @@ import {
   pipelineStageAfterPostCall,
   type PostCallResult,
 } from '../../lib/callContactPatch'
+import { SALES_MODAL_BACKDROP, SALES_MODAL_Z } from './activity/salesModalUi'
 import type { ContactActivityEntry, FollowUpType } from '../../types/db'
 
 export type { PostCallResult } from '../../lib/callContactPatch'
@@ -103,12 +105,18 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
   }, [result])
 
   useEffect(() => {
+    if (!session) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && session) closePostCall()
+      if (e.key === 'Escape') closePostCall()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [session, closePostCall])
+
+  useEffect(() => {
+    if (!session || contacts.loading) return
+    if (!contact) closePostCall()
+  }, [session, contact, contacts.loading, closePostCall])
 
   const persist = useCallback(
     async (andContinue: boolean) => {
@@ -182,24 +190,16 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
 
   const hasQueue = Boolean(session.queue?.length)
 
-  return (
+  return createPortal(
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 90,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        pointerEvents: 'auto',
-      }}
+      role="presentation"
+      style={{ ...SALES_MODAL_BACKDROP, zIndex: SALES_MODAL_Z }}
       onClick={() => closePostCall()}
     >
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="post-call-title"
         className="glass-2 font-mono"
         style={{
           width: 'min(420px, 100%)',
@@ -207,20 +207,46 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
           border: '1px solid var(--glass-border-2)',
           padding: 20,
           boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+          background: '#12121f',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          className="font-display"
+        <div
           style={{
-            fontSize: 16,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
             marginBottom: 16,
           }}
         >
-          Anruf dokumentiert ✓
-        </h2>
+          <h2
+            id="post-call-title"
+            className="font-display"
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}
+          >
+            Anruf dokumentieren
+          </h2>
+          <button
+            type="button"
+            onClick={() => closePostCall()}
+            aria-label="Schließen"
+            className="font-mono"
+            style={{
+              ...btnGhost,
+              padding: '4px 8px',
+              fontSize: 14,
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
 
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Ergebnis</label>
@@ -289,6 +315,7 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

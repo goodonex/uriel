@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { useOptionalScrollFlowSurface } from '../context/ScrollFlowContext'
 
 export interface CardTileProps {
@@ -67,6 +67,30 @@ function useInBrandScrollSurface(
 ): boolean {
   const [visible, setVisible] = useState(false)
 
+  const measureVisible = useCallback(() => {
+    if (!observed) return false
+    const rect = observed.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return false
+
+    const rootRect = scrollRoot?.getBoundingClientRect()
+    const viewTop = rootRect?.top ?? 0
+    const viewBottom = rootRect?.bottom ?? window.innerHeight
+    const viewLeft = rootRect?.left ?? 0
+    const viewRight = rootRect?.right ?? window.innerWidth
+
+    const overlapW = Math.max(0, Math.min(rect.right, viewRight) - Math.max(rect.left, viewLeft))
+    const overlapH = Math.max(0, Math.min(rect.bottom, viewBottom) - Math.max(rect.top, viewTop))
+    const overlapArea = overlapW * overlapH
+    const area = rect.width * rect.height
+    if (area <= 0) return false
+    return overlapArea / area >= minVisibleRatio
+  }, [observed, scrollRoot, minVisibleRatio])
+
+  useLayoutEffect(() => {
+    if (!observed) return
+    setVisible(measureVisible())
+  }, [observed, measureVisible])
+
   useEffect(() => {
     if (!observed) return
 
@@ -109,7 +133,9 @@ export function CardTile({
     setObserveEl(node)
   }, [])
 
-  const inView = useInBrandScrollSurface(observeEl, scrollSurface, 0.1)
+  const ioInView = useInBrandScrollSurface(observeEl, scrollSurface, 0.1)
+  /** Scroll-Flow + bare: nie auf opacity 0 (sonst leerer dunkler Screen nach Navigation). */
+  const inView = bare || scrollSurface != null ? true : ioInView
 
   const fly = FLY_VARIANTS[flyFrom]
   const exit = EXIT_OFFSET[flyFrom]
@@ -226,21 +252,9 @@ export function CardTile({
     : { scale: { duration: 0.2, ease: 'easeIn' as const } }
 
   if (bare) {
-    const chromeStyle: CSSProperties = {
-      ...outerLayoutStyle,
-      ...bareChrome,
-    }
-
     return (
-      <motion.div
-        ref={bindRootRef}
-        className={className}
-        initial={{ ...outerHidden, scale: scaleHidden }}
-        animate={{ ...outerAnimate, ...scaleAnimate }}
-        transition={{ ...outerTransition, ...scaleTransition }}
-        style={chromeStyle}
-      >
-        <motion.div
+      <div ref={bindRootRef} className={className} style={{ ...outerLayoutStyle, ...bareChrome }}>
+        <div
           className="card-tile-scroll module-scroll"
           style={{
             flex: 1,
@@ -249,21 +263,10 @@ export function CardTile({
             overflowX: 'hidden',
             padding: 0,
           }}
-          animate={float && inView ? { y: [0, -7, 0] } : { y: 0 }}
-          transition={
-            float && inView
-              ? {
-                  repeat: Infinity,
-                  duration: 5.2,
-                  ease: 'easeInOut',
-                  delay: delay + 0.45,
-                }
-              : { duration: 0.25 }
-          }
         >
           {children}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     )
   }
 

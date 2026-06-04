@@ -146,6 +146,15 @@ export function CallOutcomeSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlayOpen])
 
+  useEffect(() => {
+    if (!overlayOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) setOverlayOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [overlayOpen, busy, setOverlayOpen])
+
   const applyFollowUpPreset = (due_at: string) => {
     setDraftAction((d) => {
       if (!d) return d

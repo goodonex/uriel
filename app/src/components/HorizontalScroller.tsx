@@ -17,6 +17,8 @@ export interface HorizontalScrollerProps {
   tabs: HorizontalScrollerTab[]
   activeIndex?: number
   onIndexChange?: (index: number) => void
+  /** Rechts in der Tab-Zeile (z. B. + Lead / Call Mode). */
+  headerEnd?: ReactNode
 }
 
 const SETTLE_MS = 180
@@ -52,6 +54,7 @@ export function HorizontalScroller({
   tabs,
   activeIndex: controlledIndex,
   onIndexChange,
+  headerEnd,
 }: HorizontalScrollerProps) {
   const { isMobile } = useViewport()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -212,9 +215,20 @@ export function HorizontalScroller({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          minHeight: 35,
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            flex: '1 1 auto',
+            minWidth: 0,
+          }}
+        >
         {useDropdown ? (
           <div style={{ position: 'relative', minWidth: 160 }}>
             <button
@@ -309,6 +323,20 @@ export function HorizontalScroller({
             )
           })
         )}
+        </div>
+        {headerEnd ? (
+          <div
+            style={{
+              flex: '0 0 auto',
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            {headerEnd}
+          </div>
+        ) : null}
       </div>
 
       <div

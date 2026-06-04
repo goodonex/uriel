@@ -177,7 +177,7 @@ export function EmailComposeDialog({
   return createPortal(
     <AnimatePresence>
       <motion.div
-        key="backdrop"
+        key="email-compose-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

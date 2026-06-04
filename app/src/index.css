@@ -79,6 +79,20 @@ a {
   scrollbar-color: color-mix(in srgb, var(--text-tertiary) 35%, transparent) transparent;
 }
 
+.pipeline-carousel-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+}
+
+.pipeline-carousel-card {
+  flex: 0 0 min(88%, 380px);
+  scroll-snap-align: center;
+  border-radius: 20px;
+}
+
 .brand-scroll-flow--snap {
   scroll-snap-type: y mandatory;
 }

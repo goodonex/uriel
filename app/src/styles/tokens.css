@@ -235,3 +235,44 @@ select:focus-visible {
 
 .text-muted   { color: var(--text-tertiary); }
 .text-soft    { color: var(--text-secondary); }
+
+/* Plain light — hoher Kontrast bei hellem Umgebungslicht */
+[data-ui-theme='plain-light'] {
+  --bg-void: #ececf0;
+  --bg-base: #f7f7f9;
+  --bg-surface: #ffffff;
+
+  --glass-1: rgba(0, 0, 0, 0.03);
+  --glass-2: #ffffff;
+  --glass-3: #ffffff;
+  --glass-4: #f0f0f4;
+
+  --glass-border-1: rgba(0, 0, 0, 0.08);
+  --glass-border-2: rgba(0, 0, 0, 0.12);
+  --glass-border-3: rgba(0, 0, 0, 0.18);
+
+  --text-primary: #12121a;
+  --text-secondary: #45455a;
+  --text-tertiary: #6b6b7f;
+  --text-accent: #2f5fd4;
+
+  --blur-sm: none;
+  --blur-md: none;
+  --blur-lg: none;
+  --blur-xl: none;
+
+  --shadow-glass: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+[data-ui-theme='plain-light'] body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+[data-ui-theme='plain-light'] .glass-1,
+[data-ui-theme='plain-light'] .glass-2,
+[data-ui-theme='plain-light'] .glass-3 {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}

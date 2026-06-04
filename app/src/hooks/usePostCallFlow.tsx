@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { WorkItem } from './useDailyWorkList'
 
 export type PostCallSource = 'daily' | 'contact'
@@ -27,6 +29,7 @@ interface PostCallFlowContextValue {
 const PostCallFlowContext = createContext<PostCallFlowContextValue | null>(null)
 
 export function PostCallFlowProvider({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
   const [session, setSession] = useState<PostCallSession | null>(null)
 
   const openPostCall = useCallback((opts: PostCallSession) => {
@@ -36,6 +39,10 @@ export function PostCallFlowProvider({ children }: { children: ReactNode }) {
   const closePostCall = useCallback(() => {
     setSession(null)
   }, [])
+
+  useEffect(() => {
+    setSession(null)
+  }, [pathname])
 
   const advanceQueue = useCallback((): PostCallSession | null => {
     if (!session?.queue?.length) {
