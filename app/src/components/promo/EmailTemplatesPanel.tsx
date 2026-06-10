@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useEmailTemplates } from '../../hooks/useSalesPro'
 import { availableVariables } from '../../lib/emailVariables'
 import type { SalesEmailTemplate } from '../../types/db'
@@ -26,7 +26,9 @@ export function EmailTemplatesPanel({
   const tpl = useEmailTemplates(brandSlug)
   const { show } = useToast()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set())
   const [draft, setDraft] = useState<Partial<SalesEmailTemplate>>({})
+  const [batchBusy, setBatchBusy] = useState(false)
 
   useEffect(() => {
     if (!brandSlug) return
@@ -37,10 +39,36 @@ export function EmailTemplatesPanel({
     if (selectedId) {
       const t = tpl.items.find((x) => x.id === selectedId)
       if (t) setDraft({ name: t.name, subject: t.subject, body: t.body, stage: t.stage })
+      else setSelectedId(null)
     } else {
       setDraft({ name: '', subject: '', body: '', stage: null })
     }
   }, [selectedId, tpl.items])
+
+  useEffect(() => {
+    setCheckedIds((prev) => {
+      const valid = new Set(tpl.items.map((t) => t.id))
+      const next = new Set([...prev].filter((id) => valid.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [tpl.items])
+
+  const allChecked = tpl.items.length > 0 && checkedIds.size === tpl.items.length
+  const someChecked = checkedIds.size > 0
+
+  const toggleCheck = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (allChecked) setCheckedIds(new Set())
+    else setCheckedIds(new Set(tpl.items.map((t) => t.id)))
+  }
 
   const handleSave = async () => {
     if (!draft.name?.trim()) {
@@ -65,15 +93,41 @@ export function EmailTemplatesPanel({
   const handleDelete = async () => {
     if (!selectedId) return
     if (!confirm('Vorlage wirklich löschen?')) return
-    await tpl.remove(selectedId)
-    setSelectedId(null)
-    show('Vorlage gelöscht', 'info')
+    try {
+      await tpl.remove(selectedId)
+      setSelectedId(null)
+      show('Vorlage gelöscht', 'info')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+    }
   }
+
+  const handleBatchDelete = async () => {
+    const ids = [...checkedIds]
+    if (ids.length === 0) return
+    if (!confirm(`${ids.length} Vorlage(n) wirklich löschen?`)) return
+    setBatchBusy(true)
+    try {
+      await tpl.removeMany(ids)
+      if (selectedId && ids.includes(selectedId)) setSelectedId(null)
+      setCheckedIds(new Set())
+      show(`${ids.length} Vorlage(n) gelöscht`, 'success')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Batch-Löschen fehlgeschlagen', 'error')
+    } finally {
+      setBatchBusy(false)
+    }
+  }
+
+  const checkedLabel = useMemo(() => {
+    if (!someChecked) return ''
+    return `${checkedIds.size} ausgewählt`
+  }, [checkedIds.size, someChecked])
 
   return (
     <div
       className="mt-4 grid gap-4"
-      style={{ gridTemplateColumns: 'minmax(200px, 240px) minmax(0, 1fr)' }}
+      style={{ gridTemplateColumns: 'minmax(200px, 260px) minmax(0, 1fr)' }}
     >
       <aside
         className="glass-2 flex flex-col gap-2 rounded-2xl p-3"
@@ -100,36 +154,102 @@ export function EmailTemplatesPanel({
         >
           + Neue Vorlage
         </button>
+
+        {tpl.items.length > 0 ? (
+          <div
+            className="font-mono flex items-center justify-between gap-2"
+            style={{ fontSize: 9, color: 'var(--text-tertiary)', padding: '0 2px' }}
+          >
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+              Alle
+            </label>
+            {someChecked ? (
+              <button
+                type="button"
+                disabled={batchBusy}
+                onClick={() => void handleBatchDelete()}
+                style={{
+                  fontSize: 9,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  border: '1px solid var(--accent-coral)',
+                  background: 'transparent',
+                  color: 'var(--accent-coral)',
+                  cursor: batchBusy ? 'wait' : 'pointer',
+                }}
+              >
+                {batchBusy ? '…' : `${checkedIds.size} löschen`}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="flex max-h-[420px] flex-col gap-1 overflow-y-auto pr-1">
           {tpl.items.map((t) => {
             const on = t.id === selectedId
+            const checked = checkedIds.has(t.id)
             return (
-              <button
+              <div
                 key={t.id}
-                type="button"
-                onClick={() => setSelectedId(t.id)}
-                className="text-left font-mono"
                 style={{
-                  padding: '8px 10px',
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  gap: 6,
+                  padding: '4px 4px 4px 0',
                   borderRadius: 10,
-                  border: `1px solid ${on ? accent : 'var(--glass-border-2)'}`,
-                  background: on ? 'var(--glass-3)' : 'var(--glass-1)',
-                  color: 'var(--text-primary)',
-                  fontSize: 11,
-                  cursor: 'pointer',
+                  border: `1px solid ${on ? accent : checked ? 'color-mix(in srgb, var(--accent-coral) 35%, var(--glass-border-2))' : 'transparent'}`,
+                  background: on ? 'var(--glass-3)' : checked ? 'color-mix(in srgb, var(--accent-coral) 6%, transparent)' : 'transparent',
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{t.name}</div>
-                {t.subject ? (
-                  <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 9 }}>
-                    {t.subject.slice(0, 48)}
-                    {t.subject.length > 48 ? '…' : ''}
-                  </div>
-                ) : null}
-              </button>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingLeft: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleCheck(t.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(t.id)}
+                  className="text-left font-mono"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '6px 8px 6px 0',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-primary)',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{t.name}</div>
+                  {t.subject ? (
+                    <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 9 }}>
+                      {t.subject.slice(0, 48)}
+                      {t.subject.length > 48 ? '…' : ''}
+                    </div>
+                  ) : null}
+                </button>
+              </div>
             )
           })}
         </div>
+
+        {checkedLabel ? (
+          <div className="font-mono" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+            {checkedLabel}
+          </div>
+        ) : null}
       </aside>
 
       <div

@@ -123,12 +123,11 @@ export function EmailComposeDialog({
     }
     const finalSubject = subject || '(Kein Betreff)'
     const bodyWithSignature = appendEmailSignature(body, emailSettings.signature)
+    const recipientEmail = selectedRecipient.email.trim()
     setSending(true)
-    const canUseResend =
-      brandId &&
-      selectedRecipient.email.trim().toLowerCase() === (contact.email ?? '').trim().toLowerCase()
-    if (canUseResend) {
-      // Versand über Edge-Function (Resend + Pixel + Log) — Signatur hängt die Function an
+
+    let sent = false
+    if (brandId) {
       const res = await sendEmail({
         brand_id: brandId,
         contact_id: contact.id,
@@ -136,27 +135,26 @@ export function EmailComposeDialog({
         body,
         template_id: templateId,
         from_name: resolveEmailFromName(brandSlug, brandName),
+        to_email: recipientEmail,
       })
       if (res.ok) {
         show('Mail versendet & geloggt', 'success')
         await logs.reload()
+        sent = true
       } else if (res.error === 'resend_api_key_missing') {
-        show('RESEND_API_KEY fehlt — Mail-Versand inaktiv', 'info')
+        show('RESEND_API_KEY fehlt — Mail-Versand inaktiv', 'error')
       } else {
-        // Fallback auf mailto, wenn Edge-Function nicht erreichbar
-        const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: bodyWithSignature })
-        window.location.href = url
-        await logs.log({
-          contact_id: contact.id,
-          template_id: templateId,
-          subject: finalSubject,
-          body_preview: bodyWithSignature.slice(0, 240),
-        })
-        show(`mailto-Fallback (${res.error ?? 'unknown'})`, 'info')
+        show(
+          `Versand fehlgeschlagen: ${res.detail ?? res.error ?? 'unbekannt'}`,
+          'error',
+        )
       }
     } else {
-      // Kein Brand-ID → reines mailto + Local-Log
-      const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: bodyWithSignature })
+      const url = buildMailtoUrl({
+        to: recipientEmail,
+        subject: finalSubject,
+        body: bodyWithSignature,
+      })
       window.location.href = url
       await logs.log({
         contact_id: contact.id,
@@ -164,13 +162,17 @@ export function EmailComposeDialog({
         subject: finalSubject,
         body_preview: bodyWithSignature.slice(0, 240),
       })
-      show('Mail (mailto) gesendet', 'success')
+      show('Mail (mailto) — kein Brand-Kontext für Resend', 'info')
+      sent = true
     }
+
+    setSending(false)
+    if (!sent) return
+
     onLogged?.(finalSubject)
     setSubject('')
     setBody('')
     setTemplateId(null)
-    setSending(false)
     onClose()
   }
 

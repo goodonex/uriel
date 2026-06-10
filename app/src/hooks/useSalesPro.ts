@@ -4,6 +4,10 @@
  * Fallback auf localStorage wenn Supabase fehlt oder Tabelle nicht existiert.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  defaultEmailSeedsToCreate,
+  markDefaultEmailTemplateRemoved,
+} from '../lib/emailTemplateDefaults'
 import { generateId, loadList, saveList } from '../lib/storage'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
@@ -238,6 +242,7 @@ interface UseEmailTemplatesResult extends BaseResult<SalesEmailTemplate> {
   create: (input: Partial<SalesEmailTemplate> & { name: string }) => Promise<SalesEmailTemplate>
   update: (id: string, patch: Partial<SalesEmailTemplate>) => Promise<void>
   remove: (id: string) => Promise<void>
+  removeMany: (ids: string[]) => Promise<void>
   recordUsage: (id: string) => Promise<void>
   ensureDefaults: () => Promise<void>
 }
@@ -352,18 +357,41 @@ export function useEmailTemplates(brandSlug: string | undefined): UseEmailTempla
     [brandId, brandSlug, items],
   )
 
-  const remove = useCallback(
-    async (id: string) => {
-      if (!brandSlug) return
-      const next = items.filter((t) => t.id !== id)
-      setItems(next)
+  const removeMany = useCallback(
+    async (ids: string[]) => {
+      if (!brandSlug || ids.length === 0) return
+      const idSet = new Set(ids)
+      const removed = items.filter((t) => idSet.has(t.id))
+      const next = items.filter((t) => !idSet.has(t.id))
+      for (const t of removed) markDefaultEmailTemplateRemoved(brandSlug, t.name)
+
       if (localOnly.current || !supabase || !brandId) {
+        setItems(next)
         saveList([brandSlug, 'email-templates'], next)
         return
       }
-      await supabase.from('sales_email_templates').delete().eq('id', id).eq('brand_id', brandId)
+
+      const { error: delErr } = await supabase
+        .from('sales_email_templates')
+        .delete()
+        .in('id', ids)
+        .eq('brand_id', brandId)
+      if (delErr) {
+        setError(delErr.message)
+        await reload()
+        throw new Error(delErr.message)
+      }
+      setItems(next)
+      saveList([brandSlug, 'email-templates'], next)
     },
-    [brandId, brandSlug, items],
+    [brandId, brandSlug, items, reload],
+  )
+
+  const remove = useCallback(
+    async (id: string) => {
+      await removeMany([id])
+    },
+    [removeMany],
   )
 
   const recordUsage = useCallback(
@@ -380,10 +408,11 @@ export function useEmailTemplates(brandSlug: string | undefined): UseEmailTempla
 
   const ensureDefaults = useCallback(async () => {
     if (!brandSlug || localOnly.current) return
-    const { DEFAULT_EMAIL_TEMPLATE_SEEDS } = await import('../lib/seedEmailTemplates')
-    const existing = new Set(items.map((t) => t.name.toLowerCase()))
-    for (const seed of DEFAULT_EMAIL_TEMPLATE_SEEDS) {
-      if (existing.has(seed.name.toLowerCase())) continue
+    const seeds = defaultEmailSeedsToCreate(
+      brandSlug,
+      items.map((t) => t.name),
+    )
+    for (const seed of seeds) {
       await create({
         name: seed.name,
         subject: seed.subject,
@@ -392,7 +421,7 @@ export function useEmailTemplates(brandSlug: string | undefined): UseEmailTempla
     }
   }, [brandSlug, items, create])
 
-  return { items, loading, error, reload, create, update, remove, recordUsage, ensureDefaults }
+  return { items, loading, error, reload, create, update, remove, removeMany, recordUsage, ensureDefaults }
 }
 
 // =========================================================================

@@ -14,6 +14,8 @@ export interface SendEmailInput {
   enrollment_id?: string | null
   from_email?: string | null
   from_name?: string | null
+  /** Empfänger — z. B. Ansprechpartner-E-Mail statt Firmen-E-Mail auf dem Kontakt */
+  to_email?: string | null
 }
 
 export interface SendEmailResult {

@@ -50,9 +50,13 @@ export function EmailTemplatesDrawer({ open, onClose, brandSlug }: EmailTemplate
   const handleDelete = async () => {
     if (!selectedId) return
     if (!confirm('Template wirklich löschen?')) return
-    await tpl.remove(selectedId)
-    setSelectedId(null)
-    show('Template gelöscht', 'info')
+    try {
+      await tpl.remove(selectedId)
+      setSelectedId(null)
+      show('Template gelöscht', 'info')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Löschen fehlgeschlagen', 'error')
+    }
   }
 
   return (

@@ -22,6 +22,7 @@ interface SalesSendBody {
   enrollment_id?: string | null
   from_email?: string | null
   from_name?: string | null
+  to_email?: string | null
 }
 
 interface ProjectMessageBody {
@@ -254,7 +255,9 @@ async function handleSalesEmail(
 
   if (cErr || !contact) return json({ error: 'contact_not_found' }, 404)
   if (contact.brand_id !== payload.brand_id) return json({ error: 'brand_mismatch' }, 403)
-  if (!contact.email) return json({ error: 'contact_has_no_email' }, 400)
+
+  const toEmail = (payload.to_email && payload.to_email.trim()) || (contact.email ?? '').trim()
+  if (!toEmail) return json({ error: 'contact_has_no_email' }, 400)
 
   const { data: brand } = await supabase
     .from('brands')
@@ -296,7 +299,7 @@ async function handleSalesEmail(
     },
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
-      to: [contact.email],
+      to: [toEmail],
       subject: payload.subject,
       html: htmlBody,
       text: textBody,
@@ -327,7 +330,7 @@ async function handleSalesEmail(
       resend_id: resendJson.id ?? '',
       from_email: fromEmail,
       from_name: fromName,
-      to_email: contact.email,
+      to_email: toEmail,
     })
     .select('id')
     .maybeSingle()
