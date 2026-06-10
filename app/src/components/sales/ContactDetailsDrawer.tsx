@@ -46,13 +46,6 @@ export function ContactDetailsDrawer({
             style={FIELD}
           />
         </Field>
-        <Field label="Job-Titel">
-          <input
-            value={c.job_title ?? ''}
-            onChange={(e) => onField({ job_title: e.target.value })}
-            style={FIELD}
-          />
-        </Field>
         <Field label="Adresse">
           <input
             value={c.address ?? ''}

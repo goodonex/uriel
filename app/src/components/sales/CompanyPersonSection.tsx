@@ -34,6 +34,7 @@ export function CompanyPersonSection({
   const [draftName, setDraftName] = useState('')
   const [draftEmail, setDraftEmail] = useState('')
   const [draftPhone, setDraftPhone] = useState('')
+  const [draftTitle, setDraftTitle] = useState('')
 
   if (!isCompany(company)) return null
 
@@ -76,6 +77,7 @@ export function CompanyPersonSection({
       last_name: lastName,
       email: draftEmail.trim(),
       phone: draftPhone.trim(),
+      job_title: draftTitle.trim(),
     })
     if (personId === people[0]?.id) {
       onField?.({
@@ -116,6 +118,13 @@ export function CompanyPersonSection({
                       if (e.key === 'Enter') void savePerson(p.id)
                     }}
                   />
+                  <input
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    placeholder="Position"
+                    style={FIELD}
+                    onBlur={() => void savePerson(p.id)}
+                  />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                     <input
                       value={draftEmail}
@@ -142,6 +151,7 @@ export function CompanyPersonSection({
                       setDraftName(personDisplayName(p))
                       setDraftEmail(p.email ?? '')
                       setDraftPhone(p.phone ?? '')
+                      setDraftTitle(p.job_title ?? '')
                     }}
                     style={{
                       border: 'none',
