@@ -75,8 +75,8 @@ export function ContactActivityActionBar({
     padding: '8px 12px',
     borderRadius: 999,
     border: '1px solid var(--glass-border-2)',
-    background: 'var(--glass-2)',
-    color: 'var(--text-secondary)',
+    background: 'color-mix(in srgb, var(--bg-base) 90%, var(--glass-2))',
+    color: 'var(--text-primary)',
     cursor: 'pointer',
   } as const
 

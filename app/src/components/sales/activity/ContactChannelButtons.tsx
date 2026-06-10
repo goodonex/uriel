@@ -35,33 +35,33 @@ export function ContactChannelButtons({
   phoneChoices?: Array<{ label: string; value: string }>
 }) {
   const { show } = useToast()
+  const rootRef = useRef<HTMLDivElement>(null)
   const [openKey, setOpenKey] = useState<ChannelKey | null>(null)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
-  const closeTimerRef = useRef<number | null>(null)
 
-  const cancelClose = () => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
+  useEffect(() => {
+    if (!openKey) return
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) {
+        setOpenKey(null)
+        setEditing(false)
+      }
     }
-  }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [openKey])
 
-  const scheduleClose = () => {
-    cancelClose()
-    closeTimerRef.current = window.setTimeout(() => {
+  const openChannel = (key: ChannelKey) => {
+    const value = (contact[key] as string) ?? ''
+    if (openKey === key) {
       setOpenKey(null)
       setEditing(false)
-    }, 160)
-  }
-
-  useEffect(() => () => cancelClose(), [])
-
-  const openPopover = (key: ChannelKey) => {
-    cancelClose()
+      return
+    }
     setOpenKey(key)
-    setEditing(false)
-    setDraft((contact[key] as string) ?? '')
+    setDraft(value)
+    setEditing(!value.trim())
   }
 
   const save = () => {
@@ -72,35 +72,22 @@ export function ContactChannelButtons({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+    <div
+      ref={rootRef}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+    >
       {CHANNELS.map((ch, idx) => {
         const value = (contact[ch.key] as string) ?? ''
         const has = value.trim().length > 0
         const isOpen = openKey === ch.key
         const popoverAlignRight = idx >= CHANNELS.length - 2
         return (
-          <div
-            key={ch.key}
-            style={{ position: 'relative' }}
-            onMouseEnter={() => openPopover(ch.key)}
-            onMouseLeave={scheduleClose}
-          >
+          <div key={ch.key} style={{ position: 'relative' }}>
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                if (has && !editing) {
-                  void navigator.clipboard.writeText(value.trim()).then(() =>
-                    show(`${ch.label} kopiert`, 'success'),
-                  )
-                } else {
-                  openPopover(ch.key)
-                  setEditing(true)
-                }
-              }}
-              onFocus={() => openPopover(ch.key)}
-              onBlur={scheduleClose}
-              title={ch.label}
+              onClick={() => openChannel(ch.key)}
+              title={has ? `${ch.label}: ${value}` : `${ch.label} eintragen`}
+              aria-expanded={isOpen}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -108,13 +95,19 @@ export function ContactChannelButtons({
                 width: 34,
                 height: 34,
                 borderRadius: 10,
-                border: '1px solid var(--glass-border-2)',
-                background: has
-                  ? `color-mix(in srgb, ${ch.accent} 10%, var(--glass-1))`
-                  : 'var(--glass-1)',
-                color: has ? ch.accent : 'var(--text-tertiary)',
+                border: isOpen
+                  ? `1px solid color-mix(in srgb, ${ch.accent} 55%, var(--glass-border-2))`
+                  : has
+                    ? `1px solid color-mix(in srgb, ${ch.accent} 40%, var(--glass-border-2))`
+                    : '1px solid var(--glass-border-2)',
+                background: isOpen
+                  ? `color-mix(in srgb, ${ch.accent} 22%, var(--bg-base))`
+                  : has
+                    ? `color-mix(in srgb, ${ch.accent} 16%, var(--bg-base))`
+                    : 'color-mix(in srgb, var(--bg-base) 90%, var(--glass-2))',
+                color: has || isOpen ? ch.accent : 'var(--text-secondary)',
                 cursor: 'pointer',
-                opacity: has ? 1 : 0.45,
+                boxShadow: isOpen ? `0 0 0 1px color-mix(in srgb, ${ch.accent} 25%, transparent)` : undefined,
               }}
             >
               {ch.icon}
@@ -122,24 +115,25 @@ export function ContactChannelButtons({
 
             {isOpen ? (
               <div
-                onMouseEnter={cancelClose}
-                onMouseLeave={scheduleClose}
                 className="font-mono"
+                onMouseDown={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
                   top: 'calc(100% + 6px)',
                   ...(popoverAlignRight ? { right: 0 } : { left: 0 }),
-                  zIndex: 40,
+                  zIndex: 80,
                   width:
                     has && (ch.key === 'website' || ch.key === 'instagram') && !editing
                       ? 300
                       : undefined,
-                  minWidth: 240,
+                  minWidth: 260,
                   padding: 10,
                   borderRadius: 10,
                   border: '1px solid var(--glass-border-2)',
-                  background: 'var(--glass-3)',
-                  boxShadow: '0 10px 26px rgba(0,0,0,0.4)',
+                  background: 'color-mix(in srgb, var(--bg-base) 94%, transparent)',
+                  backdropFilter: 'blur(14px)',
+                  WebkitBackdropFilter: 'blur(14px)',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -167,29 +161,31 @@ export function ContactChannelButtons({
                         if (e.key === 'Escape') {
                           setEditing(false)
                           setDraft(value)
+                          if (!value.trim()) setOpenKey(null)
                         }
                       }}
                     />
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {has && ch.key === 'phone' ? (
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {(phoneChoices.length > 0 ? phoneChoices : [{ label: 'Telefon', value }]).map((choice) => (
-                            <a
-                              key={`${choice.label}-${choice.value}`}
-                              href={`tel:${choice.value.replace(/[^\d+]/g, '')}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="font-mono"
-                              style={{
-                                ...popoverBtn,
-                                textDecoration: 'none',
-                                fontSize: 10,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              {choice.label}
-                            </a>
-                          ))}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginRight: 'auto' }}>
+                          {(phoneChoices.length > 0 ? phoneChoices : [{ label: 'Telefon', value }]).map(
+                            (choice) => (
+                              <a
+                                key={`${choice.label}-${choice.value}`}
+                                href={`tel:${choice.value.replace(/[^\d+]/g, '')}`}
+                                className="font-mono"
+                                style={{
+                                  ...popoverBtn,
+                                  textDecoration: 'none',
+                                  fontSize: 10,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                {choice.label}
+                              </a>
+                            ),
+                          )}
                         </div>
                       ) : null}
                       <button
@@ -197,6 +193,7 @@ export function ContactChannelButtons({
                         onClick={() => {
                           setEditing(false)
                           setDraft(value)
+                          if (!value.trim()) setOpenKey(null)
                         }}
                         style={popoverBtnGhost}
                       >
@@ -213,15 +210,9 @@ export function ContactChannelButtons({
                   </>
                 ) : (
                   <>
-                    <input
-                      readOnly
-                      value={value || `${ch.label} fehlt`}
-                      onFocus={(e) => e.currentTarget.select()}
-                      style={{
-                        ...popoverInput,
-                        color: has ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                      }}
-                    />
+                    <div style={{ fontSize: 11, color: has ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                      {value || `${ch.label} fehlt`}
+                    </div>
                     {has && ch.key === 'website' ? (
                       <WebsitePopoverPreview url={normalizeWebsiteUrl(value)} />
                     ) : null}
@@ -272,7 +263,6 @@ export function ContactChannelButtons({
 }
 
 function PhoneFrame({ children }: { children: ReactNode }) {
-  // Smartphone-Ratio (~19.5:9). Innen 260×563 → außen ca. 280×585 inkl. Bezel.
   return (
     <div
       style={{
@@ -426,11 +416,11 @@ function LinkedInPopoverHint({ url }: { url: string | null }) {
 
 const popoverInput = {
   width: '100%',
-  padding: '7px 9px',
-  fontSize: 11,
+  padding: '8px 10px',
+  fontSize: 12,
   borderRadius: 7,
   border: '1px solid var(--glass-border-2)',
-  background: 'var(--glass-2)',
+  background: 'color-mix(in srgb, var(--bg-base) 96%, var(--glass-2))',
   color: 'var(--text-primary)',
   outline: 'none',
   fontFamily: 'inherit',
@@ -441,7 +431,7 @@ const popoverBtn = {
   padding: '5px 10px',
   borderRadius: 7,
   border: '1px solid var(--mode-sales)',
-  background: 'transparent',
+  background: 'color-mix(in srgb, var(--bg-base) 90%, transparent)',
   color: 'var(--mode-sales)',
   cursor: 'pointer',
   fontFamily: 'inherit',

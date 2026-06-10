@@ -234,8 +234,8 @@ function IdentityCard({
               height: 34,
               borderRadius: 10,
               border: '1px solid var(--glass-border-2)',
-              background: 'var(--glass-2)',
-              color: 'var(--text-secondary)',
+              background: 'color-mix(in srgb, var(--bg-base) 90%, var(--glass-2))',
+              color: 'var(--text-primary)',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}

@@ -1,15 +1,6 @@
-import type { Contact, PipelineStage } from '../../types/db'
+import type { Contact } from '../../types/db'
 import { Drawer } from '../Drawer'
-import { CONTACT_STATUS_OPTIONS } from '../../lib/crmStatus'
 import { LEAD_SOURCE_OPTIONS } from '../../lib/crmLeadSource'
-
-const STAGE_OPTIONS: Array<{ key: PipelineStage; label: string }> = [
-  { key: 'first_contact', label: 'Erstkontakt' },
-  { key: 'conversation', label: 'Gespräch' },
-  { key: 'proposal', label: 'Pitch' },
-  { key: 'deal', label: 'Deal' },
-  { key: 'paused', label: 'Pause' },
-]
 
 const FIELD = {
   width: '100%',
@@ -17,7 +8,7 @@ const FIELD = {
   fontSize: 12,
   borderRadius: 8,
   border: '1px solid var(--glass-border-2)',
-  background: 'var(--glass-2)',
+  background: 'color-mix(in srgb, var(--bg-base) 92%, var(--glass-2))',
   color: 'var(--text-primary)',
   outline: 'none',
   fontFamily: 'inherit',
@@ -69,36 +60,61 @@ export function ContactDetailsDrawer({
             style={FIELD}
           />
         </Field>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <Field label="Phase">
-            <select
-              value={c.pipeline_stage}
-              onChange={(e) => onField({ pipeline_stage: e.target.value as PipelineStage })}
-              style={FIELD}
-            >
-              {STAGE_OPTIONS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select
-              value={c.contact_status}
-              onChange={(e) =>
-                onField({ contact_status: e.target.value as Contact['contact_status'] })
-              }
-              style={FIELD}
-            >
-              {CONTACT_STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+
+        <div
+          className="font-mono"
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.14em',
+            color: 'var(--text-tertiary)',
+            paddingTop: 4,
+          }}
+        >
+          KONTAKTDATEN
         </div>
+
+        <Field label="Telefon">
+          <input
+            value={c.phone ?? ''}
+            onChange={(e) => onField({ phone: e.target.value })}
+            placeholder="+49 …"
+            style={FIELD}
+          />
+        </Field>
+        <Field label="E-Mail">
+          <input
+            type="email"
+            value={c.email ?? ''}
+            onChange={(e) => onField({ email: e.target.value })}
+            placeholder="name@firma.de"
+            style={FIELD}
+          />
+        </Field>
+        <Field label="Website">
+          <input
+            value={c.website ?? ''}
+            onChange={(e) => onField({ website: e.target.value })}
+            placeholder="https://…"
+            style={FIELD}
+          />
+        </Field>
+        <Field label="LinkedIn">
+          <input
+            value={c.linkedin ?? ''}
+            onChange={(e) => onField({ linkedin: e.target.value })}
+            placeholder="linkedin.com/in/…"
+            style={FIELD}
+          />
+        </Field>
+        <Field label="Instagram">
+          <input
+            value={c.instagram ?? ''}
+            onChange={(e) => onField({ instagram: e.target.value })}
+            placeholder="@handle"
+            style={FIELD}
+          />
+        </Field>
+
         <Field label="Lead-Quelle">
           <select
             value={c.lead_source ?? ''}
@@ -114,28 +130,6 @@ export function ContactDetailsDrawer({
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Geschätzter Deal-Wert (€)">
-          <input
-            type="number"
-            value={c.lead_value != null ? String(c.lead_value) : ''}
-            onChange={(e) =>
-              onField({
-                lead_value:
-                  e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
-              })
-            }
-            style={FIELD}
-          />
-        </Field>
-        <Field label="Call Notes">
-          <textarea
-            value={c.call_notes ?? ''}
-            onChange={(e) => onField({ call_notes: e.target.value })}
-            rows={5}
-            style={{ ...FIELD, resize: 'vertical' }}
-            placeholder="Datum, Themen, Einwände, nächste Schritte…"
-          />
         </Field>
 
         {onRequestDelete ? (
