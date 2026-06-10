@@ -215,10 +215,10 @@ async function clientOwnsProject(
   return data?.project_id === projectId
 }
 
-const BRAND_EMAIL: Record<string, { fromName: string; logoUrl: string }> = {
+const BRAND_EMAIL: Record<string, { fromName: string; logoPath: string }> = {
   herrmann: {
     fromName: 'Herrmann & Co.',
-    logoUrl: 'https://herrmannundco.de/favicon.png',
+    logoPath: '/email/herrmann-logo.gif',
   },
 }
 
@@ -394,7 +394,9 @@ async function handleSalesEmail(
   const fromName = resolveSalesFromName(brand.slug, brand.name, payload.from_name)
 
   const brandEmail = brand.slug ? BRAND_EMAIL[brand.slug] : undefined
-  const logoUrl = brandEmail?.logoUrl ?? null
+  const logoUrl = brandEmail
+    ? `${publicAppUrl.replace(/\/$/, '')}${brandEmail.logoPath}`
+    : null
 
   const rendered = await renderSalesEmailContent(
     supabase,
@@ -512,8 +514,8 @@ function wrapHtml(
     ? rawBody
     : `<p style="font-family:system-ui,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a;white-space:pre-wrap;">${escapeHtml(rawBody)}</p>`
   const logoBlock = opts?.logoUrl
-    ? `<div style="text-align:center;margin:0 0 24px;">
-<img src="${opts.logoUrl}" alt="${escapeHtml(opts.fromName ?? '')}" width="52" height="52" style="display:inline-block;border-radius:14px;" />
+    ? `<div style="text-align:center;margin:0 0 28px;">
+<img src="${opts.logoUrl}" alt="${escapeHtml(opts.fromName ?? '')}" width="128" height="128" style="display:inline-block;border:0;max-width:128px;height:auto;" />
 </div>`
     : ''
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#fafafa;">
