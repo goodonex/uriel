@@ -9,6 +9,8 @@ import { usePositioning } from '../../hooks/usePositioning'
 import { useContacts } from '../../hooks/useContacts'
 import { emailTemplatesManagePath, resolveEmailFromName } from '../../lib/emailBrand'
 import { sendEmail } from '../../lib/emailService'
+import { appendEmailSignature } from '../../lib/emailSignature'
+import { useEmailSettings } from '../../hooks/useEmailSettings'
 import {
   availableVariables,
   buildMailtoUrl,
@@ -44,6 +46,7 @@ export function EmailComposeDialog({
   const positioning = usePositioning(brandSlug)
   const contacts = useContacts(brandSlug)
   const brandId = useBrandId(brandSlug)
+  const emailSettings = useEmailSettings(brandSlug)
   const { show } = useToast()
 
   const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? null)
@@ -119,18 +122,18 @@ export function EmailComposeDialog({
       return
     }
     const finalSubject = subject || '(Kein Betreff)'
-    const finalBody = body
+    const bodyWithSignature = appendEmailSignature(body, emailSettings.signature)
     setSending(true)
     const canUseResend =
       brandId &&
       selectedRecipient.email.trim().toLowerCase() === (contact.email ?? '').trim().toLowerCase()
     if (canUseResend) {
-      // Versand über Edge-Function (Resend + Pixel + Log)
+      // Versand über Edge-Function (Resend + Pixel + Log) — Signatur hängt die Function an
       const res = await sendEmail({
         brand_id: brandId,
         contact_id: contact.id,
         subject: finalSubject,
-        body: finalBody,
+        body,
         template_id: templateId,
         from_name: resolveEmailFromName(brandSlug, brandName),
       })
@@ -141,25 +144,25 @@ export function EmailComposeDialog({
         show('RESEND_API_KEY fehlt — Mail-Versand inaktiv', 'info')
       } else {
         // Fallback auf mailto, wenn Edge-Function nicht erreichbar
-        const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: finalBody })
+        const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: bodyWithSignature })
         window.location.href = url
         await logs.log({
           contact_id: contact.id,
           template_id: templateId,
           subject: finalSubject,
-          body_preview: finalBody.slice(0, 240),
+          body_preview: bodyWithSignature.slice(0, 240),
         })
         show(`mailto-Fallback (${res.error ?? 'unknown'})`, 'info')
       }
     } else {
       // Kein Brand-ID → reines mailto + Local-Log
-      const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: finalBody })
+      const url = buildMailtoUrl({ to: selectedRecipient.email, subject: finalSubject, body: bodyWithSignature })
       window.location.href = url
       await logs.log({
         contact_id: contact.id,
         template_id: templateId,
         subject: finalSubject,
-        body_preview: finalBody.slice(0, 240),
+        body_preview: bodyWithSignature.slice(0, 240),
       })
       show('Mail (mailto) gesendet', 'success')
     }
@@ -329,6 +332,26 @@ export function EmailComposeDialog({
                   style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' }}
                 />
               </Field>
+
+              {emailSettings.signature.trim() ? (
+                <div
+                  className="font-mono"
+                  style={{
+                    fontSize: 10,
+                    color: 'var(--text-tertiary)',
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: '1px dashed var(--glass-border-2)',
+                    background: 'var(--glass-1)',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <span style={{ color: 'var(--text-secondary)' }}>Signatur (wird automatisch angehängt):</span>
+                  {'\n--\n'}
+                  {emailSettings.signature.trim()}
+                </div>
+              ) : null}
 
               <div
                 style={{

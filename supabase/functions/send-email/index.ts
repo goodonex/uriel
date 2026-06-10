@@ -258,7 +258,7 @@ async function handleSalesEmail(
 
   const { data: brand } = await supabase
     .from('brands')
-    .select('id, user_id, name, slug')
+    .select('id, user_id, name, slug, email_signature')
     .eq('id', payload.brand_id)
     .maybeSingle()
   if (!brand) return json({ error: 'brand_not_found' }, 404)
@@ -284,8 +284,9 @@ async function handleSalesEmail(
     ? `${publicAppUrl.replace(/\/$/, '')}${brandEmail.logoPath}`
     : null
 
-  const htmlBody = wrapHtml(payload.body, pixelUrl, { logoUrl, fromName })
-  const textBody = stripHtml(payload.body)
+  const bodyWithSignature = appendEmailSignature(payload.body, brand.email_signature ?? '')
+  const htmlBody = wrapHtml(bodyWithSignature, pixelUrl, { logoUrl, fromName })
+  const textBody = stripHtml(bodyWithSignature)
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -351,6 +352,24 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
+}
+
+function appendEmailSignature(body: string, signature: string): string {
+  const sig = (signature ?? '').trim()
+  if (!sig) return body
+  if (body.includes(sig)) return body
+  const looksLikeHtml = /<\w+[^>]*>/.test(body)
+  if (looksLikeHtml) {
+    const htmlSig = sig
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>')
+    return `${body}<br><br>--<br>${htmlSig}`
+  }
+  const base = body.trimEnd()
+  const sep = base.endsWith('\n') ? '\n' : '\n\n'
+  return `${base}${sep}--\n${sig}`
 }
 
 function escapeHtml(s: string): string {

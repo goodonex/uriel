@@ -13,6 +13,12 @@ export function resolveEmailFromName(brandSlug: string | undefined, brandName?: 
 
 export const EMAIL_TEMPLATES_DRAWER_PARAM = 'email-templates'
 
+/** Promo → E-Mail & Flows → Vorlagen */
 export function emailTemplatesManagePath(brandSlug: string): string {
+  return `/brand/${brandSlug}/promo/email-flows?emailTab=vorlagen`
+}
+
+/** Sales-Pipeline: Drawer per Query-Param (Legacy) */
+export function salesEmailTemplatesDrawerPath(brandSlug: string): string {
   return `/brand/${brandSlug}/sales?drawer=${EMAIL_TEMPLATES_DRAWER_PARAM}`
 }
