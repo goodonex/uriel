@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 interface DrawerProps {
   open: boolean
@@ -8,6 +9,8 @@ interface DrawerProps {
   children: ReactNode
   width?: number
 }
+
+const DRAWER_Z = 90
 
 export function Drawer({ open, onClose, title, children, width = 380 }: DrawerProps) {
   useEffect(() => {
@@ -19,64 +22,104 @@ export function Drawer({ open, onClose, title, children, width = 380 }: DrawerPr
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  return (
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
-      {open && (
-        <motion.aside
-          key="drawer"
-          initial={{ x: '100%', opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: '100%', opacity: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={title}
-          className="fixed top-4 right-4 bottom-4 z-50"
-          style={{
-            width: `min(${width}px, calc(100vw - 24px))`,
-            maxWidth: '100%',
-            background: 'var(--glass-3)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            border: '1px solid var(--glass-border-2)',
-            borderRadius: 16,
-            boxShadow: 'var(--shadow-glass)',
-            padding: 20,
-            overflow: 'auto',
-          }}
-        >
-          <div className="mb-5 flex items-center justify-between">
-            <span
-              className="font-display"
+      {open ? (
+        <>
+          <motion.div
+            key="drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0"
+            style={{
+              zIndex: DRAWER_Z,
+              background: 'rgba(6, 8, 14, 0.68)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
+            onClick={onClose}
+            aria-hidden
+          />
+          <motion.aside
+            key="drawer-panel"
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            className="fixed top-4 right-4 bottom-4 flex flex-col"
+            style={{
+              zIndex: DRAWER_Z + 1,
+              width: `min(${width}px, calc(100vw - 24px))`,
+              maxWidth: '100%',
+              background: 'var(--bg-base)',
+              border: '1px solid var(--glass-border-2)',
+              borderRadius: 16,
+              boxShadow: '0 24px 80px rgba(0, 0, 0, 0.55)',
+              padding: 20,
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex shrink-0 items-center justify-between">
+              <span
+                className="font-display"
+                style={{
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {title}
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Schließen"
+                className="flex items-center justify-center transition-colors"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: 'var(--glass-2)',
+                  border: '1px solid var(--glass-border-1)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div
               style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: 'var(--text-primary)',
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                paddingRight: 2,
               }}
             >
-              {title}
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Schließen"
-              className="flex items-center justify-center transition-colors"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: 'var(--glass-2)',
-                border: '1px solid var(--glass-border-1)',
-                color: 'var(--text-secondary)',
-                fontSize: 14,
-              }}
-            >
-              ×
-            </button>
-          </div>
-          {children}
-        </motion.aside>
-      )}
-    </AnimatePresence>
+              {children}
+            </div>
+          </motion.aside>
+        </>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   )
 }

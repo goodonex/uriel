@@ -8,7 +8,7 @@ const FIELD = {
   fontSize: 12,
   borderRadius: 8,
   border: '1px solid var(--glass-border-2)',
-  background: 'color-mix(in srgb, var(--bg-base) 92%, var(--glass-2))',
+  background: 'var(--glass-1)',
   color: 'var(--text-primary)',
   outline: 'none',
   fontFamily: 'inherit',
