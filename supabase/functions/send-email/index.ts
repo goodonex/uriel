@@ -215,10 +215,15 @@ async function clientOwnsProject(
   return data?.project_id === projectId
 }
 
+/** Öffentliche Asset-URL — unabhängig von PUBLIC_APP_URL (frameworkos.de hat kein /email/*). */
+const EMAIL_ASSETS_BASE = (
+  Deno.env.get('EMAIL_ASSETS_BASE_URL') ?? 'https://app-ecru-chi-81.vercel.app'
+).replace(/\/$/, '')
+
 const BRAND_EMAIL: Record<string, { fromName: string; logoPath: string }> = {
   herrmann: {
     fromName: 'Herrmann & Co.',
-    logoPath: '/email/herrmann-logo.gif',
+    logoPath: '/email/herrmann-logo.png',
   },
 }
 
@@ -394,9 +399,7 @@ async function handleSalesEmail(
   const fromName = resolveSalesFromName(brand.slug, brand.name, payload.from_name)
 
   const brandEmail = brand.slug ? BRAND_EMAIL[brand.slug] : undefined
-  const logoUrl = brandEmail
-    ? `${publicAppUrl.replace(/\/$/, '')}${brandEmail.logoPath}`
-    : null
+  const logoUrl = brandEmail ? `${EMAIL_ASSETS_BASE}${brandEmail.logoPath}` : null
 
   const rendered = await renderSalesEmailContent(
     supabase,
