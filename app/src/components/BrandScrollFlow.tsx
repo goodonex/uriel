@@ -56,9 +56,9 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
 
   const navigateSection = useCallback(
     (section: SectionKey) => {
-      navigate(pathForSection(slug, section), { replace: true })
+      navigate(pathForSection(slug, section, pathname), { replace: true })
     },
-    [navigate, slug],
+    [navigate, pathname, slug],
   )
 
   const { scrollToSection, navFromScrollRef } = useSectionScrollSnap({
@@ -117,7 +117,7 @@ export function BrandScrollFlow({ slug }: BrandScrollFlowProps) {
         ref={containerRef}
         className={`brand-scroll-flow${snapEnabled && !scrollLocked ? ' brand-scroll-flow--snap' : ''}${!snapEnabled || scrollLocked ? ' brand-scroll-flow--locked' : ''}`}
         style={{
-          height: '100vh',
+          height: 'calc(100vh - var(--workspace-tab-offset, 0px))',
           overflowY: 'auto',
           overflowX: 'clip',
           overscrollBehavior: 'y contain',

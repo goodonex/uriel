@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useToast } from '../../components/Toast'
+import { useDailyScorecard } from '../../hooks/useDailyScorecard'
 import { useContacts } from '../../hooks/useContacts'
 import { useCallLogs } from '../../hooks/useSalesPro'
 import type { Contact, SalesCallOutcome } from '../../types/db'
@@ -46,6 +47,7 @@ export function CallModePage() {
   const navigate = useNavigate()
   const contacts = useContacts(slug)
   const calls = useCallLogs(slug)
+  const scorecard = useDailyScorecard(slug)
   const { show } = useToast()
 
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -118,6 +120,35 @@ export function CallModePage() {
         >
           {queue.length} Lead{queue.length === 1 ? '' : 's'} bereit
         </div>
+        <div
+          className="font-mono"
+          style={{
+            marginTop: 8,
+            fontSize: 10,
+            color: 'var(--text-tertiary)',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Heute: {scorecard.counts.dialAttempts}/{scorecard.targets.dialAttempts} Wählversuche ·{' '}
+          {scorecard.counts.pitches}/{scorecard.targets.pitches} Pitches
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/brand/${slug}#daily-scorecard`)}
+          className="font-mono"
+          style={{
+            marginTop: 8,
+            fontSize: 10,
+            padding: '4px 8px',
+            borderRadius: 6,
+            border: '1px solid var(--glass-border-2)',
+            background: 'transparent',
+            color: 'var(--mode-sales)',
+            cursor: 'pointer',
+          }}
+        >
+          Tagesbuch →
+        </button>
       </header>
 
       {!active ? (

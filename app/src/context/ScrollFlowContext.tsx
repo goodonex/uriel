@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { pathForSection, type SectionKey } from '../lib/scrollFlow'
 
 interface ScrollFlowContextValue {
@@ -34,6 +34,7 @@ export function ScrollFlowProvider({
   children: ReactNode
 }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [scrollBusy, setScrollBusy] = useState(false)
   const [scrollSurface, setScrollSurface] = useState<HTMLElement | null>(null)
   const idleTimerRef = useRef<number | null>(null)
@@ -72,9 +73,9 @@ export function ScrollFlowProvider({
 
   const navigateToSection = useCallback(
     (section: SectionKey) => {
-      navigate(pathForSection(slug, section))
+      navigate(pathForSection(slug, section, pathname))
     },
-    [navigate, slug],
+    [navigate, pathname, slug],
   )
 
   const value = useMemo(

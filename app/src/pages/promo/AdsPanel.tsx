@@ -9,8 +9,16 @@ import {
   useMemo,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useBrandNavigate } from '../../hooks/useBrandNavigate'
+import { adCampaignPath, adCampaignIdFromPath } from '../../lib/workspaceTabs'
+import {
+  useWorkspaceContextMenu,
+  WorkspaceContextMenu,
+} from '../../components/workspace/WorkspaceContextMenu'
 import { useToast } from '../../components/Toast'
 import { useAdCampaigns } from '../../hooks/useAdCampaigns'
 import { useBrandId } from '../../hooks/useBrandId'
@@ -30,6 +38,8 @@ import type { AdCampaign, AdPlatform, AdStatus } from '../../types/db'
 
 interface AdsPanelProps {
   slug: string
+  campaignIdOverride?: string
+  embeddedInTabs?: boolean
 }
 
 const PLATFORM_META: Record<AdPlatform, { label: string; accent: string }> = {
@@ -86,8 +96,16 @@ function debounce<F extends (...args: never[]) => void>(fn: F, ms: number): F {
   }) as F
 }
 
-export function AdsPanel({ slug }: AdsPanelProps) {
+export function AdsPanel({
+  slug,
+  campaignIdOverride,
+  embeddedInTabs = false,
+}: AdsPanelProps) {
   const camps = useAdCampaigns(slug)
+  const { go, openNewTab } = useBrandNavigate(slug)
+  const { state: ctxMenu, close: closeCtx, openAt: openCtxAt, runAction: runCtxAction } =
+    useWorkspaceContextMenu()
+  const [searchParams, setSearchParams] = useSearchParams()
   const brandId = useBrandId(slug)
   const { brands } = useBrands()
   const brand = useMemo(() => brands.find((b) => b.slug === slug), [brands, slug])
@@ -105,8 +123,43 @@ export function AdsPanel({ slug }: AdsPanelProps) {
   )
 
   useEffect(() => {
+    if (campaignIdOverride) {
+      setActiveId(campaignIdOverride)
+      return
+    }
+    const fromUrl =
+      searchParams.get('campaign') ??
+      adCampaignIdFromPath(`${window.location.pathname}?${searchParams.toString()}`)
+    if (fromUrl) {
+      setActiveId(fromUrl)
+      return
+    }
     if (!activeId && camps.items.length > 0) setActiveId(camps.items[0].id)
-  }, [camps.items, activeId])
+  }, [activeId, campaignIdOverride, camps.items, searchParams])
+
+  const selectCampaign = useCallback(
+    (id: string) => {
+      setActiveId(id)
+      if (embeddedInTabs) return
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('campaign', id)
+          return next
+        },
+        { replace: true },
+      )
+      go(adCampaignPath(slug, id))
+    },
+    [embeddedInTabs, go, setSearchParams, slug],
+  )
+
+  const onCampaignContextMenu = useCallback(
+    (id: string, event: ReactMouseEvent) => {
+      openCtxAt(event, () => openNewTab(adCampaignPath(slug, id)))
+    },
+    [openCtxAt, openNewTab, slug],
+  )
 
   const persist = useMemo(
     () =>
@@ -170,7 +223,7 @@ export function AdsPanel({ slug }: AdsPanelProps) {
       utm_medium: 'paid',
       target_url: target,
     })
-    setActiveId(created.id)
+    selectCampaign(created.id)
     show('Kampagne angelegt', 'success')
   }
 
@@ -259,7 +312,8 @@ export function AdsPanel({ slug }: AdsPanelProps) {
                   key={c.id}
                   campaign={c}
                   active={c.id === activeId}
-                  onSelect={() => setActiveId(c.id)}
+                  onSelect={() => selectCampaign(c.id)}
+                  onContextMenu={(event) => onCampaignContextMenu(c.id, event)}
                 />
               ))
             )}
@@ -298,6 +352,13 @@ export function AdsPanel({ slug }: AdsPanelProps) {
           )}
         </div>
       )}
+      <WorkspaceContextMenu
+        open={ctxMenu.open}
+        x={ctxMenu.x}
+        y={ctxMenu.y}
+        onOpenInNewTab={runCtxAction}
+        onClose={closeCtx}
+      />
     </div>
   )
 }
@@ -613,10 +674,12 @@ function CampListItem({
   campaign,
   active,
   onSelect,
+  onContextMenu,
 }: {
   campaign: AdCampaign
   active: boolean
   onSelect: () => void
+  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void
 }) {
   const status = STATUS_META[campaign.status]
   const platform = PLATFORM_META[campaign.platform]
@@ -624,6 +687,7 @@ function CampListItem({
     <button
       type="button"
       onClick={onSelect}
+      onContextMenu={onContextMenu}
       style={{
         width: '100%',
         textAlign: 'left',

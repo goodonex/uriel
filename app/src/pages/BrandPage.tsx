@@ -11,6 +11,12 @@ import { useBrands } from '../hooks/useBrands'
 import { useRouteModulesSync } from '../hooks/useRouteModulesSync'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useViewport } from '../hooks/useViewport'
+import { useWorkspaceTabsSync } from '../hooks/useWorkspaceTabsSync'
+import { WorkspaceTabBar } from '../components/workspace/WorkspaceTabBar'
+import { WorkspaceEntityKeepAlive } from '../components/workspace/WorkspaceEntityKeepAlive'
+import { WorkspaceErrorBoundary } from '../components/workspace/WorkspaceErrorBoundary'
+import { isEntityDetailPath } from '../lib/workspaceTabs'
+import { workspaceTabBarOffset } from '../components/workspace/WorkspaceTabBar'
 
 const MODE_LABEL: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -44,6 +50,11 @@ export function BrandPage() {
   const brand = useMemo(() => brands.find((b) => b.slug === slug), [brands, slug])
   const modeLabel = modeFromPath(pathname)
   const showBrandSystem = isBrandSystemRoute(pathname)
+  const { entityTabCount } = useWorkspaceTabsSync(slug, pathname)
+  const entityDetailActive = isEntityDetailPath(pathname)
+  const useMultiEntityOverlay = entityTabCount >= 2 && entityDetailActive
+  const tabBarVisible = entityTabCount > 0
+  const tabOffset = tabBarVisible ? workspaceTabBarOffset(isMobile) : 0
 
   useRouteModulesSync({
     slug,
@@ -85,6 +96,7 @@ export function BrandPage() {
           background: 'transparent',
           minHeight: '100vh',
           '--brand-accent': brandAccent,
+          '--workspace-tab-offset': `${tabOffset}px`,
         } as CSSProperties
       }
     >
@@ -134,9 +146,7 @@ export function BrandPage() {
       <motion.div
         key={slug}
         className="min-w-0 w-full"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        initial={false}
         style={{
           background: 'transparent',
           padding: 0,
@@ -212,7 +222,15 @@ export function BrandPage() {
             </div>
           </header>
         ) : null}
-        <div style={{ padding: isMobile ? '12px 14px 80px' : 0 }}>
+        <WorkspaceErrorBoundary fallbackTitle="Workspace-Tabs">
+          {tabBarVisible ? <WorkspaceTabBar slug={slug} /> : null}
+        </WorkspaceErrorBoundary>
+        <div
+          style={{
+            display: useMultiEntityOverlay ? 'none' : 'block',
+            padding: isMobile ? '12px 14px 80px' : '0 12px 0 0',
+          }}
+        >
           {isMobile && showBrandSystem ? (
             <motion.div
               key="brand-system"
@@ -228,6 +246,14 @@ export function BrandPage() {
             <ModuleRenderer slug={slug} mobile={isMobile} />
           )}
         </div>
+        <WorkspaceErrorBoundary fallbackTitle="Tab-Inhalt">
+          <WorkspaceEntityKeepAlive
+            slug={slug}
+            pathname={pathname}
+            isMobile={isMobile}
+            enabled={useMultiEntityOverlay}
+          />
+        </WorkspaceErrorBoundary>
       </motion.div>
 
       {/* Floating Action Button: Call Mode (nur Mobile, nicht auf Call-Mode-Page selbst) */}

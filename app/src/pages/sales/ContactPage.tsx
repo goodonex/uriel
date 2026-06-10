@@ -50,8 +50,17 @@ const FIELD = {
 export function ContactPage({
   variant = 'page',
   scrollInParent = false,
-}: { variant?: 'page' | 'module'; scrollInParent?: boolean } = {}) {
-  const { slug, contactId } = useParams<{ slug: string; contactId: string }>()
+  slugOverride,
+  contactIdOverride,
+}: {
+  variant?: 'page' | 'module'
+  scrollInParent?: boolean
+  slugOverride?: string
+  contactIdOverride?: string
+} = {}) {
+  const params = useParams<{ slug: string; contactId: string }>()
+  const slug = slugOverride ?? params.slug
+  const contactId = contactIdOverride ?? params.contactId
   const navigate = useNavigate()
   const contacts = useContacts(slug)
   const deliver = useDeliverProjects(slug)

@@ -21,6 +21,8 @@ export type ActivityAction =
   | 'note_added'
   | 'archived'
   | 'linkedin_sent'
+  | 'pitch_sent'
+  | 'loom_created'
   | 'qualified'
   | 'client_invited'
 

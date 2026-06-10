@@ -15,6 +15,7 @@ import type { Contact } from '../../types/db'
 const STAGE_LABEL: Record<Contact['pipeline_stage'], string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',

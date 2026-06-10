@@ -72,6 +72,7 @@ function activeChannelsLine(assets: Asset[] | undefined): string | null {
 const SALES_PIPELINE_ORDER: PipelineStage[] = [
   'first_contact',
   'conversation',
+  'follow_up',
   'proposal',
   'deal',
   'paused',
@@ -94,6 +95,7 @@ function buildSalesSnapshotBlock(contacts: Contact[]): string {
   const counts: Record<PipelineStage, number> = {
     first_contact: 0,
     conversation: 0,
+    follow_up: 0,
     proposal: 0,
     deal: 0,
     paused: 0,

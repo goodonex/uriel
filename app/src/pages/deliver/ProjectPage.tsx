@@ -135,8 +135,18 @@ function StageKanban({
   )
 }
 
-export function ProjectPage() {
-  const { slug, projectId } = useParams<{ slug: string; projectId: string }>()
+export function ProjectPage({
+  slugOverride,
+  projectIdOverride,
+  embeddedInTabs: _embeddedInTabs = false,
+}: {
+  slugOverride?: string
+  projectIdOverride?: string
+  embeddedInTabs?: boolean
+} = {}) {
+  const params = useParams<{ slug: string; projectId: string }>()
+  const slug = slugOverride ?? params.slug
+  const projectId = projectIdOverride ?? params.projectId
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()

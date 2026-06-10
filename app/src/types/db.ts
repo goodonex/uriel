@@ -263,6 +263,7 @@ export interface Campaign {
 export type PipelineStage =
   | 'first_contact'
   | 'conversation'
+  | 'follow_up'
   | 'proposal'
   | 'deal'
   | 'paused'
@@ -929,6 +930,84 @@ export interface SalesViewFilter {
   follow?: string | null
   tags?: string[]
   search?: string
+}
+
+export interface DailyMetricTargets {
+  id: string
+  brand_id: string
+  dial_attempts_target: number
+  linkedin_target: number
+  pitches_target: number
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessTargetMilestone {
+  id: string
+  label: string
+  quarter: string
+  target_date: string
+  completed?: boolean
+}
+
+export interface BusinessTarget {
+  id: string
+  brand_id: string
+  period_label: string
+  north_star_mrr: number
+  north_star_deadline: string
+  mrr_dec_target: number
+  total_revenue_target: number
+  new_customers_target: number
+  margin_min: number
+  margin_max: number
+  hire_trigger_mrr: number
+  hire_trigger_profit: number
+  milestones: BusinessTargetMilestone[]
+  created_at: string
+  updated_at: string
+}
+
+export interface WeeklyReviewSnapshot {
+  conversations: number
+  pitches: number
+  deals: number
+  newCustomers: Array<{ name: string; product: string }>
+  projectRevenue: number
+  newMrr: number
+  youtubePublished: boolean
+  linkedinPosts: number
+  badLeads: number
+  churnWarnings: number
+}
+
+export interface WeeklyReview {
+  id: string
+  brand_id: string
+  week_start: string
+  snapshot: WeeklyReviewSnapshot
+  notes: string
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MonthlySnapshot {
+  id: string
+  brand_id: string
+  month: string
+  mrr: number
+  mrr_override: number | null
+  mrr_delta: number
+  project_revenue: number
+  total_revenue: number
+  active_customers: number
+  churn_rate: number
+  new_customers: number
+  ads_cpl: number | null
+  ads_cpk: number | null
+  created_at: string
+  updated_at: string
 }
 
 export interface SalesView {

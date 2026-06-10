@@ -10,8 +10,8 @@ export const SCROLL_SIDE_CARD_WIDTH = 300
 export const SCROLL_PIPELINE_WIDTH = `calc(100vw - ${SCROLL_SIDEBAR_CLEARANCE}px - ${SCROLL_SIDE_CARD_WIDTH}px - 48px)`
 
 export const SECTION_SHELL: CSSProperties = {
-  height: '100vh',
-  minHeight: '100vh',
+  height: 'calc(100vh - var(--workspace-tab-offset, 0px))',
+  minHeight: 'calc(100vh - var(--workspace-tab-offset, 0px))',
   scrollSnapAlign: 'start',
   scrollSnapStop: 'always',
   position: 'relative',

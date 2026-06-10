@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PerformanceTrackingSection } from './dashboard/PerformanceTrackingSection'
 import { useBrands } from '../hooks/useBrands'
 import { useContacts } from '../hooks/useContacts'
 import { useDiscoveryFeed } from '../hooks/useDiscoveryFeed'
@@ -110,6 +111,14 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
     () => feed.items.slice(0, 2),
     [feed.items],
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== '#daily-scorecard') return
+    window.requestAnimationFrame(() => {
+      document.getElementById('daily-scorecard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [slug])
 
   const showCompactSummary = !embedded || !expanded
 
@@ -290,7 +299,11 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
         </div>
       )}
 
-      <div style={{ marginTop: showCompactSummary ? 14 : 0, pointerEvents: 'auto', flexShrink: 0 }}>
+      <div style={{ marginTop: showCompactSummary ? 12 : 8, pointerEvents: 'auto', flexShrink: 0 }}>
+        <PerformanceTrackingSection slug={slug} compact={embedded} />
+      </div>
+
+      <div style={{ marginTop: 14, pointerEvents: 'auto', flexShrink: 0 }}>
         <button
           type="button"
           onClick={() => setExpanded((s) => !s)}
@@ -336,7 +349,7 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
               overflow: 'visible',
             }}
           >
-            <BrandDashboardPage />
+            <BrandDashboardPage embeddedInSystemDashboard />
           </motion.div>
         ) : null}
       </AnimatePresence>

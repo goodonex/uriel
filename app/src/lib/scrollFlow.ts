@@ -1,4 +1,12 @@
-import { isDeliverProjectDetailPath, salesContactIdFromPath } from './horizontalPanels'
+import {
+  isDeliverProjectDetailPath,
+  promoPathForPanel,
+  promoPanelIndexFromPath,
+  recalledSectionPanelPath,
+  salesContactIdFromPath,
+  salesPathForPanel,
+  salesPanelIndexFromPath,
+} from './horizontalPanels'
 
 export const SECTION_ORDER = [
   'dashboard',
@@ -52,16 +60,32 @@ export function isSectionScrollLocked(pathname: string): boolean {
   return Boolean(salesContactIdFromPath(pathname)) || isDeliverProjectDetailPath(pathname)
 }
 
-export function pathForSection(slug: string, section: SectionKey): string {
+export function pathForSection(
+  slug: string,
+  section: SectionKey,
+  fromPathname?: string,
+): string {
   switch (section) {
     case 'dashboard':
       return `/brand/${slug}`
     case 'foundation':
       return `/brand/${slug}/foundation`
-    case 'promo':
-      return `/brand/${slug}/promo`
-    case 'sales':
-      return `/brand/${slug}/sales`
+    case 'promo': {
+      if (fromPathname && sectionFromPathname(fromPathname) === 'promo') {
+        return fromPathname
+      }
+      const recalled = recalledSectionPanelPath(slug, 'promo')
+      if (recalled) return recalled
+      return promoPathForPanel(slug, promoPanelIndexFromPath(fromPathname ?? ''))
+    }
+    case 'sales': {
+      if (fromPathname && sectionFromPathname(fromPathname) === 'sales') {
+        return fromPathname
+      }
+      const recalled = recalledSectionPanelPath(slug, 'sales')
+      if (recalled) return recalled
+      return salesPathForPanel(slug, salesPanelIndexFromPath(fromPathname ?? ''))
+    }
     case 'deliver':
       return `/brand/${slug}/deliver`
     case 'intelligence':

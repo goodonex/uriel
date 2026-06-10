@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type MouseEvent } from 'react'
 import { contactStatusMeta } from '../../lib/crmStatus'
 import { companyDisplayName, isCompany } from '../../lib/crmContacts'
 import { contactRowSubtitle } from '../../lib/crmFilters'
@@ -7,6 +7,7 @@ import type { Contact, PipelineStage } from '../../types/db'
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
@@ -18,10 +19,12 @@ export function PipelineTableView({
   contacts,
   allContacts,
   onOpen,
+  onContextOpen,
 }: {
   contacts: Contact[]
   allContacts: Contact[]
   onOpen: (id: string) => void
+  onContextOpen?: (id: string, event: MouseEvent) => void
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
@@ -105,6 +108,7 @@ export function PipelineTableView({
               <tr
                 key={c.id}
                 onClick={() => onOpen(c.id)}
+                onContextMenu={(e) => onContextOpen?.(c.id, e)}
                 style={{
                   cursor: 'pointer',
                   background: i % 2 === 0 ? 'var(--glass-1)' : 'color-mix(in srgb, var(--glass-2) 60%, transparent)',

@@ -1,9 +1,11 @@
+import type { MouseEvent } from 'react'
 import type { Contact, PipelineStage } from '../../types/db'
 import { contactCardTitle } from '../../lib/pipelineContactSort'
 
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
@@ -28,9 +30,11 @@ function formatFollowUp(iso: string | null): string {
 export function PipelineListView({
   contacts,
   onOpen,
+  onContextOpen,
 }: {
   contacts: Contact[]
   onOpen: (id: string) => void
+  onContextOpen?: (id: string, event: MouseEvent) => void
 }) {
   if (contacts.length === 0) {
     return (
@@ -54,6 +58,7 @@ export function PipelineListView({
             key={c.id}
             type="button"
             onClick={() => onOpen(c.id)}
+            onContextMenu={(e) => onContextOpen?.(c.id, e)}
             className="glass-2 font-mono flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left"
             style={{
               border: overdue

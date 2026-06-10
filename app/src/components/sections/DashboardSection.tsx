@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BrandSystemDashboard } from '../BrandSystemDashboard'
+import { PerformanceTrackingSection } from '../dashboard/PerformanceTrackingSection'
 import { CardTile, CARD_TILE_TAP } from '../../modules/CardTile'
 import { useBrands } from '../../hooks/useBrands'
 import { useContacts } from '../../hooks/useContacts'
@@ -84,6 +85,17 @@ export function DashboardSection({ slug }: { slug: string }) {
     <div data-scroll-section="dashboard" style={SECTION_SHELL}>
       <div style={SECTION_VIEWPORT}>
         <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+            background:
+              'radial-gradient(ellipse 80% 70% at 44% 46%, rgba(6, 6, 16, 0.22), rgba(6, 6, 16, 0.78) 72%)',
+          }}
+        />
+        <div
           style={{
             position: 'absolute',
             left: 0,
@@ -132,6 +144,22 @@ export function DashboardSection({ slug }: { slug: string }) {
             Mehr anzeigen
           </button>
         </div>
+
+        <CardTile
+          flyFrom="left"
+          delay={0.04}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: SCROLL_SIDE_CARD_WIDTH,
+            maxHeight: '58%',
+            overflowY: 'auto',
+            zIndex: 3,
+          }}
+        >
+          <PerformanceTrackingSection slug={slug} compact />
+        </CardTile>
 
         <CardTile
           flyFrom="right"

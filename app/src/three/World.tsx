@@ -35,7 +35,9 @@ export function World() {
       ) : null}
       {stage === 'universe' ? <fog attach="fog" args={['#060610', 60, 120]} /> : null}
       <ambientLight
-        intensity={stage === 'universe' ? 0.45 : salesDimmed ? 0.08 : 0.25}
+        intensity={
+          stage === 'universe' ? 0.45 : stage === 'brand-system' ? 0.11 : salesDimmed ? 0.08 : 0.25
+        }
       />
       <WorldCameraController />
       {stage === 'universe' ? <Universe /> : null}

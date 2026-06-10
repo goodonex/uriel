@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useMemo } from 'react'
+import { MonthlySteeringSection } from '../../components/intelligence/MonthlySteeringSection'
 import { useActivityLog } from '../../hooks/useActivityLog'
 import { useContacts } from '../../hooks/useContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
@@ -9,6 +10,7 @@ import type { Contact, PipelineStage } from '../../types/db'
 const STAGE_PROBABILITY: Record<PipelineStage, number> = {
   first_contact: 0.1,
   conversation: 0.3,
+  follow_up: 0.35,
   proposal: 0.55,
   deal: 0.95,
   paused: 0,
@@ -17,6 +19,7 @@ const STAGE_PROBABILITY: Record<PipelineStage, number> = {
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Angebot',
   deal: 'Deal',
   paused: 'Pause',
@@ -53,6 +56,7 @@ function calcPipelineForecast(contacts: Contact[]): PipelineForecastResult {
   const byStage: Record<PipelineStage, { count: number; sum: number; weighted: number }> = {
     first_contact: { count: 0, sum: 0, weighted: 0 },
     conversation: { count: 0, sum: 0, weighted: 0 },
+    follow_up: { count: 0, sum: 0, weighted: 0 },
     proposal: { count: 0, sum: 0, weighted: 0 },
     deal: { count: 0, sum: 0, weighted: 0 },
     paused: { count: 0, sum: 0, weighted: 0 },
@@ -137,10 +141,11 @@ export function IntelligenceReports({ slug }: IntelligenceReportsProps) {
   )
 
   const funnel = useMemo(() => {
-    const order: PipelineStage[] = ['first_contact', 'conversation', 'proposal', 'deal']
+    const order: PipelineStage[] = ['first_contact', 'conversation', 'follow_up', 'proposal', 'deal']
     const counts: Record<PipelineStage, number> = {
       first_contact: 0,
       conversation: 0,
+      follow_up: 0,
       proposal: 0,
       deal: 0,
       paused: 0,
@@ -169,6 +174,7 @@ export function IntelligenceReports({ slug }: IntelligenceReportsProps) {
     const buckets: Record<PipelineStage, number[]> = {
       first_contact: [],
       conversation: [],
+      follow_up: [],
       proposal: [],
       deal: [],
       paused: [],
@@ -237,6 +243,7 @@ export function IntelligenceReports({ slug }: IntelligenceReportsProps) {
 
   return (
     <div className="space-y-6">
+      <MonthlySteeringSection slug={slug} />
       <ReportCard
         label="PIPELINE FORECAST"
         title="Erwarteter Umsatz aus aktuellem Funnel"

@@ -26,16 +26,18 @@ export function useActivityLog(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const itemsRef = useRef<ActivityEntry[]>([])
+  const hydratedRef = useRef(false)
   itemsRef.current = items
 
   const reload = useCallback(async () => {
     if (!supabase || !brandId) {
       setItems([])
       setLoading(false)
+      hydratedRef.current = true
       setError(null)
       return
     }
-    setLoading(true)
+    if (!hydratedRef.current) setLoading(true)
     const { data, error: err } = await supabase
       .from('activity_log')
       .select('*')
@@ -48,13 +50,19 @@ export function useActivityLog(
       } else {
         setError(err.message)
       }
+      hydratedRef.current = true
       setLoading(false)
       return
     }
     setError(null)
     setItems((data ?? []).map((r) => rowToActivity(r as Record<string, unknown>)))
+    hydratedRef.current = true
     setLoading(false)
   }, [brandId, limit])
+
+  useEffect(() => {
+    hydratedRef.current = false
+  }, [brandId])
 
   useEffect(() => {
     void reload()

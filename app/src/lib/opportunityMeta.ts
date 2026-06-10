@@ -34,6 +34,7 @@ export const OPPORTUNITY_MAIN_STAGES: OpportunityStage[] = [
 export const PIPELINE_TO_OPPORTUNITY: Partial<Record<PipelineStage, OpportunityStage>> = {
   first_contact: 'erstkontakt',
   conversation: 'gespraech',
+  follow_up: 'gespraech',
   proposal: 'pitch',
   deal: 'deal',
 }

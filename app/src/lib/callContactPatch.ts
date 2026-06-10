@@ -80,6 +80,7 @@ export function contactPatchAfterCallOutcome(
       }
       break
     case 'callback_requested':
+      patch.pipeline_stage = 'follow_up'
       patch.next_follow_up_at = followUpIsoDaysFromNow(1)
       patch.follow_up_type = 'call'
       break

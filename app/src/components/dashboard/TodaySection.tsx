@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useBrandNavigate } from '../../hooks/useBrandNavigate'
 import {
   contactsDueToday,
   contactsOverdue,
@@ -40,7 +40,7 @@ function daysSince(iso: string | null | undefined): number | null {
 }
 
 export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
-  const navigate = useNavigate()
+  const { go } = useBrandNavigate(slug)
   const positioning = usePositioning(slug)
   const icps = useICPs(slug)
   const wordBank = useWordBank(slug)
@@ -180,7 +180,7 @@ export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
             {due.length > 5 ? (
               <button
                 type="button"
-                onClick={() => navigate(`/brand/${slug}/sales`)}
+                onClick={() => go(`/brand/${slug}/sales`)}
                 className="font-mono"
                 style={{
                   fontSize: 9,
@@ -211,7 +211,7 @@ export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
                 <li key={c.id}>
                   <button
                     type="button"
-                    onClick={() => navigate(`/brand/${slug}/sales/${c.id}`)}
+                    onClick={() => go(`/brand/${slug}/sales/${c.id}`)}
                     className="flex w-full items-center justify-between gap-2 rounded-md text-left transition-colors"
                     style={{
                       background: 'transparent',
@@ -294,7 +294,7 @@ export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
                   <li key={c.id}>
                     <button
                       type="button"
-                      onClick={() => navigate(`/brand/${slug}/sales/${c.id}`)}
+                      onClick={() => go(`/brand/${slug}/sales/${c.id}`)}
                       className="flex w-full items-center justify-between gap-2 rounded-md text-left transition-colors"
                       style={{
                         background: 'transparent',
@@ -346,7 +346,7 @@ export function TodaySection({ slug, contacts, loading }: TodaySectionProps) {
             </div>
             <button
               type="button"
-              onClick={() => navigate(`/brand/${slug}/foundation`)}
+              onClick={() => go(`/brand/${slug}/foundation`)}
               className="font-mono"
               style={{
                 fontSize: 9,

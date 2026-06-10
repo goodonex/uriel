@@ -3,6 +3,7 @@ import type { Contact, PotenzialTyp, PipelineStage } from '../types/db'
 const PIPELINE_STAGES: PipelineStage[] = [
   'first_contact',
   'conversation',
+  'follow_up',
   'proposal',
   'deal',
   'paused',

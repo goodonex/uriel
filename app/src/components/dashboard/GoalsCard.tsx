@@ -5,6 +5,7 @@ import { useContacts } from '../../hooks/useContacts'
 import { useBrandId } from '../../hooks/useBrandId'
 import { logActivity } from '../../lib/activityLog'
 import { useToast } from '../Toast'
+import { usePerformanceDrawers } from './PerformanceDrawerContext'
 
 interface GoalsCardProps {
   slug: string
@@ -84,6 +85,8 @@ function ProgressBar({ label, current, target, accent, onTally }: ProgressBarPro
 }
 
 export function GoalsCard({ slug, onOpenSettings }: GoalsCardProps) {
+  const drawers = usePerformanceDrawers()
+  const openSettings = onOpenSettings ?? drawers?.openGoals
   const goals = useSalesGoals(slug, 'week')
   const calls = useCallLogs(slug, { limit: 500 })
   const mails = useEmailLogs(slug, { limit: 500 })
@@ -181,10 +184,10 @@ export function GoalsCard({ slug, onOpenSettings }: GoalsCardProps) {
             Diese Woche
           </div>
         </div>
-        {onOpenSettings ? (
+        {openSettings ? (
           <button
             type="button"
-            onClick={onOpenSettings}
+            onClick={openSettings}
             className="font-mono"
             style={{
               fontSize: 10,
@@ -213,12 +216,12 @@ export function GoalsCard({ slug, onOpenSettings }: GoalsCardProps) {
           }}
         >
           Noch keine Wochenziele gesetzt.
-          {onOpenSettings ? (
+          {openSettings ? (
             <>
               {' '}
               <button
                 type="button"
-                onClick={onOpenSettings}
+                onClick={openSettings}
                 style={{
                   background: 'none',
                   border: 'none',

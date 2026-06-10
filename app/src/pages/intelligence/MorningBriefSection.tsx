@@ -9,6 +9,7 @@ import type { PipelineStage } from '../../types/db'
 const STAGE_ORDER: PipelineStage[] = [
   'first_contact',
   'conversation',
+  'follow_up',
   'proposal',
   'deal',
   'paused',
@@ -17,6 +18,7 @@ const STAGE_ORDER: PipelineStage[] = [
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Angebot',
   deal: 'Deal',
   paused: 'Pause',
@@ -53,6 +55,7 @@ export function MorningBriefSection({ slug }: { slug: string }) {
     const counts: Record<PipelineStage, number> = {
       first_contact: 0,
       conversation: 0,
+      follow_up: 0,
       proposal: 0,
       deal: 0,
       paused: 0,

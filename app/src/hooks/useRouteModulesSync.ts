@@ -42,7 +42,7 @@ function isSalesDesktopModulesPath(pathname: string): boolean {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)\/?$/)
   if (!m?.[1]) return false
   const seg = m[1]
-  if (seg === 'lists' || seg === 'call-mode' || seg === 'new') return false
+  if (['lists', 'call-mode', 'new', 'heute', 'pipeline'].includes(seg)) return false
   return true
 }
 
@@ -50,7 +50,7 @@ function salesContactIdFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/brand\/[^/]+\/sales\/([^/]+)\/?$/)
   if (!m?.[1]) return null
   const seg = m[1]
-  if (seg === 'lists' || seg === 'call-mode') return null
+  if (['lists', 'call-mode', 'new', 'heute', 'pipeline'].includes(seg)) return null
   return seg
 }
 

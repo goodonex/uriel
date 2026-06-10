@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BrandPresenceShowcase } from '../components/BrandPresenceShowcase'
 import { GoalsCard } from '../components/dashboard/GoalsCard'
+import { PerformanceTrackingSection } from '../components/dashboard/PerformanceTrackingSection'
 import { TasksSection } from '../components/dashboard/TasksSection'
 import { TodaySection } from '../components/dashboard/TodaySection'
 import { EmptyState } from '../components/EmptyState'
@@ -18,6 +19,7 @@ import type { DeliverProject, PipelineStage } from '../types/db'
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Angebot',
   deal: 'Deal',
   paused: 'Pause',
@@ -26,6 +28,7 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 const STAGE_ORDER: PipelineStage[] = [
   'first_contact',
   'conversation',
+  'follow_up',
   'proposal',
   'deal',
   'paused',
@@ -79,7 +82,11 @@ function Chevron() {
   )
 }
 
-export function BrandDashboardPage() {
+export function BrandDashboardPage({
+  embeddedInSystemDashboard = false,
+}: {
+  embeddedInSystemDashboard?: boolean
+} = {}) {
   const { slug = '' } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { brands } = useBrands()
@@ -105,6 +112,8 @@ export function BrandDashboardPage() {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: 'transparent' }}
     >
+      {slug && !embeddedInSystemDashboard ? <PerformanceTrackingSection slug={slug} /> : null}
+
       {/* HERO — Mein Tag heute */}
       {slug ? (
         <div style={{ paddingBottom: 4 }}>

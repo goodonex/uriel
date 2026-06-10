@@ -34,11 +34,9 @@ function readIndexFromScroll(root: HTMLElement, panelCount: number): number {
   const frac = raw - floor
   const clampedFloor = Math.max(0, Math.min(panelCount - 1, floor))
 
+  // Nur am Panel-Ende vorwärts wechseln — frac≈0 ist Panel-Start, kein Rücksprung.
   if (frac >= 1 - PANEL_SWITCH_BARRIER) {
     return Math.min(clampedFloor + 1, panelCount - 1)
-  }
-  if (frac <= PANEL_SWITCH_BARRIER && clampedFloor > 0) {
-    return clampedFloor - 1
   }
   return clampedFloor
 }

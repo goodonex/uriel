@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useBrandNavigate } from '../../hooks/useBrandNavigate'
 import { useToast } from '../../components/Toast'
 import { LIST_PRESETS, useContactListItems, useContactLists } from '../../hooks/useContactLists'
 import { ContactListCardMenu } from '../../components/sales/ContactListCardMenu'
@@ -77,7 +78,7 @@ export function ContactListsContent({
   listId?: string
   embedded?: boolean
 }) {
-  const navigate = useNavigate()
+  const { go, navigate } = useBrandNavigate(slug)
   const { show } = useToast()
   const listsBase = `/brand/${slug}/sales/lists`
   const overviewBackTo = embedded ? `/brand/${slug}/sales?tab=listen` : `/brand/${slug}/sales`
@@ -399,10 +400,10 @@ export function ContactListsContent({
         called_at: row.called_at ?? new Date().toISOString(),
       })
       if (navigateToContact) {
-        navigate(`/brand/${slug}/sales/${contact.id}`)
+        go(`/brand/${slug}/sales/${contact.id}`)
       }
     },
-    [contacts, navigate, slug, updateItem],
+    [contacts, go, slug, updateItem],
   )
 
   const pushToPipeline = useCallback(

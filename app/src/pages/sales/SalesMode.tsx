@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -43,6 +44,12 @@ import { useContacts } from '../../hooks/useContacts'
 import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useOpportunities } from '../../hooks/useOpportunities'
 import type { Contact, DeliverProject, PipelineStage } from '../../types/db'
+import { contactSalesPath, openContactsInTabs } from '../../lib/openContactTabs'
+import { useBrandNavigate } from '../../hooks/useBrandNavigate'
+import {
+  useWorkspaceContextMenu,
+  WorkspaceContextMenu,
+} from '../../components/workspace/WorkspaceContextMenu'
 import {
   filterPipelineContacts,
   formatEuroDe,
@@ -84,6 +91,7 @@ import { ContactListsContent } from './ContactListsContent'
 const STAGES: PipelineStage[] = [
   'first_contact',
   'conversation',
+  'follow_up',
   'proposal',
   'deal',
   'paused',
@@ -92,6 +100,7 @@ const STAGES: PipelineStage[] = [
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
@@ -101,6 +110,7 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 const STAGE_ACCENT: Record<PipelineStage, string> = {
   first_contact: 'var(--mode-sales)',
   conversation: 'var(--accent-blue)',
+  follow_up: '#f59e0b',
   proposal: 'var(--accent-teal)',
   deal: '#4ade80',
   paused: 'var(--text-tertiary)',
@@ -286,6 +296,8 @@ function PipelineFilterBar({
   onKanbanColumnSortChange,
   viewMode,
   onViewModeChange,
+  onOpenBatchTabs,
+  callableCount,
 }: {
   q: string
   setQ: (s: string) => void
@@ -303,6 +315,8 @@ function PipelineFilterBar({
   onKanbanColumnSortChange: (sort: KanbanColumnSort) => void
   viewMode: PipelineViewMode
   onViewModeChange: (mode: PipelineViewMode) => void
+  onOpenBatchTabs?: (count: number) => void
+  callableCount?: number
 }) {
   const pill = (on: boolean) => ({
     fontSize: 10,
@@ -650,6 +664,38 @@ function PipelineFilterBar({
                 )
               : null}
           </div>
+        {onOpenBatchTabs ? (
+          <>
+            <div
+              aria-hidden
+              className="shrink-0"
+              style={{
+                width: 1,
+                height: 22,
+                margin: '0 4px',
+                background: 'color-mix(in srgb, var(--glass-border-2) 85%, transparent)',
+                alignSelf: 'center',
+              }}
+            />
+            {([10, 20] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                className="font-mono shrink-0 whitespace-nowrap"
+                title={`Erste ${n} Leads mit Telefon in neuen Tabs öffnen`}
+                disabled={(callableCount ?? 0) === 0}
+                onClick={() => onOpenBatchTabs(n)}
+                style={{
+                  ...pill(false),
+                  opacity: (callableCount ?? 0) >= n || (callableCount ?? 0) > 0 ? 1 : 0.45,
+                  cursor: (callableCount ?? 0) > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {n}↗
+              </button>
+            ))}
+          </>
+        ) : null}
         {filtersActive ? (
           <button
             type="button"
@@ -911,10 +957,12 @@ function DraggableContactCard({
   bulkActive,
   scrollEmbed = false,
   onSetFollowUpDays,
+  onContextOpen,
 }: {
   contact: Contact
   slug: string
   onSelect: () => void
+  onContextOpen?: (event: ReactMouseEvent) => void
   onCreateDeliverProject: () => void
   onOpenDeliverProject?: () => void
   deliverProjectId?: string | null
@@ -1013,6 +1061,7 @@ function DraggableContactCard({
         }
         onSelect()
       }}
+      onContextMenu={onContextOpen}
     >
       {showChk ? (
         <label
@@ -1292,12 +1341,14 @@ function PipelineBoard({
   scrollEmbed = false,
   onSetFollowUpDays,
   columnSort,
+  onContactContextMenu,
 }: {
   contacts: Contact[]
   slug: string
   deliverProjects: DeliverProject[]
   onMoveToStage: (contactId: string, stage: PipelineStage) => void
   onSelectContact: (id: string) => void
+  onContactContextMenu?: (id: string, event: React.MouseEvent) => void
   onCreateDeliverProject: (contact: Contact) => void
   onSetFollowUpDays: (contactId: string, daysFromNow: number) => void
   onAppendActivity: (contactId: string, text: string) => void
@@ -1433,6 +1484,7 @@ function PipelineBoard({
                       if (skipClickRef.current) return
                       onSelectContact(c.id)
                     }}
+                    onContextOpen={(e) => onContactContextMenu?.(c.id, e)}
                     onCreateDeliverProject={() => onCreateDeliverProject(c)}
                     onAppendActivity={onAppendActivity}
                     quickNoteOpen={quickNoteId === c.id}
@@ -1779,6 +1831,65 @@ export function SalesMode({
     [contacts.items, selectedIds],
   )
 
+  const callablePipeline = useMemo(
+    () => sortedPipeline.filter((c) => c.phone?.trim()),
+    [sortedPipeline],
+  )
+
+  const notifyTabsResult = useCallback(
+    (result: { opened: number; blocked: number }) => {
+      if (result.opened === 0) {
+        showToast('Keine Tabs geöffnet — Popup-Blocker prüfen', 'info')
+        return
+      }
+      if (result.blocked > 0) {
+        showToast(`${result.opened} Tabs geöffnet · ${result.blocked} blockiert`, 'info')
+      } else {
+        showToast(`${result.opened} Tab${result.opened === 1 ? '' : 's'} geöffnet`, 'success')
+      }
+    },
+    [showToast],
+  )
+
+  const { go: goBrand, openNewTab } = useBrandNavigate(slug ?? '')
+  const { state: ctxMenu, close: closeCtx, openAt: openCtxAt, runAction: runCtxAction } =
+    useWorkspaceContextMenu()
+
+  const openContact = useCallback(
+    (id: string) => {
+      if (!slug) return
+      goBrand(contactSalesPath(slug, id))
+    },
+    [goBrand, slug],
+  )
+
+  const onContactContextMenu = useCallback(
+    (id: string, event: React.MouseEvent) => {
+      if (!slug) return
+      openCtxAt(event, () => openNewTab(contactSalesPath(slug, id)))
+    },
+    [openCtxAt, openNewTab, slug],
+  )
+
+  const openFilteredBatchTabs = useCallback(
+    (count: number) => {
+      if (!slug) return
+      const ids = callablePipeline.slice(0, count).map((c) => c.id)
+      const result = openContactsInTabs(slug, ids)
+      notifyTabsResult(result)
+      if (ids[0]) goBrand(contactSalesPath(slug, ids[0]))
+    },
+    [callablePipeline, goBrand, notifyTabsResult, slug],
+  )
+
+  const applyBulkOpenTabs = useCallback(() => {
+    if (!slug) return
+    const ids = sortedPipeline.filter((c) => selectedIds.has(c.id)).map((c) => c.id)
+    const result = openContactsInTabs(slug, ids)
+    notifyTabsResult(result)
+    if (ids[0]) goBrand(contactSalesPath(slug, ids[0]))
+  }, [goBrand, notifyTabsResult, selectedIds, slug, sortedPipeline])
+
   const applyBulkStage = useCallback(() => {
     for (const c of selectedContactList) {
       contacts.update(c.id, { pipeline_stage: bulkStagePick })
@@ -2102,6 +2213,8 @@ export function SalesMode({
                 onKanbanColumnSortChange={setKanbanColumnSort}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
+                onOpenBatchTabs={openFilteredBatchTabs}
+                callableCount={callablePipeline.length}
               />
             </div>
           ) : null}
@@ -2117,17 +2230,20 @@ export function SalesMode({
               <PipelineTableView
                 contacts={sortedPipeline}
                 allContacts={contacts.items}
-                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+                onOpen={openContact}
+                onContextOpen={onContactContextMenu}
               />
             ) : viewMode === 'list' ? (
               <PipelineListView
                 contacts={sortedPipeline}
-                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+                onOpen={openContact}
+                onContextOpen={onContactContextMenu}
               />
             ) : viewMode === 'carousel' ? (
               <PipelineCarouselView
                 contacts={sortedPipeline}
-                onOpen={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+                onOpen={openContact}
+                onContextOpen={onContactContextMenu}
               />
             ) : (
               <PipelineBoard
@@ -2139,7 +2255,8 @@ export function SalesMode({
                 onMoveToStage={(id, stage) =>
                   contacts.update(id, { pipeline_stage: stage })
                 }
-                onSelectContact={(id) => navigate(`/brand/${slug}/sales/${id}`)}
+                onSelectContact={openContact}
+                onContactContextMenu={onContactContextMenu}
                 onCreateDeliverProject={handleCreateDeliverFromContact}
                 onAppendActivity={appendActivity}
                 quickNoteId={quickNoteId}
@@ -2179,6 +2296,22 @@ export function SalesMode({
               <span style={{ fontWeight: 600 }}>
                 {selectedIds.size} Kontakt{selectedIds.size === 1 ? '' : 'e'} ausgewählt
               </span>
+              <button
+                type="button"
+                onClick={applyBulkOpenTabs}
+                title="Ausgewählte Leads in neuen Tabs öffnen (⌘/Strg+Klick auf Karte)"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--mode-sales)',
+                  background: 'color-mix(in srgb, var(--mode-sales) 12%, transparent)',
+                  color: 'var(--mode-sales)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                ↗ Tabs öffnen
+              </button>
               <select
                 value={bulkStagePick}
                 onChange={(e) => setBulkStagePick(e.target.value as PipelineStage)}
@@ -2334,6 +2467,13 @@ export function SalesMode({
         open={meetingDrawerOpen}
         onClose={() => setMeetingDrawerOpen(false)}
         brandSlug={slug}
+      />
+      <WorkspaceContextMenu
+        open={ctxMenu.open}
+        x={ctxMenu.x}
+        y={ctxMenu.y}
+        onOpenInNewTab={runCtxAction}
+        onClose={closeCtx}
       />
     </motion.div>
   )

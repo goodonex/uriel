@@ -248,7 +248,11 @@ function App() {
                 <Route path="building" element={<Navigate to="../foundation" replace />} />
                 <Route path="discovery" element={<DiscoveryMode />} />
                 <Route path="promo" element={<PromoDefaultRouteGate />} />
+                <Route path="promo/email" element={<Navigate to="email-flows" replace />} />
+                <Route path="promo/flows" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/:panel" element={<PromoDefaultRouteGate />} />
+                <Route path="sales/pipeline" element={<SalesDefaultRouteGate />} />
+                <Route path="sales/heute" element={<SalesDefaultRouteGate />} />
                 <Route path="sales/lists" element={<ContactListsPage />} />
                 <Route path="sales/lists/:listId" element={<ContactListsPage />} />
                 <Route path="sales/call-mode" element={<CallModePage />} />

@@ -1,9 +1,11 @@
+import type { MouseEvent } from 'react'
 import type { Contact, PipelineStage } from '../../types/db'
 import { contactCardTitle } from '../../lib/pipelineContactSort'
 
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Pitch',
   deal: 'Deal',
   paused: 'Pause',
@@ -12,6 +14,7 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 const STAGE_ACCENT: Record<PipelineStage, string> = {
   first_contact: 'var(--mode-sales)',
   conversation: 'var(--accent-blue)',
+  follow_up: '#f59e0b',
   proposal: 'var(--accent-teal)',
   deal: '#4ade80',
   paused: 'var(--text-tertiary)',
@@ -36,9 +39,11 @@ function formatFollowUp(iso: string | null): string {
 export function PipelineCarouselView({
   contacts,
   onOpen,
+  onContextOpen,
 }: {
   contacts: Contact[]
   onOpen: (id: string) => void
+  onContextOpen?: (id: string, event: MouseEvent) => void
 }) {
   if (contacts.length === 0) {
     return (
@@ -67,6 +72,7 @@ export function PipelineCarouselView({
             key={c.id}
             type="button"
             onClick={() => onOpen(c.id)}
+            onContextMenu={(e) => onContextOpen?.(c.id, e)}
             className="pipeline-carousel-card glass-2 font-mono shrink-0 text-left"
             style={{
               border: overdue

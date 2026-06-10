@@ -23,6 +23,7 @@ function writeIds(slug: string, ids: Set<string>) {
 const STAGE_LABEL: Record<PipelineStage, string> = {
   first_contact: 'Erstkontakt',
   conversation: 'Gespräch',
+  follow_up: 'Follow up',
   proposal: 'Angebot',
   deal: 'Deal',
   paused: 'Pause',

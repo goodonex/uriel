@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useBrandNavigate } from '../../hooks/useBrandNavigate'
 import { useActivityLog } from '../../hooks/useActivityLog'
 import { useNotifications } from '../../hooks/useNotifications'
 import type { ActivityEntityType, ActivityEntry } from '../../lib/activityLog'
@@ -35,7 +35,7 @@ const AUTO_READ_DELAY_MS = 1200
 export function HubActivityFeed({ slug }: { slug: string }) {
   const log = useActivityLog(slug, 60)
   const follow = useNotifications(slug)
-  const navigate = useNavigate()
+  const { go } = useBrandNavigate(slug)
 
   /**
    * Beim Öffnen des Feeds nach kurzer Sichtbarkeit automatisch:
@@ -56,17 +56,17 @@ export function HubActivityFeed({ slug }: { slug: string }) {
     if (!entry.entity_id) return
     switch (entry.entity_type) {
       case 'contact':
-        navigate(`/brand/${slug}/sales/${entry.entity_id}`)
+        go(`/brand/${slug}/sales/${entry.entity_id}`)
         break
       case 'project':
-        navigate(`/brand/${slug}/deliver/${entry.entity_id}`)
+        go(`/brand/${slug}/deliver/${entry.entity_id}`)
         break
       case 'task': {
         const ctxContact = (entry.metadata as Record<string, unknown>).contact_id
         if (typeof ctxContact === 'string') {
-          navigate(`/brand/${slug}/sales/${ctxContact}`)
+          go(`/brand/${slug}/sales/${ctxContact}`)
         } else {
-          navigate(`/brand/${slug}/dashboard`)
+          go(`/brand/${slug}/sales`)
         }
         break
       }
@@ -76,10 +76,10 @@ export function HubActivityFeed({ slug }: { slug: string }) {
       case 'word_bank':
       case 'asset':
       case 'sop':
-        navigate(`/brand/${slug}/foundation`)
+        go(`/brand/${slug}/foundation`)
         break
       case 'content_piece':
-        navigate(`/brand/${slug}/promo`)
+        go(`/brand/${slug}/promo`)
         break
     }
   }
@@ -107,7 +107,7 @@ export function HubActivityFeed({ slug }: { slug: string }) {
                 background: 'color-mix(in srgb, var(--accent-coral) 12%, transparent)',
                 border: '1px solid color-mix(in srgb, var(--accent-coral) 35%, transparent)',
               }}
-              onClick={() => navigate(`/brand/${slug}/sales/${it.contact.id}`)}
+              onClick={() => go(`/brand/${slug}/sales/${it.contact.id}`)}
             >
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                 {it.contact.name || it.contact.email || 'Kontakt'}
@@ -133,7 +133,7 @@ export function HubActivityFeed({ slug }: { slug: string }) {
               className="mb-1 flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-[var(--glass-2)]"
               onClick={() => {
                 follow.markFollowUpRead(it.contact.id)
-                navigate(`/brand/${slug}/sales/${it.contact.id}`)
+                go(`/brand/${slug}/sales/${it.contact.id}`)
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 600 }}>

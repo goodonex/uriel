@@ -49,8 +49,8 @@ export function BrandSystemScene({ slug }: { slug: string }) {
 
   return (
     <group>
-      <pointLight color={color} intensity={2.8} distance={8} decay={2} position={[2, 3, 2]} />
-      <pointLight color="#ffffff" intensity={0.4} distance={8} decay={2} position={[-3, -2, -2]} />
+      <pointLight color={color} intensity={1.5} distance={8} decay={2} position={[2, 3, 2]} />
+      <pointLight color="#ffffff" intensity={0.16} distance={8} decay={2} position={[-3, -2, -2]} />
       <BrandPlanetMesh
         slug={slug}
         radius={BRAND_PLANET_RADIUS}
@@ -58,9 +58,9 @@ export function BrandSystemScene({ slug }: { slug: string }) {
         segments={80}
         meshRef={planetRef}
         rotationSpeed={0.09}
-        emissiveIntensity={0.06}
+        emissiveIntensity={0.028}
       />
-      <BrandPlanetGlow planetRadius={BRAND_PLANET_RADIUS} color={color} baseOpacity={0.2} />
+      <BrandPlanetGlow planetRadius={BRAND_PLANET_RADIUS} color={color} baseOpacity={0.075} />
       <Line
         points={orbitPoints}
         color="#b8bdd8"

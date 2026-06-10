@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { FunnelCanvas } from '../funnel/FunnelCanvas'
 import { HorizontalScroller } from '../HorizontalScroller'
+import { PromoHomeDashboard } from '../promo/PromoHomeDashboard'
 import { PromoPerformanceDashboard } from '../promo/PromoPerformanceDashboard'
 import { SectionLabel } from '../SectionLabel'
 import { useBrands } from '../../hooks/useBrands'
@@ -14,8 +15,7 @@ import {
   promoPathForPanel,
 } from '../../lib/horizontalPanels'
 import { AdsPanel } from '../../pages/promo/AdsPanel'
-import { MailFlowsPanel } from '../../pages/promo/MailFlowsPanel'
-import { PromoEmailPanel } from '../../pages/promo/PromoEmailPanel'
+import { PromoEmailFlowsPanel } from '../../pages/promo/PromoEmailFlowsPanel'
 import { PromoIdeasPanel } from '../../pages/promo/PromoIdeasPanel'
 import { PromoSequencesPanel } from '../../pages/promo/PromoSequencesPanel'
 import { PromoCalendarSplit, PromoCampaignsSplit, PromoPiecesSplit } from '../../pages/promo/PromoSplitViews'
@@ -38,7 +38,8 @@ export function PromoSection() {
   const tabs = PROMO_PANELS.map((p) => ({ id: p.id, label: p.label }))
 
   const panels = [
-    <FunnelCanvas key="funnel" slug={slug} />,
+    <PromoHomeDashboard key="overview" />,
+    slug ? <FunnelCanvas key="funnel" slug={slug} /> : null,
     <PromoPerformanceDashboard key="dashboard" />,
     <div key="kalender">
       <PromoCalendarSplit />
@@ -49,10 +50,7 @@ export function PromoSection() {
         <PromoCampaignsSplit />
       </div>
     </div>,
-    <div key="email">
-      <SectionLabel accent="var(--accent-blue)">E-Mail</SectionLabel>
-      <PromoEmailPanel slug={slug} />
-    </div>,
+    slug ? <PromoEmailFlowsPanel key="email-flows" slug={slug} /> : null,
     <div key="ads">
       <SectionLabel accent="var(--accent-blue)">Ads</SectionLabel>
       <AdsPanel slug={slug} />
@@ -67,10 +65,6 @@ export function PromoSection() {
         icps={icps.items}
         wordBank={wordBank.items}
       />
-    </div>,
-    <div key="flows">
-      <SectionLabel accent="var(--accent-blue)">Mail-Flows</SectionLabel>
-      <MailFlowsPanel slug={slug} />
     </div>,
     <div key="sequenzen">
       <SectionLabel accent="var(--mode-promo)">Sequenzen</SectionLabel>

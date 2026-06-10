@@ -15,6 +15,7 @@ import {
   salesPathForPanel,
 } from '../../lib/horizontalPanels'
 import { DailyWorkList } from '../sales/DailyWorkList'
+import { SalesHomeDashboard } from '../sales/SalesHomeDashboard'
 import { PostCallModal } from '../sales/PostCallModal'
 import { CallModePage } from '../../pages/sales/CallModePage'
 import { ContactPage } from '../../pages/sales/ContactPage'
@@ -115,15 +116,14 @@ export function SalesSection() {
   }
 
   const tabs = SALES_PANELS.map((p) => ({ id: p.id, label: p.label }))
-  const pipelinePanel = (
+  const panels = [
+    <SalesHomeDashboard key="overview" />,
     <SalesMode
+      key="pipeline"
       scrollEmbed
       headerActionsRef={headerActionsRef}
       headerActionsReady={headerActionsReady}
-    />
-  )
-  const panels = [
-    pipelinePanel,
+    />,
     <SalesListsModule key="lists" />,
     <DailyWorkList key="heute" />,
   ]

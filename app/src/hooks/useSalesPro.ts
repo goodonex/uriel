@@ -39,6 +39,7 @@ function nowIso() {
 const DEFAULT_PIPELINE_STAGES: PipelineStageDef[] = [
   { key: 'first_contact', label: 'Erstkontakt' },
   { key: 'conversation', label: 'Gespräch' },
+  { key: 'follow_up', label: 'Follow up' },
   { key: 'proposal', label: 'Pitch' },
   { key: 'deal', label: 'Deal', won: true },
   { key: 'paused', label: 'Pause' },

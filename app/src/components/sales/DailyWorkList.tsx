@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { companyDisplayName } from '../../lib/crmContacts'
 import { useDailyWorkList, type WorkItem } from '../../hooks/useDailyWorkList'
 import { usePostCallFlow } from '../../hooks/usePostCallFlow'
@@ -71,6 +71,7 @@ function SummaryChip({
 
 export function DailyWorkList() {
   const { slug = '' } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
   const {
     items,
     allItems,
@@ -111,6 +112,22 @@ export function DailyWorkList() {
       >
         Was mache ich heute?
       </h2>
+      <button
+        type="button"
+        onClick={() => navigate(`/brand/${slug}#daily-scorecard`)}
+        className="font-mono mb-4"
+        style={{
+          fontSize: 10,
+          padding: '5px 10px',
+          borderRadius: 7,
+          border: '1px solid var(--glass-border-2)',
+          background: 'transparent',
+          color: 'var(--mode-sales)',
+          cursor: 'pointer',
+        }}
+      >
+        Tagesbuch öffnen →
+      </button>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SummaryChip
