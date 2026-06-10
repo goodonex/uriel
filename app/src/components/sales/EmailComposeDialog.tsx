@@ -1,11 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { SALES_FIELD_SOLID, SALES_MODAL_BACKDROP, SALES_MODAL_Z } from './activity/salesModalUi'
 import { useEmailLogs, useEmailTemplates } from '../../hooks/useSalesPro'
 import { useBrandId } from '../../hooks/useBrandId'
 import { usePositioning } from '../../hooks/usePositioning'
 import { useContacts } from '../../hooks/useContacts'
+import { emailTemplatesManagePath, resolveEmailFromName } from '../../lib/emailBrand'
 import { sendEmail } from '../../lib/emailService'
 import {
   availableVariables,
@@ -130,6 +132,7 @@ export function EmailComposeDialog({
         subject: finalSubject,
         body: finalBody,
         template_id: templateId,
+        from_name: resolveEmailFromName(brandSlug, brandName),
       })
       if (res.ok) {
         show('Mail versendet & geloggt', 'success')
@@ -282,6 +285,7 @@ export function EmailComposeDialog({
                 query={templateQuery}
                 onQueryChange={setTemplateQuery}
                 brandSlug={brandSlug}
+                onManageTemplates={onClose}
                 onSelect={(id) => {
                   setTemplateId(id)
                   if (id) void tpl.recordUsage(id)
@@ -456,6 +460,7 @@ function TemplateRow({
   query,
   onQueryChange,
   brandSlug,
+  onManageTemplates,
   onSelect,
 }: {
   templates: SalesEmailTemplate[]
@@ -463,6 +468,7 @@ function TemplateRow({
   query: string
   onQueryChange: (q: string) => void
   brandSlug: string
+  onManageTemplates?: () => void
   onSelect: (id: string | null) => void
 }) {
   const recent = useMemo(
@@ -504,13 +510,14 @@ function TemplateRow({
         <div className="font-mono" style={{ fontSize: 9, letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}>
           TEMPLATE
         </div>
-        <a
-          href={`/brand/${brandSlug}/sales`}
+        <Link
+          to={emailTemplatesManagePath(brandSlug)}
+          onClick={onManageTemplates}
           className="font-mono"
           style={{ fontSize: 10, color: 'var(--mode-sales)', textDecoration: 'none' }}
         >
           Manage Templates →
-        </a>
+        </Link>
       </div>
       <input
         value={query}

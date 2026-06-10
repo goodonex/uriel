@@ -48,7 +48,9 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const PUBLIC_API_BASE = Deno.env.get('PUBLIC_API_BASE') ?? SUPABASE_URL
-  const PUBLIC_APP_URL = (Deno.env.get('PUBLIC_APP_URL') ?? 'http://localhost:5173').replace(/\/$/, '')
+  const PUBLIC_APP_URL = (
+    Deno.env.get('PUBLIC_APP_URL') ?? 'https://app-ecru-chi-81.vercel.app'
+  ).replace(/\/$/, '')
 
   const auth = req.headers.get('authorization') ?? ''
   const isInternal = auth.includes(SERVICE_ROLE)
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
     isInternal,
     RESEND_API_KEY,
     PUBLIC_API_BASE,
+    PUBLIC_APP_URL,
   )
 })
 
@@ -211,6 +214,25 @@ async function clientOwnsProject(
   return data?.project_id === projectId
 }
 
+const BRAND_EMAIL: Record<string, { fromName: string; logoPath: string }> = {
+  herrmann: { fromName: 'Herrmann & Co.', logoPath: '/email/herrmann-logo.gif' },
+}
+
+function resolveSalesFromName(
+  slug: string | null | undefined,
+  brandName: string | null | undefined,
+  payloadName?: string | null,
+): string {
+  const explicit = payloadName?.trim()
+  if (explicit) return explicit
+  if (slug && BRAND_EMAIL[slug]?.fromName) return BRAND_EMAIL[slug].fromName
+  const name = (brandName ?? '').trim()
+  if (name && !/^framework\s*os$/i.test(name)) return name
+  const envName = Deno.env.get('RESEND_FROM_NAME')?.trim()
+  if (envName && !/^framework\s*os$/i.test(envName)) return envName
+  return 'Herrmann & Co.'
+}
+
 async function handleSalesEmail(
   supabase: ReturnType<typeof createClient>,
   payload: SalesSendBody,
@@ -218,6 +240,7 @@ async function handleSalesEmail(
   isInternal: boolean,
   resendKey: string,
   publicApiBase: string,
+  publicAppUrl: string,
 ) {
   if (!payload.brand_id || !payload.contact_id || !payload.subject || !payload.body) {
     return json({ error: 'missing_fields' }, 400)
@@ -235,7 +258,7 @@ async function handleSalesEmail(
 
   const { data: brand } = await supabase
     .from('brands')
-    .select('id, user_id, name')
+    .select('id, user_id, name, slug')
     .eq('id', payload.brand_id)
     .maybeSingle()
   if (!brand) return json({ error: 'brand_not_found' }, 404)
@@ -254,13 +277,14 @@ async function handleSalesEmail(
     (payload.from_email && payload.from_email.trim()) ||
     Deno.env.get('RESEND_FROM_EMAIL') ||
     'noreply@example.com'
-  const fromName =
-    (payload.from_name && payload.from_name.trim()) ||
-    Deno.env.get('RESEND_FROM_NAME') ||
-    brand.name ||
-    'Brand OS'
+  const fromName = resolveSalesFromName(brand.slug, brand.name, payload.from_name)
 
-  const htmlBody = wrapHtml(payload.body, pixelUrl)
+  const brandEmail = brand.slug ? BRAND_EMAIL[brand.slug] : undefined
+  const logoUrl = brandEmail
+    ? `${publicAppUrl.replace(/\/$/, '')}${brandEmail.logoPath}`
+    : null
+
+  const htmlBody = wrapHtml(payload.body, pixelUrl, { logoUrl, fromName })
   const textBody = stripHtml(payload.body)
 
   const resendRes = await fetch('https://api.resend.com/emails', {
@@ -337,13 +361,23 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function wrapHtml(rawBody: string, pixelUrl: string): string {
+function wrapHtml(
+  rawBody: string,
+  pixelUrl: string,
+  opts?: { logoUrl?: string | null; fromName?: string },
+): string {
   const looksLikeHtml = /<\w+[^>]*>/.test(rawBody)
   const inner = looksLikeHtml
     ? rawBody
     : `<p style="font-family:system-ui,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a;white-space:pre-wrap;">${escapeHtml(rawBody)}</p>`
+  const logoBlock = opts?.logoUrl
+    ? `<div style="text-align:center;margin:0 0 24px;">
+<img src="${opts.logoUrl}" alt="${escapeHtml(opts.fromName ?? '')}" width="52" height="52" style="display:inline-block;border-radius:14px;" />
+</div>`
+    : ''
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#fafafa;">
 <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:32px;border-radius:8px;">
+${logoBlock}
 ${inner}
 </div>
 <img src="${pixelUrl}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;" />

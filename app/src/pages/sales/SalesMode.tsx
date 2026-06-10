@@ -1803,6 +1803,19 @@ export function SalesMode({
   useSalesPipelines(slug)
   const [activePipelineSlug, setActivePipelineSlug] = useState<string | null>(null)
   const [tplDrawerOpen, setTplDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('drawer') !== 'email-templates') return
+    setTplDrawerOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('drawer')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams])
   const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
   const [importDrawerOpen, setImportDrawerOpen] = useState(false)
   const [meetingDrawerOpen, setMeetingDrawerOpen] = useState(false)
