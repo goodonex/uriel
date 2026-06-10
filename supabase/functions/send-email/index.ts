@@ -215,8 +215,117 @@ async function clientOwnsProject(
   return data?.project_id === projectId
 }
 
-const BRAND_EMAIL: Record<string, { fromName: string; logoPath: string }> = {
-  herrmann: { fromName: 'Herrmann & Co.', logoPath: '/email/herrmann-logo.gif' },
+const BRAND_EMAIL: Record<string, { fromName: string; logoUrl: string }> = {
+  herrmann: {
+    fromName: 'Herrmann & Co.',
+    logoUrl: 'https://herrmannundco.de/favicon.png',
+  },
+}
+
+type ContactRow = {
+  id: string
+  brand_id: string
+  email: string | null
+  name: string | null
+  company: string | null
+  ansprechpartner: string | null
+  first_name: string | null
+  last_name: string | null
+  phone: string | null
+  contact_type: string | null
+  parent_company_id: string | null
+}
+
+function personDisplayName(c: ContactRow): string {
+  const fn = (c.first_name ?? '').trim()
+  const ln = (c.last_name ?? '').trim()
+  const combined = `${fn} ${ln}`.trim()
+  if (combined) return combined
+  return (c.name ?? '').trim() || 'Ansprechpartner'
+}
+
+function resolveFirstName(c: ContactRow): string {
+  const fn = (c.first_name ?? '').trim()
+  if (fn) return fn
+  const ap = (c.ansprechpartner ?? '').trim()
+  if (ap) return ap.split(/\s+/)[0] ?? ''
+  return (c.name ?? '').trim().split(/\s+/)[0] ?? ''
+}
+
+function renderTemplateString(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  if (!template) return ''
+  return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, raw: string) => {
+    const key = raw.trim()
+    return vars[key] ?? ''
+  })
+}
+
+async function renderSalesEmailContent(
+  supabase: ReturnType<typeof createClient>,
+  contact: ContactRow,
+  brandId: string,
+  toEmail: string,
+  subjectTpl: string,
+  bodyTpl: string,
+  brandName: string | null,
+): Promise<{ subject: string; body: string }> {
+  let ctx: ContactRow = contact
+
+  if ((contact.contact_type ?? 'company') === 'company') {
+    const { data: people } = await supabase
+      .from('contacts')
+      .select(
+        'id, brand_id, email, name, company, ansprechpartner, first_name, last_name, phone, contact_type, parent_company_id',
+      )
+      .eq('brand_id', brandId)
+      .eq('parent_company_id', contact.id)
+      .eq('contact_type', 'person')
+
+    const person = (people ?? []).find(
+      (p) => (p.email ?? '').trim().toLowerCase() === toEmail.trim().toLowerCase(),
+    ) as ContactRow | undefined
+
+    if (person) {
+      const personName = personDisplayName(person)
+      ctx = {
+        ...contact,
+        name: personName || contact.ansprechpartner || contact.name,
+        ansprechpartner: personName || contact.ansprechpartner,
+        email: person.email ?? contact.email,
+        phone: person.phone ?? contact.phone,
+        first_name: person.first_name ?? contact.first_name,
+        last_name: person.last_name ?? contact.last_name,
+      }
+    }
+  }
+
+  const parts = (ctx.name ?? '').trim().split(/\s+/)
+  const last = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? ''
+
+  const vars: Record<string, string> = {
+    name: ctx.name ?? '',
+    first_name: resolveFirstName(ctx),
+    email: ctx.email ?? '',
+    phone: ctx.phone ?? '',
+    company: ctx.company ?? ctx.name ?? '',
+    ansprechpartner: ctx.ansprechpartner ?? '',
+    datum: new Date().toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }),
+    anrede: last ? `Herr/Frau ${last}` : '',
+    'brand.name': brandName ?? '',
+    'brand.positioning': '',
+  }
+
+  return {
+    subject: renderTemplateString(subjectTpl, vars),
+    body: renderTemplateString(bodyTpl, vars),
+  }
 }
 
 function resolveSalesFromName(
@@ -249,7 +358,9 @@ async function handleSalesEmail(
 
   const { data: contact, error: cErr } = await supabase
     .from('contacts')
-    .select('id, brand_id, email, name')
+    .select(
+      'id, brand_id, email, name, company, ansprechpartner, first_name, last_name, phone, contact_type, parent_company_id',
+    )
     .eq('id', payload.contact_id)
     .maybeSingle()
 
@@ -283,11 +394,19 @@ async function handleSalesEmail(
   const fromName = resolveSalesFromName(brand.slug, brand.name, payload.from_name)
 
   const brandEmail = brand.slug ? BRAND_EMAIL[brand.slug] : undefined
-  const logoUrl = brandEmail
-    ? `${publicAppUrl.replace(/\/$/, '')}${brandEmail.logoPath}`
-    : null
+  const logoUrl = brandEmail?.logoUrl ?? null
 
-  const bodyWithSignature = appendEmailSignature(payload.body, brand.email_signature ?? '')
+  const rendered = await renderSalesEmailContent(
+    supabase,
+    contact,
+    payload.brand_id,
+    toEmail,
+    payload.subject,
+    payload.body,
+    brand.name,
+  )
+
+  const bodyWithSignature = appendEmailSignature(rendered.body, brand.email_signature ?? '')
   const htmlBody = wrapHtml(bodyWithSignature, pixelUrl, { logoUrl, fromName })
   const textBody = stripHtml(bodyWithSignature)
 
@@ -300,7 +419,7 @@ async function handleSalesEmail(
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
       to: [toEmail],
-      subject: payload.subject,
+      subject: rendered.subject,
       html: htmlBody,
       text: textBody,
       headers: { 'X-Tracking-Id': trackingId },
@@ -323,7 +442,7 @@ async function handleSalesEmail(
       template_id: payload.template_id ?? null,
       sequence_id: payload.sequence_id ?? null,
       enrollment_id: payload.enrollment_id ?? null,
-      subject: payload.subject,
+      subject: rendered.subject,
       body_preview: textBody.slice(0, 240),
       tracking_id: trackingId,
       direction: 'outbound',

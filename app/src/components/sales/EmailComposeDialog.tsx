@@ -13,6 +13,7 @@ import { appendEmailSignature } from '../../lib/emailSignature'
 import { useEmailSettings } from '../../hooks/useEmailSettings'
 import {
   availableVariables,
+  buildEmailVarContext,
   buildMailtoUrl,
   renderEmailTemplate,
 } from '../../lib/emailVariables'
@@ -91,8 +92,14 @@ export function EmailComposeDialog({
   )
 
   const renderCtx = useMemo(
-    () => ({ contact, brandName, positioning: positioning.item ?? null }),
-    [contact, brandName, positioning.item],
+    () =>
+      buildEmailVarContext(contact, contacts.items, {
+        recipientKey,
+        toEmail: selectedRecipient?.email,
+        brandName,
+        positioning: positioning.item ?? null,
+      }),
+    [contact, contacts.items, recipientKey, selectedRecipient?.email, brandName, positioning.item],
   )
 
   useEffect(() => {
@@ -121,8 +128,9 @@ export function EmailComposeDialog({
       show('Kontakt hat keine E-Mail-Adresse', 'info')
       return
     }
-    const finalSubject = subject || '(Kein Betreff)'
-    const bodyWithSignature = appendEmailSignature(body, emailSettings.signature)
+    const finalSubject = renderEmailTemplate(subject || '(Kein Betreff)', renderCtx)
+    const renderedBody = renderEmailTemplate(body, renderCtx)
+    const bodyWithSignature = appendEmailSignature(renderedBody, emailSettings.signature)
     const recipientEmail = selectedRecipient.email.trim()
     setSending(true)
 
@@ -132,7 +140,7 @@ export function EmailComposeDialog({
         brand_id: brandId,
         contact_id: contact.id,
         subject: finalSubject,
-        body,
+        body: renderedBody,
         template_id: templateId,
         from_name: resolveEmailFromName(brandSlug, brandName),
         to_email: recipientEmail,
