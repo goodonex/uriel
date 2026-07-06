@@ -72,5 +72,24 @@ Format: Was getan · Was entschieden · Was offen.
 2. **`antworten` je Kanal gesplittet** (antworten_li/inmail/ig/cold) statt ein Summenfeld — sonst wäre die Kanal-Antwortrate (der zentrale Steuerungshebel aus Kevins KPI-System) nicht berechenbar. 4 Stepper mehr, dafür echte Steuerbarkeit.
 
 **Offen:**
-- Migration 0049 im Supabase-Dashboard ausführen (Kevin).
-- End-to-End-Test „Eintrag → Woche + Cockpit" nach Migration + Login.
+- ~~Migration 0049 ausführen~~ ✅ 2026-07-06 von Kevin ausgeführt.
+- ~~End-to-End-Test~~ ✅ verifiziert: Stepper-Klick → Supabase-Upsert → Reload → Wochen-Progress (Looms 1/25, Anfragen 1/150). Testwerte danach auf 0 zurückgesetzt.
+- Nachtrag: Migrations-Erkennung brauchte zusätzlich PGRST205 (PostgREST-Schema-Cache), Fix committet (35df724). Responsive: Grids stapeln jetzt unter 1180/900px.
+
+---
+
+## Phase 4 — CRM- + E-Mail-Umzug (2026-07-07)
+
+**Getan:**
+- `hooks/useCurrentBrandSlug.ts`: Slug-Brücke (URL-Param → ActiveBrand-Context → localStorage). Sales-Seiten laufen damit unverändert in beiden Shells.
+- 5 Sales-Seiten auf die Brücke umgestellt (SalesMode, ContactPage, ContactListsPage, CallModePage, SalesNewLeadPage) — je 1-2 Zeilen, Logik unangetastet.
+- `/crm`: CrmArea mit Sub-Nav (Pipeline/Listen/Call-Mode/Neuer Lead) + Routen; Pipeline = `<SalesMode panel="full" scrollEmbed />`.
+- `/email`: EmailArea mit Sub-Nav (Versand/Flows/Sequenzen) — Promo-Panels nehmen slug als Prop, **Promo-Code 0 Zeilen geändert**.
+- `LegacySalesRedirect`: `/brand/:slug/sales/*` → `/crm/*` (übernimmt Slug als aktive Brand, /pipeline & /heute normalisiert auf Pipeline-Home). Interne Alt-Links in SalesMode bouncen damit korrekt.
+
+**Entschieden:**
+- Alte SalesMode-Optik (Glas-Stil) wird in Phase 4 NICHT re-skinned — nur in die Shell geholt. Tiefes Token-Angleichen wäre 2.500+ Zeilen Risiko; kommt ggf. nach v1.
+- Promo-Routen (Ads, Content, Recruiting) bleiben unangetastet in der alten Welt — nur E-Mail ist umgezogen. Zukunft von Rest-Promo = Entscheidung nach v1 (wie Deliver).
+
+**Verifiziert (eingeloggt, Preview):**
+- /crm zeigt echte Pipeline (44 Kontakte, 3.800 € Pipeline-Wert, Kanban), /email echte Sequenzen/Vorlagen, Legacy-URL /brand/herrmann/sales/lists → /crm/lists. Konsole fehlerfrei.

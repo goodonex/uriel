@@ -10,7 +10,8 @@
  * Layout ist bewusst Tap-friendly: 56px Tap-Targets, große Schrift, wenig Hierarchie.
  */
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useCurrentBrandSlug } from '../../hooks/useCurrentBrandSlug'
 import { useToast } from '../../components/Toast'
 import { useDailyScorecard } from '../../hooks/useDailyScorecard'
 import { useContacts } from '../../hooks/useContacts'
@@ -43,7 +44,7 @@ function endOfTodayMs(): number {
 }
 
 export function CallModePage() {
-  const { slug = '' } = useParams<{ slug: string }>()
+  const slug = useCurrentBrandSlug()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
   const calls = useCallLogs(slug)

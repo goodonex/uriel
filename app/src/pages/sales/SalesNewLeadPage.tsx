@@ -1,11 +1,12 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useCurrentBrandSlug } from '../../hooks/useCurrentBrandSlug'
 import { NewLeadWizardModal } from '../../components/sales/NewLeadWizardModal'
 import { useToast } from '../../components/Toast'
 import { useActivityEntries } from '../../hooks/useActivityEntries'
 import { useContacts } from '../../hooks/useContacts'
 
 export function SalesNewLeadPage() {
-  const { slug = '' } = useParams<{ slug: string }>()
+  const slug = useCurrentBrandSlug()
   const navigate = useNavigate()
   const contacts = useContacts(slug)
   const activities = useActivityEntries(slug)

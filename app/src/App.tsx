@@ -23,11 +23,7 @@ import { BookingPublicPage } from './pages/public/BookingPublicPage'
 import { LeadIntakePage } from './pages/public/LeadIntakePage'
 import { PromoDefaultRouteGate } from './pages/promo/PromoDefaultRouteGate'
 import { useViewport } from './hooks/useViewport'
-import { CallModePage } from './pages/sales/CallModePage'
-import { ContactListsPage } from './pages/sales/ContactListsPage'
-import { SalesContactRouteGate } from './pages/sales/SalesContactRouteGate'
-import { SalesNewLeadPage } from './pages/sales/SalesNewLeadPage'
-import { SalesDefaultRouteGate } from './pages/sales/SalesDefaultRouteGate'
+import { LegacySalesRedirect } from './cockpit/lib/LegacySalesRedirect'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { UniversePage } from './pages/UniversePage'
 import { useWorldCamera, useWorldCameraSyncFromRoute } from './store/worldCamera'
@@ -271,14 +267,8 @@ function App() {
                 <Route path="promo/email" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/flows" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/:panel" element={<PromoDefaultRouteGate />} />
-                <Route path="sales/pipeline" element={<SalesDefaultRouteGate />} />
-                <Route path="sales/heute" element={<SalesDefaultRouteGate />} />
-                <Route path="sales/lists" element={<ContactListsPage />} />
-                <Route path="sales/lists/:listId" element={<ContactListsPage />} />
-                <Route path="sales/call-mode" element={<CallModePage />} />
-                <Route path="sales/new" element={<SalesNewLeadPage />} />
-                <Route path="sales/:contactId" element={<SalesContactRouteGate />} />
-                <Route path="sales" element={<SalesDefaultRouteGate />} />
+                {/* Phase 4: Sales lebt jetzt im Cockpit unter /crm */}
+                <Route path="sales/*" element={<LegacySalesRedirect />} />
                 <Route path="intelligence" element={<IntelligenceDefaultRouteGate />} />
                 <Route path="deliver" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/completed" element={<DeliverDefaultRouteGate />} />

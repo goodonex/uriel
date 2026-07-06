@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useCurrentBrandSlug } from '../../hooks/useCurrentBrandSlug'
 import { Drawer } from '../../components/Drawer'
 import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
 import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
@@ -59,7 +60,8 @@ export function ContactPage({
   contactIdOverride?: string
 } = {}) {
   const params = useParams<{ slug: string; contactId: string }>()
-  const slug = slugOverride ?? params.slug
+  const routeSlug = useCurrentBrandSlug()
+  const slug = slugOverride ?? routeSlug
   const contactId = contactIdOverride ?? params.contactId
   const navigate = useNavigate()
   const contacts = useContacts(slug)

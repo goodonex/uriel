@@ -29,7 +29,8 @@ import {
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useCurrentBrandSlug } from '../../hooks/useCurrentBrandSlug'
 import { CARD_TILE_TAP } from '../../modules/CardTile'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
 import { EmailTemplatesDrawer } from '../../components/sales/EmailTemplatesDrawer'
@@ -1590,7 +1591,7 @@ export function SalesMode({
   headerActionsRef?: RefObject<HTMLDivElement | null>
   headerActionsReady?: boolean
 } = {}) {
-  const { slug } = useParams<{ slug: string }>()
+  const slug = useCurrentBrandSlug()
   const navigate = useNavigate()
   // brandId wird in den Hooks (useBrandId) intern verwendet; hier nicht mehr direkt nötig.
   const { show: showToast } = useToast()

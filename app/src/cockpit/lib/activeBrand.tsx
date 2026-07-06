@@ -54,3 +54,26 @@ export function useActiveBrand(): ActiveBrandContextValue {
   if (!ctx) throw new Error('useActiveBrand muss innerhalb von ActiveBrandProvider laufen')
   return ctx
 }
+
+/** Null-tolerant — für Komponenten, die sowohl im Cockpit als auch in der alten Shell laufen. */
+export function useActiveBrandOptional(): ActiveBrandContextValue | null {
+  return useContext(ActiveBrandContext)
+}
+
+/** Letzter Fallback ohne Context (z.B. Redirect-Komponenten außerhalb des Providers). */
+export function readStoredBrandSlug(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_SLUG
+  } catch {
+    return DEFAULT_SLUG
+  }
+}
+
+/** Aktive Brand von außen setzen (Redirects alte Welt → Cockpit übernehmen den Slug). */
+export function storeBrandSlug(slug: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, slug)
+  } catch {
+    /* ohne localStorage kein Persist — unkritisch */
+  }
+}
