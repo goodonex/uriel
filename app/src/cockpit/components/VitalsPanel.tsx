@@ -1,5 +1,13 @@
-import type { Vital } from '../lib/useVitalsMock'
 import { Sparkline } from './Sparkline'
+
+export interface Vital {
+  key: string
+  label: string
+  current: number
+  target: number
+  /** letzte 14 Tage für Sparkline */
+  history: number[]
+}
 
 function VitalRow({ vital }: { vital: Vital }) {
   const pct = Math.min(1, vital.current / vital.target)

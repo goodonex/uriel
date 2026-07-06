@@ -55,3 +55,22 @@ Format: Was getan · Was entschieden · Was offen.
 
 **Offen:**
 - Visuelle Verifizierung hinter Auth (wie Phase 1) — Kevin-Login im Preview ausstehend.
+
+---
+
+## Phase 3 — Tracking-Modul + daily_metrics (2026-07-06)
+
+**Getan:**
+- Migration `supabase/migrations/0049_daily_metrics.sql` (Owner-RLS nach 0009-Muster, unique (user,brand,datum), updated_at-Trigger). **Kevin muss sie manuell im Supabase-SQL-Editor ausführen.**
+- `lib/useDailyMetrics.ts`: lädt laufenden Monat, optimistische Upserts (bump/setUmsatz), erkennt fehlende Tabelle (42P01) → UI zeigt Migrations-Hinweis statt Fehler.
+- `lib/metricsAggregate.ts`: weekVitals, channelRates (mit Benchmarks), historySeries (14-Tage-Sparklines), cumulativeRevenue.
+- `/tracking`: Heute-Eingabe mit +1-Steppern (Input/Ergebnis getrennt beschriftet: „Frühindikator" vs. „nachlaufend"), Umsatz-€-Feld, Wochen-Progress, `MonthCurve` (SVG: Ist kumuliert vs. Soll gestrichelt, KW-Marker), Kanal-Raten-Tabelle (grün ≥ Benchmark, amber darunter).
+- CockpitHome: Vitals + Monatsumsatz jetzt aus echten daily_metrics; `useVitalsMock` gelöscht.
+
+**Entschieden (Abweichungen vom Plan):**
+1. **Migration heißt 0049, nicht 0014** — HANDOFF.md war veraltet, es existieren bereits 48 Migrationen (0014 ist vergeben: fix_discovery_feed).
+2. **`antworten` je Kanal gesplittet** (antworten_li/inmail/ig/cold) statt ein Summenfeld — sonst wäre die Kanal-Antwortrate (der zentrale Steuerungshebel aus Kevins KPI-System) nicht berechenbar. 4 Stepper mehr, dafür echte Steuerbarkeit.
+
+**Offen:**
+- Migration 0049 im Supabase-Dashboard ausführen (Kevin).
+- End-to-End-Test „Eintrag → Woche + Cockpit" nach Migration + Login.

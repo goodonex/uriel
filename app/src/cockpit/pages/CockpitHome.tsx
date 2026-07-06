@@ -8,7 +8,8 @@ import { ForceGraph } from '../graph/ForceGraph'
 import { useActiveBrand } from '../lib/activeBrand'
 import { buildMockGraph, NODE_COLORS, NODE_LEGEND } from '../lib/graphData'
 import type { GraphNode } from '../lib/graphData'
-import { useVitals } from '../lib/useVitalsMock'
+import { sumField, weekVitals } from '../lib/metricsAggregate'
+import { useDailyMetrics } from '../lib/useDailyMetrics'
 
 function GraphLegend() {
   return (
@@ -39,7 +40,13 @@ function GraphLegend() {
 export function CockpitHome() {
   const navigate = useNavigate()
   const { activeBrand } = useActiveBrand()
-  const vitals = useVitals()
+  const metrics = useDailyMetrics()
+
+  const vitals = useMemo(
+    () => weekVitals(metrics.weekRows, metrics.monthRows),
+    [metrics.weekRows, metrics.monthRows],
+  )
+  const monthRevenue = useMemo(() => sumField(metrics.monthRows, 'umsatz'), [metrics.monthRows])
 
   const graph = useMemo(
     () => buildMockGraph(activeBrand?.name ?? 'Kevin OS'),
@@ -69,7 +76,7 @@ export function CockpitHome() {
     >
       {/* Links: Vitals + Documents */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <VitalsPanel vitals={vitals.week} />
+        <VitalsPanel vitals={vitals} />
         <DocumentsPanel runs={MOCK_RUNS} />
       </div>
 
@@ -79,7 +86,7 @@ export function CockpitHome() {
           <ForceGraph data={graph} onNodeClick={onNodeClick} height={430} />
           <GraphLegend />
         </div>
-        <PrimaryDirective monthRevenue={vitals.monthRevenue} />
+        <PrimaryDirective monthRevenue={monthRevenue} />
       </div>
 
       {/* Rechts: Command Deck */}
