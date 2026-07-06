@@ -32,6 +32,17 @@ import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { UniversePage } from './pages/UniversePage'
 import { useWorldCamera, useWorldCameraSyncFromRoute } from './store/worldCamera'
 import { World } from './three/World'
+import { CockpitShell } from './cockpit/CockpitShell'
+import { CockpitHome } from './cockpit/pages/CockpitHome'
+import { CrmArea } from './cockpit/pages/CrmArea'
+import { EmailArea } from './cockpit/pages/EmailArea'
+import { TrackingArea } from './cockpit/pages/TrackingArea'
+
+/** Neue Cockpit-Bereiche (REBUILD-PLAN §5) — ohne 3D-Canvas, eigene Shell. */
+const COCKPIT_PATHS = ['/cockpit', '/crm', '/email', '/tracking']
+function isCockpitPath(pathname: string): boolean {
+  return COCKPIT_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -152,7 +163,9 @@ function App() {
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
   const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
   const mobileWorldDisabled = width < 1024 && (isHome || isBrandWorkspace)
+  const inCockpit = isCockpitPath(location.pathname)
   const hideCanvas =
+    inCockpit ||
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/onboarding') ||
     mobileWorldDisabled
@@ -241,6 +254,13 @@ function App() {
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
             <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />
             <Route element={<OwnerWorkspaceShell />}>
+              {/* Neue Cockpit-Shell (REBUILD-PLAN §5) */}
+              <Route element={<CockpitShell />}>
+                <Route path="/cockpit" element={<CockpitHome />} />
+                <Route path="/crm/*" element={<CrmArea />} />
+                <Route path="/email/*" element={<EmailArea />} />
+                <Route path="/tracking" element={<TrackingArea />} />
+              </Route>
               <Route path="/" element={<UniversePage />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route path="dashboard" element={<Navigate to=".." replace />} />

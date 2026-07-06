@@ -1,0 +1,173 @@
+/* ============================================================
+   COCKPIT — Design Tokens & Base (REBUILD-PLAN §4)
+   Scope: alles unter .ck-root. Kein Glas, kein Blur, kein WebGL.
+   Regel: Kontrast ≥ 4.5:1, Bewegung nur Graph-Physik + Job-Puls.
+   ============================================================ */
+
+.ck-root {
+  /* Farben */
+  --ck-bg: #050708;
+  --ck-panel: #0b0e10;
+  --ck-panel-2: #0e1215;      /* hover / nested */
+  --ck-border: #1a2023;
+  --ck-border-strong: #26313a;
+  --ck-text-1: #f2f4f5;
+  --ck-text-2: #9aa4a8;
+  --ck-text-3: #5c676c;       /* nur für Micro-Labels ≥ 10px auf --ck-bg */
+  --ck-accent: #34d399;       /* Phosphor-Grün: running, CTA, positiv */
+  --ck-accent-dim: rgba(52, 211, 153, 0.14);
+  --ck-idle: #64748b;         /* Blaugrau: idle */
+  --ck-warn: #f59e0b;         /* Amber: error/warn */
+  --ck-warn-dim: rgba(245, 158, 11, 0.14);
+
+  /* Typo */
+  --ck-font: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Geometrie */
+  --ck-radius: 8px;
+
+  font-family: var(--ck-font);
+  background: var(--ck-bg);
+  color: var(--ck-text-1);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --- Micro-Label: 10-11px, UPPERCASE, weiter Letter-Spacing --- */
+.ck-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ck-text-3);
+  font-weight: 500;
+}
+
+/* --- Panel: 1px-Border, KEIN Glas --- */
+.ck-panel {
+  background: var(--ck-panel);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+}
+
+/* --- Status-Punkt --- */
+.ck-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ck-idle);
+  flex-shrink: 0;
+}
+.ck-dot--on { background: var(--ck-accent); }
+.ck-dot--warn { background: var(--ck-warn); }
+.ck-dot--pulse {
+  background: var(--ck-accent);
+  animation: ck-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ck-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* --- Nav --- */
+.ck-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--ck-text-2);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: color 120ms ease, background 120ms ease;
+}
+.ck-nav-item:hover { color: var(--ck-text-1); background: var(--ck-panel-2); }
+.ck-nav-item.active {
+  color: var(--ck-accent);
+  background: var(--ck-accent-dim);
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+/* --- Buttons --- */
+.ck-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--ck-border-strong);
+  background: var(--ck-panel);
+  color: var(--ck-text-1);
+  font-family: var(--ck-font);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.ck-btn:hover { border-color: var(--ck-accent); background: var(--ck-panel-2); }
+.ck-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ck-btn--primary {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: var(--ck-accent-dim);
+  color: var(--ck-accent);
+}
+
+/* --- Inputs --- */
+.ck-input {
+  background: var(--ck-bg);
+  border: 1px solid var(--ck-border-strong);
+  border-radius: 6px;
+  color: var(--ck-text-1);
+  font-family: var(--ck-font);
+  font-size: 13px;
+  padding: 7px 10px;
+  outline: none;
+}
+.ck-input:focus { border-color: var(--ck-accent); }
+
+.ck-select {
+  background: var(--ck-panel);
+  border: 1px solid var(--ck-border-strong);
+  border-radius: 6px;
+  color: var(--ck-text-2);
+  font-family: var(--ck-font);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+}
+.ck-select:focus { border-color: var(--ck-accent); }
+
+/* --- Scrollbars im Cockpit --- */
+.ck-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+.ck-root ::-webkit-scrollbar-thumb { background: var(--ck-border-strong); border-radius: 4px; }
+.ck-root ::-webkit-scrollbar-track { background: transparent; }
+
+/* --- Tabellen (CRM/E-Mail: konventionell lesbar, HUD nur als Rahmen) --- */
+.ck-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ck-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ck-text-3);
+  font-weight: 500;
+  border-bottom: 1px solid var(--ck-border-strong);
+}
+.ck-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ck-border);
+  color: var(--ck-text-1);
+  min-height: 36px;
+}
+.ck-table tr:hover td { background: var(--ck-panel-2); }
