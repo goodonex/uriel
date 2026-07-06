@@ -206,7 +206,7 @@ export function TrackingArea() {
       </section>
 
       {/* Woche + Monat nebeneinander */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 320px) 1fr', gap: 14, alignItems: 'start' }}>
+      <div className="ck-tracking-grid">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <VitalsPanel vitals={vitals} />
           <section className="ck-panel" style={{ padding: '10px 12px' }} aria-label="Wochenumsatz">

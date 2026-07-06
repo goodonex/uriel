@@ -66,14 +66,7 @@ export function CockpitHome() {
   )
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(230px, 280px) 1fr minmax(230px, 300px)',
-        gap: 14,
-        alignItems: 'start',
-      }}
-    >
+    <div className="ck-home-grid">
       {/* Links: Vitals + Documents */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <VitalsPanel vitals={vitals} />
@@ -90,7 +83,7 @@ export function CockpitHome() {
       </div>
 
       {/* Rechts: Command Deck */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="ck-home-deck" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <CommandDeck />
       </div>
     </div>

@@ -125,8 +125,14 @@ export function useDailyMetrics(): UseDailyMetricsResult {
       .order('datum', { ascending: true })
 
     if (err) {
-      // 42P01 = relation does not exist → Migration fehlt
-      if (err.code === '42P01' || err.message.includes('does not exist')) {
+      // Tabelle fehlt → Migration 0049 nicht ausgeführt.
+      // Direkt-SQL: 42P01 · PostgREST: PGRST205 "Could not find the table … in the schema cache"
+      const missing =
+        err.code === '42P01' ||
+        err.code === 'PGRST205' ||
+        err.message.includes('does not exist') ||
+        err.message.includes('Could not find the table')
+      if (missing) {
         setTableMissing(true)
       } else {
         setError(err.message)
