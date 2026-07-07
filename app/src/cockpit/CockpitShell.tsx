@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { ChatBubble } from './components/ChatBubble'
 import { NavRail } from './components/NavRail'
+import { RunWatcher } from './components/RunWatcher'
 import { StatusBar } from './components/StatusBar'
 import { ActiveBrandProvider } from './lib/activeBrand'
 import '../styles/cockpit.css'
@@ -32,6 +33,7 @@ export function CockpitShell() {
           </main>
         </div>
         <ChatBubble />
+        <RunWatcher />
       </div>
     </ActiveBrandProvider>
   )

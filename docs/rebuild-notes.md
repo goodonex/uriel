@@ -146,6 +146,20 @@ Format: Was getan · Was entschieden · Was offen.
 
 ---
 
+## v1.1 — Kevins Feedback-Runde (2026-07-07)
+
+**Getan:**
+- UX-Fixes: Umsatz-Ziel in die linke Zielspalte (kompakt + Progress), QuickTrack (6 Input-Zähler) im Cockpit, Obsidian-Klick via Anchor (kein App-Hänger mehr).
+- **Chat-Blase** (Backlog #1): Migration 0050 (chat_threads mit optionaler contact_id + chat_messages), useChatThreads, ChatBubble unten rechts in der ganzen Shell. Antwort-Motor = bestehende brand-assistant Edge Function (Brand-DNA-Stimme, kein Deploy nötig); Kontakt-Kontext (Stage/Entscheider/Follow-up) als Präambel. Cmd+Enter senden, Threads archivierbar.
+- **RunWatcher**: Toast in der ganzen Shell, wenn ein Agent-Run fertig/fehlgeschlagen ist.
+- **Runner-Autostart**: `scripts/install-runner-autostart.sh` → launchd-Agent `de.kevinos.cockpit-runner` (RunAtLoad + KeepAlive, Logs unter ~/Library/Logs/kevin-os/). Installiert + verifiziert. Hinweis: `npm run cockpit` startet dann einen zweiten Runner, der am belegten Port scheitert — harmlos, App nutzt den launchd-Runner.
+
+**Offen:**
+- Migration 0050 ausführen (Kevin) → dann Chat-Blase E2E mit echtem Kontakt testen.
+- Entschieden gegen: Terminal (Blase deckt Use Case), Google Drive (kein konkreter Schmerz — Foundation-Lektion).
+
+---
+
 ## Definition of Done (v1) — Abnahme 2026-07-07
 
 1. ✅ `npm run cockpit` startet App + Runner; Statusleiste zeigt RUNNER alive (grüner Punkt).
