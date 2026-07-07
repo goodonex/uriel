@@ -6,6 +6,7 @@ import { DocumentsPanel } from '../components/DocumentsPanel'
 import { DreamCard } from '../components/DreamCard'
 import type { RunDoc } from '../components/DocumentsPanel'
 import { PrimaryDirective } from '../components/PrimaryDirective'
+import { QuickTrack } from '../components/QuickTrack'
 import { RunDrawer } from '../components/RunDrawer'
 import { VitalsPanel } from '../components/VitalsPanel'
 import { ForceGraph } from '../graph/ForceGraph'
@@ -14,7 +15,7 @@ import { buildGraph, buildMockGraph, NODE_COLORS, NODE_LEGEND } from '../lib/gra
 import type { GraphNode } from '../lib/graphData'
 import { MONTH_TARGETS, WEEK_TARGETS, currentSoll } from '../lib/goals'
 import { sumField, weekVitals } from '../lib/metricsAggregate'
-import { obsidianUrl, postRun } from '../lib/runnerApi'
+import { openInObsidian, postRun } from '../lib/runnerApi'
 import { useDailyMetrics } from '../lib/useDailyMetrics'
 import { useRunnerData } from '../lib/useRunnerData'
 
@@ -94,7 +95,7 @@ export function CockpitHome() {
       if (node.kind === 'deal' && node.href) {
         navigate(node.href)
       } else if (node.kind === 'note' && node.href) {
-        window.open(obsidianUrl(node.href), '_self')
+        openInObsidian(node.href)
       } else if (node.kind === 'run') {
         setOpenRunId(node.id.replace(/^run-/, ''))
       }
@@ -161,19 +162,20 @@ export function CockpitHome() {
 
   return (
     <div className="ck-home-grid">
-      {/* Links: Vitals + Documents */}
+      {/* Links: Geld-Ziel + Wochenziele + Quick-Track + Documents */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <PrimaryDirective monthRevenue={monthRevenue} />
         <VitalsPanel vitals={vitals} />
+        <QuickTrack today={metrics.today} onBump={(f, d) => void metrics.bump(f, d)} />
         <DocumentsPanel runs={runDocs} onOpen={(r) => setOpenRunId(r.id)} />
       </div>
 
-      {/* Mitte: Graph + Primary Directive */}
+      {/* Mitte: Graph */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
         <div className="ck-panel" style={{ padding: '8px 8px 0' }}>
-          <ForceGraph data={graph} onNodeClick={onNodeClick} height={430} />
+          <ForceGraph data={graph} onNodeClick={onNodeClick} height={520} />
           <GraphLegend />
         </div>
-        <PrimaryDirective monthRevenue={monthRevenue} />
       </div>
 
       {/* Rechts: Command Deck + Dream */}

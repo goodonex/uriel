@@ -52,3 +52,17 @@ export async function fetchVaultRecent(limit = 15): Promise<VaultNote[]> {
 export function obsidianUrl(notePath: string): string {
   return `obsidian://open?vault=${encodeURIComponent('Second Brain')}&file=${encodeURIComponent(notePath.replace(/\.md$/, ''))}`
 }
+
+/**
+ * Öffnet eine obsidian://-URL, ohne die SPA-Navigation anzufassen.
+ * (window.open mit '_self' hängte die App auf, wenn das Protokoll
+ * blockiert wird — z.B. im Preview-Panel.)
+ */
+export function openInObsidian(notePath: string): void {
+  const a = document.createElement('a')
+  a.href = obsidianUrl(notePath)
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}

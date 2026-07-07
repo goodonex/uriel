@@ -10,29 +10,28 @@ export function PrimaryDirective({ monthRevenue }: { monthRevenue: number }) {
   const total = month?.total ?? 0
   const onTrack = monthRevenue >= soll
 
+  const pct = total > 0 ? Math.min(1, monthRevenue / total) : 0
+
   return (
-    <section
-      className="ck-panel"
-      aria-label="Monatsziel"
-      style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '14px 18px', gap: 16 }}
-    >
-      <div>
-        <div className="ck-label">Primary Directive · {month?.label ?? 'Monat'}</div>
-        <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1.2 }}>
-          {formatEuro(monthRevenue)}
-          <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--ck-text-3)' }}>
-            {' '}/ {formatEuro(total)}
-          </span>
-        </div>
+    <section className="ck-panel" aria-label="Monatsziel" style={{ padding: '12px 14px' }}>
+      <div className="ck-label">Primary Directive · {month?.label ?? 'Monat'}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1.25 }}>
+        {formatEuro(monthRevenue)}
+        <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ck-text-3)' }}>
+          {' '}/ {formatEuro(total)}
+        </span>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <div className="ck-label">Soll bis heute</div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: onTrack ? 'var(--ck-accent)' : 'var(--ck-warn)' }}>
+      <div style={{ height: 4, background: 'var(--ck-border)', borderRadius: 2, overflow: 'hidden', margin: '8px 0 6px' }}>
+        <div style={{ width: `${pct * 100}%`, height: '100%', background: onTrack ? 'var(--ck-accent)' : 'var(--ck-idle)' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <span className="ck-label">Soll bis heute</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: onTrack ? 'var(--ck-accent)' : 'var(--ck-warn)' }}>
           {formatEuro(soll)}
-        </div>
-        <div className="ck-label" style={{ marginTop: 2 }}>
-          {onTrack ? 'on track' : 'Input prüfen — Ernte folgt dem Lag'}
-        </div>
+        </span>
+      </div>
+      <div className="ck-label" style={{ marginTop: 2 }}>
+        {onTrack ? 'on track' : 'Input prüfen — Ernte folgt dem Lag'}
       </div>
     </section>
   )
