@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { ChatBubble } from './components/ChatBubble'
 import { NavRail } from './components/NavRail'
 import { StatusBar } from './components/StatusBar'
 import { ActiveBrandProvider } from './lib/activeBrand'
@@ -30,6 +31,7 @@ export function CockpitShell() {
             <Outlet />
           </main>
         </div>
+        <ChatBubble />
       </div>
     </ActiveBrandProvider>
   )
