@@ -298,10 +298,18 @@ Build-Check: `cd app && npx tsc -b && npm run build`.
 
 ## 12. v2-Backlog (NICHT in diesem Umbau)
 
+**Priorisiert nach Kevins Feedback vom 07.07.2026:**
+1. **Chat-Blase unten rechts (LinkedIn-Style)** — mehrere Threads, je Thread optional an CRM-Kontakt gebunden; LinkedIn-Chat reinkopieren → on-brand-Antwortvorschlag. Threads in Supabase (chat_threads/chat_messages), Runner-Endpoint POST /chat mit Thread-Historie + Kontakt-Kontext. Löst das alte „Skill-Cockpit"-Konzept ein. DER nächste Hebel für die 3h-Akquise.
+2. **Runner-Autostart (launchd)** + Fertig-Toast im Cockpit, wenn ein Run done ist — größter Seamless-Killer ist ein offline-Runner.
+3. **Graph v2 „Obsidian-Feeling"**: Runner parst [[Wikilinks]] → echte Kanten zwischen Notizen (statt Hub-Stern), Drag/Zoom/Pan, mehr Knoten, Cluster-Farben nach Ordner.
+4. **Follow-up-Button direkt am CRM-Kontakt** (statt nur global im Command Deck).
+
+**Unpriorisiert:**
 - Sprachsteuerung (Wake-Word, Barge-in, ElevenLabs — Referenz: Jarvis-Video)
 - VPS-Deploy für Handy-Zugriff (dann Agent-Runs via API statt `claude -p`)
-- Voller Vault-Graph (alle Notizen + Links statt nur „recent")
 - Weitere Buttons: Inbox-Brief, KPI-Rollup, Plan-Today, Content-Repurpose
 - Google-Calendar-Sync (Time-Blocks „Sales 9–13" → DIRECTIVES im Cockpit)
+- Google-Drive-Kundenanbindung — BEWUSST zurückgestellt: kein konkreter Workflow-Schmerz benannt; erst bauen, wenn ein echter Fall da ist (Foundation-Lektion)
+- Claude-Code-Terminal im Cockpit — verworfen zugunsten der Chat-Blase (deckt den Use Case ohne PTY-Komplexität)
 - agent_runs-Spiegelung nach Supabase, Runs-Historie/Analytics
 - Deliver-Entscheidung (behalten/umbauen/entfernen)
