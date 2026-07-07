@@ -132,3 +132,25 @@ Format: Was getan · Was entschieden · Was offen.
 **Ergebnis:**
 - Bundle: **4.174 kB → 3.022 kB** (gzip 1.178 → 834 kB), −28%.
 - Verifiziert: / → /cockpit, Deliver-Legacy zeigt echte Projekte, frischer Dev-Server ohne Konsolen-Fehler, tsc + Build grün.
+
+---
+
+## Phase 7 — Dream-Karte (2026-07-07)
+
+**Getan:**
+- Skill `dream-check` im Vault: analysiert Agenten-Nutzung (recentRuns als Input), Skill-Bestand + Daily-Note-Hygiene; max. 2 Vorschläge, unter 200 Wörter, „Heute nichts — System läuft." erlaubt (kein Vorschlags-Zwang).
+- Runner: `maybeDream()` beim Start (5s verzögert), prüft ob heute schon ein dream-check-Run existiert → max. 1×/Kalendertag.
+- `DreamCard`: EINE Karte unterm Command Deck, nur bei heutigem done-Run, Klick → RunDrawer, Dismiss merkt Run-Id in localStorage. Bewusst kein eigenes Dashboard (Plan §8).
+
+**Verifiziert (E2E):** Runner-Neustart → dream-check lief automatisch (33s) → Vorschläge sind ECHT verifizierbar (ungenutzte Buttons korrekt erkannt; Daily Notes seit 2026-06-09 leer — stimmt). Karte erscheint im Cockpit unter dem Command Deck, Klick öffnet Drawer, Dismiss funktioniert per localStorage.
+
+---
+
+## Definition of Done (v1) — Abnahme 2026-07-07
+
+1. ✅ `npm run cockpit` startet App + Runner; Statusleiste zeigt RUNNER alive (grüner Punkt).
+2. ✅ Tracking-Eintrag beeinflusst Cockpit-VITALS + Wochen-Progress (E2E Phase 3).
+3. ✅ Klick „Wochenrecap" → Markdown in System/Runs/ + Obsidian + klickbar im Cockpit (Graph + Documents + Drawer).
+4. ✅ CRM + E-Mail voll funktionsfähig in der neuen Shell, alte URLs redirecten.
+5. ✅ Kein Three.js, keine Denk-Modi mehr im Bundle (−28%, keine Glas-Panels im Cockpit).
+6. ⏳ Obsidian-Web-Viewer-Test: macht Kevin (localhost:5173 im Obsidian-Tab öffnen — technisch identisch zum Browser).

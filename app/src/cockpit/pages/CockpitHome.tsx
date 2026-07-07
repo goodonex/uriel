@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { CommandDeck } from '../components/CommandDeck'
 import { DocumentsPanel } from '../components/DocumentsPanel'
+import { DreamCard } from '../components/DreamCard'
 import type { RunDoc } from '../components/DocumentsPanel'
 import { PrimaryDirective } from '../components/PrimaryDirective'
 import { RunDrawer } from '../components/RunDrawer'
@@ -175,9 +176,10 @@ export function CockpitHome() {
         <PrimaryDirective monthRevenue={monthRevenue} />
       </div>
 
-      {/* Rechts: Command Deck */}
+      {/* Rechts: Command Deck + Dream */}
       <div className="ck-home-deck" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <CommandDeck runnerState={runner.state} activeAgents={activeAgents} onRun={onRun} />
+        <DreamCard runs={runs} onOpen={setOpenRunId} />
       </div>
 
       {openRunId ? <RunDrawer runId={openRunId} onClose={() => setOpenRunId(null)} /> : null}

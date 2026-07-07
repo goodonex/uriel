@@ -233,6 +233,28 @@ const server = createServer(async (req, res) => {
 await mkdir(RUNS_DIR, { recursive: true })
 await mkdir(QUEUE_DIR, { recursive: true })
 
+/** Dream-Check (REBUILD-PLAN §8): beim Start, max. 1x pro Kalendertag. */
+async function maybeDream() {
+  try {
+    const today = nowStamp().slice(0, 10)
+    const names = await readdir(RUNS_DIR)
+    if (names.some((n) => n.startsWith(today) && n.includes('dream-check'))) return
+
+    const recentRuns = names
+      .filter((n) => n.endsWith('.md'))
+      .sort()
+      .reverse()
+      .slice(0, 15)
+      .map((n) => n.replace(/\.md$/, ''))
+    console.log('[runner] dream-check startet (erster Lauf heute)…')
+    await startRun('dream-check', { recentRuns })
+  } catch (e) {
+    console.error('[runner] dream-check übersprungen:', e?.message ?? e)
+  }
+}
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[runner] alive auf http://127.0.0.1:${PORT} · Vault: ${VAULT}`)
+  // leicht verzögert, damit der Start nicht blockiert
+  setTimeout(() => void maybeDream(), 5000)
 })
