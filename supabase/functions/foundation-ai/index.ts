@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
   }
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY")
   if (!apiKey) return json(500, { error: "ANTHROPIC_API_KEY fehlt" })
-  const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-5"
+  const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5"
 
   let body: Body
   try {

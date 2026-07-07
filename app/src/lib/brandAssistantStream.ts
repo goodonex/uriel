@@ -47,9 +47,9 @@ async function invokeComplete(req: InvokePayload): Promise<{ reply?: string; err
       const raw = (error as Error).message ?? 'invoke_failed'
       const detail = ctx?.message ?? raw
       const rawLower = raw.toLowerCase()
+      // Nur ECHTE Nicht-Erreichbarkeit mappen — ein '404' im Fehlertext kann
+      // auch von Anthropic kommen (z.B. unbekanntes Modell) und muss sichtbar bleiben.
       if (
-        detail.includes('404') ||
-        detail.toLowerCase().includes('not found') ||
         detail.toLowerCase().includes('function not found') ||
         rawLower.includes('failed to send a request to the edge function')
       ) {

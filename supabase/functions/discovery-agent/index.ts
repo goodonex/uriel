@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")?.trim()
   const anthropicModel =
-    Deno.env.get("ANTHROPIC_MODEL")?.trim() || "claude-sonnet-4-20250514"
+    Deno.env.get("ANTHROPIC_MODEL")?.trim() || "claude-sonnet-5"
 
   if (!anthropicKey) {
     return json(500, {
