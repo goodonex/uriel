@@ -302,7 +302,8 @@ Build-Check: `cd app && npx tsc -b && npm run build`.
 1. **Chat-Blase unten rechts (LinkedIn-Style)** — mehrere Threads, je Thread optional an CRM-Kontakt gebunden; LinkedIn-Chat reinkopieren → on-brand-Antwortvorschlag. Threads in Supabase (chat_threads/chat_messages), Runner-Endpoint POST /chat mit Thread-Historie + Kontakt-Kontext. Löst das alte „Skill-Cockpit"-Konzept ein. DER nächste Hebel für die 3h-Akquise.
 2. **Runner-Autostart (launchd)** + Fertig-Toast im Cockpit, wenn ein Run done ist — größter Seamless-Killer ist ein offline-Runner.
 3. **Graph v2 „Obsidian-Feeling"**: Runner parst [[Wikilinks]] → echte Kanten zwischen Notizen (statt Hub-Stern), Drag/Zoom/Pan, mehr Knoten, Cluster-Farben nach Ordner.
-4. **Follow-up-Button direkt am CRM-Kontakt** (statt nur global im Command Deck).
+4. ~~Follow-up-Button direkt am CRM-Kontakt~~ ✅ umgesetzt 07.07.
+5. **CRM-Datenhaltung bereinigen (aus Review 07.07.):** useContacts hält Supabase + localStorage doppelt mit Merge/Resurrect/Enrich-Logik (Relikt der Vor-Migrations-Zeit). Risiken: Geister-Kontakte über Geräte hinweg, stille Divergenz im localOnly-Modus (aktuell nur per Warnung entschärft). Ziel: Supabase = einzige Wahrheit, localStorage nur Lese-Cache; resurrect/enrich/Tombstones entfernen. Eigener Arbeitsschritt (~0,5–1 Tag) mit manuellem Test der Pipeline-Flows — NICHT nebenbei machen.
 
 **Unpriorisiert:**
 - Sprachsteuerung (Wake-Word, Barge-in, ElevenLabs — Referenz: Jarvis-Video)
