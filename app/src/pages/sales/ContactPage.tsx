@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useCurrentBrandSlug } from '../../hooks/useCurrentBrandSlug'
+import { FollowUpAgentButton } from '../../cockpit/components/FollowUpAgentButton'
 import { Drawer } from '../../components/Drawer'
 import { findDeliverProjectForContact } from '../../components/sales/ContactDeliverCard'
 import { ContactOverviewPanel } from '../../components/sales/ContactOverviewPanel'
@@ -392,6 +393,7 @@ export function ContactPage({
               ← Zurück zur Pipeline
             </Link>
           ) : null}
+          {contact ? <FollowUpAgentButton contact={contact} /> : null}
           {duplicateProject ? (
             <button
               type="button"

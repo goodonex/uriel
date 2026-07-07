@@ -201,6 +201,9 @@ function App() {
               </Route>
               {/* Phase 6: Universe + Denk-Modi abgerissen → Cockpit ist Home */}
               <Route path="/" element={<Navigate to="/cockpit" replace />} />
+              {/* Phase 4/6: Sales lebt im Cockpit — Redirect VOR BrandPage,
+                  damit deren Module-System für Sales-URLs nie mountet */}
+              <Route path="/brand/:slug/sales/*" element={<LegacySalesRedirect />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route path="dashboard" element={<Navigate to=".." replace />} />
                 <Route path="foundation" element={<Navigate to="/cockpit" replace />} />
@@ -211,8 +214,6 @@ function App() {
                 <Route path="promo/email" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/flows" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/:panel" element={<PromoDefaultRouteGate />} />
-                {/* Phase 4: Sales lebt jetzt im Cockpit unter /crm */}
-                <Route path="sales/*" element={<LegacySalesRedirect />} />
                 <Route path="deliver" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/completed" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/moon" element={<DeliverDefaultRouteGate />} />

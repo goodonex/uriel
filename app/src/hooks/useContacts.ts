@@ -488,6 +488,11 @@ export function useContacts(brandSlug: string | undefined): UseContactsResult {
       )
       localOnlyRef.current = true
       setItems(localRows)
+      // Nicht mehr still: In diesem Modus landen Änderungen NUR im Browser
+      // und syncen nie nach Supabase (Datenverlust-Risiko auf anderen Geräten).
+      setError(
+        'Achtung: lokale Kopie aktiv — Supabase lieferte 0 Kontakte. Änderungen werden NICHT synchronisiert. Seite neu laden; besteht das Problem, RLS/Verbindung prüfen.',
+      )
       setLoading(false)
       return
     }

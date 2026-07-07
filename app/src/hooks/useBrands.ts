@@ -111,6 +111,15 @@ function sortBrandsForDisplay(brands: Brand[]): Brand[] {
  * Bestehende Supabase-Zeilen an die aktuellen Default-Slugs anpassen (einmal pro Reload, wenn nötig).
  * Damit wirken Änderungen an DEFAULT_BRANDS auch, wenn die Tabelle schon ältere Seeds hat.
  */
+/**
+ * Schreiboperationen (Seed + Canonical-Sync) laufen einmal pro User und
+ * SESSION — nicht einmal pro Hook-Instanz. Vorher feuerten 5+ parallele
+ * useBrands()-Instanzen dieselben INSERTs gleichzeitig (409-Kaskade
+ * gegen Supabase bei jedem App-Load).
+ */
+const canonicalSyncPromiseByUser = new Map<string, Promise<boolean>>()
+const defaultSeedAttemptedByUser = new Set<string>()
+
 async function syncCanonicalBrandsForUser(
   userId: string,
   rows: Array<{
@@ -260,7 +269,12 @@ export function useBrands(): UseBrandsResult {
     } else {
       setError(null)
       let rawRows = data ?? []
-      const migrated = await syncCanonicalBrandsForUser(user.id, rawRows)
+      let syncPromise = canonicalSyncPromiseByUser.get(user.id)
+      if (!syncPromise) {
+        syncPromise = syncCanonicalBrandsForUser(user.id, rawRows)
+        canonicalSyncPromiseByUser.set(user.id, syncPromise)
+      }
+      const migrated = await syncPromise
       if (migrated) {
         const { data: again, error: err2 } = await supabase
           .from('brands')
@@ -287,7 +301,9 @@ export function useBrands(): UseBrandsResult {
       return
     }
     if (seedAttemptedRef.current) return
+    if (defaultSeedAttemptedByUser.has(user.id)) return
     seedAttemptedRef.current = true
+    defaultSeedAttemptedByUser.add(user.id)
     void (async () => {
       const rows = DEFAULT_BRANDS.map((b) => ({
         user_id: user.id,
