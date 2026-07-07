@@ -15,8 +15,6 @@ import {
 } from '../lib/scrollFlow'
 import { DashboardSection } from './sections/DashboardSection'
 import { DeliverSection } from './sections/DeliverSection'
-import { FoundationSection } from './sections/FoundationSection'
-import { IntelligenceSection } from './sections/IntelligenceSection'
 import { PromoSection } from './sections/PromoSection'
 import { SalesSection } from './sections/SalesSection'
 import { SectionDotNav } from './SectionDotNav'
@@ -29,16 +27,13 @@ function SectionView({ section, slug }: { section: SectionKey; slug: string }) {
   switch (section) {
     case 'dashboard':
       return <DashboardSection slug={slug} />
-    case 'foundation':
-      return <FoundationSection />
     case 'promo':
       return <PromoSection />
     case 'sales':
       return <SalesSection />
     case 'deliver':
       return <DeliverSection slug={slug} />
-    case 'intelligence':
-      return <IntelligenceSection />
+    // foundation & intelligence: Denk-Modi abgerissen (Phase 6) — Denken lebt in Obsidian
     default:
       return null
   }

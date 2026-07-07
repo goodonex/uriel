@@ -1,5 +1,4 @@
-import { Canvas } from '@react-three/fiber'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Background } from './components/Background'
 import { CommandPalette } from './components/CommandPalette'
@@ -11,11 +10,8 @@ import { ToastProvider } from './components/Toast'
 import { CommandPaletteContext } from './lib/commandPaletteContext'
 import { SaveStatusProvider } from './lib/saveStatusContext'
 import { BrandPage } from './pages/BrandPage'
-import { BuildingMode } from './pages/building/BuildingMode'
 import { DeliverDefaultRouteGate } from './pages/deliver/DeliverDefaultRouteGate'
 import { ProjectPage } from './pages/deliver/ProjectPage'
-import { DiscoveryMode } from './pages/discovery/DiscoveryMode'
-import { IntelligenceDefaultRouteGate } from './pages/intelligence/IntelligenceDefaultRouteGate'
 import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { PortalRoute } from './pages/portal/PortalRoute'
@@ -25,20 +21,12 @@ import { PromoDefaultRouteGate } from './pages/promo/PromoDefaultRouteGate'
 import { useViewport } from './hooks/useViewport'
 import { LegacySalesRedirect } from './cockpit/lib/LegacySalesRedirect'
 import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
-import { UniversePage } from './pages/UniversePage'
-import { useWorldCamera, useWorldCameraSyncFromRoute } from './store/worldCamera'
-import { World } from './three/World'
 import { CockpitShell } from './cockpit/CockpitShell'
 import { CockpitHome } from './cockpit/pages/CockpitHome'
 import { CrmArea } from './cockpit/pages/CrmArea'
 import { EmailArea } from './cockpit/pages/EmailArea'
 import { TrackingArea } from './cockpit/pages/TrackingArea'
 
-/** Neue Cockpit-Bereiche (REBUILD-PLAN §5) — ohne 3D-Canvas, eigene Shell. */
-const COCKPIT_PATHS = ['/cockpit', '/crm', '/email', '/tracking']
-function isCockpitPath(pathname: string): boolean {
-  return COCKPIT_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
-}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -49,7 +37,6 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function OwnerWorkspaceShell() {
-  useWorldCameraSyncFromRoute()
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const navigate = useNavigate()
@@ -99,20 +86,23 @@ function OwnerWorkspaceShell() {
 
       if (gPrefixRef.current.active) {
         const slug = slugRef.current
+        // Denk-Modi abgerissen (Phase 6): g-Shortcuts zeigen auf die Cockpit-Welt
         const map: Record<string, string> = {
-          d: 'dashboard',
-          b: 'foundation',
-          s: 'sales',
-          i: 'intelligence',
-          p: 'deliver',
+          c: '/cockpit',
+          s: '/crm',
+          e: '/email',
+          t: '/tracking',
         }
         const target = map[key]
-        if (slug && target) {
+        if (target) {
           e.preventDefault()
-          navigate(`/brand/${slug}/${target}`)
+          navigate(target)
+        } else if (key === 'p' && slug) {
+          e.preventDefault()
+          navigate(`/brand/${slug}/deliver`)
         } else if (key === 'h') {
           e.preventDefault()
-          navigate('/')
+          navigate('/cockpit')
         }
         clearGPrefix()
         return
@@ -153,63 +143,15 @@ function OwnerWorkspaceShell() {
 
 function App() {
   const location = useLocation()
-  const { width } = useViewport()
-  const worldRegion = useWorldCamera((s) => s.region)
+  useViewport() // hält Viewport-Listener aktiv (Mobile-Gates in Unterseiten)
   const isHome = location.pathname === '/'
   const isBrandWorkspace = location.pathname.startsWith('/brand/')
-  const canvasPointerEvents = isHome || isBrandWorkspace ? 'auto' : 'none'
-  const mobileWorldDisabled = width < 1024 && (isHome || isBrandWorkspace)
-  const inCockpit = isCockpitPath(location.pathname)
-  const hideCanvas =
-    inCockpit ||
-    location.pathname.startsWith('/portal') ||
-    location.pathname.startsWith('/onboarding') ||
-    mobileWorldDisabled
-  const salesCanvasDim =
-    isBrandWorkspace &&
-    !hideCanvas &&
-    (worldRegion === 'sales' || /\/sales(\/|$)/.test(location.pathname))
 
   return (
     <ToastProvider>
       <SaveStatusProvider>
       <Background />
-      {/* Persistenter 3D-Hintergrund — Router als fixes DOM-Overlay (zuverlässiger als drei Html fullscreen). */}
-      {!hideCanvas ? (
-      <Canvas
-        gl={{ alpha: true, antialias: true }}
-        camera={{ position: [0, 0, 11], fov: 35 }}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 0,
-          width: '100%',
-          height: '100%',
-          background: 'transparent',
-          display: 'block',
-          outline: 'none',
-          pointerEvents: canvasPointerEvents,
-        }}
-      >
-        <Suspense fallback={null}>
-          <World />
-        </Suspense>
-      </Canvas>
-      ) : null}
-
-      {salesCanvasDim ? (
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            inset: 0,
-            pointerEvents: 'none',
-            background: 'rgba(0, 0, 0, 0.35)',
-            zIndex: 0,
-          }}
-        />
-      ) : null}
-
+      {/* Phase 6: Three.js-Welt abgerissen — reines DOM-Layout. */}
       <div
         id="app-ui-overlay"
         style={{
@@ -257,19 +199,20 @@ function App() {
                 <Route path="/email/*" element={<EmailArea />} />
                 <Route path="/tracking" element={<TrackingArea />} />
               </Route>
-              <Route path="/" element={<UniversePage />} />
+              {/* Phase 6: Universe + Denk-Modi abgerissen → Cockpit ist Home */}
+              <Route path="/" element={<Navigate to="/cockpit" replace />} />
               <Route path="/brand/:slug" element={<BrandPage />}>
                 <Route path="dashboard" element={<Navigate to=".." replace />} />
-                <Route path="foundation" element={<BuildingMode />} />
-                <Route path="building" element={<Navigate to="../foundation" replace />} />
-                <Route path="discovery" element={<DiscoveryMode />} />
+                <Route path="foundation" element={<Navigate to="/cockpit" replace />} />
+                <Route path="building" element={<Navigate to="/cockpit" replace />} />
+                <Route path="discovery" element={<Navigate to="/cockpit" replace />} />
+                <Route path="intelligence" element={<Navigate to="/cockpit" replace />} />
                 <Route path="promo" element={<PromoDefaultRouteGate />} />
                 <Route path="promo/email" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/flows" element={<Navigate to="email-flows" replace />} />
                 <Route path="promo/:panel" element={<PromoDefaultRouteGate />} />
                 {/* Phase 4: Sales lebt jetzt im Cockpit unter /crm */}
                 <Route path="sales/*" element={<LegacySalesRedirect />} />
-                <Route path="intelligence" element={<IntelligenceDefaultRouteGate />} />
                 <Route path="deliver" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/completed" element={<DeliverDefaultRouteGate />} />
                 <Route path="deliver/moon" element={<DeliverDefaultRouteGate />} />

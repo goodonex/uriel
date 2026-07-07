@@ -2,9 +2,6 @@ import type { ComponentType } from 'react'
 import { BrandDashboardModule } from './brand/BrandDashboardModule'
 import { DeliverProjectModule } from './deliver/DeliverProjectModule'
 import { DeliverWorkspaceModule } from './deliver/DeliverWorkspaceModule'
-import { IntelligenceMorningBriefModule } from './intelligence/IntelligenceMorningBriefModule'
-import { IntelligencePipelineForecastModule } from './intelligence/IntelligencePipelineForecastModule'
-import { IntelligenceWinLossModule } from './intelligence/IntelligenceWinLossModule'
 import { PromoCalendarModule } from './promo/PromoCalendarModule'
 import { PromoCampaignsModule } from './promo/PromoCampaignsModule'
 import { PromoPiecesModule } from './promo/PromoPiecesModule'
@@ -37,9 +34,6 @@ export const MODULE_REGISTRY: Record<string, ModuleComponent> = {
   tasks: TasksModule,
   'quick-stats': QuickStatsModule,
   'contact-detail': ContactDetailModule,
-  'intelligence-morning-brief': IntelligenceMorningBriefModule,
-  'intelligence-pipeline-forecast': IntelligencePipelineForecastModule,
-  'intelligence-win-loss': IntelligenceWinLossModule,
   'promo-calendar': PromoCalendarModule,
   'promo-main': PromoCalendarModule,
   'promo-pieces': PromoPiecesModule,

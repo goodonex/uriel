@@ -128,13 +128,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         accent: string
       }> = [
         { path: 'dashboard', title: 'Dashboard', keywords: ['heute', 'home', 'startseite'], accent: 'var(--accent-blue)' },
-        { path: 'foundation', title: 'Foundation', keywords: ['building', 'discovery', 'icp', 'positioning', 'wortbank', 'business model', 'markt', 'recherche', 'wettbewerb', 'feed'], accent: 'var(--mode-building)' },
         { path: 'promo', title: 'Promo', keywords: ['content', 'kampagne', 'social'], accent: 'var(--mode-promo)' },
-        { path: 'sales', title: 'Sales', keywords: ['pipeline', 'kontakte', 'leads', 'crm'], accent: 'var(--mode-sales)' },
-        { path: 'sales/lists', title: 'Sales · Listen', keywords: ['kontakt listen'], accent: 'var(--mode-sales)' },
-        { path: 'sales/call-mode', title: 'Sales · Call Mode', keywords: ['anruf', 'call', 'follow up'], accent: 'var(--mode-sales)' },
         { path: 'deliver', title: 'Deliver', keywords: ['kunden', 'projekte', 'lieferung'], accent: 'var(--accent-teal)' },
-        { path: 'intelligence', title: 'Intelligence', keywords: ['reports', 'insights', 'analytics'], accent: 'var(--mode-intelligence)' },
       ]
       for (const n of navItems) {
         list.push({
@@ -149,14 +144,22 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       }
     }
 
-    list.push({
-      id: 'nav-universe',
-      kind: 'nav',
-      title: 'Universe',
-      subtitle: 'Alle Brands',
-      keywords: ['home', 'start', 'übersicht', 'cross brand'],
-      run: () => goTo('/'),
-    })
+    // Phase 6: Universe abgerissen — Cockpit-Bereiche sind die neue Welt
+    for (const item of [
+      { id: 'nav-cockpit', title: 'Cockpit', path: '/cockpit', keywords: ['home', 'start', 'übersicht', 'graph'] },
+      { id: 'nav-crm', title: 'CRM', path: '/crm', keywords: ['pipeline', 'kontakte', 'leads', 'sales', 'call'] },
+      { id: 'nav-email', title: 'E-Mail', path: '/email', keywords: ['mail', 'sequenzen', 'flows', 'versand'] },
+      { id: 'nav-tracking', title: 'Tracking', path: '/tracking', keywords: ['kpi', 'looms', 'anfragen', 'umsatz', 'ziele'] },
+    ]) {
+      list.push({
+        id: item.id,
+        kind: 'nav',
+        title: item.title,
+        subtitle: 'Cockpit',
+        keywords: item.keywords,
+        run: () => goTo(item.path),
+      })
+    }
 
     if (slug) {
       list.push({

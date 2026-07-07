@@ -112,3 +112,23 @@ Format: Was getan · Was entschieden · Was offen.
 
 **Offen:**
 - followup-entwuerfe + lead-research Buttons noch nicht E2E getestet (gleicher Mechanismus; Kevin testet im Alltag).
+
+---
+
+## Phase 6 — Abriss Three.js + Denk-Modi (2026-07-07)
+
+**Gelöscht:**
+- `src/three/` komplett, `pages/UniversePage`, `pages/building/` (11 Dateien), `pages/discovery/`, `pages/intelligence/`, `modules/intelligence/`, `components/sections/{Foundation,Intelligence}Section`, `store/worldCamera`.
+- Dependencies: three, @react-three/fiber, @react-three/drei, @react-three/postprocessing, postprocessing, @types/three.
+
+**Umgebaut:**
+- App.tsx: Canvas/World/worldCamera raus — reines DOM-Layout. `/` → Redirect /cockpit. foundation/building/discovery/intelligence-Routen → Redirect /cockpit. g-Shortcuts: g c/s/e/t → Cockpit-Bereiche, g p → Deliver.
+- BrandScrollFlow: Foundation/Intelligence-Sections entfernt (Dashboard/Promo/Sales/Deliver bleiben).
+- CommandPalette: Denk-Modi-Einträge raus, Cockpit/CRM/E-Mail/Tracking-Einträge rein, Universe-Eintrag ersetzt.
+- registry.tsx: Intelligence-Module deregistriert.
+
+**Behalten (wie geplant):** Portal, Booking, Lead-Intake, Login/Onboarding, Deliver (Legacy über /brand/:slug/deliver), Rest-Promo (Legacy).
+
+**Ergebnis:**
+- Bundle: **4.174 kB → 3.022 kB** (gzip 1.178 → 834 kB), −28%.
+- Verifiziert: / → /cockpit, Deliver-Legacy zeigt echte Projekte, frischer Dev-Server ohne Konsolen-Fehler, tsc + Build grün.
