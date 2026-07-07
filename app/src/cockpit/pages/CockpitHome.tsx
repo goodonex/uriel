@@ -60,7 +60,7 @@ export function CockpitHome() {
   const navigate = useNavigate()
   const { activeBrand } = useActiveBrand()
   const metrics = useDailyMetrics()
-  const { runner, runs, notes, refresh } = useRunnerData()
+  const { runner, runs, vaultGraph, refresh } = useRunnerData()
   const contacts = useContacts(activeBrand?.slug)
   const [openRunId, setOpenRunId] = useState<string | null>(null)
 
@@ -86,9 +86,10 @@ export function CockpitHome() {
         label: r.agent,
         active: r.status === 'running',
       })),
-      notes: notes.map((n) => ({ path: n.path, label: n.name })),
+      notes: vaultGraph.nodes,
+      noteEdges: vaultGraph.edges,
     })
-  }, [runner.state, activeBrand?.name, contacts.items, runs, notes])
+  }, [runner.state, activeBrand?.name, contacts.items, runs, vaultGraph])
 
   const onNodeClick = useCallback(
     (node: GraphNode) => {

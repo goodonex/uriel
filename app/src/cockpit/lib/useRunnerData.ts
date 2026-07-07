@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { RunSummary, VaultNote } from './runnerApi'
-import { fetchRuns, fetchVaultRecent } from './runnerApi'
+import type { RunSummary, VaultGraph } from './runnerApi'
+import { fetchRuns, fetchVaultGraph } from './runnerApi'
 import { useRunnerStatus } from './useRunnerStatus'
 
 /**
@@ -11,14 +11,16 @@ import { useRunnerStatus } from './useRunnerStatus'
 export function useRunnerData() {
   const runner = useRunnerStatus()
   const [runs, setRuns] = useState<RunSummary[]>([])
-  const [notes, setNotes] = useState<VaultNote[]>([])
+  const [vaultGraph, setVaultGraph] = useState<VaultGraph>({ nodes: [], edges: [] })
 
   const refresh = useCallback(async () => {
     if (runner.state !== 'online') return
     try {
-      const [r, n] = await Promise.all([fetchRuns(20), fetchVaultRecent(15)])
-      setRuns(r)
-      setNotes(n)
+      const [r, g] = await Promise.all([fetchRuns(20), fetchVaultGraph()])
+      // Referenz nur wechseln, wenn sich Inhalte ändern — sonst baut der
+      // ForceGraph bei jedem Poll neu auf (Zoom/Pan/Layout gehen verloren)
+      setRuns((prev) => (JSON.stringify(prev) === JSON.stringify(r) ? prev : r))
+      setVaultGraph((prev) => (JSON.stringify(prev) === JSON.stringify(g) ? prev : g))
     } catch {
       /* Runner kurz weg — nächster Poll versucht es wieder */
     }
@@ -31,5 +33,5 @@ export function useRunnerData() {
     return () => window.clearInterval(interval)
   }, [refresh, runs.some((r) => r.status === 'running')]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { runner, runs, notes, refresh }
+  return { runner, runs, vaultGraph, refresh }
 }

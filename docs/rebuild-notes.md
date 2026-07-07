@@ -155,8 +155,20 @@ Format: Was getan · Was entschieden · Was offen.
 - **Runner-Autostart**: `scripts/install-runner-autostart.sh` → launchd-Agent `de.kevinos.cockpit-runner` (RunAtLoad + KeepAlive, Logs unter ~/Library/Logs/kevin-os/). Installiert + verifiziert. Hinweis: `npm run cockpit` startet dann einen zweiten Runner, der am belegten Port scheitert — harmlos, App nutzt den launchd-Runner.
 
 **Offen:**
-- Migration 0050 ausführen (Kevin) → dann Chat-Blase E2E mit echtem Kontakt testen.
+- ~~Migration 0050~~ ✅ ausgeführt. Blase E2E getestet: ganze Kette funktioniert (Thread anlegen, Nachricht senden, Persistenz), ABER **brand-assistant liefert Anthropic 401 „invalid x-api-key"** — der ANTHROPIC_API_KEY in den Supabase-Edge-Secrets ist ungültig/rotiert. Betrifft ALLE KI-Edge-Functions (auch discovery-agent), bestand schon vor dem Umbau. **Kevin: neuen Key setzen** (Dashboard → Edge Functions → Secrets, oder `supabase secrets set ANTHROPIC_API_KEY=sk-ant-…`), dann Blase erneut testen.
 - Entschieden gegen: Terminal (Blase deckt Use Case), Google Drive (kein konkreter Schmerz — Foundation-Lektion).
+
+---
+
+## Graph v2 — Obsidian-Gefühl (2026-07-07)
+
+**Getan:**
+- Runner: `GET /vault/graph` — liest die 100 zuletzt geänderten Notizen, parst `[[Wikilinks]]` (inkl. Alias/Abschnitt-Syntax), 60s-Cache. Ergebnis real: 92 Notizen, 84 echte Kanten (Top-Hub: ClientOS-Workflow mit 18 Links).
+- ForceGraph v2: **Zoom** (Wheel, zum Cursor), **Pan** (Hintergrund ziehen), **Node-Drag** (Physik übernimmt beim Loslassen), Klick-vs-Drag-Unterscheidung, Labels stufig (Hub immer, Hover immer, gut vernetzte ab Zoom 1.15), Kanten-/Linienstärken zoom-kompensiert.
+- buildGraph: Notizen OHNE künstliche Hub-Kante — Cluster entstehen aus echten Links wie in Obsidian; Gewicht nach Vernetzungsgrad. Deals/Runs bleiben am Brand-Hub.
+- **Bugfix:** useRunnerData wechselt State-Referenzen nur bei echten Änderungen — vorher baute der 20s-Poll den Graphen neu auf und warf Zoom/Pan/Layout weg.
+
+**Verifiziert:** /vault/graph liefert echte Struktur, Zoom hält jetzt über Polls, Konsole sauber, Build grün.
 
 ---
 

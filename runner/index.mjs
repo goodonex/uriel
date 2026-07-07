@@ -138,6 +138,46 @@ async function startRun(agent, input) {
   return { id, agent, startedAt }
 }
 
+// ---------- Vault: Wikilink-Graph (Obsidian-Gefühl) ----------
+/** @type {{at:number, data:{nodes:Array<{path:string,name:string,links:number}>, edges:Array<{source:string,target:string}>}}|null} */
+let graphCache = null
+const GRAPH_CACHE_MS = 60_000
+const GRAPH_MAX_NOTES = 100
+
+async function vaultGraph() {
+  if (graphCache && Date.now() - graphCache.at < GRAPH_CACHE_MS) return graphCache.data
+
+  const notes = await recentNotes(GRAPH_MAX_NOTES)
+  const byName = new Map() // basename (lowercase) → path
+  for (const n of notes) byName.set(n.name.toLowerCase(), n.path)
+
+  const edges = []
+  const linkCount = new Map()
+  for (const n of notes) {
+    let raw
+    try {
+      raw = await readFile(join(VAULT, n.path), 'utf8')
+    } catch {
+      continue
+    }
+    // [[Ziel]] / [[Ziel|Alias]] / [[Ziel#Abschnitt]]
+    for (const m of raw.matchAll(/\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g)) {
+      const target = byName.get(m[1].trim().toLowerCase())
+      if (!target || target === n.path) continue
+      edges.push({ source: n.path, target })
+      linkCount.set(n.path, (linkCount.get(n.path) ?? 0) + 1)
+      linkCount.set(target, (linkCount.get(target) ?? 0) + 1)
+    }
+  }
+
+  const data = {
+    nodes: notes.map((n) => ({ path: n.path, name: n.name, links: linkCount.get(n.path) ?? 0 })),
+    edges,
+  }
+  graphCache = { at: Date.now(), data }
+  return data
+}
+
 // ---------- Vault: zuletzt geänderte Notizen ----------
 const EXCLUDE = new Set(['System', '.obsidian', '.claude', '.trash', '.git', '08 Anhänge', '10 Excalidraw'])
 
@@ -220,6 +260,10 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/vault/recent') {
       const limit = Math.min(Number(url.searchParams.get('limit') ?? 15), 50)
       return json(res, 200, { notes: await recentNotes(limit) })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/vault/graph') {
+      return json(res, 200, await vaultGraph())
     }
 
     return json(res, 404, { error: 'not found' })

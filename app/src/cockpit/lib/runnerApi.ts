@@ -48,6 +48,22 @@ export async function fetchVaultRecent(limit = 15): Promise<VaultNote[]> {
   return notes
 }
 
+export interface VaultGraphNode {
+  path: string
+  name: string
+  /** Anzahl Wikilink-Verbindungen */
+  links: number
+}
+
+export interface VaultGraph {
+  nodes: VaultGraphNode[]
+  edges: Array<{ source: string; target: string }>
+}
+
+export function fetchVaultGraph(): Promise<VaultGraph> {
+  return req<VaultGraph>('/vault/graph')
+}
+
 /** Obsidian-URL für eine Vault-Notiz (Vault-Name: Second Brain). */
 export function obsidianUrl(notePath: string): string {
   return `obsidian://open?vault=${encodeURIComponent('Second Brain')}&file=${encodeURIComponent(notePath.replace(/\.md$/, ''))}`

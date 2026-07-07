@@ -40,15 +40,16 @@ export const NODE_LEGEND: Array<{ kind: NodeKind; label: string }> = [
   { kind: 'note', label: 'Notizen' },
 ]
 
-/** Echte Graph-Daten (Phase 5): Deals aus CRM, Runs + Notizen vom Runner. */
+/** Echte Graph-Daten (v2): Deals + Runs am Hub, Notizen mit echten Wikilink-Kanten. */
 export interface GraphSources {
   brandName: string
   deals: Array<{ id: string; label: string }>
   runs: Array<{ id: string; label: string; active: boolean }>
-  notes: Array<{ path: string; label: string }>
+  notes: Array<{ path: string; name: string; links: number }>
+  noteEdges: Array<{ source: string; target: string }>
 }
 
-export function buildGraph({ brandName, deals, runs, notes }: GraphSources): GraphData {
+export function buildGraph({ brandName, deals, runs, notes, noteEdges }: GraphSources): GraphData {
   const nodes: GraphNode[] = [{ id: 'hub', kind: 'hub', label: brandName, weight: 3 }]
   const links: GraphLink[] = []
 
@@ -60,9 +61,25 @@ export function buildGraph({ brandName, deals, runs, notes }: GraphSources): Gra
     nodes.push({ id: `run-${r.id}`, kind: 'run', label: r.label, active: r.active, weight: r.active ? 2 : 1 })
     links.push({ source: 'hub', target: `run-${r.id}` })
   }
-  for (const n of notes.slice(0, 12)) {
-    nodes.push({ id: `note-${n.path}`, kind: 'note', label: n.label, href: n.path, weight: 1 })
-    links.push({ source: 'hub', target: `note-${n.path}` })
+
+  // Notizen: Gewicht nach Vernetzungsgrad, Kanten = echte [[Wikilinks]].
+  // KEINE künstliche Hub-Verbindung — Cluster entstehen wie in Obsidian.
+  const noteIds = new Set<string>()
+  for (const n of notes) {
+    const id = `note-${n.path}`
+    noteIds.add(id)
+    nodes.push({
+      id,
+      kind: 'note',
+      label: n.name,
+      href: n.path,
+      weight: n.links >= 8 ? 3 : n.links >= 3 ? 2 : 1,
+    })
+  }
+  for (const e of noteEdges) {
+    const s = `note-${e.source}`
+    const t = `note-${e.target}`
+    if (noteIds.has(s) && noteIds.has(t)) links.push({ source: s, target: t })
   }
   return { nodes, links }
 }
