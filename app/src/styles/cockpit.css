@@ -177,6 +177,21 @@
   .ck-tracking-grid { grid-template-columns: 1fr; }
 }
 
+/* --- Markdown-Render (Run-Ergebnisse) --- */
+.ck-md h1 { font-size: 16px; margin: 4px 0 10px; }
+.ck-md h2 { font-size: 13px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ck-accent); }
+.ck-md h3 { font-size: 12.5px; margin: 12px 0 4px; }
+.ck-md p, .ck-md li { color: var(--ck-text-2); }
+.ck-md strong { color: var(--ck-text-1); }
+.ck-md ul, .ck-md ol { padding-left: 20px; margin: 6px 0; }
+.ck-md blockquote { border-left: 2px solid var(--ck-accent); padding: 4px 12px; margin: 8px 0; background: var(--ck-panel-2); border-radius: 0 6px 6px 0; }
+.ck-md blockquote p { color: var(--ck-text-1); }
+.ck-md code { background: var(--ck-bg); border: 1px solid var(--ck-border); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+.ck-md pre { background: var(--ck-bg); border: 1px solid var(--ck-border); border-radius: 6px; padding: 10px; overflow-x: auto; margin: 8px 0; }
+.ck-md table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.ck-md th, .ck-md td { border: 1px solid var(--ck-border); padding: 6px 9px; text-align: left; }
+.ck-md th { color: var(--ck-text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+
 /* --- Tabellen (CRM/E-Mail: konventionell lesbar, HUD nur als Rahmen) --- */
 .ck-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .ck-table th {

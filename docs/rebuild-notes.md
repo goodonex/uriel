@@ -93,3 +93,22 @@ Format: Was getan · Was entschieden · Was offen.
 
 **Verifiziert (eingeloggt, Preview):**
 - /crm zeigt echte Pipeline (44 Kontakte, 3.800 € Pipeline-Wert, Kanban), /email echte Sequenzen/Vorlagen, Legacy-URL /brand/herrmann/sales/lists → /crm/lists. Konsole fehlerfrei.
+
+---
+
+## Phase 5 — Runner + Agenten-Buttons (2026-07-07)
+
+**Getan:**
+- `runner/index.mjs`: zero-dependency Node-Server (127.0.0.1:4711). POST /run (Agent-Whitelist, 409 bei Doppel-Start), GET /status, /runs (+laufende vorangestellt), /runs/:id, /vault/recent (exkl. System/.obsidian/.claude/Anhänge). Spawnt `claude -p "/<skill> + Input-JSON"` mit cwd=Vault, 10-min-Timeout, schreibt Ergebnis mit Frontmatter nach System/Runs/, Fehler-Runs mit stderr-Auszug.
+- Root-package.json: `npm run cockpit` = concurrently(app dev + runner). Einzige neue Dev-Dependency: concurrently.
+- **Design-Entscheidung: Runner captured stdout statt Skill-Writes.** Skills antworten NUR mit dem fertigen Markdown; der Runner persistiert. Dadurch brauchen Headless-Runs keine Write-Permission → Vault-settings.json: allow Read/Glob/Grep/WebSearch/WebFetch, deny Bash/Write/Edit. Sicher by default.
+- **Design-Entscheidung: App liefert Daten als Input mit.** Wochenrecap bekommt weekRows+Ziele+Soll, Follow-ups bekommt wartende Kontakte (Stage follow_up oder next_follow_up_at fällig, max 10) — keine Supabase-Credentials im Vault nötig, RLS bleibt sauber.
+- 3 Skills im Vault (`~/Second Brain/.claude/skills/`): wochenrecap, followup-entwuerfe, lead-research (mit WebSearch + Loom-Aufhänger). Deutsch, Output = 1:1 speicherbare Note.
+- UI: runnerApi.ts, useRunnerData (Poll 20s, 5s bei aktiven Runs), CommandDeck live (Puls bei laufendem Agent, Lead-Research-Eingabefeld), RunDrawer (Markdown + Copy, Esc), Graph jetzt echt: Deals = CRM-Kontakte in conversation/follow_up/proposal (Klick → /crm/:id), Runs (Klick → Drawer), Notizen (Klick → obsidian://). Mock nur noch als Offline-Fallback.
+
+**Verifiziert (E2E, Definition-of-Done Punkt 3):**
+- Wochenrecap-Button geklickt → Run „läuft…" in Documents → nach 54s fertiges Recap in `System/Runs/2026-07-07-101023-wochenrecap.md` (Frontmatter korrekt, Inhalt stark: ehrliche Null-Analyse, Aufhol-Rechnung 38 Anfragen/Tag) → in Documents klickbar → RunDrawer rendert Markdown inkl. GFM-Tabelle (remark-gfm nachinstalliert).
+- Hinweis: Skills + settings.json liegen im Vault (~/Second Brain/.claude/) — werden dort von Obsidian Git versioniert, nicht in diesem Repo.
+
+**Offen:**
+- followup-entwuerfe + lead-research Buttons noch nicht E2E getestet (gleicher Mechanismus; Kevin testet im Alltag).

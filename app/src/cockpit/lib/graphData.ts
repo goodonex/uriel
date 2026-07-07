@@ -40,7 +40,34 @@ export const NODE_LEGEND: Array<{ kind: NodeKind; label: string }> = [
   { kind: 'note', label: 'Notizen' },
 ]
 
-/** Mock — Phase 3 ersetzt Deals durch Supabase, Phase 5 Runs/Notizen durch Runner-API. */
+/** Echte Graph-Daten (Phase 5): Deals aus CRM, Runs + Notizen vom Runner. */
+export interface GraphSources {
+  brandName: string
+  deals: Array<{ id: string; label: string }>
+  runs: Array<{ id: string; label: string; active: boolean }>
+  notes: Array<{ path: string; label: string }>
+}
+
+export function buildGraph({ brandName, deals, runs, notes }: GraphSources): GraphData {
+  const nodes: GraphNode[] = [{ id: 'hub', kind: 'hub', label: brandName, weight: 3 }]
+  const links: GraphLink[] = []
+
+  for (const d of deals.slice(0, 8)) {
+    nodes.push({ id: `deal-${d.id}`, kind: 'deal', label: d.label, href: `/crm/${d.id}`, weight: 2 })
+    links.push({ source: 'hub', target: `deal-${d.id}` })
+  }
+  for (const r of runs.slice(0, 10)) {
+    nodes.push({ id: `run-${r.id}`, kind: 'run', label: r.label, active: r.active, weight: r.active ? 2 : 1 })
+    links.push({ source: 'hub', target: `run-${r.id}` })
+  }
+  for (const n of notes.slice(0, 12)) {
+    nodes.push({ id: `note-${n.path}`, kind: 'note', label: n.label, href: n.path, weight: 1 })
+    links.push({ source: 'hub', target: `note-${n.path}` })
+  }
+  return { nodes, links }
+}
+
+/** Mock — nur noch Fallback, solange der Runner offline ist. */
 export function buildMockGraph(brandName: string): GraphData {
   const nodes: GraphNode[] = [
     { id: 'hub', kind: 'hub', label: brandName, weight: 3 },
