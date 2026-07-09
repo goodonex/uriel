@@ -39,6 +39,15 @@ export interface AdNote {
   text: string
 }
 
+/** Manuell (oder per Claude) gepflegte Meta-Zahlen, roh; CPL/CTR werden abgeleitet. */
+export interface AdMetrics {
+  updatedAt?: string
+  spend?: number
+  impressions?: number
+  clicks?: number
+  leads?: number
+}
+
 export interface AdVersion {
   v: number
   createdAt: string
@@ -47,6 +56,7 @@ export interface AdVersion {
   copy?: { headline?: string; primary?: string; cta?: string }
   review?: { design: ChecklistItem[]; copy: ChecklistItem[] }
   notes?: AdNote[]
+  metrics?: AdMetrics
 }
 
 export interface Ad {
@@ -129,6 +139,74 @@ export async function fetchKunden(): Promise<Kunde[]> {
   const { kunden } = await req<{ kunden: Kunde[] }>('/ads/customers')
   return kunden
 }
+
+/** Kunde + sein Manifest in einem Rutsch (fürs kundenübergreifende Dashboard). */
+export interface AdsOverviewEntry {
+  kunde: Kunde
+  manifest: AdManifest
+}
+
+export async function fetchAdsOverview(): Promise<AdsOverviewEntry[]> {
+  const { entries } = await req<{ entries: AdsOverviewEntry[] }>('/ads/overview')
+  return entries
+}
+
+/** Abgeleitete Kennzahlen aus rohen Metriken (CPL, CTR). */
+export interface DerivedMetrics {
+  spend: number
+  impressions: number
+  clicks: number
+  leads: number
+  cpl: number | null
+  ctr: number | null
+  hasData: boolean
+}
+
+export function deriveMetrics(m?: AdMetrics): DerivedMetrics {
+  const spend = m?.spend ?? 0
+  const impressions = m?.impressions ?? 0
+  const clicks = m?.clicks ?? 0
+  const leads = m?.leads ?? 0
+  const hasData = Boolean(m && (m.spend != null || m.leads != null || m.impressions != null || m.clicks != null))
+  return {
+    spend,
+    impressions,
+    clicks,
+    leads,
+    cpl: leads > 0 ? spend / leads : null,
+    ctr: impressions > 0 ? (clicks / impressions) * 100 : null,
+    hasData,
+  }
+}
+
+export function sumMetrics(list: DerivedMetrics[]): DerivedMetrics {
+  const acc = list.reduce(
+    (a, d) => ({
+      spend: a.spend + d.spend,
+      impressions: a.impressions + d.impressions,
+      clicks: a.clicks + d.clicks,
+      leads: a.leads + d.leads,
+    }),
+    { spend: 0, impressions: 0, clicks: 0, leads: 0 },
+  )
+  return {
+    ...acc,
+    cpl: acc.leads > 0 ? acc.spend / acc.leads : null,
+    ctr: acc.impressions > 0 ? (acc.clicks / acc.impressions) * 100 : null,
+    hasData: list.some((d) => d.hasData),
+  }
+}
+
+/** Neueste Version einer Ad (Reviews/Metriken hängen an der höchsten v). */
+export function latestVersion(ad: Ad): AdVersion | undefined {
+  return ad.versions[ad.versions.length - 1]
+}
+
+export const ACTIVE_STATUSES: AdStatus[] = ['live', 'approved']
+
+export const EUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+export const EUR2 = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })
+export const NUM = new Intl.NumberFormat('de-DE')
 
 export function fetchAdManifest(slug: string): Promise<AdManifest> {
   return req<AdManifest>(`/ads/manifest?kunde=${encodeURIComponent(slug)}`)

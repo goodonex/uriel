@@ -555,6 +555,23 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { kunden: await kundenRegistry() })
     }
 
+    // Alle Kunden + Manifeste in einem Rutsch (fürs Dashboard).
+    if (req.method === 'GET' && url.pathname === '/ads/overview') {
+      const kunden = await kundenRegistry()
+      const entries = []
+      for (const k of kunden) {
+        const file = join(KUNDEN_ROOT, k.folder, k.adsDir ?? '05_leadgen', 'ads.json')
+        let manifest = emptyManifest(k.slug)
+        try {
+          manifest = JSON.parse(await readFile(file, 'utf8'))
+        } catch (e) {
+          if (e?.code !== 'ENOENT') throw e
+        }
+        entries.push({ kunde: k, manifest })
+      }
+      return json(res, 200, { entries })
+    }
+
     if (url.pathname === '/ads/manifest') {
       const slug = url.searchParams.get('kunde') ?? ''
       const file = await manifestPath(slug)

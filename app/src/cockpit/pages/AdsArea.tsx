@@ -1,9 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { AdCard } from '../components/ads/AdCard'
 import { AdDetailPanel } from '../components/ads/AdDetailPanel'
-import type { Kunde } from '../lib/adsApi'
-import { AD_STATUS_LABEL, fetchKunden, kundenFileUrl } from '../lib/adsApi'
+import type { AdsOverviewEntry, DerivedMetrics, Kunde } from '../lib/adsApi'
+import {
+  ACTIVE_STATUSES,
+  AD_STATUS_LABEL,
+  deriveMetrics,
+  EUR,
+  EUR2,
+  fetchAdsOverview,
+  fetchKunden,
+  kundenFileUrl,
+  latestVersion,
+  NUM,
+  sumMetrics,
+} from '../lib/adsApi'
 import { useAdManifest } from '../lib/useAdManifest'
 
 /**
@@ -15,10 +27,193 @@ import { useAdManifest } from '../lib/useAdManifest'
 export function AdsArea() {
   return (
     <Routes>
-      <Route index element={<KundenList />} />
+      <Route index element={<AdsDashboard />} />
       <Route path=":kunde" element={<KundePage />} />
       <Route path=":kunde/:adId" element={<KundePage />} />
     </Routes>
+  )
+}
+
+/** Eine Ad-Zeile im Dashboard, angereichert mit Kunde + abgeleiteten Metriken. */
+interface DashboardRow {
+  kunde: Kunde
+  adId: string
+  title: string
+  angle?: string
+  status: string
+  version: number
+  preview: string | null
+  metrics: DerivedMetrics
+}
+
+function buildRows(entries: AdsOverviewEntry[]): DashboardRow[] {
+  const rows: DashboardRow[] = []
+  for (const { kunde, manifest } of entries) {
+    for (const ad of manifest.ads) {
+      const ver = latestVersion(ad)
+      rows.push({
+        kunde,
+        adId: ad.id,
+        title: ad.title,
+        angle: ad.angle,
+        status: ad.status,
+        version: ver?.v ?? 1,
+        preview: ver?.preview ? kundenFileUrl(kunde, ver.preview) : null,
+        metrics: deriveMetrics(ver?.metrics),
+      })
+    }
+  }
+  return rows
+}
+
+function AdsDashboard() {
+  const navigate = useNavigate()
+  const [entries, setEntries] = useState<AdsOverviewEntry[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+
+  useEffect(() => {
+    fetchAdsOverview()
+      .then(setEntries)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+  }, [])
+
+  const allRows = useMemo(() => (entries ? buildRows(entries) : []), [entries])
+  const activeRows = useMemo(() => allRows.filter((r) => ACTIVE_STATUSES.includes(r.status as never)), [allRows])
+  const hasActive = activeRows.length > 0
+  const rows = showAll || !hasActive ? allRows : activeRows
+
+  // Beste Performance zuerst: mit Daten oben (nach CPL aufsteigend), dann der Rest.
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      if (a.metrics.hasData !== b.metrics.hasData) return a.metrics.hasData ? -1 : 1
+      if (a.metrics.cpl != null && b.metrics.cpl != null) return a.metrics.cpl - b.metrics.cpl
+      return 0
+    })
+  }, [rows])
+
+  const totals = useMemo(() => sumMetrics(rows.map((r) => r.metrics)), [rows])
+
+  if (error) {
+    return (
+      <div className="ck-panel" style={{ padding: '10px 14px', border: '1px solid var(--ck-warn)', color: 'var(--ck-warn)', fontSize: 12.5, maxWidth: 820 }}>
+        Runner nicht erreichbar: {error}
+      </div>
+    )
+  }
+  if (!entries) return <p className="ck-label">Lade…</p>
+
+  return (
+    <div style={{ maxWidth: 1080 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Ads · Performance</div>
+          <div className="ck-label" style={{ marginTop: 2 }}>
+            {hasActive
+              ? `${activeRows.length} aktive Ads über ${entries.length} Kunden`
+              : `Noch keine aktiven Ads — ${allRows.length} in Vorbereitung`}
+          </div>
+        </div>
+        {hasActive ? (
+          <button className="ck-btn" onClick={() => setShowAll((v) => !v)} style={{ fontSize: 12 }}>
+            {showAll ? 'Nur aktive' : 'Alle anzeigen'}
+          </button>
+        ) : null}
+      </div>
+
+      {/* KPI-Kacheln */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
+        <Kpi label="Ad-Spend" value={totals.hasData ? EUR.format(totals.spend) : '—'} />
+        <Kpi label="Leads" value={totals.hasData ? NUM.format(totals.leads) : '—'} />
+        <Kpi label="Ø CPL" value={totals.cpl != null ? EUR2.format(totals.cpl) : '—'} accent />
+        <Kpi label="Ø CTR" value={totals.ctr != null ? `${totals.ctr.toFixed(2).replace('.', ',')} %` : '—'} />
+      </div>
+
+      {!totals.hasData ? (
+        <div className="ck-panel" style={{ padding: '10px 14px', marginBottom: 16, fontSize: 12.5, color: 'var(--ck-text-2)' }}>
+          Sobald die Kampagnen laufen, kommen hier die Meta-Zahlen rein (Spend, Leads, CPL, CTR) — pro
+          Ad ins Manifest gepflegt oder per Claude eingetragen. Die Tabelle zeigt sie dann automatisch.
+        </div>
+      ) : null}
+
+      {/* Tabelle */}
+      <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', color: 'var(--ck-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 10.5 }}>
+              <th style={thStyle}>Kunde</th>
+              <th style={thStyle}>Ad</th>
+              <th style={thStyle}>Status</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Spend</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Leads</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>CPL</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>CTR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map((r) => (
+              <tr
+                key={`${r.kunde.slug}-${r.adId}`}
+                onClick={() => navigate(`/ads/${r.kunde.slug}/${r.adId}`)}
+                style={{ borderTop: '1px solid var(--ck-border)', cursor: 'pointer' }}
+              >
+                <td style={tdStyle}>{r.kunde.name}</td>
+                <td style={tdStyle}>
+                  <span style={{ fontWeight: 600 }}>{r.title}</span>
+                  <span className="ck-label" style={{ display: 'block' }}>v{r.version}</span>
+                </td>
+                <td style={tdStyle}>
+                  <StatusPill status={r.status} />
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>{r.metrics.hasData ? EUR.format(r.metrics.spend) : '—'}</td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>{r.metrics.hasData ? NUM.format(r.metrics.leads) : '—'}</td>
+                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                  {r.metrics.cpl != null ? EUR2.format(r.metrics.cpl) : '—'}
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'right' }}>
+                  {r.metrics.ctr != null ? `${r.metrics.ctr.toFixed(2).replace('.', ',')} %` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Kunden-Sprungmarken */}
+      <div style={{ marginTop: 20 }}>
+        <div className="ck-label" style={{ marginBottom: 8 }}>Kunden</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {entries.map(({ kunde }) => (
+            <button key={kunde.slug} className="ck-btn" style={{ fontSize: 12 }} onClick={() => navigate(`/ads/${kunde.slug}`)}>
+              {kunde.name} →
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const thStyle: CSSProperties = { padding: '9px 12px', fontWeight: 600 }
+const tdStyle: CSSProperties = { padding: '9px 12px', verticalAlign: 'top' }
+
+function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="ck-panel" style={{ padding: '12px 14px' }}>
+      <div className="ck-label" style={{ marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: accent ? 'var(--ck-accent)' : undefined }}>{value}</div>
+    </div>
+  )
+}
+
+function StatusPill({ status }: { status: string }) {
+  const isLive = status === 'live'
+  const isApproved = status === 'approved'
+  const color = isLive || isApproved ? 'var(--ck-accent)' : status === 'review' ? 'var(--ck-warn)' : 'var(--ck-text-3)'
+  return (
+    <span className="ck-label" style={{ padding: '2px 8px', borderRadius: 99, border: `1px solid ${color}`, color }}>
+      {AD_STATUS_LABEL[status as keyof typeof AD_STATUS_LABEL] ?? status}
+    </span>
   )
 }
 
@@ -31,64 +226,6 @@ function useKunden() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
   }, [])
   return { kunden, error }
-}
-
-function KundenList() {
-  const navigate = useNavigate()
-  const { kunden, error } = useKunden()
-
-  return (
-    <div style={{ maxWidth: 820 }}>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>Ads</div>
-        <div className="ck-label" style={{ marginTop: 2 }}>
-          Ad-Creatives je Kunde — Versionen, Review-Checklisten, Anmerkungen. Quelle: Kundenordner.
-        </div>
-      </div>
-
-      {error ? (
-        <div className="ck-panel" style={{ padding: '10px 14px', border: '1px solid var(--ck-warn)', color: 'var(--ck-warn)', fontSize: 12.5 }}>
-          Runner nicht erreichbar: {error}
-        </div>
-      ) : !kunden ? (
-        <p className="ck-label">Lade…</p>
-      ) : kunden.length === 0 ? (
-        <div className="ck-panel" style={{ padding: 20, textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: 'var(--ck-text-2)', margin: 0 }}>
-            Keine Kunden registriert. Lege <code>Kunden/cockpit-kunden.json</code> an — ein Eintrag pro Kunde.
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {kunden.map((k) => (
-            <button
-              key={k.slug}
-              className="ck-panel"
-              onClick={() => navigate(`/ads/${k.slug}`)}
-              style={{
-                padding: 14,
-                textAlign: 'left',
-                cursor: 'pointer',
-                border: '1px solid var(--ck-border)',
-                background: 'transparent',
-                color: 'inherit',
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{k.name}</div>
-              <div className="ck-label" style={{ marginTop: 4 }}>
-                {k.folder}/{k.adsDir ?? '05_leadgen'}
-              </div>
-              {k.website?.live ? (
-                <div className="ck-label" style={{ marginTop: 2 }}>
-                  {k.website.live.replace(/^https?:\/\//, '')}
-                </div>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function KundePage() {
