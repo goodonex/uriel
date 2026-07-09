@@ -7,7 +7,9 @@ import { useProjectOutcomes } from '../../hooks/useProjectOutcomes'
 import type { DeliverProject } from '../../types/db'
 import { OutcomeHeader } from '../phase/OutcomeHeader'
 import { PhaseDashboard } from '../phase/PhaseDashboard'
+import { PortalFilesSection } from './PortalFilesSection'
 import { PortalPhaseContent } from './PortalPhaseContent'
+import { PortalWebsiteEditor } from './PortalWebsiteEditor'
 import { PortalPhaseMessageButton } from './PortalPhaseMessageButton'
 import { useProjectMessages } from '../../hooks/useProjectMessages'
 
@@ -118,22 +120,11 @@ export function PortalShell({
           renderPhaseFooter={renderPhaseFooter}
         />
 
-        {project.client_documents.filter((d) => d.url && d.url !== '#').length > 0 ? (
-          <aside className="portal-shell__docs mt-6">
-            <h3>Weitere Dokumente</h3>
-            <ul>
-              {project.client_documents
-                .filter((d) => d.url && d.url !== '#')
-                .map((doc, i) => (
-                  <li key={`${doc.url}-${i}`}>
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                      {doc.label || doc.url}
-                    </a>
-                  </li>
-                ))}
-            </ul>
-          </aside>
-        ) : null}
+        <PortalWebsiteEditor projectId={project.id} />
+
+        <div className="portal-card mt-6">
+          <PortalFilesSection projectId={project.id} documents={project.client_documents} />
+        </div>
 
         {project.booking_url ? (
           <div className="portal-shell__booking mt-4">

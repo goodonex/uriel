@@ -48,6 +48,16 @@ export const CHANNEL_BENCHMARKS = [
   { key: 'coldmails', label: 'Cold-Mail', min: 0.04, max: 0.08 },
 ] as const
 
+/**
+ * Conversion-Zielquoten des Coachings (Agentur Inkubator / Marcel Steljes,
+ * Outreach-Tracker). „min" = Zielband-Untergrenze, „great" = „sehr gut".
+ */
+export const CONVERSION_TARGETS = {
+  nachrichtLoom: { label: 'Nachricht → Loom', min: 0.1, max: 0.2, great: 0.2 },
+  loomQuali: { label: 'Loom → Quali-Call', min: 0.1, max: 0.3, great: 0.3 },
+  qualiKunde: { label: 'Quali → Kunde', min: 0.25, max: 0.5, great: 0.5 },
+} as const
+
 /** Aktuelles Soll für "heute" aus einer Kurve interpolieren (Wochenende = voller Wert). */
 export function currentSoll(curve: WeekTarget[], today = new Date()): number {
   let soll = 0

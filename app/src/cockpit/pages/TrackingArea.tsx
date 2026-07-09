@@ -46,11 +46,11 @@ function Stepper({
     >
       <span className="ck-label" style={{ fontSize: 10.5 }}>{label}</span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <button className="ck-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(-1)} aria-label={`${label} minus 1`}>
+        <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(-1)} aria-label={`${label} minus 1`}>
           −
         </button>
         <span style={{ fontSize: 15, fontWeight: 600, minWidth: 26, textAlign: 'center' }}>{value}</span>
-        <button className="ck-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(1)} aria-label={`${label} plus 1`}>
+        <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(1)} aria-label={`${label} plus 1`}>
           +
         </button>
       </span>
@@ -99,6 +99,7 @@ function UmsatzInput({ value, onSet }: { value: number; onSet: (v: number) => vo
 function RatesTable({ rates }: { rates: ReturnType<typeof channelRates> }) {
   const fmt = (r: number | null) => (r == null ? '—' : `${(r * 100).toFixed(1)}%`)
   return (
+    <div className="ck-table-scroll">
     <table className="ck-table">
       <thead>
         <tr>
@@ -134,6 +135,7 @@ function RatesTable({ rates }: { rates: ReturnType<typeof channelRates> }) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 

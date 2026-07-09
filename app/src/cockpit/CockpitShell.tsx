@@ -28,7 +28,7 @@ export function CockpitShell() {
         <StatusBar />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <NavRail />
-          <main style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: 18 }}>
+          <main className="ck-main" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
             <Outlet />
           </main>
         </div>

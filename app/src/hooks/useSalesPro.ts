@@ -52,6 +52,7 @@ const DEFAULT_PIPELINE_STAGES: PipelineStageDef[] = [
 interface UseSalesPipelinesResult extends BaseResult<SalesPipeline> {
   defaultPipeline: SalesPipeline | null
   create: (input: Partial<SalesPipeline> & { name: string; slug: string }) => Promise<void>
+  createMany: (inputs: Array<Partial<SalesPipeline> & { name: string; slug: string }>) => Promise<void>
   update: (id: string, patch: Partial<SalesPipeline>) => Promise<void>
   remove: (id: string) => Promise<void>
   setDefault: (id: string) => Promise<void>
@@ -175,6 +176,43 @@ export function useSalesPipelines(brandSlug: string | undefined): UseSalesPipeli
     [brandId, brandSlug, items, reload],
   )
 
+  // Mehrere Pipelines atomar anlegen (Schleife über create() liest stale items).
+  const createMany = useCallback(
+    async (inputs: Array<Partial<SalesPipeline> & { name: string; slug: string }>) => {
+      if (!brandSlug || inputs.length === 0) return
+      const rows: SalesPipeline[] = inputs.map((input, idx) => ({
+        id: generateId(),
+        brand_id: localOnly.current ? brandSlug : (brandId ?? brandSlug),
+        name: input.name,
+        slug: input.slug,
+        stages: input.stages ?? DEFAULT_PIPELINE_STAGES,
+        is_default: input.is_default ?? false,
+        sort_order: input.sort_order ?? items.length + idx,
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }))
+      const next = [...items, ...rows]
+      setItems(next)
+      if (localOnly.current || !supabase || !brandId) {
+        saveList([brandSlug, 'sales-pipelines'], next)
+        return
+      }
+      const { error: insErr } = await supabase.from('sales_pipelines').insert(
+        rows.map((r) => ({
+          brand_id: brandId,
+          name: r.name,
+          slug: r.slug,
+          stages: r.stages,
+          is_default: r.is_default,
+          sort_order: r.sort_order,
+        })),
+      )
+      if (insErr) setError(insErr.message)
+      void reload()
+    },
+    [brandId, brandSlug, items, reload],
+  )
+
   const update = useCallback(
     async (id: string, patch: Partial<SalesPipeline>) => {
       if (!brandSlug) return
@@ -231,7 +269,7 @@ export function useSalesPipelines(brandSlug: string | undefined): UseSalesPipeli
     [items],
   )
 
-  return { items, loading, error, reload, defaultPipeline, create, update, remove, setDefault }
+  return { items, loading, error, reload, defaultPipeline, create, createMany, update, remove, setDefault }
 }
 
 // =========================================================================

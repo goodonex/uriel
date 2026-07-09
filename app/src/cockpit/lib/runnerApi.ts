@@ -64,6 +64,57 @@ export function fetchVaultGraph(): Promise<VaultGraph> {
   return req<VaultGraph>('/vault/graph')
 }
 
+// ---------- OS-Map (Agentic-OS-Graph) ----------
+export interface OsSkill {
+  id: string
+  name: string
+  description: string
+  source: 'vault' | 'global'
+  path: string
+}
+export interface OsRoutine {
+  id: string
+  name: string
+  description: string
+  schedule: string
+}
+export interface OsApp {
+  id: string
+  name: string
+  description: string
+  kind: string // mcp | api | cli | tool
+  status: string // connected | manual | geplant
+}
+export interface OsMemory {
+  path: string
+  name: string
+  links: number
+  area: string // PARA-Top-Level-Ordner
+}
+export interface OsMap {
+  skills: OsSkill[]
+  routines: OsRoutine[]
+  apps: OsApp[]
+  memory: OsMemory[]
+  memoryEdges: Array<{ source: string; target: string }>
+  generatedAt: string
+}
+
+export function fetchOsMap(fresh = false): Promise<OsMap> {
+  return req<OsMap>(fresh ? '/os/map?fresh=1' : '/os/map')
+}
+
+export interface OsFile {
+  path: string
+  content: string
+  truncated: boolean
+}
+
+/** Read-only Dateiinhalt fürs Detail-Panel (Runner erlaubt nur Vault + globale Skills). */
+export function fetchOsFile(path: string): Promise<OsFile> {
+  return req<OsFile>(`/os/file?path=${encodeURIComponent(path)}`)
+}
+
 /** Obsidian-URL für eine Vault-Notiz (Vault-Name: Second Brain). */
 export function obsidianUrl(notePath: string): string {
   return `obsidian://open?vault=${encodeURIComponent('Second Brain')}&file=${encodeURIComponent(notePath.replace(/\.md$/, ''))}`

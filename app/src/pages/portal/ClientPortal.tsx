@@ -5,7 +5,16 @@ import { useAuth } from '../../hooks/useAuth'
 import { usePortalProject } from '../../hooks/usePortalProject'
 import './portal.css'
 
-export function ClientPortal({ preview = false, crm = false }: { preview?: boolean; crm?: boolean }) {
+export function ClientPortal({
+  preview = false,
+  crm = false,
+  ownerView = false,
+}: {
+  preview?: boolean
+  crm?: boolean
+  /** Kevin schaut als Owner durch die Kundenbrille (?als=kunde). */
+  ownerView?: boolean
+}) {
   const { projectId } = useParams<{ projectId: string }>()
   const { user, role, clientProjectId, signOut } = useAuth()
   const navigate = useNavigate()
@@ -52,8 +61,49 @@ export function ClientPortal({ preview = false, crm = false }: { preview?: boole
     return null
   }
 
+  const onSignOut =
+    preview || ownerView
+      ? undefined
+      : () => void signOut().then(() => navigate('/portal/login'))
+
   return (
     <div className="portal-root" style={{ '--portal-accent': accent } as CSSProperties}>
+      {ownerView ? (
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '8px 16px',
+            background: '#111827',
+            color: '#f9fafb',
+            fontSize: 13,
+          }}
+        >
+          <span>
+            <strong>Kunden-Ansicht</strong> — du siehst das Portal wie dein Kunde.
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate(projectId ? `/projekte/${projectId}` : '/projekte')}
+            style={{
+              padding: '5px 12px',
+              borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.35)',
+              background: 'transparent',
+              color: '#f9fafb',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            Zurück zum Cockpit
+          </button>
+        </div>
+      ) : null}
       {crm ? (
         <PortalCrmShell
           project={project}
@@ -61,11 +111,7 @@ export function ClientPortal({ preview = false, crm = false }: { preview?: boole
           accentColor={accent}
           senderName={displayName}
           preview={preview}
-          onSignOut={
-            preview
-              ? undefined
-              : () => void signOut().then(() => navigate('/login'))
-          }
+          onSignOut={onSignOut}
         />
       ) : (
         <PortalShell
@@ -74,11 +120,7 @@ export function ClientPortal({ preview = false, crm = false }: { preview?: boole
           accentColor={accent}
           senderName={displayName}
           preview={preview}
-          onSignOut={
-            preview
-              ? undefined
-              : () => void signOut().then(() => navigate('/login'))
-          }
+          onSignOut={onSignOut}
         />
       )}
     </div>

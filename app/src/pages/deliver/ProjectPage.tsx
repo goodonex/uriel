@@ -19,6 +19,9 @@ import { useDeliverProjects } from '../../hooks/useDeliverProjects'
 import { useProjectLeads } from '../../hooks/useProjectLeads'
 import { useProjectOutcomes } from '../../hooks/useProjectOutcomes'
 import { inviteClient } from '../../lib/inviteClientService'
+import { supabase } from '../../lib/supabase'
+import { PortalFilesSection } from '../../components/portal/PortalFilesSection'
+import { SiteContentAdmin } from '../../components/deliver/SiteContentAdmin'
 import {
   createCustomDeliverable,
   DELIVERABLE_TYPE_OPTIONS,
@@ -193,6 +196,26 @@ export function ProjectPage({
     if (project?.client_email) setInviteEmail(project.client_email)
     if (project?.client_name) setInviteName(project.client_name)
   }, [project?.id, project?.client_email, project?.client_name])
+
+  // Prefill aus dem verknüpften CRM-Kontakt, wenn das Projekt selbst noch
+  // keine Kunden-E-Mail trägt (Deal im CRM → Projekt anlegen → einladen).
+  useEffect(() => {
+    if (!supabase || !project?.client_contact_id || project.client_email) return
+    let cancelled = false
+    void supabase
+      .from('contacts')
+      .select('email, name')
+      .eq('id', project.client_contact_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        if (data.email) setInviteEmail((cur) => cur || data.email)
+        if (data.name) setInviteName((cur) => cur || data.name)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [project?.client_contact_id, project?.client_email])
 
   const handleDeleteProject = useCallback(async () => {
     if (!project || !slug) return
@@ -626,6 +649,22 @@ export function ProjectPage({
           <button
             type="button"
             className="font-mono"
+            onClick={() => window.open(`/portal/${project.id}?als=kunde`, '_blank', 'noopener')}
+            title="Portal genau so sehen, wie es dein Kunde sieht"
+            style={{
+              fontSize: 11,
+              padding: '8px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--accent-blue)',
+              background: 'color-mix(in srgb, var(--accent-blue) 12%, transparent)',
+              color: 'var(--accent-blue)',
+            }}
+          >
+            Als Kunde ansehen
+          </button>
+          <button
+            type="button"
+            className="font-mono"
             onClick={() => setDeleteOpen(true)}
             style={{
               fontSize: 11,
@@ -945,6 +984,18 @@ export function ProjectPage({
               ))}
             </div>
           </div>
+
+          <div className="glass-2" style={{ borderRadius: 16, padding: 20, marginTop: 16 }}>
+            <PortalFilesSection
+              projectId={project.id}
+              documents={project.client_documents}
+              dark
+              canDelete
+              title="Geteilte Dateien (Portal)"
+            />
+          </div>
+
+          <SiteContentAdmin projectId={project.id} />
         </div>
       )}
 
@@ -956,8 +1007,9 @@ export function ProjectPage({
       >
         <div className="flex flex-col gap-4">
           <p className="font-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-            Der Kunde erhält eine E-Mail mit Magic Link zum Kundenportal. Falls bereits ein Account
-            existiert, wird er mit diesem Projekt verknüpft.
+            Der Kunde erhält eine E-Mail und legt einmalig sein eigenes Passwort fest — danach
+            meldet er sich jederzeit mit E-Mail + Passwort an. Bestehende Accounts werden mit
+            diesem Projekt verknüpft.
           </p>
           {existingClientUser !== null ? (
             <p className="font-mono" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>

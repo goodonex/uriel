@@ -31,10 +31,8 @@ export function ChatBubble() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? 'Chat schließen' : 'Chat öffnen'}
+        className="ck-chat-fab"
         style={{
-          position: 'fixed',
-          right: 20,
-          bottom: 20,
           width: 48,
           height: 48,
           borderRadius: '50%',
@@ -43,7 +41,6 @@ export function ChatBubble() {
           color: open ? 'var(--ck-accent)' : 'var(--ck-text-1)',
           fontSize: 20,
           cursor: 'pointer',
-          zIndex: 60,
           boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
         }}
       >
@@ -74,13 +71,10 @@ function ChatPanel({
 
   return (
     <div
-      className="ck-root"
+      className="ck-root ck-chat-panel"
       role="dialog"
       aria-label="Chats"
       style={{
-        position: 'fixed',
-        right: 20,
-        bottom: 80,
         width: 'min(400px, calc(100vw - 40px))',
         height: 'min(540px, calc(100vh - 120px))',
         display: 'flex',
@@ -88,7 +82,6 @@ function ChatPanel({
         background: 'var(--ck-panel)',
         border: '1px solid var(--ck-border-strong)',
         borderRadius: 10,
-        zIndex: 59,
         overflow: 'hidden',
         boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
       }}

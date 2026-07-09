@@ -1,0 +1,896 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { OsMap } from '../lib/runnerApi'
+import type { LeadContact, NebulaLayout, NebulaNode, ViewMode } from './nebulaLayout'
+import { buildLayout, LAYER_COLOR, TOP } from './nebulaLayout'
+
+/**
+ * OsNebula — Canvas-Engine für den Agentic-OS-Graph im RUBRIC-Look:
+ * Deep-Space-Hintergrund (Starfield + Nebel-Fog), Glow-Dots, langsamer
+ * Ring-Spin, Kometen entlang der Bahnen, Hover = leuchten + Rest dimmt,
+ * Suche filtert, Control-Panel rechts (Ansicht/Slider), Header links.
+ * Drei Ansichten: Ringe · Nebula · Leads (Layout aus nebulaLayout.ts).
+ */
+
+interface Settings {
+  view: ViewMode
+  glow: number
+  spin: number
+  links: number
+  comets: number
+  labels: boolean
+}
+
+const SETTINGS_KEY = 'ck-nebula'
+
+function defaultSettings(): Settings {
+  const reduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const base: Settings = {
+    view: 'rings',
+    glow: 0.75,
+    spin: reduced ? 0 : 0.35,
+    links: 0.5,
+    comets: reduced ? 0 : 0.55,
+    labels: true,
+  }
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (raw) return { ...base, ...(JSON.parse(raw) as Partial<Settings>) }
+  } catch {
+    /* defaults */
+  }
+  return base
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+function rgba(hex: string, a: number): string {
+  const [r, g, b] = hexToRgb(hex)
+  return `rgba(${r},${g},${b},${a})`
+}
+
+/** Glow-Sprite pro Farbe (einmal offscreen gerendert, dann drawImage = billig). */
+const spriteCache = new Map<string, HTMLCanvasElement>()
+function glowSprite(color: string): HTMLCanvasElement {
+  let c = spriteCache.get(color)
+  if (c) return c
+  c = document.createElement('canvas')
+  c.width = 64
+  c.height = 64
+  const g = c.getContext('2d')!
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  grad.addColorStop(0, rgba(color, 0.85))
+  grad.addColorStop(0.35, rgba(color, 0.28))
+  grad.addColorStop(1, rgba(color, 0))
+  g.fillStyle = grad
+  g.fillRect(0, 0, 64, 64)
+  spriteCache.set(color, c)
+  return c
+}
+
+interface Star {
+  x: number
+  y: number
+  r: number
+  a: number
+  ph: number
+}
+
+interface Comet {
+  /** rings/leads: Bahn-Radius; nebula: Ziel-Hub-Index */
+  radius: number
+  angle: number
+  speed: number
+  color: string
+  hubId?: string
+  offset: number
+}
+
+interface OsNebulaProps {
+  map: OsMap
+  contacts: LeadContact[]
+  onNodeClick?: (node: NebulaNode) => void
+  /** Erzwingt frisches /os/map (Cache-Bypass) — Button im Steuerpanel. */
+  onRefresh?: () => void
+  height?: number
+}
+
+const VIEW_LABEL: Record<ViewMode, string> = { rings: 'Ringe', nebula: 'Nebula', leads: 'Leads' }
+const SUBTITLE: Record<ViewMode, string> = {
+  rings: 'CLAUDE.md ist der Router-Stern · jede Datei ein Körper im Orbit.',
+  nebula: 'Jeder Bereich eine Galaxie · der Router hält sie zusammen.',
+  leads: 'Sales innen · Loom · Kaltakquise außen — jeder Punkt ein Lead.',
+}
+
+export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }: OsNebulaProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const tipRef = useRef<HTMLDivElement | null>(null)
+  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [query, setQuery] = useState('')
+  const [panelOpen, setPanelOpen] = useState(true)
+
+  const layout = useMemo(
+    () => buildLayout(settings.view, map, contacts),
+    [settings.view, map, contacts],
+  )
+
+  // Refs für den rAF-Loop (kein Loop-Neustart bei State-Wechseln)
+  const layoutRef = useRef<NebulaLayout>(layout)
+  const settingsRef = useRef<Settings>(settings)
+  const queryRef = useRef(query)
+  const clickRef = useRef(onNodeClick)
+  const needFitRef = useRef(true)
+  if (layoutRef.current !== layout) needFitRef.current = true
+  layoutRef.current = layout
+  settingsRef.current = settings
+  queryRef.current = query
+  clickRef.current = onNodeClick
+
+  const set = (patch: Partial<Settings>) =>
+    setSettings((s) => {
+      const next = { ...s, ...patch }
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(next))
+      } catch {
+        /* egal */
+      }
+      return next
+    })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const wrap = wrapRef.current
+    const tip = tipRef.current
+    if (!canvas || !wrap || !tip) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let width = wrap.clientWidth || 640
+    const dpr = window.devicePixelRatio || 1
+    const view = { x: 0, y: 0, k: 0.8 }
+    let hoverId: string | null = null
+    let stars: Star[] = []
+    let comets: Comet[] = []
+    let cometView: ViewMode | null = null
+    const t0 = performance.now()
+
+    const makeStars = () => {
+      const n = Math.round((width * height) / 8000)
+      const r = mulberry(width * 7 + height)
+      stars = Array.from({ length: n }, () => ({
+        x: r() * width,
+        y: r() * height,
+        r: 0.35 + r() * 0.9,
+        a: 0.05 + r() * 0.24,
+        ph: r() * Math.PI * 2,
+      }))
+    }
+
+    function mulberry(seed: number) {
+      let a = seed >>> 0
+      return () => {
+        a |= 0
+        a = (a + 0x6d2b79f5) | 0
+        let t = Math.imul(a ^ (a >>> 15), 1 | a)
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+      }
+    }
+
+    const makeComets = () => {
+      const L = layoutRef.current
+      const s = settingsRef.current
+      cometView = L.view
+      const n = Math.round(s.comets * 14)
+      const r = mulberry(hashStr(L.view) + L.nodes.length)
+      const hubs = L.nodes.filter((x) => x.kind === 'hub')
+      comets = Array.from({ length: n }, () => {
+        if (L.view === 'nebula' && hubs.length) {
+          const hub = hubs[Math.floor(r() * hubs.length)]
+          return {
+            radius: 0,
+            angle: 0,
+            speed: 0.1 + r() * 0.12,
+            color: LAYER_COLOR[hub.layer],
+            hubId: hub.id,
+            offset: r(),
+          }
+        }
+        const band = L.bands[Math.floor(r() * Math.max(L.bands.length, 1))]
+        const arcR = band ? band.arcs[Math.floor(r() * band.arcs.length)] : 200
+        return {
+          radius: arcR,
+          angle: r() * Math.PI * 2,
+          speed: (0.14 + r() * 0.2) * (r() > 0.5 ? 1 : -1),
+          color: band?.color ?? '#8b9bb4',
+          offset: r(),
+        }
+      })
+    }
+
+    function hashStr(s: string): number {
+      let h = 0
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+      return h >>> 0
+    }
+
+    const resize = () => {
+      width = wrap.clientWidth || 640
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+      makeStars()
+      needFitRef.current = true
+    }
+    resize()
+
+    const cx = () => width / 2
+    const cy = () => height / 2
+
+    const fit = () => {
+      const L = layoutRef.current
+      view.k = Math.min(width, height) / (2 * (L.maxR + 32))
+      view.x = 0
+      view.y = 0
+      needFitRef.current = false
+    }
+
+    /** Aktuelle Weltposition eines Nodes (inkl. Ring-Spin). */
+    const posOf = (n: NebulaNode, t: number): { x: number; y: number } => {
+      if (n.kind === 'core') return { x: 0, y: 0 }
+      const a = n.angle + n.speed * settingsRef.current.spin * t
+      return { x: Math.cos(a) * n.radius, y: Math.sin(a) * n.radius }
+    }
+
+    const toWorld = (sx: number, sy: number) => ({
+      x: (sx - cx() - view.x) / view.k,
+      y: (sy - cy() - view.y) / view.k,
+    })
+
+    const nodeAt = (sx: number, sy: number, t: number): NebulaNode | null => {
+      const w = toWorld(sx, sy)
+      let best: NebulaNode | null = null
+      let bestD = Infinity
+      for (const n of layoutRef.current.nodes) {
+        const p = posOf(n, t)
+        const dx = w.x - p.x
+        const dy = w.y - p.y
+        const hit = n.size + 6 / view.k
+        const d = dx * dx + dy * dy
+        if (d <= hit * hit && d < bestD) {
+          best = n
+          bestD = d
+        }
+      }
+      return best
+    }
+
+    const matches = (n: NebulaNode, q: string) =>
+      !q ||
+      n.label.toLowerCase().includes(q) ||
+      n.sub.toLowerCase().includes(q) ||
+      (n.area?.toLowerCase().includes(q) ?? false)
+
+    const drawCurvedLabel = (text: string, radius: number, color: string) => {
+      const fs = 10.5
+      ctx.font = `700 ${fs}px 'JetBrains Mono', ui-monospace, monospace`
+      const widths = [...text].map((ch) => ctx.measureText(ch).width + fs * 0.28)
+      const totalAngle = widths.reduce((s, w) => s + w, 0) / radius
+      let a = TOP - totalAngle / 2
+      ctx.fillStyle = rgba(color, 0.55)
+      for (let i = 0; i < text.length; i++) {
+        const w = widths[i] / radius
+        a += w / 2
+        ctx.save()
+        ctx.translate(Math.cos(a) * radius, Math.sin(a) * radius)
+        ctx.rotate(a + Math.PI / 2)
+        ctx.textAlign = 'center'
+        ctx.fillText(text[i], 0, 0)
+        ctx.restore()
+        a += w / 2
+      }
+    }
+
+    const hexPath = (x: number, y: number, r: number) => {
+      ctx.beginPath()
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2
+        const px = x + Math.cos(a) * r
+        const py = y + Math.sin(a) * r
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+    }
+
+    let raf = 0
+    const draw = () => {
+      const L = layoutRef.current
+      const s = settingsRef.current
+      const q = queryRef.current.trim().toLowerCase()
+      const t = (performance.now() - t0) / 1000
+      if (needFitRef.current) fit()
+      if (cometView !== L.view || comets.length !== Math.round(s.comets * 14)) makeComets()
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      // Deep Space
+      ctx.fillStyle = '#05080c'
+      ctx.fillRect(0, 0, width, height)
+      for (const st of stars) {
+        const tw = 0.72 + 0.28 * Math.sin(t * 0.7 + st.ph)
+        ctx.globalAlpha = st.a * tw
+        ctx.fillStyle = '#cfd8e3'
+        ctx.beginPath()
+        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+
+      ctx.translate(cx() + view.x, cy() + view.y)
+      ctx.scale(view.k, view.k)
+
+      // Nebel-Fog
+      for (const f of L.fogs) {
+        const fx = Math.cos(f.angle) * f.radius
+        const fy = Math.sin(f.angle) * f.radius
+        const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, f.r)
+        grad.addColorStop(0, rgba(f.color, 0.055 * s.glow + 0.02))
+        grad.addColorStop(1, rgba(f.color, 0))
+        ctx.fillStyle = grad
+        ctx.beginPath()
+        ctx.arc(fx, fy, f.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Ring-Guides (gepunktet) + gebogene Band-Labels
+      for (const b of L.bands) {
+        ctx.strokeStyle = rgba(b.color, 0.16)
+        ctx.lineWidth = 1 / view.k
+        ctx.setLineDash([1.3 / view.k, 6.5 / view.k])
+        for (const r of b.arcs) {
+          ctx.beginPath()
+          ctx.arc(0, 0, r, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        ctx.setLineDash([])
+        if (s.labels) drawCurvedLabel(b.label, b.rLabel, b.color)
+      }
+
+      // Hover-Kontext
+      const hover = hoverId ? L.byId.get(hoverId) : null
+      const connected = new Set<string>()
+      if (hover) {
+        for (const e of L.edges) {
+          if (e.a === hover.id) connected.add(e.b)
+          if (e.b === hover.id) connected.add(e.a)
+        }
+      }
+
+      const alphaFor = (n: NebulaNode): number => {
+        if (q) return matches(n, q) ? 1 : 0.05
+        if (hover) {
+          if (n.id === hover.id) return 1
+          if (connected.has(n.id)) return 0.95
+          if (n.kind === 'core') return 0.55
+          if (n.kind === 'hub' && n.area && n.area === hover.area) return 0.85
+          return 0.13
+        }
+        return n.dim ? 0.42 : 1
+      }
+
+      // Kanten (Wikilinks) als Sehnen mit Zug zur Mitte
+      if (s.links > 0.02 && L.edges.length) {
+        for (const e of L.edges) {
+          const na = L.byId.get(e.a)!
+          const nb = L.byId.get(e.b)!
+          const pa = posOf(na, t)
+          const pb = posOf(nb, t)
+          const hot = hover && (e.a === hover.id || e.b === hover.id)
+          ctx.strokeStyle = rgba(
+            LAYER_COLOR.memory,
+            hot ? 0.6 : 0.05 * s.links * 2 * (hover || q ? 0.35 : 1),
+          )
+          ctx.lineWidth = (hot ? 1.3 : 0.8) / view.k
+          ctx.beginPath()
+          ctx.moveTo(pa.x, pa.y)
+          ctx.quadraticCurveTo(((pa.x + pb.x) / 2) * 0.45, ((pa.y + pb.y) / 2) * 0.45, pb.x, pb.y)
+          ctx.stroke()
+        }
+      }
+
+      // Speichen Kern → Hubs
+      for (const n of L.nodes) {
+        if (n.kind !== 'hub') continue
+        const p = posOf(n, t)
+        ctx.strokeStyle = rgba('#f2f4f5', hover ? 0.02 : 0.045)
+        ctx.lineWidth = 1 / view.k
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(p.x, p.y)
+        ctx.stroke()
+      }
+      // Speiche zum Hover-Node
+      if (hover && hover.kind !== 'core') {
+        const p = posOf(hover, t)
+        ctx.strokeStyle = rgba('#f2f4f5', 0.22)
+        ctx.lineWidth = 1 / view.k
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(p.x, p.y)
+        ctx.stroke()
+      }
+
+      // Kometen — Kontext, der durchs System fließt
+      if (s.comets > 0.02) {
+        for (const c of comets) {
+          if (c.hubId) {
+            const hub = L.byId.get(c.hubId)
+            if (!hub) continue
+            const hp = posOf(hub, t)
+            const p = (t * c.speed + c.offset) % 1
+            const px = hp.x * p
+            const py = hp.y * p
+            for (let k = 0; k < 4; k++) {
+              const pp = Math.max(p - k * 0.012, 0)
+              ctx.globalAlpha = (1 - p) * (1 - k / 4) * 0.7
+              ctx.fillStyle = c.color
+              ctx.beginPath()
+              ctx.arc(hp.x * pp, hp.y * pp, (1.7 - k * 0.3) / Math.sqrt(view.k), 0, Math.PI * 2)
+              ctx.fill()
+            }
+            ctx.globalAlpha = 1
+            ctx.drawImage(glowSprite(c.color), px - 7, py - 7, 14, 14)
+          } else {
+            const a = c.angle + t * c.speed
+            for (let k = 0; k < 5; k++) {
+              const aa = a - Math.sign(c.speed) * k * 0.014
+              ctx.globalAlpha = (1 - k / 5) * 0.75
+              ctx.fillStyle = c.color
+              ctx.beginPath()
+              ctx.arc(
+                Math.cos(aa) * c.radius,
+                Math.sin(aa) * c.radius,
+                (1.7 - k * 0.26) / Math.sqrt(view.k),
+                0,
+                Math.PI * 2,
+              )
+              ctx.fill()
+            }
+            ctx.globalAlpha = 1
+            const hx = Math.cos(a) * c.radius
+            const hy = Math.sin(a) * c.radius
+            ctx.drawImage(glowSprite(c.color), hx - 7, hy - 7, 14, 14)
+          }
+        }
+      }
+
+      // Nodes: erst Dots, dann Discs/Hexes/Core obendrauf
+      const pass = (kinds: (n: NebulaNode) => boolean) => {
+        for (const n of L.nodes) {
+          if (!kinds(n)) continue
+          const alpha = alphaFor(n)
+          if (alpha < 0.03) continue
+          const p = posOf(n, t)
+          const color = LAYER_COLOR[n.layer]
+          const isHover = hover?.id === n.id
+
+          ctx.globalAlpha = alpha
+          if (n.shape === 'dot') {
+            const gs = n.size * (3.4 + s.glow * 3.2) * (isHover ? 1.5 : 1)
+            ctx.drawImage(glowSprite(color), p.x - gs / 2, p.y - gs / 2, gs, gs)
+            ctx.fillStyle = isHover ? '#ffffff' : rgba(color, 0.95)
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, n.size * (isHover ? 1.25 : 1), 0, Math.PI * 2)
+            ctx.fill()
+          } else {
+            const gs = n.size * (3 + s.glow * 2) * (isHover ? 1.3 : 1)
+            ctx.drawImage(glowSprite(color), p.x - gs / 2, p.y - gs / 2, gs, gs)
+            ctx.fillStyle = '#0a0f15'
+            if (n.shape === 'hex') {
+              hexPath(p.x, p.y, n.size)
+              ctx.fill()
+              if (n.status === 'geplant') ctx.setLineDash([2.5 / view.k, 2.5 / view.k])
+              ctx.strokeStyle = rgba(color, isHover ? 1 : 0.85)
+              ctx.lineWidth = 1.4 / view.k
+              ctx.stroke()
+              ctx.setLineDash([])
+            } else {
+              ctx.beginPath()
+              ctx.arc(p.x, p.y, n.size, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.strokeStyle = rgba(color, isHover ? 1 : 0.85)
+              ctx.lineWidth = (n.kind === 'core' ? 1.7 : 1.3) / view.k
+              ctx.stroke()
+              if (n.kind === 'core') {
+                const pulse = (Math.sin(t * 2) + 1) / 2
+                ctx.beginPath()
+                ctx.arc(p.x, p.y, n.size + 5 + pulse * 4, 0, Math.PI * 2)
+                ctx.strokeStyle = rgba('#f2f4f5', 0.32 - pulse * 0.2)
+                ctx.lineWidth = 1.2 / view.k
+                ctx.stroke()
+              }
+            }
+            if (n.glyph) {
+              ctx.fillStyle = rgba(n.kind === 'core' ? '#f2f4f5' : color, 0.95)
+              ctx.font = `700 ${n.size * 0.95}px 'JetBrains Mono', ui-monospace, monospace`
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText(n.glyph, p.x, p.y + 0.5)
+              ctx.textBaseline = 'alphabetic'
+            }
+          }
+
+          // Labels: Core immer, Hubs ab 3 Objekten (kleine nur bei Hover/Zoom),
+          // Apps/Routinen ab Zoom, Hover immer.
+          const showLabel =
+            (s.labels && n.kind === 'core') ||
+            (s.labels && n.kind === 'hub' && ((n.count ?? 0) >= 3 || view.k >= 1.4)) ||
+            isHover ||
+            (s.labels && (n.kind === 'app' || n.kind === 'routine') && view.k >= 0.9)
+          if (showLabel) {
+            const fs = Math.max(8.5, 9.5 / view.k)
+            ctx.font = `600 ${fs}px 'JetBrains Mono', ui-monospace, monospace`
+            ctx.textAlign = 'center'
+            ctx.fillStyle = isHover ? '#f2f4f5' : rgba('#9aa4a8', 0.9)
+            const label = n.label.length > 24 ? `${n.label.slice(0, 23)}…` : n.label
+            ctx.fillText(label.toUpperCase(), p.x, p.y + n.size + fs + 3)
+            if (n.kind === 'hub' && n.count != null) {
+              ctx.fillStyle = rgba(color, 0.85)
+              ctx.fillText(String(n.count), p.x, p.y + n.size + fs * 2 + 5)
+            }
+            if (n.kind === 'core') {
+              ctx.fillStyle = rgba('#9aa4a8', 0.7)
+              ctx.font = `500 ${fs * 0.85}px 'JetBrains Mono', ui-monospace, monospace`
+              ctx.fillText(n.sub.toUpperCase(), p.x, p.y + n.size + fs * 2 + 5)
+            }
+          }
+          ctx.globalAlpha = 1
+        }
+      }
+      pass((n) => n.shape === 'dot')
+      pass((n) => n.shape !== 'dot')
+
+      raf = requestAnimationFrame(draw)
+    }
+    raf = requestAnimationFrame(draw)
+
+    // --- Interaktion ---
+    let panning = false
+    let moved = false
+    let last = { x: 0, y: 0 }
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const sx = e.clientX - rect.left
+      const sy = e.clientY - rect.top
+      const factor = Math.exp(-e.deltaY * 0.0015)
+      const k = Math.min(4.5, Math.max(0.3, view.k * factor))
+      const mx = sx - cx()
+      const my = sy - cy()
+      view.x = mx - ((mx - view.x) / view.k) * k
+      view.y = my - ((my - view.y) / view.k) * k
+      view.k = k
+    }
+    const onDown = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      last = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      panning = true
+      moved = false
+    }
+    const onMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const sx = e.clientX - rect.left
+      const sy = e.clientY - rect.top
+      const t = (performance.now() - t0) / 1000
+      if (panning) {
+        view.x += sx - last.x
+        view.y += sy - last.y
+        if (Math.abs(sx - last.x) + Math.abs(sy - last.y) > 2) moved = true
+        last = { x: sx, y: sy }
+        return
+      }
+      const n = nodeAt(sx, sy, t)
+      hoverId = n ? n.id : null
+      canvas.style.cursor = n ? 'pointer' : 'grab'
+      if (n) {
+        tip.style.display = 'block'
+        tip.style.left = `${Math.min(sx + 14, width - 240)}px`
+        tip.style.top = `${sy + 14}px`
+        const title = tip.firstElementChild as HTMLElement
+        const sub = tip.lastElementChild as HTMLElement
+        title.textContent = n.label
+        title.style.color = LAYER_COLOR[n.layer]
+        sub.textContent = n.sub.length > 130 ? `${n.sub.slice(0, 129)}…` : n.sub
+      } else {
+        tip.style.display = 'none'
+      }
+    }
+    const onUp = (e: MouseEvent) => {
+      if (panning && !moved) {
+        const rect = canvas.getBoundingClientRect()
+        const t = (performance.now() - t0) / 1000
+        const n = nodeAt(e.clientX - rect.left, e.clientY - rect.top, t)
+        if (n) {
+          tip.style.display = 'none'
+          clickRef.current?.(n)
+        }
+      }
+      panning = false
+    }
+    const onLeave = () => {
+      hoverId = null
+      tip.style.display = 'none'
+    }
+
+    const ro = new ResizeObserver(() => resize())
+    ro.observe(wrap)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    canvas.addEventListener('mousedown', onDown)
+    canvas.addEventListener('mouseleave', onLeave)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('mousedown', onDown)
+      canvas.removeEventListener('mouseleave', onLeave)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [height])
+
+  const counts = useMemo(() => {
+    const c = new Map<string, { color: string; n: number }>()
+    for (const n of layout.nodes) {
+      if (n.kind === 'hub' || n.kind === 'core') continue
+      const key = n.layer
+      const cur = c.get(key) ?? { color: LAYER_COLOR[n.layer], n: 0 }
+      cur.n += 1
+      c.set(key, cur)
+    }
+    return [...c.entries()]
+  }, [layout])
+
+  const slider = (label: string, key: 'glow' | 'spin' | 'links' | 'comets') => (
+    <label style={{ display: 'block', marginTop: 8 }}>
+      <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span className="ck-label">{label}</span>
+        <span className="ck-label" style={{ opacity: 0.7 }}>
+          {settings[key].toFixed(2)}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={settings[key]}
+        onChange={(e) => set({ [key]: Number(e.target.value) } as Partial<Settings>)}
+        style={{ width: '100%', accentColor: 'var(--ck-accent)', height: 18 }}
+        aria-label={label}
+      />
+    </label>
+  )
+
+  return (
+    <div ref={wrapRef} style={{ width: '100%', position: 'relative', background: '#05080c' }}>
+      <canvas
+        ref={canvasRef}
+        aria-label="Agentic-OS-Graph: Kern mit Ringen für Skills, Memory, Routines, Applications sowie Leads-Pipelines"
+      />
+
+      {/* Tooltip */}
+      <div
+        ref={tipRef}
+        style={{
+          display: 'none',
+          position: 'absolute',
+          maxWidth: 230,
+          padding: '7px 10px',
+          background: 'rgba(8,12,17,0.92)',
+          border: '1px solid var(--ck-border-strong)',
+          borderRadius: 6,
+          pointerEvents: 'none',
+          zIndex: 5,
+          fontSize: 11,
+          lineHeight: 1.45,
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 11.5 }} />
+        <div style={{ color: 'var(--ck-text-2)' }} />
+      </div>
+
+      {/* Header links oben — Breite gekappt, damit er nie unter das Steuerpanel läuft */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: 14,
+          pointerEvents: 'none',
+          zIndex: 4,
+          maxWidth: 'min(46%, 300px)',
+        }}
+      >
+        <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.08em' }}>
+          KEVIN OS · <span style={{ color: 'var(--ck-accent)' }}>NEBULA</span>
+        </div>
+        <div style={{ fontSize: 10.5, color: 'var(--ck-text-2)', marginTop: 3 }}>
+          {SUBTITLE[settings.view]}
+        </div>
+        <div style={{ fontSize: 9.5, color: 'var(--ck-text-3)', marginTop: 3 }}>
+          {layout.stats.items} Objekte · {layout.stats.links} Links
+        </div>
+      </div>
+
+      {/* Control-Panel rechts */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 4 }}>
+        {panelOpen ? (
+          <div
+            style={{
+              width: 208,
+              padding: '10px 12px 12px',
+              background: 'rgba(9,13,18,0.88)',
+              border: '1px solid var(--ck-border)',
+              borderRadius: 8,
+              backdropFilter: 'blur(6px)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+            >
+              <span className="ck-label">Steuerung</span>
+              <button
+                className="ck-btn"
+                style={{ padding: '1px 7px', fontSize: 11 }}
+                onClick={() => setPanelOpen(false)}
+                aria-label="Panel einklappen"
+              >
+                ─
+              </button>
+            </div>
+
+            <input
+              className="ck-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`${layout.stats.items} Objekte durchsuchen…`}
+              aria-label="Graph durchsuchen"
+              style={{ width: '100%', fontSize: 11, padding: '5px 8px' }}
+            />
+
+            <div className="ck-label" style={{ marginTop: 10 }}>
+              Ansicht
+            </div>
+            {/* Segmented control: ein Rahmen, aktives Segment gefüllt */}
+            <div
+              style={{
+                display: 'flex',
+                marginTop: 6,
+                padding: 2,
+                gap: 2,
+                border: '1px solid var(--ck-border)',
+                borderRadius: 8,
+                background: 'var(--ck-bg)',
+              }}
+            >
+              {(['rings', 'nebula', 'leads'] as ViewMode[]).map((v) => {
+                const on = settings.view === v
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => set({ view: v })}
+                    style={{
+                      flex: 1,
+                      padding: '5px 0',
+                      fontSize: 10.5,
+                      fontWeight: on ? 600 : 400,
+                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                      border: 'none',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      background: on ? 'color-mix(in srgb, var(--ck-accent) 18%, transparent)' : 'transparent',
+                      color: on ? 'var(--ck-accent)' : 'var(--ck-text-2)',
+                    }}
+                  >
+                    {VIEW_LABEL[v]}
+                  </button>
+                )
+              })}
+            </div>
+
+            {slider('Glow', 'glow')}
+            {slider('Ring-Spin', 'spin')}
+            {slider('Kanten', 'links')}
+            {slider('Kometen', 'comets')}
+
+            <label
+              style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 10, fontSize: 11 }}
+            >
+              <input
+                type="checkbox"
+                checked={settings.labels}
+                onChange={(e) => set({ labels: e.target.checked })}
+                style={{ accentColor: 'var(--ck-accent)' }}
+              />
+              <span className="ck-label">Labels</span>
+            </label>
+
+            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+              <button
+                className="ck-btn"
+                style={{ flex: 1, fontSize: 11 }}
+                onClick={() => {
+                  needFitRef.current = true
+                  setQuery('')
+                }}
+              >
+                Ansicht zurücksetzen
+              </button>
+              {onRefresh ? (
+                <button
+                  className="ck-btn"
+                  style={{ fontSize: 11, padding: '0 9px' }}
+                  onClick={onRefresh}
+                  title="Daten neu laden (Cache umgehen)"
+                  aria-label="Daten neu laden"
+                >
+                  ⟳
+                </button>
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px 10px',
+                marginTop: 10,
+                paddingTop: 8,
+                borderTop: '1px solid var(--ck-border)',
+              }}
+            >
+              {counts.map(([layer, { color, n }]) => (
+                <span
+                  key={layer}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10 }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: color,
+                      boxShadow: `0 0 6px ${color}`,
+                    }}
+                  />
+                  <span className="ck-label">
+                    {layer} · {n}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <button className="ck-btn" onClick={() => setPanelOpen(true)} aria-label="Panel öffnen">
+            ⚙
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

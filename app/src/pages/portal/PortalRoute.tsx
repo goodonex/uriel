@@ -4,7 +4,13 @@ import { RequireAuthShell } from '../../components/RequireAuthShell'
 import { useAuth } from '../../hooks/useAuth'
 import { ClientPortal } from './ClientPortal'
 
-function RequireClientPortalGate({ children }: { children: ReactNode }) {
+function RequireClientPortalGate({
+  children,
+  ownerView = false,
+}: {
+  children: ReactNode
+  ownerView?: boolean
+}) {
   const { user, role, clientProjectId, loading } = useAuth()
   const { projectId } = useParams<{ projectId: string }>()
   const location = useLocation()
@@ -28,10 +34,10 @@ function RequireClientPortalGate({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return <Navigate to="/portal/login" replace state={{ from: location.pathname }} />
   }
 
-  if (role === 'owner') {
+  if (role === 'owner' && !ownerView) {
     return <Navigate to="/" replace />
   }
 
@@ -61,10 +67,14 @@ function RequireClientPortalGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/** Preview: ?preview=true — lädt Projekt aus localStorage (Entwicklung, kein Login). */
+/**
+ * Preview: ?preview=true — lädt Projekt aus localStorage (Entwicklung, kein Login).
+ * Kunden-Ansicht: ?als=kunde — Owner sieht das Portal wie der Kunde (Banner).
+ */
 export function PortalRoute({ crm = false }: { crm?: boolean }) {
   const [searchParams] = useSearchParams()
   const preview = searchParams.get('preview') === 'true'
+  const ownerView = searchParams.get('als') === 'kunde'
 
   if (preview) {
     return <ClientPortal preview crm={crm} />
@@ -72,8 +82,8 @@ export function PortalRoute({ crm = false }: { crm?: boolean }) {
 
   return (
     <RequireAuthShell>
-      <RequireClientPortalGate>
-        <ClientPortal preview={false} crm={crm} />
+      <RequireClientPortalGate ownerView={ownerView}>
+        <ClientPortal preview={false} crm={crm} ownerView={ownerView} />
       </RequireClientPortalGate>
     </RequireAuthShell>
   )

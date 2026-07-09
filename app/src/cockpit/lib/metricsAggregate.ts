@@ -1,7 +1,7 @@
 import type { Vital } from '../components/VitalsPanel'
 import type { DailyMetricsRow } from './useDailyMetrics'
 import { toIsoDate } from './useDailyMetrics'
-import { WEEK_TARGETS } from './goals'
+import { CONVERSION_TARGETS, WEEK_TARGETS } from './goals'
 
 export function sumField(rows: DailyMetricsRow[], field: keyof DailyMetricsRow): number {
   return rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0)
@@ -69,6 +69,53 @@ export function weekVitals(weekRows: DailyMetricsRow[], monthRows: DailyMetricsR
       history: historySeries(monthRows, (r) => r.abschluesse),
     },
   ]
+}
+
+/**
+ * Funnel-Conversions + „Wert pro Aktion" nach dem Coach-Modell (Agentur
+ * Inkubator). Conversions über den laufenden Monat (stabiler als eine
+ * einzelne Woche — der Coach liest Quoten bewusst über mehrere Wochen).
+ */
+export interface FunnelKpi {
+  key: keyof typeof CONVERSION_TARGETS
+  label: string
+  rate: number | null
+  min: number
+  great: number
+  /** 'great' ≥ „sehr gut" · 'ok' im Zielband · 'low' darunter · null ohne Daten */
+  state: 'great' | 'ok' | 'low' | null
+}
+
+export interface FunnelKpis {
+  conv: FunnelKpi[]
+  /** € Umsatz je aufgenommenem Loom bzw. je Erstnachricht (laufender Monat) */
+  perLoom: number | null
+  perNachricht: number | null
+}
+
+export function funnelKpis(monthRows: DailyMetricsRow[], monthRevenue: number): FunnelKpis {
+  const nachrichten = monthRows.reduce((a, r) => a + anfragenTotal(r), 0)
+  const looms = sumField(monthRows, 'looms')
+  const quali = sumField(monthRows, 'quali_termine')
+  const kunden = sumField(monthRows, 'abschluesse')
+
+  const build = (key: keyof typeof CONVERSION_TARGETS, num: number, den: number): FunnelKpi => {
+    const t = CONVERSION_TARGETS[key]
+    const rate = den > 0 ? num / den : null
+    const state: FunnelKpi['state'] =
+      rate == null ? null : rate >= t.great ? 'great' : rate >= t.min ? 'ok' : 'low'
+    return { key, label: t.label, rate, min: t.min, great: t.great, state }
+  }
+
+  return {
+    conv: [
+      build('nachrichtLoom', looms, nachrichten),
+      build('loomQuali', quali, looms),
+      build('qualiKunde', kunden, quali),
+    ],
+    perLoom: looms > 0 ? monthRevenue / looms : null,
+    perNachricht: nachrichten > 0 ? monthRevenue / nachrichten : null,
+  }
 }
 
 export interface ChannelRate {

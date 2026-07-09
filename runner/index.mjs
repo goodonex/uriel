@@ -9,9 +9,9 @@
  */
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 
 // ---------- Konfiguration ----------
 const PORT = Number(process.env.RUNNER_PORT ?? 4711)
@@ -97,9 +97,18 @@ async function startRun(agent, input) {
     : ''
   const prompt = `/${agent}${inputBlock}`
 
-  const proc = spawn('claude', ['-p', prompt, '--output-format', 'text'], {
+  // Unter launchd fehlt claude oft im PATH → gängige Bin-Verzeichnisse anhängen.
+  const extraBins = [
+    join(homedir(), '.nvm', 'versions', 'node', `v${process.versions.node}`, 'bin'),
+    join(homedir(), '.local', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+  ]
+  const PATH = [process.env.PATH ?? '', ...extraBins].filter(Boolean).join(':')
+
+  const proc = spawn(process.env.CLAUDE_BIN ?? 'claude', ['-p', prompt, '--output-format', 'text'], {
     cwd: VAULT,
-    env: { ...process.env },
+    env: { ...process.env, PATH },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
@@ -113,6 +122,26 @@ async function startRun(agent, input) {
   }, TIMEOUT_MS)
 
   running.set(id, { id, agent, startedAt, proc })
+
+  // spawn-Fehler (z.B. claude nicht im PATH) dürfen den Runner NICHT crashen —
+  // ohne diesen Handler wirft der ChildProcess ein unhandled 'error' Event
+  // (beobachtet: ENOENT-Crash-Loop unter launchd am 08.07.).
+  proc.on('error', async (e) => {
+    clearTimeout(timeout)
+    running.delete(id)
+    try {
+      await writeRunFile(
+        id,
+        agent,
+        'error',
+        startedAt,
+        `# Run konnte nicht starten\n\n\`\`\`\n${String(e?.message ?? e)}\n\`\`\`\n`,
+      )
+    } catch {
+      /* Log reicht */
+    }
+    console.error(`[runner] spawn-Fehler für ${id}:`, e?.message ?? e)
+  })
 
   proc.on('close', async (code) => {
     clearTimeout(timeout)
@@ -176,6 +205,160 @@ async function vaultGraph() {
   }
   graphCache = { at: Date.now(), data }
   return data
+}
+
+// ---------- Agentic-OS-Map (AGENTIC-OS-PLAN.md) ----------
+const GLOBAL_SKILLS_DIR = join(homedir(), '.claude', 'skills')
+const VAULT_SKILLS_DIR = join(VAULT, '.claude', 'skills')
+const OS_APPS_FILE = join(VAULT, 'System', 'os-apps.json')
+
+/** SKILL.md-Frontmatter-light: name + description (erste ~4KB reichen). */
+function parseSkillMeta(raw) {
+  const meta = {}
+  const m = raw.match(/^---\n([\s\S]*?)\n---/)
+  if (m) {
+    for (const line of m[1].split('\n')) {
+      const i = line.indexOf(':')
+      if (i > 0) meta[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, '')
+    }
+  }
+  return meta
+}
+
+async function collectSkills(dir, source) {
+  const skills = []
+  let entries
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return skills
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith('.')) continue
+    const skillFile = join(dir, e.name, 'SKILL.md')
+    let description = ''
+    try {
+      const raw = (await readFile(skillFile, 'utf8')).slice(0, 4096)
+      description = parseSkillMeta(raw).description ?? ''
+    } catch {
+      continue // kein SKILL.md → kein Skill
+    }
+    skills.push({
+      id: `${source}:${e.name}`,
+      name: e.name,
+      description: description.slice(0, 240),
+      source,
+      path: skillFile,
+    })
+  }
+  return skills
+}
+
+let osMapCache = null
+const OS_MAP_CACHE_MS = 60_000
+
+async function osMap({ fresh = false } = {}) {
+  // In-flight-Promise teilen: parallele Aufrufe bauen die Map nicht doppelt,
+  // und ein Fehler invalidiert den Cache statt ihn zu vergiften.
+  if (fresh) osMapCache = null
+  if (osMapCache && Date.now() - osMapCache.at < OS_MAP_CACHE_MS) return osMapCache.promise
+  const entry = { at: Date.now(), promise: null }
+  entry.promise = buildOsMap().catch((e) => {
+    if (osMapCache === entry) osMapCache = null
+    throw e
+  })
+  osMapCache = entry
+  return entry.promise
+}
+
+async function buildOsMap() {
+  const [vaultSkills, globalSkills, graph] = await Promise.all([
+    collectSkills(VAULT_SKILLS_DIR, 'vault'),
+    collectSkills(GLOBAL_SKILLS_DIR, 'global'),
+    vaultGraph(),
+  ])
+
+  // Apps + zusätzliche Routinen: Quelle der Wahrheit ist System/os-apps.json im Vault.
+  let appsConfig = { apps: [], routines: [] }
+  try {
+    appsConfig = JSON.parse(await readFile(OS_APPS_FILE, 'utf8'))
+  } catch {
+    /* Datei fehlt → nur eingebaute Routinen */
+  }
+
+  const routines = [
+    {
+      id: 'routine:cockpit-runner',
+      name: 'Cockpit-Runner',
+      description: 'launchd de.kevinos.cockpit-runner · KeepAlive · Port 4711',
+      schedule: 'immer an',
+    },
+    {
+      id: 'routine:dream-check',
+      name: 'Dream-Check',
+      description: 'Analysiert Skill-/Run-Nutzung, 1-2 Verbesserungsvorschläge',
+      schedule: 'täglich (erster Runner-Start)',
+    },
+    ...(Array.isArray(appsConfig.routines) ? appsConfig.routines : []).map((r, i) => ({
+      id: `routine:${r.id ?? i}`,
+      name: r.name ?? String(r.id ?? i),
+      description: r.description ?? '',
+      schedule: r.schedule ?? '',
+    })),
+  ]
+
+  const apps = (Array.isArray(appsConfig.apps) ? appsConfig.apps : []).map((a, i) => ({
+    id: `app:${a.id ?? i}`,
+    name: a.name ?? String(a.id ?? i),
+    description: a.description ?? '',
+    kind: a.kind ?? 'tool', // mcp | api | cli | tool
+    status: a.status ?? 'connected', // connected | manual | geplant
+  }))
+
+  // Memory: Notizen mit PARA-Bereich (erstes Pfadsegment) für Cluster-Zuordnung.
+  const memory = graph.nodes.map((n) => ({
+    ...n,
+    area: n.path.includes('/') ? n.path.slice(0, n.path.indexOf('/')) : 'Vault',
+  }))
+
+  return {
+    skills: [...vaultSkills, ...globalSkills],
+    routines,
+    apps,
+    memory,
+    memoryEdges: graph.edges,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
+/** Erlaubte Roots einmalig realpath-auflösen (Symlink-sicher). */
+let osFileRootsPromise = null
+function osFileRoots() {
+  osFileRootsPromise ??= Promise.all(
+    [VAULT, GLOBAL_SKILLS_DIR].map(async (root) => {
+      try {
+        return await realpath(root)
+      } catch {
+        return null // Root existiert nicht → fällt aus der Allowlist
+      }
+    }),
+  ).then((roots) => roots.filter(Boolean))
+  return osFileRootsPromise
+}
+
+/** Read-only Dateizugriff fürs Detail-Panel. Nur Vault + globale Skills (realpath-geprüft). */
+async function osFile(relOrAbs) {
+  const candidate = resolve(relOrAbs.startsWith('/') ? relOrAbs : join(VAULT, relOrAbs))
+  if (!/\.(md|json|mjs|txt|canvas|base)$/.test(candidate)) {
+    throw Object.assign(new Error('nur Textdateien'), { code: 'EDENIED' })
+  }
+  // realpath schlägt Symlink-Escapes und ../-Tricks tot; ENOENT → 404 upstream.
+  const real = await realpath(candidate)
+  const roots = await osFileRoots()
+  const allowed = roots.some((root) => real === root || real.startsWith(root + sep))
+  if (!allowed) throw Object.assign(new Error('Pfad außerhalb des erlaubten Bereichs'), { code: 'EDENIED' })
+  const raw = await readFile(real, 'utf8')
+  return { path: real, content: raw.slice(0, 40_000), truncated: raw.length > 40_000 }
 }
 
 // ---------- Vault: zuletzt geänderte Notizen ----------
@@ -264,6 +447,21 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/vault/graph') {
       return json(res, 200, await vaultGraph())
+    }
+
+    if (req.method === 'GET' && url.pathname === '/os/map') {
+      return json(res, 200, await osMap({ fresh: url.searchParams.get('fresh') === '1' }))
+    }
+
+    if (req.method === 'GET' && url.pathname === '/os/file') {
+      const p = url.searchParams.get('path')
+      if (!p) return json(res, 400, { error: 'path fehlt' })
+      try {
+        return json(res, 200, await osFile(p))
+      } catch (e) {
+        if (e?.code === 'EDENIED') return json(res, 403, { error: e.message })
+        throw e
+      }
     }
 
     return json(res, 404, { error: 'not found' })

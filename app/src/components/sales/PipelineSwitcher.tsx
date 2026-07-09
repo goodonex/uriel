@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSalesPipelines } from '../../hooks/useSalesPro'
+import { COACH_PIPELINE_PRESETS } from '../../lib/coachPipelines'
 import { useToast } from '../Toast'
 
 interface PipelineSwitcherProps {
@@ -14,6 +15,7 @@ export function PipelineSwitcher({ brandSlug, selectedSlug, onChange }: Pipeline
   const { show } = useToast()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [seeding, setSeeding] = useState(false)
 
   if (pipelines.loading) {
     return null
@@ -31,6 +33,24 @@ export function PipelineSwitcher({ brandSlug, selectedSlug, onChange }: Pipeline
     setCreating(false)
     show(`Pipeline „${name}" angelegt`, 'success')
     onChange(slug)
+  }
+
+  // Coach-Modell (Agentur Inkubator): fehlende Preset-Pipelines anlegen.
+  const existingSlugs = new Set(items.map((p) => p.slug))
+  const missingPresets = COACH_PIPELINE_PRESETS.filter((p) => !existingSlugs.has(p.slug))
+
+  const installCoachSet = async () => {
+    if (seeding || missingPresets.length === 0) return
+    setSeeding(true)
+    try {
+      await pipelines.createMany(
+        missingPresets.map((p) => ({ name: p.name, slug: p.slug, stages: p.stages })),
+      )
+      show(`Coach-Pipelines angelegt: ${missingPresets.map((p) => p.name).join(', ')}`, 'success')
+      onChange(missingPresets[0].slug)
+    } finally {
+      setSeeding(false)
+    }
   }
 
   return (
@@ -66,6 +86,28 @@ export function PipelineSwitcher({ brandSlug, selectedSlug, onChange }: Pipeline
             )
           })
         : null}
+
+      {missingPresets.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => void installCoachSet()}
+          disabled={seeding}
+          className="font-mono"
+          title="Coach-Pipelines anlegen: Kaltakquise · Loom · Sales (Agentur Inkubator)"
+          style={{
+            fontSize: 11,
+            padding: '6px 9px',
+            borderRadius: 8,
+            border: '1px dashed var(--mode-sales)',
+            background: 'transparent',
+            color: 'var(--mode-sales)',
+            cursor: seeding ? 'default' : 'pointer',
+            opacity: seeding ? 0.6 : 1,
+          }}
+        >
+          {seeding ? 'lege an …' : '⚡ Coach-Set'}
+        </button>
+      ) : null}
 
       {creating ? (
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>

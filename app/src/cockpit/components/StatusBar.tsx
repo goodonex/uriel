@@ -19,9 +19,9 @@ function Clock() {
 
   return (
     <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
-      <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '0.04em' }}>
+      <div className="ck-clock-time">
         {hh}:{mm}
-        <span style={{ color: 'var(--ck-text-3)', fontSize: 13 }}>:{ss}</span>
+        <span className="ck-clock-seconds" style={{ color: 'var(--ck-text-3)', fontSize: 13 }}>:{ss}</span>
       </div>
       <div className="ck-label">{date}</div>
     </div>
@@ -48,27 +48,15 @@ export function StatusBar() {
   const runner = useRunnerStatus()
 
   return (
-    <header
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 16,
-        padding: '10px 18px',
-        borderBottom: '1px solid var(--ck-border)',
-        background: 'var(--ck-bg)',
-      }}
-    >
+    <header className="ck-statusbar">
       {/* Wortmarke */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.28em' }}>
-          K E V I N&nbsp;&nbsp;O S
-        </span>
-        <span className="ck-label" style={{ marginTop: 2 }}>Cockpit</span>
+      <div className="ck-status-brand">
+        <span className="ck-wordmark">K E V I N&nbsp;&nbsp;O S</span>
+        <span className="ck-label ck-status-brand-tag" style={{ marginTop: 2 }}>Cockpit</span>
       </div>
 
-      {/* Status-Wörter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      {/* Status-Wörter — auf Mobile ausgeblendet (Platz für Nav+Tracking) */}
+      <div className="ck-status-words">
         <StatusWord label="CORE" state="on" />
         <StatusWord label="SUPABASE" state={user ? 'on' : 'off'} />
         <StatusWord
@@ -80,7 +68,7 @@ export function StatusBar() {
       </div>
 
       {/* Brand-Switcher + Uhr */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div className="ck-status-right">
         <select
           className="ck-select"
           value={activeSlug}

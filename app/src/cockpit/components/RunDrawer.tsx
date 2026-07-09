@@ -45,7 +45,7 @@ export function RunDrawer({ runId, onClose }: { runId: string; onClose: () => vo
         width: 'min(560px, 92vw)',
         background: 'var(--ck-panel)',
         borderLeft: '1px solid var(--ck-border-strong)',
-        zIndex: 40,
+        zIndex: 55,
         display: 'flex',
         flexDirection: 'column',
       }}

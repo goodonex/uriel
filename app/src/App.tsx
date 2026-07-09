@@ -14,7 +14,9 @@ import { DeliverDefaultRouteGate } from './pages/deliver/DeliverDefaultRouteGate
 import { ProjectPage } from './pages/deliver/ProjectPage'
 import { LoginPage } from './pages/LoginPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { PortalLoginPage } from './pages/portal/PortalLoginPage'
 import { PortalRoute } from './pages/portal/PortalRoute'
+import { PortalSetupPage } from './pages/portal/PortalSetupPage'
 import { BookingPublicPage } from './pages/public/BookingPublicPage'
 import { LeadIntakePage } from './pages/public/LeadIntakePage'
 import { PromoDefaultRouteGate } from './pages/promo/PromoDefaultRouteGate'
@@ -24,6 +26,7 @@ import { OnboardingPublicPage } from './pages/onboarding/OnboardingPublicPage'
 import { CockpitShell } from './cockpit/CockpitShell'
 import { CockpitHome } from './cockpit/pages/CockpitHome'
 import { CrmArea } from './cockpit/pages/CrmArea'
+import { ProjekteArea } from './cockpit/pages/ProjekteArea'
 import { EmailArea } from './cockpit/pages/EmailArea'
 import { TrackingArea } from './cockpit/pages/TrackingArea'
 
@@ -187,6 +190,8 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/onboarding/:brandId" element={<OnboardingPublicPage />} />
+            <Route path="/portal/login" element={<PortalLoginPage />} />
+            <Route path="/portal/setup" element={<PortalSetupPage />} />
             <Route path="/portal/:projectId/crm" element={<PortalRoute crm />} />
             <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
@@ -196,6 +201,7 @@ function App() {
               <Route element={<CockpitShell />}>
                 <Route path="/cockpit" element={<CockpitHome />} />
                 <Route path="/crm/*" element={<CrmArea />} />
+                <Route path="/projekte/*" element={<ProjekteArea />} />
                 <Route path="/email/*" element={<EmailArea />} />
                 <Route path="/tracking" element={<TrackingArea />} />
               </Route>

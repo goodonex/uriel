@@ -164,6 +164,12 @@ export function useDailyMetrics(): UseDailyMetricsResult {
   const upsertToday = useCallback(
     async (patch: Partial<DailyMetricsRow>) => {
       if (!supabase || !user || !activeBrand) return
+      // Nicht mit Fallback-Brand schreiben (keine echte UUID) → sonst schlägt der
+      // Insert fehl und der optimistische Wert geht beim Reload verloren.
+      if (activeBrand.id.startsWith('local-fallback-')) {
+        setError('Brand lädt noch — bitte 1–2 Sekunden warten und erneut tracken.')
+        return
+      }
       const next = { ...today, ...patch }
 
       // Optimistisch in den Monats-Zeilen ersetzen/ergänzen

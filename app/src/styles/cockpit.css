@@ -70,6 +70,40 @@
   50% { opacity: 0.35; }
 }
 
+/* --- Shell: Statusleiste, Nav-Rail, Content --- */
+.ck-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--ck-border);
+  background: var(--ck-bg);
+}
+.ck-status-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ck-wordmark { font-size: 14px; font-weight: 700; letter-spacing: 0.28em; white-space: nowrap; }
+.ck-status-words { display: flex; align-items: center; gap: 18px; }
+.ck-status-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.ck-clock-time { font-size: 20px; font-weight: 500; letter-spacing: 0.04em; }
+
+.ck-nav-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  border-right: 1px solid var(--ck-border);
+  width: 148px;
+  flex-shrink: 0;
+}
+.ck-nav-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+.ck-nav-spacer { flex: 1; }
+.ck-nav-back { opacity: 0.6; }
+
+.ck-main { padding: 18px; }
+
+.ck-chat-fab { position: fixed; right: 20px; bottom: 20px; z-index: 60; }
+.ck-chat-panel { position: fixed; right: 20px; bottom: 80px; z-index: 59; }
+
 /* --- Nav --- */
 .ck-nav-item {
   display: flex;
@@ -126,7 +160,8 @@
   border-radius: 6px;
   color: var(--ck-text-1);
   font-family: var(--ck-font);
-  font-size: 13px;
+  /* 16px, nicht 13 — unter 16px zoomt iOS Safari beim Fokussieren rein. */
+  font-size: 16px;
   padding: 7px 10px;
   outline: none;
 }
@@ -155,16 +190,56 @@
 /* --- Responsive Grids (Lesbarkeit > Effekt: unter Breakpoint stapeln) --- */
 .ck-home-grid {
   display: grid;
-  grid-template-columns: minmax(230px, 280px) 1fr minmax(230px, 300px);
+  /* Sidebar · ziehbarer Divider · Graph. Breite per Var (Regler + Drag). */
+  grid-template-columns: minmax(200px, var(--ck-sidebar-w, 300px)) 10px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.ck-col-divider {
+  align-self: stretch;
+  min-height: 200px;
+  cursor: col-resize;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ck-text-3);
+  user-select: none;
+  transition: background 120ms ease;
+}
+.ck-col-divider:hover,
+.ck-col-divider[data-dragging='true'] {
+  background: color-mix(in srgb, var(--ck-accent) 22%, transparent);
+  color: var(--ck-accent);
+}
+.ck-row-divider {
+  height: 12px;
+  margin: -2px 0 2px;
+  cursor: row-resize;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ck-text-3);
+  user-select: none;
+  transition: background 120ms ease;
+}
+.ck-row-divider:hover,
+.ck-row-divider[data-dragging='true'] {
+  background: color-mix(in srgb, var(--ck-accent) 20%, transparent);
+  color: var(--ck-accent);
+}
+/* Command Deck + Dream unter dem Graphen: nebeneinander, auf schmal gestapelt */
+.ck-home-deck {
+  display: grid;
+  grid-template-columns: 1fr minmax(230px, 300px);
   gap: 14px;
   align-items: start;
 }
-@media (max-width: 1180px) {
-  .ck-home-grid { grid-template-columns: minmax(230px, 300px) 1fr; }
-  .ck-home-grid > .ck-home-deck { grid-column: 1 / -1; }
-}
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   .ck-home-grid { grid-template-columns: 1fr; }
+  .ck-home-deck { grid-template-columns: 1fr; }
+  .ck-col-divider { display: none; }
 }
 
 .ck-tracking-grid {
@@ -193,6 +268,8 @@
 .ck-md th { color: var(--ck-text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* --- Tabellen (CRM/E-Mail: konventionell lesbar, HUD nur als Rahmen) --- */
+/* Scroll statt Clipping — Tabellen mit vielen Spalten passen sonst nicht auf 375px. */
+.ck-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .ck-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .ck-table th {
   text-align: left;
@@ -211,3 +288,61 @@
   min-height: 36px;
 }
 .ck-table tr:hover td { background: var(--ck-panel-2); }
+
+/* --- Mobile (≤900px): Bottom-Tab-Bar, kompakte Statusleiste, größere Touch-Targets.
+   Steht bewusst am Dateiende — gleiche Spezifität wie die Basisregeln oben, muss also
+   nach ihnen im Stylesheet stehen, um im Cascade zu gewinnen (keine !important-Hacks). --- */
+@media (max-width: 900px) {
+  .ck-btn { min-height: 40px; min-width: 40px; }
+  .ck-counter-btn { min-height: 36px; min-width: 36px; }
+  .ck-select { min-height: 40px; max-width: 34vw; }
+
+  .ck-statusbar { padding: 8px 12px; gap: 8px; }
+  .ck-wordmark { font-size: 11px; letter-spacing: 0.16em; }
+  .ck-status-brand-tag { display: none; }
+  .ck-status-words { display: none; }
+  .ck-status-right { gap: 8px; }
+  .ck-clock-time { font-size: 15px; }
+  .ck-clock-seconds { display: none; }
+
+  /* Nav-Rail wird zur Bottom-Tab-Bar (Daumen-erreichbar, Safe-Area für Home-Indicator). */
+  .ck-nav-rail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    width: auto;
+    border-right: none;
+    border-top: 1px solid var(--ck-border);
+    background: var(--ck-bg);
+    padding: 4px max(4px, env(safe-area-inset-left)) calc(4px + env(safe-area-inset-bottom))
+      max(4px, env(safe-area-inset-right));
+    gap: 2px;
+    z-index: 50;
+  }
+  .ck-nav-spacer,
+  .ck-nav-back { display: none; }
+  .ck-nav-item {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: 9px;
+    min-height: 48px;
+    text-align: center;
+  }
+  .ck-nav-icon { font-size: 17px; width: auto; }
+
+  /* Content braucht Platz für die fixe Bottom-Bar + Safe-Area. */
+  .ck-main { padding: 12px 12px calc(78px + env(safe-area-inset-bottom)) 12px; }
+
+  /* Chat-FAB/-Panel über die Bottom-Bar heben statt sie zu verdecken. */
+  .ck-chat-fab { bottom: calc(70px + env(safe-area-inset-bottom)); right: 14px; }
+  .ck-chat-panel {
+    bottom: calc(130px + env(safe-area-inset-bottom));
+    right: 10px;
+    width: min(400px, calc(100vw - 20px)) !important;
+  }
+}

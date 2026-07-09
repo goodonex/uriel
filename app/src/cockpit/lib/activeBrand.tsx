@@ -9,6 +9,8 @@ const DEFAULT_SLUG = 'herrmann'
 interface ActiveBrandContextValue {
   brands: Brand[]
   loading: boolean
+  /** Fehlermeldung der brands-Query (null = ok). Für Diagnose-Banner. */
+  error: string | null
   activeSlug: string
   activeBrand: Brand | null
   setActiveSlug: (slug: string) => void
@@ -18,7 +20,7 @@ const ActiveBrandContext = createContext<ActiveBrandContextValue | null>(null)
 
 /** Cockpit-weiter Brand-Kontext. Persistiert die Auswahl in localStorage. */
 export function ActiveBrandProvider({ children }: { children: ReactNode }) {
-  const { brands, loading } = useBrands()
+  const { brands, loading, error } = useBrands()
   const [activeSlug, setActiveSlugState] = useState<string>(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_SLUG
@@ -42,8 +44,8 @@ export function ActiveBrandProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ brands, loading, activeSlug, activeBrand, setActiveSlug }),
-    [brands, loading, activeSlug, activeBrand, setActiveSlug],
+    () => ({ brands, loading, error, activeSlug, activeBrand, setActiveSlug }),
+    [brands, loading, error, activeSlug, activeBrand, setActiveSlug],
   )
 
   return <ActiveBrandContext.Provider value={value}>{children}</ActiveBrandContext.Provider>

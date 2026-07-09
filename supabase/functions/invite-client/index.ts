@@ -1,5 +1,8 @@
 /**
- * invite-client — Legt Client-Auth-User an, verknüpft user_roles, sendet Magic-Link per Resend.
+ * invite-client — Legt Client-Auth-User an, verknüpft user_roles, sendet
+ * Passwort-Setup-Link per Resend (recovery-Link → /portal/setup, funktioniert
+ * für neue UND bestehende User). Kunde setzt eigenes Passwort und bleibt
+ * eingeloggt; Rückkehr über /portal/login.
  *
  * POST { project_id, client_email, client_name? }
  * Auth: Owner-JWT (Brand muss Projekt besitzen)
@@ -109,21 +112,25 @@ Deno.serve(async (req) => {
   }
 
   const portalUrl = `${PUBLIC_APP_URL}/portal/${payload.project_id}`
+  const setupUrl = `${PUBLIC_APP_URL}/portal/setup?project=${payload.project_id}`
+  const loginUrl = `${PUBLIC_APP_URL}/portal/login`
 
+  // recovery statt magiclink: landet als PASSWORD_RECOVERY-Session auf
+  // /portal/setup, wo der Kunde sein eigenes Passwort festlegt.
   const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
-    type: 'magiclink',
+    type: 'recovery',
     email: clientEmail,
-    options: { redirectTo: portalUrl },
+    options: { redirectTo: setupUrl },
   })
 
   if (linkErr || !linkData?.properties?.action_link) {
     return json(
-      { success: false, error: 'magic_link_failed', detail: linkErr?.message ?? 'no link' },
+      { success: false, error: 'setup_link_failed', detail: linkErr?.message ?? 'no link' },
       500,
     )
   }
 
-  const magicLink = linkData.properties.action_link
+  const setupLink = linkData.properties.action_link
 
   const { error: roleErr } = await supabase.from('user_roles').upsert(
     {
@@ -179,8 +186,8 @@ Deno.serve(async (req) => {
     projectName: project.name,
     brandName: brand.name,
     clientName,
-    magicLink,
-    portalUrl,
+    setupLink,
+    loginUrl,
     welcomeText,
   })
 
@@ -199,8 +206,8 @@ Deno.serve(async (req) => {
         projectName: project.name,
         brandName: brand.name,
         clientName,
-        magicLink,
-        portalUrl,
+        setupLink,
+        loginUrl,
         welcomeText,
       }),
     }),
@@ -251,8 +258,8 @@ function buildWelcomeHtml(opts: {
   projectName: string
   brandName: string
   clientName: string
-  magicLink: string
-  portalUrl: string
+  setupLink: string
+  loginUrl: string
   welcomeText: string
 }): string {
   const welcomeBlock = opts.welcomeText
@@ -263,16 +270,18 @@ function buildWelcomeHtml(opts: {
   <h1 style="font-size:22px;margin:0 0 8px;color:#111;">Willkommen, ${escapeHtml(opts.clientName)}!</h1>
   <p style="font-size:14px;line-height:1.6;color:#444;margin:0 0 16px;">
     ${escapeHtml(opts.brandName)} hat dich zum Projekt <strong>${escapeHtml(opts.projectName)}</strong> eingeladen.
+    Lege einmalig dein Passwort fest — danach kannst du dich jederzeit mit E-Mail und Passwort anmelden.
   </p>
   ${welcomeBlock}
   <p style="margin:24px 0;">
-    <a href="${opts.magicLink}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
-      Zum Kundenportal
+    <a href="${opts.setupLink}" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
+      Passwort festlegen &amp; Portal öffnen
     </a>
   </p>
   <p style="font-size:12px;color:#888;line-height:1.5;">
-    Oder öffne diesen Link nach dem Login:<br/>
-    <a href="${opts.portalUrl}" style="color:#666;">${opts.portalUrl}</a>
+    Der Button ist aus Sicherheitsgründen nur begrenzt gültig. Falls er abgelaufen ist:
+    <a href="${opts.loginUrl}" style="color:#666;">${opts.loginUrl}</a> öffnen und „Passwort vergessen?" nutzen —
+    dort meldest du dich künftig auch an.
   </p>
 </div></body></html>`
 }
@@ -281,18 +290,23 @@ function buildWelcomeText(opts: {
   projectName: string
   brandName: string
   clientName: string
-  magicLink: string
-  portalUrl: string
+  setupLink: string
+  loginUrl: string
   welcomeText: string
 }): string {
   const lines = [
     `Willkommen, ${opts.clientName}!`,
     '',
     `${opts.brandName} hat dich zum Projekt „${opts.projectName}" eingeladen.`,
+    'Lege einmalig dein Passwort fest — danach meldest du dich mit E-Mail und Passwort an.',
     '',
   ]
   if (opts.welcomeText) lines.push(opts.welcomeText, '')
-  lines.push(`Zum Portal: ${opts.magicLink}`, '', `Portal-URL: ${opts.portalUrl}`)
+  lines.push(
+    `Passwort festlegen & Portal öffnen: ${opts.setupLink}`,
+    '',
+    `Login (auch bei abgelaufenem Link, dann „Passwort vergessen?"): ${opts.loginUrl}`,
+  )
   return lines.join('\n')
 }
 
