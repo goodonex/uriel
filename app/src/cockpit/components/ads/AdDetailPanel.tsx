@@ -1,0 +1,226 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { Ad, AdStatus, ChecklistItem, Kunde } from '../../lib/adsApi'
+import { AD_STATUS_LABEL, AD_STATUS_ORDER, seedReview } from '../../lib/adsApi'
+import { AdPreview } from './AdPreview'
+
+interface Props {
+  kunde: Kunde
+  ad: Ad
+  onClose: () => void
+  onToggleCheck: (adId: string, v: number, kind: 'design' | 'copy', itemId: string) => void
+  onAddNote: (adId: string, v: number, text: string) => void
+  onSetStatus: (adId: string, status: AdStatus) => void
+}
+
+/** Review-Panel als overlay-right: Version wählen, Preview, Copy, Checklisten, Notizen. */
+export function AdDetailPanel({ kunde, ad, onClose, onToggleCheck, onAddNote, onSetStatus }: Props) {
+  const versions = ad.versions
+  const [v, setV] = useState(versions[versions.length - 1]?.v ?? 1)
+  const version = useMemo(
+    () => versions.find((x) => x.v === v) ?? versions[versions.length - 1],
+    [versions, v],
+  )
+  const [noteText, setNoteText] = useState('')
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  if (!version) return null
+  const review = version.review ?? seedReview()
+
+  const submitNote = () => {
+    onAddNote(ad.id, version.v, noteText)
+    setNoteText('')
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }}
+      />
+      <aside
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 'min(640px, 96vw)',
+          zIndex: 41,
+          background: 'var(--ck-bg)',
+          borderLeft: '1px solid var(--ck-border)',
+          overflowY: 'auto',
+          padding: 18,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{ad.title}</div>
+            {ad.angle ? (
+              <div className="ck-label" style={{ marginTop: 2 }}>
+                {ad.angle}
+              </div>
+            ) : null}
+          </div>
+          <button className="ck-btn" onClick={onClose} style={{ flexShrink: 0 }}>
+            Schließen
+          </button>
+        </div>
+
+        {/* Version + Status */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {versions.map((ver) => (
+              <button
+                key={ver.v}
+                className={`ck-btn${ver.v === version.v ? ' ck-btn--primary' : ''}`}
+                style={{ fontSize: 11, padding: '3px 10px' }}
+                onClick={() => setV(ver.v)}
+              >
+                v{ver.v}
+              </button>
+            ))}
+          </div>
+          <label className="ck-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            Status
+            <select
+              className="ck-input"
+              value={ad.status}
+              onChange={(e) => onSetStatus(ad.id, e.target.value as AdStatus)}
+              style={{ fontSize: 12, padding: '4px 8px' }}
+            >
+              {AD_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {AD_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <AdPreview kunde={kunde} version={version} />
+
+        {/* Copy (bewusst read-only — Änderungen macht Claude auf den Dateien) */}
+        {version.copy ? (
+          <section className="ck-panel" style={{ padding: 12 }}>
+            <div className="ck-label" style={{ marginBottom: 8 }}>
+              Copy (v{version.v})
+            </div>
+            {version.copy.headline ? (
+              <p style={{ fontSize: 13.5, fontWeight: 600, margin: '0 0 6px' }}>{version.copy.headline}</p>
+            ) : null}
+            {version.copy.primary ? (
+              <p style={{ fontSize: 12.5, lineHeight: 1.55, margin: '0 0 6px', color: 'var(--ck-text-2)' }}>
+                {version.copy.primary}
+              </p>
+            ) : null}
+            {version.copy.cta ? (
+              <p className="ck-label" style={{ margin: 0 }}>
+                CTA: {version.copy.cta}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* Checklisten */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <ChecklistSection
+            title="Design"
+            items={review.design}
+            onToggle={(itemId) => onToggleCheck(ad.id, version.v, 'design', itemId)}
+          />
+          <ChecklistSection
+            title="Copy"
+            items={review.copy}
+            onToggle={(itemId) => onToggleCheck(ad.id, version.v, 'copy', itemId)}
+          />
+        </div>
+
+        {/* Notizen */}
+        <section className="ck-panel" style={{ padding: 12 }}>
+          <div className="ck-label" style={{ marginBottom: 8 }}>
+            Anmerkungen (v{version.v})
+          </div>
+          {(version.notes ?? []).length === 0 ? (
+            <p className="ck-label" style={{ margin: '0 0 8px' }}>
+              Noch keine Anmerkungen.
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: '0 0 10px', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(version.notes ?? []).map((n, i) => (
+                <li key={`${n.at}-${i}`} style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                  <span className="ck-label" style={{ display: 'block' }}>
+                    {new Date(n.at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                  {n.text}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              className="ck-input"
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitNote()
+              }}
+              placeholder="Anmerkung… (Enter)"
+              style={{ flex: 1, fontSize: 12.5 }}
+            />
+            <button className="ck-btn ck-btn--primary" onClick={submitNote} disabled={!noteText.trim()}>
+              +
+            </button>
+          </div>
+        </section>
+      </aside>
+    </>
+  )
+}
+
+function ChecklistSection({
+  title,
+  items,
+  onToggle,
+}: {
+  title: string
+  items: ChecklistItem[]
+  onToggle: (itemId: string) => void
+}) {
+  const done = items.filter((c) => c.done).length
+  return (
+    <section className="ck-panel" style={{ padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span className="ck-label">{title}</span>
+        <span className="ck-label" style={{ color: done === items.length ? 'var(--ck-accent)' : undefined }}>
+          {done}/{items.length}
+        </span>
+      </div>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {items.map((c) => (
+          <li key={c.id}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 12.5, lineHeight: 1.4 }}>
+              <input
+                type="checkbox"
+                checked={c.done}
+                onChange={() => onToggle(c.id)}
+                style={{ marginTop: 2, accentColor: 'var(--ck-accent)' }}
+              />
+              <span style={{ color: c.done ? 'var(--ck-text-3)' : undefined, textDecoration: c.done ? 'line-through' : undefined }}>
+                {c.label}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

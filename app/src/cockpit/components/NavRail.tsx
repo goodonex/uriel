@@ -4,6 +4,7 @@ const ITEMS: Array<{ to: string; label: string; icon: string }> = [
   { to: '/cockpit', label: 'Cockpit', icon: '◉' },
   { to: '/crm', label: 'CRM', icon: '▤' },
   { to: '/projekte', label: 'Projekte', icon: '◈' },
+  { to: '/ads', label: 'Ads', icon: '◨' },
   { to: '/email', label: 'E-Mail', icon: '✉' },
   { to: '/tracking', label: 'Tracking', icon: '▦' },
 ]

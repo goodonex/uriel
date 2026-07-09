@@ -20,6 +20,11 @@ const RUNS_DIR = join(VAULT, 'System', 'Runs')
 const QUEUE_DIR = join(VAULT, 'System', 'Queue')
 const TIMEOUT_MS = 10 * 60 * 1000 // 10 Minuten (Plan §6)
 
+// Kunden-Ads (Cockpit /ads): Ad-Creatives + Manifeste liegen in den Kundenordnern.
+const KUNDEN_ROOT = resolve(process.env.KUNDEN_ROOT ?? join(homedir(), 'Kevin OS', '02 Projekte', 'Kunden'))
+const KUNDEN_CONFIG = join(KUNDEN_ROOT, 'cockpit-kunden.json')
+const MANIFEST_MAX_BYTES = 2_000_000
+
 /** Erlaubte Agenten = Skills im Vault. Alles andere wird abgelehnt. */
 const AGENTS = new Set(['wochenrecap', 'followup-entwuerfe', 'lead-research', 'dream-check'])
 
@@ -37,8 +42,9 @@ function nowStamp() {
 function json(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   })
   res.end(JSON.stringify(body))
@@ -361,6 +367,64 @@ async function osFile(relOrAbs) {
   return { path: real, content: raw.slice(0, 40_000), truncated: raw.length > 40_000 }
 }
 
+// ---------- Kunden-Ads (Cockpit /ads) ----------
+/** MIME-Allowlist für die statische Auslieferung aus dem Kunden-Root. */
+const KUNDEN_MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.gif': 'image/gif',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+}
+
+/** Kunden-Root einmalig realpath-auflösen (Symlink-sicher, analog osFileRoots). */
+let kundenRootRealPromise = null
+function kundenRootReal() {
+  kundenRootRealPromise ??= realpath(KUNDEN_ROOT).catch(() => null)
+  return kundenRootRealPromise
+}
+
+async function kundenRegistry() {
+  try {
+    const parsed = JSON.parse(await readFile(KUNDEN_CONFIG, 'utf8'))
+    return Array.isArray(parsed.kunden) ? parsed.kunden : []
+  } catch {
+    return []
+  }
+}
+
+function emptyManifest(slug) {
+  return { schemaVersion: 1, customer: slug, updatedAt: null, overviewFiles: [], ads: [] }
+}
+
+/** Manifest-Pfad NUR über das Register (= Schreib-Allowlist). Unbekannter Slug → null. */
+async function manifestPath(slug) {
+  if (!slug) return null
+  const k = (await kundenRegistry()).find((x) => x.slug === slug)
+  if (!k || typeof k.folder !== 'string') return null
+  return join(KUNDEN_ROOT, k.folder, k.adsDir ?? '05_leadgen', 'ads.json')
+}
+
+async function readBodyCapped(req, maxBytes) {
+  let data = ''
+  for await (const chunk of req) {
+    data += chunk
+    if (data.length > maxBytes) {
+      throw Object.assign(new Error('Body zu groß'), { code: 'ETOOBIG' })
+    }
+  }
+  return data
+}
+
 // ---------- Vault: zuletzt geänderte Notizen ----------
 const EXCLUDE = new Set(['System', '.obsidian', '.claude', '.trash', '.git', '08 Anhänge', '10 Excalidraw'])
 
@@ -461,6 +525,76 @@ const server = createServer(async (req, res) => {
       } catch (e) {
         if (e?.code === 'EDENIED') return json(res, 403, { error: e.message })
         throw e
+      }
+    }
+
+    // ---------- Kunden-Ads: statische Dateien (HTML/PNG-Previews für /ads) ----------
+    if (req.method === 'GET' && url.pathname.startsWith('/files/kunden/')) {
+      const rel = decodeURIComponent(url.pathname.slice('/files/kunden/'.length))
+      const dot = rel.lastIndexOf('.')
+      const mime = dot >= 0 ? KUNDEN_MIME[rel.slice(dot).toLowerCase()] : undefined
+      if (!mime) return json(res, 403, { error: 'Dateityp nicht erlaubt' })
+      const root = await kundenRootReal()
+      if (!root) return json(res, 404, { error: 'Kunden-Root existiert nicht' })
+      // realpath schlägt ../-Tricks und Symlink-Escapes tot; ENOENT → 404 unten.
+      const real = await realpath(resolve(join(KUNDEN_ROOT, rel)))
+      if (real !== root && !real.startsWith(root + sep)) {
+        return json(res, 403, { error: 'Pfad außerhalb Kunden-Root' })
+      }
+      const buf = await readFile(real)
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*',
+      })
+      return res.end(buf)
+    }
+
+    // ---------- Kunden-Ads: Register + Manifest ----------
+    if (req.method === 'GET' && url.pathname === '/ads/customers') {
+      return json(res, 200, { kunden: await kundenRegistry() })
+    }
+
+    if (url.pathname === '/ads/manifest') {
+      const slug = url.searchParams.get('kunde') ?? ''
+      const file = await manifestPath(slug)
+      if (!file) return json(res, 400, { error: `Unbekannter Kunde: ${slug}` })
+
+      let onDisk = null
+      try {
+        onDisk = JSON.parse(await readFile(file, 'utf8'))
+      } catch (e) {
+        if (e?.code !== 'ENOENT') throw e // kaputtes JSON soll auffallen, nicht leer wirken
+      }
+
+      if (req.method === 'GET') {
+        return json(res, 200, onDisk ?? emptyManifest(slug))
+      }
+
+      if (req.method === 'PUT') {
+        let body
+        try {
+          body = JSON.parse(await readBodyCapped(req, MANIFEST_MAX_BYTES))
+        } catch (e) {
+          if (e?.code === 'ETOOBIG') return json(res, 413, { error: 'Manifest zu groß (max 2 MB)' })
+          return json(res, 400, { error: 'ungültiges JSON' })
+        }
+        const manifest = body?.manifest
+        if (!manifest || manifest.schemaVersion !== 1 || !Array.isArray(manifest.ads)) {
+          return json(res, 400, { error: 'Manifest mit schemaVersion 1 und ads[] erwartet' })
+        }
+        // Konflikt-Guard: App-Stand muss auf dem Disk-Stand basieren, sonst hat
+        // z.B. eine Claude-Session parallel geschrieben → App lädt `current` neu.
+        const diskUpdatedAt = onDisk?.updatedAt ?? null
+        if ((body.baseUpdatedAt ?? null) !== diskUpdatedAt) {
+          return json(res, 409, {
+            error: 'Konflikt: Manifest wurde extern geändert',
+            current: onDisk ?? emptyManifest(slug),
+          })
+        }
+        manifest.updatedAt = new Date().toISOString()
+        await writeFile(file, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+        return json(res, 200, { ok: true, updatedAt: manifest.updatedAt })
       }
     }
 
