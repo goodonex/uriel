@@ -58,6 +58,25 @@ export const CONVERSION_TARGETS = {
   qualiKunde: { label: 'Quali → Kunde', min: 0.25, max: 0.5, great: 0.5 },
 } as const
 
+/**
+ * Nordstern / Traumleben (Zielplanung 2026, Interview 09.07.2026).
+ * Netto-Wunsch → nötiger Agentur-Umsatz (Faustregel Faktor ~2) → getragen aus zwei Töpfen:
+ * Neukunden-Cash (Projekt + Setup) + Retainer-MRR (Leadgen, kumulativ).
+ * Kernmeilenstein: 20 aktive Leadgen-Retainer = 10.000 € MRR → „Freundin/Familie kann aufhören".
+ */
+export const LIFE_TARGET = {
+  nettoMonat: 20000,
+  umsatzMonat: 40000, // ≈ netto × Faktor 2,0 (Steuern/Abgaben/Betrieb/Reinvest)
+  cashProKunde: 5500, // Branding & Website 3.500 + Leadgen Setup 2.000 (einmalig)
+  mrrProKunde: 500, // Leadgen-Retainer (+ Beteiligung, hier nicht beziffert)
+  neukundenProMonat: 5,
+  mrrMeilenstein: 10000, // Freundin/Familie kann aufhören zu arbeiten
+  retainerKundenZiel: 20, // = mrrMeilenstein / mrrProKunde
+} as const
+
+/** localStorage-Key für den (aktuell manuell gepflegten) Stand aktiver Retainer-Kunden. */
+export const RETAINER_KUNDEN_KEY = 'cockpit.retainerKunden'
+
 /** Aktuelles Soll für "heute" aus einer Kurve interpolieren (Wochenende = voller Wert). */
 export function currentSoll(curve: WeekTarget[], today = new Date()): number {
   let soll = 0

@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "cockpit": "concurrently -n app,runner -c green,cyan \"npm run dev --prefix app\" \"node runner/index.mjs\"",
+    "cockpit": "npm run dev --prefix app",
+    "cockpit:full": "concurrently -n app,runner -c green,cyan \"npm run dev --prefix app\" \"node runner/index.mjs\"",
     "runner": "node runner/index.mjs",
     "build": "npm run build --prefix app"
   },

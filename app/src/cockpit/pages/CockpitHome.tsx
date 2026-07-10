@@ -6,6 +6,7 @@ import { DocumentsPanel } from '../components/DocumentsPanel'
 import { ConversionPanel } from '../components/ConversionPanel'
 import { DreamCard } from '../components/DreamCard'
 import type { RunDoc } from '../components/DocumentsPanel'
+import { NorthStarCard } from '../components/NorthStarCard'
 import { OsDetailPanel } from '../components/OsDetailPanel'
 import { PrimaryDirective } from '../components/PrimaryDirective'
 import { QuickTrack } from '../components/QuickTrack'
@@ -398,6 +399,7 @@ export function CockpitHome() {
     >
       {/* Links (schmal): Geld-Ziel → Quick-Track (schneller Zugriff) → Vitals → Conversion → Docs */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <NorthStarCard />
         <PrimaryDirective monthRevenue={monthRevenue} />
         <QuickTrack
           today={metrics.today}
