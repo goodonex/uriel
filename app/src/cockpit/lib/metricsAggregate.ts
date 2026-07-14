@@ -8,14 +8,14 @@ export function sumField(rows: DailyMetricsRow[], field: keyof DailyMetricsRow):
 }
 
 export function anfragenTotal(row: DailyMetricsRow): number {
+  // Cold-Mail (coldmails) bewusst nicht mehr enthalten — Kanal aus dem Tracking genommen.
   return (
     row.li_anfragen +
     row.li_nachrichten +
     row.inmails +
     row.ig_anfragen +
     row.ig_nachrichten +
-    row.cold_calls +
-    row.coldmails
+    row.cold_calls
   )
 }
 
@@ -23,8 +23,14 @@ export function antwortenTotal(row: DailyMetricsRow): number {
   return row.antworten_li + row.antworten_inmail + row.antworten_ig + row.antworten_cold
 }
 
+/** Geführte Calls (Coach-Funnel: Quali + Sales). */
 export function termineTotal(row: DailyMetricsRow): number {
   return row.quali_termine + row.sales_calls
+}
+
+/** Heute NEU vereinbarte Termine, über alle Herkunfts-Kanäle (0055). */
+export function termineVereinbartTotal(row: DailyMetricsRow): number {
+  return row.termine_li + row.termine_ig + row.termine_call
 }
 
 /** Letzte `days` Kalendertage als Werte-Reihe (fehlende Tage = 0) für Sparklines. */
@@ -65,9 +71,9 @@ export function weekVitals(weekRows: DailyMetricsRow[], monthRows: DailyMetricsR
     {
       key: 'termine',
       label: 'Termine',
-      current: weekRows.reduce((a, r) => a + termineTotal(r), 0),
+      current: weekRows.reduce((a, r) => a + termineVereinbartTotal(r), 0),
       target: WEEK_TARGETS.termine,
-      history: historySeries(monthRows, termineTotal),
+      history: historySeries(monthRows, termineVereinbartTotal),
     },
     {
       key: 'abschluesse',
@@ -145,7 +151,6 @@ export function channelRates(rows: DailyMetricsRow[]): ChannelRate[] {
     { key: 'li', label: 'LinkedIn', a: ['li_anfragen', 'li_nachrichten'], r: 'antworten_li', min: 0.15, max: 0.25 },
     { key: 'inmail', label: 'InMail', a: ['inmails'], r: 'antworten_inmail', min: 0.1, max: 0.25 },
     { key: 'ig', label: 'Instagram', a: ['ig_anfragen', 'ig_nachrichten'], r: 'antworten_ig', min: 0.1, max: 0.15 },
-    { key: 'cold', label: 'Cold-Mail', a: ['coldmails'], r: 'antworten_cold', min: 0.04, max: 0.08 },
   ] as const
 
   return defs.map((d) => {
@@ -161,6 +166,27 @@ export function channelRates(rows: DailyMetricsRow[]): ChannelRate[] {
       benchMax: d.max,
     }
   })
+}
+
+export interface TermineAttribution {
+  li: number
+  ig: number
+  call: number
+  total: number
+  /** Aktionen (Input, ohne Follow-ups) im selben Zeitraum — Nenner der Quote. */
+  aktionen: number
+  /** Termine ÷ Aktionen — „wie hart arbeitet der Input" (null ohne Aktionen). */
+  proAktion: number | null
+}
+
+/** Termine je Herkunfts-Kanal + Conversion Termine÷Aktionen über die Zeilen (0055). */
+export function termineAttribution(rows: DailyMetricsRow[]): TermineAttribution {
+  const li = sumField(rows, 'termine_li')
+  const ig = sumField(rows, 'termine_ig')
+  const call = sumField(rows, 'termine_call')
+  const total = li + ig + call
+  const aktionen = rows.reduce((a, r) => a + anfragenTotal(r), 0)
+  return { li, ig, call, total, aktionen, proAktion: aktionen > 0 ? total / aktionen : null }
 }
 
 /** Kumulierte Ist-Umsatz-Punkte je Tag des Monats (für die Kurve). */

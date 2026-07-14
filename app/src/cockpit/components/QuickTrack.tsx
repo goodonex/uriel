@@ -5,18 +5,21 @@ const INPUT_FIELDS: Array<{ field: MetricField; label: string }> = [
   { field: 'li_anfragen', label: 'LI Vernetzung' },
   { field: 'li_nachrichten', label: 'LI Nachricht' },
   { field: 'inmails', label: 'InMail' },
+  { field: 'li_followups', label: 'LI Follow-up' },
   { field: 'looms', label: 'Loom' },
   { field: 'ig_anfragen', label: 'IG Follow' },
   { field: 'ig_nachrichten', label: 'IG Nachricht' },
+  { field: 'ig_followups', label: 'IG Follow-up' },
   { field: 'cold_calls', label: 'Cold Call' },
-  { field: 'coldmails', label: 'Cold-Mail' },
-  { field: 'followups', label: 'Follow-up' },
+  { field: 'call_followups', label: 'FU Call' },
 ]
 
 const RESULT_FIELDS: Array<{ field: MetricField; label: string }> = [
+  { field: 'termine_li', label: 'Termin LI' },
+  { field: 'termine_ig', label: 'Termin IG' },
+  { field: 'termine_call', label: 'Termin Call' },
   { field: 'quali_termine', label: 'Quali' },
   { field: 'sales_calls', label: 'Call' },
-  { field: 'termine_vereinbart', label: 'Termin' },
   { field: 'abschluesse', label: 'Deal' },
 ]
 

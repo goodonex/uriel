@@ -7,7 +7,7 @@
 export const WEEK_TARGETS = {
   anfragen: 150, // 30/Tag × 5 Tage, alle Kanäle
   looms: 25,
-  termine: 5, // Quali + Sales
+  termine: 5, // neu vereinbarte Termine (alle Herkunfts-Kanäle)
   abschluesse: 2,
 } as const
 
@@ -45,7 +45,6 @@ export const CHANNEL_BENCHMARKS = [
   { key: 'li_anfragen', label: 'LinkedIn', min: 0.15, max: 0.25 },
   { key: 'inmails', label: 'InMail', min: 0.1, max: 0.25 },
   { key: 'ig_anfragen', label: 'Instagram', min: 0.1, max: 0.15 },
-  { key: 'coldmails', label: 'Cold-Mail', min: 0.04, max: 0.08 },
 ] as const
 
 /**

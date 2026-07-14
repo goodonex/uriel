@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MonthCurve } from '../components/MonthCurve'
 import { VitalsPanel } from '../components/VitalsPanel'
-import { channelRates, weekVitals } from '../lib/metricsAggregate'
+import { channelRates, termineAttribution, weekVitals } from '../lib/metricsAggregate'
 import type { MetricField } from '../lib/useDailyMetrics'
 import { toIsoDate, useDailyMetrics } from '../lib/useDailyMetrics'
 import { formatEuro } from '../lib/goals'
@@ -13,8 +13,9 @@ const INPUT_GROUPS: InputGroup[] = [
     title: 'LinkedIn',
     fields: [
       { field: 'li_anfragen', label: 'Vernetzungsanfragen' },
-      { field: 'li_nachrichten', label: 'Nachrichten' },
+      { field: 'li_nachrichten', label: 'Erstnachrichten' },
       { field: 'inmails', label: 'InMail' },
+      { field: 'li_followups', label: 'Follow-ups' },
       { field: 'looms', label: 'Looms' },
     ],
   },
@@ -22,28 +23,33 @@ const INPUT_GROUPS: InputGroup[] = [
     title: 'Instagram',
     fields: [
       { field: 'ig_anfragen', label: 'Follows' },
-      { field: 'ig_nachrichten', label: 'Nachrichten' },
+      { field: 'ig_nachrichten', label: 'Erstnachrichten' },
+      { field: 'ig_followups', label: 'Follow-ups' },
     ],
   },
   {
-    title: 'Sonstiges',
+    title: 'Telefon',
     fields: [
       { field: 'cold_calls', label: 'Cold Calls' },
-      { field: 'coldmails', label: 'Cold-Mail' },
-      { field: 'followups', label: 'Follow-ups' },
+      { field: 'call_followups', label: 'Follow-up Calls' },
     ],
   },
 ]
 
-/** Ergebnis-Felder (nachlaufend). Geführte Calls vs. neu vereinbarte Termine getrennt. */
+/** Termine mit Herkunft — Kevins „Gebracht"-Seite (welcher Kanal liefert Termine?). */
+const TERMIN_FIELDS: Array<{ field: MetricField; label: string }> = [
+  { field: 'termine_li', label: 'Termin · LinkedIn' },
+  { field: 'termine_ig', label: 'Termin · Instagram' },
+  { field: 'termine_call', label: 'Termin · Cold Call' },
+]
+
+/** Weitere Ergebnisse (nachlaufend): Antworten je Kanal, geführte Calls, Deal. */
 const RESULT_FIELDS: Array<{ field: MetricField; label: string }> = [
   { field: 'antworten_li', label: 'Antw. LinkedIn' },
   { field: 'antworten_inmail', label: 'Antw. InMail' },
   { field: 'antworten_ig', label: 'Antw. Instagram' },
-  { field: 'antworten_cold', label: 'Antw. Cold-Mail' },
   { field: 'quali_termine', label: 'Quali-Calls geführt' },
   { field: 'sales_calls', label: 'Sales-Calls geführt' },
-  { field: 'termine_vereinbart', label: 'Termine vereinbart' },
   { field: 'abschluesse', label: 'Abschlüsse' },
 ]
 
@@ -188,6 +194,7 @@ export function TrackingArea() {
     [metrics.weekRows, metrics.monthRows],
   )
   const rates = useMemo(() => channelRates(metrics.monthRows), [metrics.monthRows])
+  const termine = useMemo(() => termineAttribution(metrics.monthRows), [metrics.monthRows])
   // Ausgewählter Tag fürs (rückwirkende) Eintragen — Default heute.
   const [selectedDate, setSelectedDate] = useState(toIsoDate(new Date()))
 
@@ -305,7 +312,18 @@ export function TrackingArea() {
               </div>
             </div>
           ))}
-          <div className="ck-label" style={{ margin: '12px 0 6px', color: 'var(--ck-text-3)' }}>Ergebnis (nachlaufend)</div>
+          <div className="ck-label" style={{ margin: '12px 0 6px', color: 'var(--ck-text-3)' }}>Termine gebracht — welcher Kanal?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+            {TERMIN_FIELDS.map((f) => (
+              <Stepper
+                key={f.field}
+                label={f.label}
+                value={row[f.field]}
+                onBump={(d) => metrics.bumpOn(selectedDate, f.field, d)}
+              />
+            ))}
+          </div>
+          <div className="ck-label" style={{ margin: '12px 0 6px', color: 'var(--ck-text-3)' }}>Weitere Ergebnisse (nachlaufend)</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8, paddingBottom: 10 }}>
             {RESULT_FIELDS.map((f) => (
               <Stepper
@@ -342,6 +360,49 @@ export function TrackingArea() {
         <RatesTable rates={rates} />
         <p className="ck-label" style={{ padding: '8px 12px', color: 'var(--ck-text-3)' }}>
           Aussagekräftig ab ~2 Wochen Daten. Rate unter Benchmark → Skript/Zielgruppe prüfen, nicht härter senden.
+        </p>
+      </section>
+
+      {/* Termine-Herkunft: welcher Kanal liefert Termine + Termine ÷ Aktionen */}
+      <section className="ck-panel" aria-label="Termine je Herkunfts-Kanal">
+        <div className="ck-label" style={{ padding: '10px 12px 4px' }}>
+          Termine-Herkunft · laufender Monat
+        </div>
+        <div className="ck-table-scroll">
+          <table className="ck-table">
+            <thead>
+              <tr>
+                <th>Herkunft</th>
+                <th style={{ textAlign: 'right' }}>Termine</th>
+                <th style={{ textAlign: 'right' }}>Anteil</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label: 'LinkedIn', v: termine.li },
+                { label: 'Instagram', v: termine.ig },
+                { label: 'Cold Call', v: termine.call },
+              ].map((r) => (
+                <tr key={r.label}>
+                  <td>{r.label}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.v}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--ck-text-3)' }}>
+                    {termine.total > 0 ? `${Math.round((r.v / termine.total) * 100)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Gesamt</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{termine.total}</td>
+                <td style={{ textAlign: 'right', color: 'var(--ck-text-3)' }}>
+                  {termine.proAktion == null ? '—' : `${(termine.proAktion * 100).toFixed(1)}% / Aktion`}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="ck-label" style={{ padding: '8px 12px', color: 'var(--ck-text-3)' }}>
+          „% / Aktion" = Termine ÷ Aktionen (ohne Follow-ups): wie hart jeder ausgehende Kontakt arbeitet.
         </p>
       </section>
     </div>
