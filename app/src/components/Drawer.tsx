@@ -46,7 +46,7 @@ export function Drawer({ open, onClose, title, children, width = 380 }: DrawerPr
             className="fixed inset-0"
             style={{
               zIndex: DRAWER_Z,
-              background: 'rgba(6, 8, 14, 0.68)',
+              background: 'var(--overlay-backdrop)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
             }}
@@ -70,7 +70,7 @@ export function Drawer({ open, onClose, title, children, width = 380 }: DrawerPr
               background: 'var(--bg-base)',
               border: '1px solid var(--glass-border-2)',
               borderRadius: 16,
-              boxShadow: '0 24px 80px rgba(0, 0, 0, 0.55)',
+              boxShadow: 'var(--shadow-lg)',
               padding: 20,
               overflow: 'hidden',
             }}

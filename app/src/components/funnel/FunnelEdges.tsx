@@ -38,7 +38,7 @@ function variantStroke(v: string | null | undefined): string {
   if (v === 'A' || v === null || v === undefined || v === '') return 'var(--accent-teal)'
   if (v === 'B') return 'var(--accent-amber)'
   if (v === 'C') return 'var(--accent-purple)'
-  return 'rgba(255,255,255,0.25)'
+  return 'var(--text-tertiary)'
 }
 
 export interface FunnelEdgesProps {
@@ -124,8 +124,8 @@ export function FunnelEdges({
                     width={16}
                     height={16}
                     rx={4}
-                    fill="rgba(10,10,20,0.9)"
-                    stroke="rgba(255,255,255,0.2)"
+                    fill="var(--surface-popover)"
+                    stroke="var(--glass-border-3)"
                   />
                   <text
                     x={8}
@@ -148,7 +148,7 @@ export function FunnelEdges({
                     onEdgeDeleteClick(it.e.id)
                   }}
                 >
-                  <circle r={10} cx={10} cy={10} fill="rgba(255,60,60,0.9)" />
+                  <circle r={10} cx={10} cy={10} fill="var(--status-danger)" />
                   <text
                     x={10}
                     y={14}
@@ -168,7 +168,7 @@ export function FunnelEdges({
           <path
             d={previewPath}
             fill="none"
-            stroke="rgba(255,255,255,0.45)"
+            stroke="var(--text-secondary)"
             strokeWidth={1.5}
             strokeDasharray="6 4"
             style={{ pointerEvents: 'none' }}

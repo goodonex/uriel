@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useUiTheme } from '../../hooks/useUiTheme'
 import type { OsMap } from '../lib/runnerApi'
 import type { LeadContact, NebulaLayout, NebulaNode, ViewMode } from './nebulaLayout'
-import { buildLayout, LAYER_COLOR, TOP } from './nebulaLayout'
+import { buildLayout, getLayerColors, TOP } from './nebulaLayout'
 
 /**
  * OsNebula — Canvas-Engine für den Agentic-OS-Graph im RUBRIC-Look:
@@ -51,6 +52,58 @@ function hexToRgb(hex: string): [number, number, number] {
 function rgba(hex: string, a: number): string {
   const [r, g, b] = hexToRgb(hex)
   return `rgba(${r},${g},${b},${a})`
+}
+
+/** Theme-Palette des Graphen — aus den --ck-graph-*-Tokens (auf .ck-root) gelesen. */
+interface GraphPalette {
+  isLight: boolean
+  bg: string
+  star: string
+  line: string
+  core: string
+  label: string
+  panel: string
+  /** Füllung von Discs/Hexes/Core — Kontrast zur (hellen bzw. dunklen) Layer-Farbe. */
+  nodeFill: string
+}
+
+const GRAPH_DARK_FALLBACK = {
+  bg: '#05080c',
+  star: '#cfd8e3',
+  line: '#f2f4f5',
+  core: '#f2f4f5',
+  label: '#9aa4a8',
+  panel: 'rgba(8,12,17,0.92)',
+}
+
+const GRAPH_LIGHT_FALLBACK = {
+  bg: '#eef1f4',
+  star: '#9aa8b8',
+  line: '#24303a',
+  core: '#111827',
+  label: '#46525a',
+  panel: 'rgba(255,255,255,0.94)',
+}
+
+function readGraphPalette(el: HTMLElement | null, isLight: boolean): GraphPalette {
+  // Die --ck-graph-*-Tokens leben auf .ck-root, nicht auf <html>. Beim allerersten
+  // Render ist der Wrapper-Ref noch null → dann von .ck-root lesen (nicht von
+  // documentElement, wo die Tokens fehlen und der Fallback sonst Dark liefert).
+  const target =
+    el ?? (typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('.ck-root'))
+  const styles = typeof window === 'undefined' || !target ? null : getComputedStyle(target)
+  const fb = isLight ? GRAPH_LIGHT_FALLBACK : GRAPH_DARK_FALLBACK
+  const v = (name: string, fallback: string) => styles?.getPropertyValue(name).trim() || fallback
+  return {
+    isLight,
+    bg: v('--ck-graph-bg', fb.bg),
+    star: v('--ck-graph-star', fb.star),
+    line: v('--ck-graph-line', fb.line),
+    core: v('--ck-graph-core', fb.core),
+    label: v('--ck-graph-label', fb.label),
+    panel: v('--ck-graph-panel', fb.panel),
+    nodeFill: isLight ? '#ffffff' : '#0a0f15',
+  }
 }
 
 /** Glow-Sprite pro Farbe (einmal offscreen gerendert, dann drawImage = billig). */
@@ -114,9 +167,20 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
   const [query, setQuery] = useState('')
   const [panelOpen, setPanelOpen] = useState(true)
 
+  // Theme: Layer-Farben + Canvas-Palette (Dark/Light) — der rAF-Loop liest Refs,
+  // damit der Theme-Wechsel sofort greift, ohne den Loop neu zu starten.
+  const { isPlainLight } = useUiTheme()
+  const layerColors = useMemo(() => getLayerColors(isPlainLight), [isPlainLight])
+  const palette = useMemo(
+    // Beim allerersten Render ist wrapRef noch null → documentElement/Dark-Fallbacks;
+    // der Effect unten liest nach dem Mount vom Wrapper (innerhalb von .ck-root) nach.
+    () => readGraphPalette(wrapRef.current, isPlainLight),
+    [isPlainLight],
+  )
+
   const layout = useMemo(
-    () => buildLayout(settings.view, map, contacts),
-    [settings.view, map, contacts],
+    () => buildLayout(settings.view, map, contacts, layerColors),
+    [settings.view, map, contacts, layerColors],
   )
 
   // Refs für den rAF-Loop (kein Loop-Neustart bei State-Wechseln)
@@ -124,12 +188,25 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
   const settingsRef = useRef<Settings>(settings)
   const queryRef = useRef(query)
   const clickRef = useRef(onNodeClick)
+  const paletteRef = useRef<GraphPalette>(palette)
+  const layerColorsRef = useRef(layerColors)
   const needFitRef = useRef(true)
-  if (layoutRef.current !== layout) needFitRef.current = true
+  // Theme-Flip baut das Layout nur wegen der Farben neu → Zoom/Pan dabei behalten.
+  const themeFlipped = layerColorsRef.current !== layerColors
+  if (layoutRef.current !== layout && !themeFlipped) needFitRef.current = true
   layoutRef.current = layout
   settingsRef.current = settings
   queryRef.current = query
   clickRef.current = onNodeClick
+  paletteRef.current = palette
+  layerColorsRef.current = layerColors
+
+  useEffect(() => {
+    // Nach Mount/Theme-Wechsel die Tokens direkt vom Wrapper (.ck-root-Scope) lesen
+    // und die Glow-Sprites verwerfen, damit sie in den neuen Farben neu entstehen.
+    paletteRef.current = readGraphPalette(wrapRef.current, isPlainLight)
+    spriteCache.clear()
+  }, [isPlainLight])
 
   const set = (patch: Partial<Settings>) =>
     setSettings((s) => {
@@ -157,6 +234,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
     let stars: Star[] = []
     let comets: Comet[] = []
     let cometView: ViewMode | null = null
+    let cometLight: boolean | null = null
     const t0 = performance.now()
 
     const makeStars = () => {
@@ -186,6 +264,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
       const L = layoutRef.current
       const s = settingsRef.current
       cometView = L.view
+      cometLight = paletteRef.current.isLight
       const n = Math.round(s.comets * 14)
       const r = mulberry(hashStr(L.view) + L.nodes.length)
       const hubs = L.nodes.filter((x) => x.kind === 'hub')
@@ -196,7 +275,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
             radius: 0,
             angle: 0,
             speed: 0.1 + r() * 0.12,
-            color: LAYER_COLOR[hub.layer],
+            color: layerColorsRef.current[hub.layer],
             hubId: hub.id,
             offset: r(),
           }
@@ -207,7 +286,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
           radius: arcR,
           angle: r() * Math.PI * 2,
           speed: (0.14 + r() * 0.2) * (r() > 0.5 ? 1 : -1),
-          color: band?.color ?? '#8b9bb4',
+          color: band?.color ?? paletteRef.current.star,
           offset: r(),
         }
       })
@@ -313,19 +392,26 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
     const draw = () => {
       const L = layoutRef.current
       const s = settingsRef.current
+      const P = paletteRef.current
+      const C = layerColorsRef.current
       const q = queryRef.current.trim().toLowerCase()
       const t = (performance.now() - t0) / 1000
       if (needFitRef.current) fit()
-      if (cometView !== L.view || comets.length !== Math.round(s.comets * 14)) makeComets()
+      if (
+        cometView !== L.view ||
+        cometLight !== P.isLight ||
+        comets.length !== Math.round(s.comets * 14)
+      )
+        makeComets()
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       // Deep Space
-      ctx.fillStyle = '#05080c'
+      ctx.fillStyle = P.bg
       ctx.fillRect(0, 0, width, height)
       for (const st of stars) {
         const tw = 0.72 + 0.28 * Math.sin(t * 0.7 + st.ph)
         ctx.globalAlpha = st.a * tw
-        ctx.fillStyle = '#cfd8e3'
+        ctx.fillStyle = P.star
         ctx.beginPath()
         ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2)
         ctx.fill()
@@ -393,7 +479,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
           const pb = posOf(nb, t)
           const hot = hover && (e.a === hover.id || e.b === hover.id)
           ctx.strokeStyle = rgba(
-            LAYER_COLOR.memory,
+            C.memory,
             hot ? 0.6 : 0.05 * s.links * 2 * (hover || q ? 0.35 : 1),
           )
           ctx.lineWidth = (hot ? 1.3 : 0.8) / view.k
@@ -408,7 +494,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
       for (const n of L.nodes) {
         if (n.kind !== 'hub') continue
         const p = posOf(n, t)
-        ctx.strokeStyle = rgba('#f2f4f5', hover ? 0.02 : 0.045)
+        ctx.strokeStyle = rgba(P.line, hover ? 0.02 : 0.045)
         ctx.lineWidth = 1 / view.k
         ctx.beginPath()
         ctx.moveTo(0, 0)
@@ -418,7 +504,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
       // Speiche zum Hover-Node
       if (hover && hover.kind !== 'core') {
         const p = posOf(hover, t)
-        ctx.strokeStyle = rgba('#f2f4f5', 0.22)
+        ctx.strokeStyle = rgba(P.line, 0.22)
         ctx.lineWidth = 1 / view.k
         ctx.beginPath()
         ctx.moveTo(0, 0)
@@ -477,21 +563,21 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
           const alpha = alphaFor(n)
           if (alpha < 0.03) continue
           const p = posOf(n, t)
-          const color = LAYER_COLOR[n.layer]
+          const color = C[n.layer]
           const isHover = hover?.id === n.id
 
           ctx.globalAlpha = alpha
           if (n.shape === 'dot') {
             const gs = n.size * (3.4 + s.glow * 3.2) * (isHover ? 1.5 : 1)
             ctx.drawImage(glowSprite(color), p.x - gs / 2, p.y - gs / 2, gs, gs)
-            ctx.fillStyle = isHover ? '#ffffff' : rgba(color, 0.95)
+            ctx.fillStyle = isHover ? P.core : rgba(color, 0.95)
             ctx.beginPath()
             ctx.arc(p.x, p.y, n.size * (isHover ? 1.25 : 1), 0, Math.PI * 2)
             ctx.fill()
           } else {
             const gs = n.size * (3 + s.glow * 2) * (isHover ? 1.3 : 1)
             ctx.drawImage(glowSprite(color), p.x - gs / 2, p.y - gs / 2, gs, gs)
-            ctx.fillStyle = '#0a0f15'
+            ctx.fillStyle = P.nodeFill
             if (n.shape === 'hex') {
               hexPath(p.x, p.y, n.size)
               ctx.fill()
@@ -511,13 +597,13 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
                 const pulse = (Math.sin(t * 2) + 1) / 2
                 ctx.beginPath()
                 ctx.arc(p.x, p.y, n.size + 5 + pulse * 4, 0, Math.PI * 2)
-                ctx.strokeStyle = rgba('#f2f4f5', 0.32 - pulse * 0.2)
+                ctx.strokeStyle = rgba(P.core, 0.32 - pulse * 0.2)
                 ctx.lineWidth = 1.2 / view.k
                 ctx.stroke()
               }
             }
             if (n.glyph) {
-              ctx.fillStyle = rgba(n.kind === 'core' ? '#f2f4f5' : color, 0.95)
+              ctx.fillStyle = rgba(n.kind === 'core' ? P.core : color, 0.95)
               ctx.font = `700 ${n.size * 0.95}px 'JetBrains Mono', ui-monospace, monospace`
               ctx.textAlign = 'center'
               ctx.textBaseline = 'middle'
@@ -537,7 +623,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
             const fs = Math.max(8.5, 9.5 / view.k)
             ctx.font = `600 ${fs}px 'JetBrains Mono', ui-monospace, monospace`
             ctx.textAlign = 'center'
-            ctx.fillStyle = isHover ? '#f2f4f5' : rgba('#9aa4a8', 0.9)
+            ctx.fillStyle = isHover ? P.core : rgba(P.label, 0.9)
             const label = n.label.length > 24 ? `${n.label.slice(0, 23)}…` : n.label
             ctx.fillText(label.toUpperCase(), p.x, p.y + n.size + fs + 3)
             if (n.kind === 'hub' && n.count != null) {
@@ -545,7 +631,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
               ctx.fillText(String(n.count), p.x, p.y + n.size + fs * 2 + 5)
             }
             if (n.kind === 'core') {
-              ctx.fillStyle = rgba('#9aa4a8', 0.7)
+              ctx.fillStyle = rgba(P.label, 0.7)
               ctx.font = `500 ${fs * 0.85}px 'JetBrains Mono', ui-monospace, monospace`
               ctx.fillText(n.sub.toUpperCase(), p.x, p.y + n.size + fs * 2 + 5)
             }
@@ -606,7 +692,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
         const title = tip.firstElementChild as HTMLElement
         const sub = tip.lastElementChild as HTMLElement
         title.textContent = n.label
-        title.style.color = LAYER_COLOR[n.layer]
+        title.style.color = layerColorsRef.current[n.layer]
         sub.textContent = n.sub.length > 130 ? `${n.sub.slice(0, 129)}…` : n.sub
       } else {
         tip.style.display = 'none'
@@ -653,12 +739,12 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
     for (const n of layout.nodes) {
       if (n.kind === 'hub' || n.kind === 'core') continue
       const key = n.layer
-      const cur = c.get(key) ?? { color: LAYER_COLOR[n.layer], n: 0 }
+      const cur = c.get(key) ?? { color: layerColors[n.layer], n: 0 }
       cur.n += 1
       c.set(key, cur)
     }
     return [...c.entries()]
-  }, [layout])
+  }, [layout, layerColors])
 
   const slider = (label: string, key: 'glow' | 'spin' | 'links' | 'comets') => (
     <label style={{ display: 'block', marginTop: 8 }}>
@@ -682,7 +768,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
   )
 
   return (
-    <div ref={wrapRef} style={{ width: '100%', position: 'relative', background: '#05080c' }}>
+    <div ref={wrapRef} style={{ width: '100%', position: 'relative', background: 'var(--ck-graph-bg)' }}>
       <canvas
         ref={canvasRef}
         aria-label="Agentic-OS-Graph: Kern mit Ringen für Skills, Memory, Routines, Applications sowie Leads-Pipelines"
@@ -696,7 +782,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
           position: 'absolute',
           maxWidth: 230,
           padding: '7px 10px',
-          background: 'rgba(8,12,17,0.92)',
+          background: 'var(--ck-graph-panel)',
           border: '1px solid var(--ck-border-strong)',
           borderRadius: 6,
           pointerEvents: 'none',
@@ -738,7 +824,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
             style={{
               width: 208,
               padding: '10px 12px 12px',
-              background: 'rgba(9,13,18,0.88)',
+              background: 'var(--ck-graph-panel)',
               border: '1px solid var(--ck-border)',
               borderRadius: 8,
               backdropFilter: 'blur(6px)',

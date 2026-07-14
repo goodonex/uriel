@@ -36,6 +36,23 @@ export const LAYER_COLOR: Record<LayerId, string> = {
   paused: '#64748b', // grau
 }
 
+/** Abgedunkelte Pendants (gleiche Farbtöne) — lesbar auf hellem Hintergrund. */
+export const LAYER_COLOR_LIGHT: Record<LayerId, string> = {
+  core: '#111827',
+  skills: '#b45309', // orange (innen)
+  memory: '#7c3aed', // violett
+  routines: '#a16207', // gold
+  apps: '#0369a1', // eis-blau (außen)
+  sales: '#047857', // grün = Geld, nah am Kern
+  loom: '#b45309', // amber
+  kalt: '#2563eb', // blau
+  paused: '#64748b', // grau
+}
+
+export function getLayerColors(isLight: boolean): Record<LayerId, string> {
+  return isLight ? LAYER_COLOR_LIGHT : LAYER_COLOR
+}
+
 export interface NebulaNode {
   id: string
   kind: 'core' | 'skill' | 'note' | 'routine' | 'app' | 'hub' | 'contact'
@@ -311,7 +328,10 @@ function finalize(
 
 // ---------- Ansicht 1: RINGE (RUBRIC-Ringview) ----------
 
-export function buildRings(map: OsMap): NebulaLayout {
+export function buildRings(
+  map: OsMap,
+  colors: Record<LayerId, string> = LAYER_COLOR,
+): NebulaLayout {
   const nodes: NebulaNode[] = [coreNode('KEVIN OS', 'CLAUDE · DER ROUTER')]
 
   // SKILLS (innen, orange) — Gruppen Vault/Global
@@ -417,10 +437,10 @@ export function buildRings(map: OsMap): NebulaLayout {
   nodes.push(...routines.nodes, ...apps.nodes)
 
   const bands: RingBand[] = [
-    { label: 'SKILLS', color: LAYER_COLOR.skills, arcs: [96, 114], rLabel: 138 },
-    { label: 'MEMORY', color: LAYER_COLOR.memory, arcs: [168, 192, 216, 240], rLabel: 262 },
-    { label: 'ROUTINES', color: LAYER_COLOR.routines, arcs: [290], rLabel: 310 },
-    { label: 'APPLICATIONS', color: LAYER_COLOR.apps, arcs: [336], rLabel: 358 },
+    { label: 'SKILLS', color: colors.skills, arcs: [96, 114], rLabel: 138 },
+    { label: 'MEMORY', color: colors.memory, arcs: [168, 192, 216, 240], rLabel: 262 },
+    { label: 'ROUTINES', color: colors.routines, arcs: [290], rLabel: 310 },
+    { label: 'APPLICATIONS', color: colors.apps, arcs: [336], rLabel: 358 },
   ]
 
   const fogRnd = rng('fog-rings')
@@ -444,7 +464,10 @@ export function buildRings(map: OsMap): NebulaLayout {
 
 // ---------- Ansicht 2: NEBULA (Galaxie-Cluster) ----------
 
-export function buildNebula(map: OsMap): NebulaLayout {
+export function buildNebula(
+  map: OsMap,
+  colors: Record<LayerId, string> = LAYER_COLOR,
+): NebulaLayout {
   const nodes: NebulaNode[] = [coreNode('KEVIN OS', 'CLAUDE · DER ROUTER')]
 
   interface Cluster {
@@ -579,7 +602,7 @@ export function buildNebula(map: OsMap): NebulaLayout {
       nodes.push(node)
     }
 
-    fogs.push({ angle: centerAngle, radius: centerR, r: discR * 2.2, color: LAYER_COLOR[c.layer] })
+    fogs.push({ angle: centerAngle, radius: centerR, r: discR * 2.2, color: colors[c.layer] })
   })
 
   const maxR = 235 + 60 + 11 * Math.sqrt(Math.max(...clusters.map((c) => c.items.length), 1)) + 40
@@ -651,7 +674,10 @@ const PIPELINES: Array<{
   },
 ]
 
-export function buildLeads(contacts: LeadContact[]): NebulaLayout {
+export function buildLeads(
+  contacts: LeadContact[],
+  colors: Record<LayerId, string> = LAYER_COLOR,
+): NebulaLayout {
   const total = contacts.length
   const sumValue = contacts.reduce((s, c) => s + (c.lead_value ?? 0), 0)
   const nodes: NebulaNode[] = [
@@ -702,7 +728,7 @@ export function buildLeads(contacts: LeadContact[]): NebulaLayout {
       hubSub: (g) => `${g.items.length} Leads`,
     })
     nodes.push(...band.nodes, ...band.hubs)
-    bands.push({ label: p.label, color: LAYER_COLOR[p.layer], arcs: p.arcs, rLabel: p.rLabel })
+    bands.push({ label: p.label, color: colors[p.layer], arcs: p.arcs, rLabel: p.rLabel })
   }
 
   // Pausierte Leads: dünner grauer Außenarc
@@ -713,7 +739,7 @@ export function buildLeads(contacts: LeadContact[]): NebulaLayout {
       const angle = TOP + (i / paused.length) * TAU + (rnd() - 0.5) * 0.05
       nodes.push(contactNode(c, 'paused', angle, 366, 0.004))
     })
-    bands.push({ label: 'PAUSIERT', color: LAYER_COLOR.paused, arcs: [366], rLabel: 386 })
+    bands.push({ label: 'PAUSIERT', color: colors.paused, arcs: [366], rLabel: 386 })
   }
 
   const fogRnd = rng('fog-leads')
@@ -727,8 +753,13 @@ export function buildLeads(contacts: LeadContact[]): NebulaLayout {
   return finalize('leads', nodes, () => [], bands, fogs, paused.length ? 396 : 360, 0)
 }
 
-export function buildLayout(view: ViewMode, map: OsMap, contacts: LeadContact[]): NebulaLayout {
-  if (view === 'nebula') return buildNebula(map)
-  if (view === 'leads') return buildLeads(contacts)
-  return buildRings(map)
+export function buildLayout(
+  view: ViewMode,
+  map: OsMap,
+  contacts: LeadContact[],
+  colors: Record<LayerId, string> = LAYER_COLOR,
+): NebulaLayout {
+  if (view === 'nebula') return buildNebula(map, colors)
+  if (view === 'leads') return buildLeads(contacts, colors)
+  return buildRings(map, colors)
 }

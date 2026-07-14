@@ -91,7 +91,7 @@ export function LeadIntakePage() {
       style={{
         minHeight: '100vh',
         background:
-          'radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent-teal) 18%, transparent), transparent 50%), radial-gradient(circle at 80% 90%, color-mix(in srgb, var(--accent-blue) 18%, transparent), transparent 50%), var(--bg-deep)',
+          'radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent-teal) 18%, transparent), transparent 50%), radial-gradient(circle at 80% 90%, color-mix(in srgb, var(--accent-blue) 18%, transparent), transparent 50%), var(--bg-void)',
         display: 'grid',
         placeItems: 'center',
         padding: '60px 24px',
@@ -244,7 +244,7 @@ export function LeadIntakePage() {
                   status === 'sending'
                     ? 'var(--glass-2)'
                     : 'linear-gradient(135deg, var(--accent-teal), color-mix(in srgb, var(--accent-teal) 70%, var(--accent-blue)))',
-                color: status === 'sending' ? 'var(--text-tertiary)' : '#0a1116',
+                color: status === 'sending' ? 'var(--text-tertiary)' : 'var(--chip-text-on-accent)',
                 border: 'none',
                 fontWeight: 700,
                 fontSize: 13,

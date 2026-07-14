@@ -92,7 +92,7 @@ export function DashboardSection({ slug }: { slug: string }) {
             pointerEvents: 'none',
             zIndex: 0,
             background:
-              'radial-gradient(ellipse 80% 70% at 44% 46%, rgba(6, 6, 16, 0.22), rgba(6, 6, 16, 0.78) 72%)',
+              'radial-gradient(ellipse 80% 70% at 44% 46%, color-mix(in srgb, var(--bg-void) 22%, transparent), color-mix(in srgb, var(--bg-void) 78%, transparent) 72%)',
           }}
         />
         <div
@@ -130,7 +130,7 @@ export function DashboardSection({ slug }: { slug: string }) {
             style={{
               marginTop: 14,
               border: '1px solid var(--glass-border-2)',
-              background: 'rgba(8, 8, 16, 0.45)',
+              background: 'var(--surface-card-strong)',
               backdropFilter: 'blur(12px)',
               borderRadius: 10,
               padding: '8px 12px',

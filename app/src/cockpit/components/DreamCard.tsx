@@ -47,7 +47,7 @@ export function DreamCard({
     <section
       className="ck-panel"
       aria-label="Dream-Vorschlag des Tages"
-      style={{ borderColor: 'rgba(52, 211, 153, 0.35)' }}
+      style={{ borderColor: 'color-mix(in srgb, var(--ck-accent) 35%, transparent)' }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px 4px' }}>
         <span className="ck-label" style={{ color: 'var(--ck-accent)' }}>☾ Dream · heute</span>

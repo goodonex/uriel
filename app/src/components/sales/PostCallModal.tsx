@@ -206,8 +206,8 @@ export function PostCallModal({ brandSlug }: { brandSlug: string }) {
           borderRadius: 16,
           border: '1px solid var(--glass-border-2)',
           padding: 20,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
-          background: '#12121f',
+          boxShadow: 'var(--shadow-lg)',
+          background: 'var(--surface-drawer)',
         }}
         onClick={(e) => e.stopPropagation()}
       >

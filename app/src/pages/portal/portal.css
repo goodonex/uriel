@@ -5,6 +5,49 @@
   --portal-text: #1d1d1f;
   --portal-text-secondary: #6e6e73;
   --portal-text-tertiary: #aeaeb2;
+
+  /* Portal ist immer hell — theme-abhängige App-Tokens hier fest auf die
+     Light-Werte gepinnt, damit das Kundenportal unabhängig vom globalen
+     data-ui-theme konsistent und lesbar bleibt. */
+  color-scheme: light;
+  --accent-blue: #2f5fd4;
+  --accent-purple: #6d28d9;
+  --accent-teal: #0f766e;
+  --accent-amber: #b45309;
+  --accent-coral: #c2410c;
+  --accent-ember: #b23c22;
+  --accent-success: #16a34a;
+  --text-accent: #2f5fd4;
+  --text-primary: #12121a;
+  --text-secondary: #45455a;
+  --text-tertiary: #6b6b7f;
+  --bg-void: #ececf0;
+  --bg-base: #f7f7f9;
+  --bg-surface: #ffffff;
+  --glass-1: rgba(0, 0, 0, 0.03);
+  --glass-2: #ffffff;
+  --glass-3: #ffffff;
+  --glass-4: #f0f0f4;
+  --glass-border-1: rgba(0, 0, 0, 0.08);
+  --glass-border-2: rgba(0, 0, 0, 0.12);
+  --glass-border-3: rgba(0, 0, 0, 0.18);
+  --overlay-backdrop: rgba(15, 23, 42, 0.3);
+  --overlay-scrim-strong: rgba(15, 23, 42, 0.42);
+  --surface-drawer: #ffffff;
+  --surface-popover: #ffffff;
+  --surface-card-strong: #ffffff;
+  --input-bg: #ffffff;
+  --chip-text-on-accent: #ffffff;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.1);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 14px 34px rgba(15, 23, 42, 0.18);
+  --status-danger: #b91c1c;
+  --status-danger-bg: #fee2e2;
+  --status-warn-bg: #fef3c7;
+  --status-success-bg: #dcfce7;
+  --trend-up: #15803d;
+  --trend-down: #b91c1c;
+
   min-height: 100vh;
   background: var(--portal-bg);
   color: var(--portal-text);

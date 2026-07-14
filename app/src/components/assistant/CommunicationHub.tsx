@@ -67,7 +67,7 @@ export function CommunicationHub() {
               overflow: 'hidden',
               background: 'var(--glass-3)',
               border: '1px solid var(--glass-border-2)',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+              boxShadow: 'var(--shadow-lg)',
               backdropFilter: 'blur(16px)',
             }}
           >
@@ -97,7 +97,7 @@ export function CommunicationHub() {
                     {count > 0 ? (
                       <span
                         className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1"
-                        style={{ fontSize: 9, background: accent, color: '#0a0a12' }}
+                        style={{ fontSize: 9, background: accent, color: 'var(--chip-text-on-accent)' }}
                       >
                         {count > 9 ? '9+' : count}
                       </span>
@@ -162,8 +162,8 @@ export function CommunicationHub() {
             width: 56,
             height: 56,
             borderRadius: '50%',
-            border: `1px solid color-mix(in srgb, ${accent} 55%, rgba(255,255,255,0.15))`,
-            background: `color-mix(in srgb, ${accent} 35%, rgba(12,12,24,0.9))`,
+            border: `1px solid color-mix(in srgb, ${accent} 55%, var(--glass-border-2))`,
+            background: `color-mix(in srgb, ${accent} 35%, var(--bg-surface))`,
             backdropFilter: 'blur(12px)',
             color: '#0a0a12',
             fontSize: 22,
@@ -171,7 +171,7 @@ export function CommunicationHub() {
             cursor: 'pointer',
             display: 'grid',
             placeItems: 'center',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--shadow-md)',
           }}
         >
           ✦

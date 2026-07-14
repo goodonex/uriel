@@ -156,7 +156,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
 
   const health = funnelHealth(nodes, edges)
   const healthColor =
-    health === 'ok' ? 'var(--accent-teal)' : health === 'warn' ? 'var(--accent-amber)' : '#f55'
+    health === 'ok' ? 'var(--accent-teal)' : health === 'warn' ? 'var(--accent-amber)' : 'var(--status-danger)'
 
   const scheduleNodePos = useCallback(
     (id: string, x: number, y: number) => {
@@ -346,7 +346,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
         flexDirection: 'column',
         position: isFullscreen ? 'fixed' : 'relative',
         ...(isFullscreen
-          ? { inset: 0, zIndex: 200, background: '#050508' }
+          ? { inset: 0, zIndex: 200, background: 'var(--bg-void)' }
           : {}),
       }}
     >
@@ -419,8 +419,8 @@ export function FunnelCanvas({ slug }: { slug: string }) {
                 fontSize: 10,
                 padding: '6px 10px',
                 borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(10,10,20,0.8)',
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--surface-popover)',
                 color: 'var(--text-secondary)',
               }}
             >
@@ -475,7 +475,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
             minWidth: 0,
             overflow: 'hidden',
             position: 'relative',
-            background: '#0a0a12',
+            background: 'var(--surface-popover)',
             borderRadius: isFullscreen ? 0 : 12,
           }}
         >
@@ -513,7 +513,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
             transform: `translate(${ox}px, ${oy}px) scale(${scale})`,
             transformOrigin: '0 0',
             backgroundImage:
-              'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+              'radial-gradient(circle, var(--glass-border-1) 1px, transparent 1px)',
             backgroundSize: '18px 18px',
           }}
         >
@@ -621,8 +621,8 @@ export function FunnelCanvas({ slug }: { slug: string }) {
                 textAlign: 'center',
                 padding: 28,
                 borderRadius: 16,
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(12,12,24,0.85)',
+                border: '1px solid var(--glass-border-2)',
+                background: 'var(--surface-popover)',
               }}
             >
               <div className="font-display" style={{ fontSize: 22, fontWeight: 600, marginBottom: 10 }}>
@@ -679,8 +679,8 @@ export function FunnelCanvas({ slug }: { slug: string }) {
                 zIndex: 50,
                 padding: 8,
                 borderRadius: 12,
-                background: 'rgba(12,12,22,0.95)',
-                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'var(--surface-popover)',
+                border: '1px solid var(--glass-border-2)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 4,
@@ -753,7 +753,7 @@ export function FunnelCanvas({ slug }: { slug: string }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(0,0,0,0.45)',
+              background: 'var(--overlay-backdrop)',
             }}
             onClick={() => setVariantDlg(null)}
           >
@@ -762,8 +762,8 @@ export function FunnelCanvas({ slug }: { slug: string }) {
               style={{
                 padding: 20,
                 borderRadius: 14,
-                background: 'rgba(14,14,26,0.95)',
-                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'var(--surface-popover)',
+                border: '1px solid var(--glass-border-2)',
                 minWidth: 260,
               }}
             >
@@ -808,8 +808,8 @@ function ToolbarBtn({ children, onClick }: { children: React.ReactNode; onClick:
         textTransform: 'uppercase',
         padding: '6px 10px',
         borderRadius: 8,
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'rgba(10,10,20,0.85)',
+        border: '1px solid var(--glass-border-2)',
+        background: 'var(--surface-popover)',
         color: 'var(--text-secondary)',
         cursor: 'pointer',
       }}
@@ -827,8 +827,8 @@ function TemplateButton({ label, onClick }: { label: string; onClick: () => void
       style={{
         padding: '10px 14px',
         borderRadius: 10,
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid var(--glass-border-2)',
+        background: 'var(--glass-1)',
         color: 'var(--text-primary)',
         cursor: 'pointer',
         fontSize: 13,

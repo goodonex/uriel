@@ -14,9 +14,9 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 const STAGE_ACCENT: Record<PipelineStage, string> = {
   first_contact: 'var(--mode-sales)',
   conversation: 'var(--accent-blue)',
-  follow_up: '#f59e0b',
+  follow_up: 'var(--accent-amber)',
   proposal: 'var(--accent-teal)',
-  deal: '#4ade80',
+  deal: 'var(--accent-success)',
   paused: 'var(--text-tertiary)',
 }
 

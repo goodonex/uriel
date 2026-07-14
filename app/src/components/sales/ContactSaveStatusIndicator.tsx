@@ -25,7 +25,7 @@ export function ContactSaveStatusIndicator({ state }: { state: ContactSaveState 
           state === 'error'
             ? 'var(--accent-coral)'
             : showSaved
-              ? '#4ade80'
+              ? 'var(--accent-success)'
               : 'var(--text-tertiary)',
         minWidth: 120,
         textAlign: 'right',

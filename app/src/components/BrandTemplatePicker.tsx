@@ -85,7 +85,7 @@ export function BrandTemplatePicker({ slug, open, onClose }: BrandTemplatePicker
           }}
           className="fixed inset-0 z-[70] flex items-center justify-center"
           style={{
-            background: 'rgba(8, 12, 22, 0.5)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             padding: 24,
@@ -102,7 +102,7 @@ export function BrandTemplatePicker({ slug, open, onClose }: BrandTemplatePicker
               borderRadius: 18,
               background: 'color-mix(in srgb, var(--bg-base) 96%, transparent)',
               border: '1px solid var(--glass-border-2)',
-              boxShadow: '0 32px 72px rgba(0,0,0,0.45)',
+              boxShadow: 'var(--shadow-lg)',
             }}
           >
             <div

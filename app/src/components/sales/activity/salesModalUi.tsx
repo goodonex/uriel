@@ -7,7 +7,7 @@ export const SALES_MODAL_BACKDROP: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: SALES_MODAL_Z,
-  background: 'rgba(6, 6, 16, 0.58)',
+  background: 'var(--overlay-backdrop)',
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
   display: 'grid',
@@ -22,8 +22,8 @@ export const SALES_DROPDOWN_PANEL: CSSProperties = {
   padding: 6,
   borderRadius: 10,
   border: '1px solid var(--glass-border-2)',
-  background: '#12121f',
-  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+  background: 'var(--surface-popover)',
+  boxShadow: 'var(--shadow-lg)',
   maxHeight: 360,
   overflowY: 'auto',
 }
@@ -35,8 +35,8 @@ export const SALES_MODAL_PANEL: CSSProperties = {
   borderRadius: 16,
   border: '1px solid var(--glass-border-2)',
   padding: 20,
-  background: '#12121f',
-  boxShadow: '0 28px 64px rgba(0, 0, 0, 0.72)',
+  background: 'var(--surface-drawer)',
+  boxShadow: 'var(--shadow-lg)',
 }
 
 export const SALES_FIELD_SOLID: CSSProperties = {
@@ -45,7 +45,7 @@ export const SALES_FIELD_SOLID: CSSProperties = {
   fontSize: 12,
   borderRadius: 8,
   border: '1px solid var(--glass-border-2)',
-  background: '#1a1a2e',
+  background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   outline: 'none',
 }
@@ -55,7 +55,7 @@ export const SALES_MODAL_GHOST_BTN: CSSProperties = {
   padding: '8px 12px',
   borderRadius: 8,
   border: '1px solid var(--glass-border-2)',
-  background: '#1a1a2e',
+  background: 'var(--glass-2)',
   color: 'var(--text-secondary)',
   cursor: 'pointer',
 }

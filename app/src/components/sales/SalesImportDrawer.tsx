@@ -245,7 +245,7 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
           exit={{ opacity: 0 }}
           onClick={onClose}
           className="fixed inset-0 z-[80]"
-          style={{ background: 'rgba(8,12,22,0.55)', backdropFilter: 'blur(8px)' }}
+          style={{ background: 'var(--overlay-backdrop)', backdropFilter: 'blur(8px)' }}
         >
           <motion.aside
             initial={{ x: 720 }}
@@ -261,7 +261,7 @@ export function SalesImportDrawer({ open, onClose, brandSlug }: SalesImportDrawe
               bottom: 0,
               width: '100%',
               maxWidth: 760,
-              background: 'rgba(18,18,22,0.96)',
+              background: 'var(--surface-drawer)',
               borderLeft: '1px solid var(--glass-border-2)',
               display: 'flex',
               flexDirection: 'column',

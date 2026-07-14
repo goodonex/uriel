@@ -7,8 +7,8 @@ const FIELD: React.CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 10,
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--glass-border-2)',
   color: 'var(--text-primary)',
   fontSize: 12,
 }
@@ -79,10 +79,10 @@ export function NodeEditPanel({
         zIndex: 40,
         borderRadius: 14,
         padding: 14,
-        background: 'rgba(10,10,20,0.88)',
+        background: 'var(--surface-popover)',
         backdropFilter: 'blur(14px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+        border: '1px solid var(--glass-border-2)',
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <div className="font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 8 }}>

@@ -6,21 +6,45 @@ import type { MetricField } from '../lib/useDailyMetrics'
 import { useDailyMetrics } from '../lib/useDailyMetrics'
 import { formatEuro } from '../lib/goals'
 
-/** Eingabefelder in Zähl-Reihenfolge (REBUILD-PLAN §9). */
-const INPUT_FIELDS: Array<{ field: MetricField; label: string; group: 'input' | 'ergebnis' }> = [
-  { field: 'li_anfragen', label: 'LinkedIn', group: 'input' },
-  { field: 'inmails', label: 'InMail', group: 'input' },
-  { field: 'ig_anfragen', label: 'Instagram', group: 'input' },
-  { field: 'coldmails', label: 'Cold-Mail', group: 'input' },
-  { field: 'followups', label: 'Follow-ups', group: 'input' },
-  { field: 'looms', label: 'Looms', group: 'input' },
-  { field: 'antworten_li', label: 'Antw. LinkedIn', group: 'ergebnis' },
-  { field: 'antworten_inmail', label: 'Antw. InMail', group: 'ergebnis' },
-  { field: 'antworten_ig', label: 'Antw. Instagram', group: 'ergebnis' },
-  { field: 'antworten_cold', label: 'Antw. Cold-Mail', group: 'ergebnis' },
-  { field: 'quali_termine', label: 'Quali-Termine', group: 'ergebnis' },
-  { field: 'sales_calls', label: 'Sales-Calls', group: 'ergebnis' },
-  { field: 'abschluesse', label: 'Abschlüsse', group: 'ergebnis' },
+/** Aktivitäten-Eingabe, gruppiert nach Plattform (Kevins realer Akquise-Tag). */
+type InputGroup = { title: string; fields: Array<{ field: MetricField; label: string }> }
+const INPUT_GROUPS: InputGroup[] = [
+  {
+    title: 'LinkedIn',
+    fields: [
+      { field: 'li_anfragen', label: 'Vernetzungsanfragen' },
+      { field: 'li_nachrichten', label: 'Nachrichten' },
+      { field: 'inmails', label: 'InMail' },
+      { field: 'looms', label: 'Looms' },
+    ],
+  },
+  {
+    title: 'Instagram',
+    fields: [
+      { field: 'ig_anfragen', label: 'Follows' },
+      { field: 'ig_nachrichten', label: 'Nachrichten' },
+    ],
+  },
+  {
+    title: 'Sonstiges',
+    fields: [
+      { field: 'cold_calls', label: 'Cold Calls' },
+      { field: 'coldmails', label: 'Cold-Mail' },
+      { field: 'followups', label: 'Follow-ups' },
+    ],
+  },
+]
+
+/** Ergebnis-Felder (nachlaufend). Geführte Calls vs. neu vereinbarte Termine getrennt. */
+const RESULT_FIELDS: Array<{ field: MetricField; label: string }> = [
+  { field: 'antworten_li', label: 'Antw. LinkedIn' },
+  { field: 'antworten_inmail', label: 'Antw. InMail' },
+  { field: 'antworten_ig', label: 'Antw. Instagram' },
+  { field: 'antworten_cold', label: 'Antw. Cold-Mail' },
+  { field: 'quali_termine', label: 'Quali-Calls geführt' },
+  { field: 'sales_calls', label: 'Sales-Calls geführt' },
+  { field: 'termine_vereinbart', label: 'Termine vereinbart' },
+  { field: 'abschluesse', label: 'Abschlüsse' },
 ]
 
 function Stepper({
@@ -181,20 +205,25 @@ export function TrackingArea() {
         </div>
 
         <div style={{ padding: '0 12px 6px' }}>
-          <div className="ck-label" style={{ margin: '4px 0 6px', color: 'var(--ck-text-3)' }}>Input (Frühindikator)</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
-            {INPUT_FIELDS.filter((f) => f.group === 'input').map((f) => (
-              <Stepper
-                key={f.field}
-                label={f.label}
-                value={metrics.today[f.field]}
-                onBump={(d) => void metrics.bump(f.field, d)}
-              />
-            ))}
-          </div>
+          <div className="ck-label" style={{ margin: '4px 0 6px', color: 'var(--ck-text-3)' }}>Aktivitäten (Frühindikator)</div>
+          {INPUT_GROUPS.map((g) => (
+            <div key={g.title} style={{ marginBottom: 8 }}>
+              <div className="ck-label" style={{ margin: '2px 0 5px', fontSize: 9.5, color: 'var(--ck-text-3)' }}>{g.title}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+                {g.fields.map((f) => (
+                  <Stepper
+                    key={f.field}
+                    label={f.label}
+                    value={metrics.today[f.field]}
+                    onBump={(d) => void metrics.bump(f.field, d)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
           <div className="ck-label" style={{ margin: '12px 0 6px', color: 'var(--ck-text-3)' }}>Ergebnis (nachlaufend)</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8, paddingBottom: 10 }}>
-            {INPUT_FIELDS.filter((f) => f.group === 'ergebnis').map((f) => (
+            {RESULT_FIELDS.map((f) => (
               <Stepper
                 key={f.field}
                 label={f.label}

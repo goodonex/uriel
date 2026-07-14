@@ -15,7 +15,7 @@ function dueColor(due: string | null, status: Task['status']): string {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const dueDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
   if (dueDay < today) return 'var(--accent-coral)'
-  if (dueDay.getTime() === today.getTime()) return '#eab308'
+  if (dueDay.getTime() === today.getTime()) return 'var(--accent-amber)'
   return 'var(--text-tertiary)'
 }
 
@@ -604,7 +604,7 @@ function TaskRow({
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
             <path
               d="M2 5.2 4 7.2 8 2.8"
-              stroke="#0a0a0a"
+              stroke="var(--chip-text-on-accent)"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"

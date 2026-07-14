@@ -37,7 +37,7 @@ export function ContactDetailHero({
             borderRadius: '50%',
             background:
               'linear-gradient(135deg, var(--mode-sales), color-mix(in srgb, var(--mode-sales) 50%, var(--accent-teal)))',
-            color: '#0e0e10',
+            color: 'var(--chip-text-on-accent)',
             display: 'grid',
             placeItems: 'center',
             fontSize: 18,

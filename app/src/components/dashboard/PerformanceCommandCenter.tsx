@@ -217,7 +217,7 @@ export const PerformanceCommandCenter = memo(function PerformanceCommandCenter({
         backdropFilter: 'var(--blur-lg)',
         WebkitBackdropFilter: 'var(--blur-lg)',
         overflow: 'hidden',
-        boxShadow: '0 16px 48px rgba(0, 0, 0, 0.48)',
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <div

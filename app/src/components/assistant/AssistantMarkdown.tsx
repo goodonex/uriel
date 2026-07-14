@@ -20,7 +20,7 @@ export function AssistantMarkdown({ content }: { content: string }) {
             style={{
               fontFamily: 'var(--font-mono, monospace)',
               fontSize: 11,
-              background: 'rgba(255,255,255,0.08)',
+              background: 'var(--glass-4)',
               padding: '1px 4px',
               borderRadius: 4,
             }}

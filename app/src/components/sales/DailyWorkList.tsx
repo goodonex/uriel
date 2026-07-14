@@ -5,7 +5,7 @@ import { usePostCallFlow } from '../../hooks/usePostCallFlow'
 
 const PRIORITY_COLOR: Record<1 | 2 | 3, string> = {
   1: 'var(--accent-coral)',
-  2: '#f59e0b',
+  2: 'var(--accent-amber)',
   3: 'var(--text-tertiary)',
 }
 

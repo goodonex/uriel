@@ -141,8 +141,8 @@ export function InlineEditableCard({
         backdropFilter: 'var(--blur-md)',
         WebkitBackdropFilter: 'var(--blur-md)',
         boxShadow: editing
-          ? `0 10px 32px color-mix(in srgb, ${accent} 14%, transparent), 0 1px 0 rgba(255,255,255,0.04) inset`
-          : '0 6px 22px rgba(0, 0, 0, 0.22), 0 1px 0 rgba(255,255,255,0.03) inset',
+          ? `0 10px 32px color-mix(in srgb, ${accent} 14%, transparent), 0 1px 0 var(--glass-border-1) inset`
+          : 'var(--shadow-sm), 0 1px 0 var(--glass-border-1) inset',
         cursor: editing ? 'default' : 'pointer',
         transition: 'border-color 220ms, background 220ms, box-shadow 220ms',
       }}

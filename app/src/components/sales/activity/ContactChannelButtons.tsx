@@ -133,7 +133,7 @@ export function ContactChannelButtons({
                   background: 'color-mix(in srgb, var(--bg-base) 94%, transparent)',
                   backdropFilter: 'blur(14px)',
                   WebkitBackdropFilter: 'blur(14px)',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                  boxShadow: 'var(--shadow-md)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -271,9 +271,9 @@ function PhoneFrame({ children }: { children: ReactNode }) {
         aspectRatio: '9 / 19.5',
         borderRadius: 26,
         padding: 8,
-        background: 'linear-gradient(180deg, #1a1a1f 0%, #0d0d10 100%)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04), 0 14px 32px rgba(0,0,0,0.45)',
+        background: 'linear-gradient(180deg, var(--glass-3) 0%, var(--bg-surface) 100%)',
+        border: '1px solid var(--glass-border-1)',
+        boxShadow: 'inset 0 0 0 1px var(--glass-border-1), var(--shadow-md)',
       }}
     >
       <div

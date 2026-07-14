@@ -34,7 +34,7 @@ export function NorthStarCard() {
     <section
       className="ck-panel"
       aria-label="Nordstern — Traumleben & MRR-Meilenstein"
-      style={{ padding: '12px 14px', borderColor: 'rgba(52, 211, 153, 0.28)' }}
+      style={{ padding: '12px 14px', borderColor: 'color-mix(in srgb, var(--ck-accent) 28%, transparent)' }}
     >
       <div className="ck-label" style={{ color: 'var(--ck-accent)' }}>
         ☾ Nordstern · Traumleben

@@ -258,7 +258,7 @@ export function HorizontalScroller({
                   zIndex: 20,
                   borderRadius: 10,
                   border: '1px solid var(--glass-border-2)',
-                  background: 'rgba(8,8,16,0.95)',
+                  background: 'var(--surface-popover)',
                   backdropFilter: 'blur(12px)',
                   overflow: 'hidden',
                 }}

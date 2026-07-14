@@ -217,10 +217,10 @@ export function EmailComposeDialog({
             maxHeight: '88vh',
             display: 'flex',
             flexDirection: 'column',
-            background: '#12121f',
+            background: 'var(--surface-drawer)',
             border: '1px solid var(--glass-border-2)',
             borderRadius: 16,
-            boxShadow: '0 28px 64px rgba(0, 0, 0, 0.72)',
+            boxShadow: 'var(--shadow-lg)',
             overflow: 'hidden',
           }}
         >

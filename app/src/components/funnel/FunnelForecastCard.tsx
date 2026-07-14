@@ -99,8 +99,8 @@ export function FunnelForecastCard({
         margin: '0 8px 10px',
         padding: 14,
         borderRadius: 12,
-        border: '1px solid rgba(255,255,255,0.1)',
-        background: 'rgba(12,12,24,0.85)',
+        border: '1px solid var(--glass-border-2)',
+        background: 'var(--surface-popover)',
         flexShrink: 0,
       }}
     >
@@ -125,8 +125,8 @@ export function FunnelForecastCard({
             fontSize: 9,
             padding: '5px 8px',
             borderRadius: 6,
-            border: '1px solid rgba(255,255,255,0.12)',
-            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid var(--glass-border-2)',
+            background: 'var(--glass-2)',
             color: 'var(--text-secondary)',
             cursor: swarm.loading ? 'wait' : 'pointer',
           }}

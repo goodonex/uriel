@@ -34,7 +34,7 @@ function followUpTone(iso: string | null): 'ok' | 'due' | 'overdue' {
 }
 
 const TONE_COLOR = {
-  ok: '#4ade80',
+  ok: 'var(--accent-success)',
   due: 'var(--accent-amber)',
   overdue: 'var(--accent-coral)',
 } as const

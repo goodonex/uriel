@@ -58,7 +58,7 @@ export function PortalPhaseMessageButton({
         {unreadCount > 0 ? (
           <span
             className="font-mono ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1"
-            style={{ fontSize: 10, background: accentColor, color: '#0a0a12' }}
+            style={{ fontSize: 10, background: accentColor, color: 'var(--chip-text-on-accent)' }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>

@@ -27,7 +27,7 @@ export function PortalTimeline({ clientStage, stageDurations, accentColor }: Por
                   style={{
                     height: 8,
                     borderRadius: 6,
-                    background: done ? accentColor : current ? accentColor : '#e8e8ed',
+                    background: done ? accentColor : current ? accentColor : 'var(--portal-border)',
                     opacity: current && !done ? 0.45 : 1,
                   }}
                 />
@@ -65,7 +65,7 @@ export function PortalTimeline({ clientStage, stageDurations, accentColor }: Por
                   justifyContent: 'center',
                   fontSize: 12,
                   fontWeight: 700,
-                  background: done ? accentColor : current ? accentColor : '#e8e8ed',
+                  background: done ? accentColor : current ? accentColor : 'var(--portal-border)',
                   color: done || current ? '#fff' : 'var(--portal-text-secondary)',
                   opacity: current && !done ? 0.7 : 1,
                 }}

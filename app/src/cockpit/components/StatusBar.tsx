@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useUiTheme } from '../../hooks/useUiTheme'
 import { useActiveBrand } from '../lib/activeBrand'
 import { useRunnerStatus } from '../lib/useRunnerStatus'
 
@@ -46,6 +47,7 @@ export function StatusBar() {
   const { user } = useAuth()
   const { brands, activeSlug, setActiveSlug } = useActiveBrand()
   const runner = useRunnerStatus()
+  const { isPlainLight, togglePlainLight } = useUiTheme()
 
   return (
     <header className="ck-statusbar">
@@ -81,6 +83,15 @@ export function StatusBar() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="ck-btn"
+          onClick={togglePlainLight}
+          title={isPlainLight ? 'Dunkler Modus' : 'Heller Modus'}
+          aria-label={isPlainLight ? 'Dunkler Modus' : 'Heller Modus'}
+        >
+          {isPlainLight ? '◐' : '☀'}
+        </button>
         <Clock />
       </div>
     </header>

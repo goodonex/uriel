@@ -307,7 +307,7 @@ export function SequenceBuilderCanvas({
         gridTemplateColumns: '64px 1fr 320px',
         gap: 0,
         height,
-        background: 'var(--bg-deep)',
+        background: 'var(--bg-void)',
         borderRadius: 14,
         overflow: 'hidden',
         border: '1px solid var(--glass-border-1)',
@@ -326,7 +326,7 @@ export function SequenceBuilderCanvas({
             radial-gradient(circle at center, color-mix(in srgb, var(--mode-promo) 4%, transparent) 0%, transparent 70%),
             linear-gradient(var(--glass-border-1) 1px, transparent 1px) 0 0 / 30px 30px,
             linear-gradient(90deg, var(--glass-border-1) 1px, transparent 1px) 0 0 / 30px 30px,
-            radial-gradient(ellipse at top, color-mix(in srgb, var(--bg-deep) 60%, #000) 0%, var(--bg-deep) 70%)
+            radial-gradient(ellipse at top, color-mix(in srgb, var(--bg-void) 60%, var(--bg-base)) 0%, var(--bg-void) 70%)
           `,
           minHeight: 600,
         }}
@@ -620,7 +620,7 @@ function NodeCard({
         cursor: 'grab',
         boxShadow: selected
           ? `0 8px 32px color-mix(in srgb, ${meta.accent} 26%, transparent)`
-          : '0 4px 14px rgba(0,0,0,0.18)',
+          : 'var(--shadow-sm)',
         userSelect: 'none',
         overflow: 'hidden',
       }}
@@ -820,7 +820,7 @@ function Anchor({
           height: 16,
           borderRadius: '50%',
           background: color,
-          border: '2px solid var(--bg-deep)',
+          border: '2px solid var(--bg-void)',
           cursor: onMouseDown ? 'crosshair' : 'pointer',
           boxShadow: `0 0 0 3px color-mix(in srgb, ${color} 22%, transparent)`,
           zIndex: 5,

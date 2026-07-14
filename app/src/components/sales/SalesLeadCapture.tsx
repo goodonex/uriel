@@ -192,7 +192,7 @@ export function useSalesQuickLead(brandSlug: string, callModeSearch = '') {
             position: 'fixed',
             inset: 0,
             zIndex: 70,
-            background: 'rgba(0,0,0,0.55)',
+            background: 'var(--overlay-scrim-strong)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -677,7 +677,7 @@ function JobEditor({
             style={{
               padding: 12,
               borderRadius: 10,
-              background: 'color-mix(in srgb, var(--accent-teal) 8%, var(--bg-deep))',
+              background: 'color-mix(in srgb, var(--accent-teal) 8%, var(--bg-surface))',
               border: '1px solid color-mix(in srgb, var(--accent-teal) 35%, transparent)',
               display: 'flex',
               flexDirection: 'column',

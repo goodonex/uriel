@@ -90,7 +90,7 @@ export function PortalFilesSection({
         text: 'var(--portal-text)',
         sub: 'var(--portal-text-secondary)',
         accent: 'var(--portal-accent, #111827)',
-        danger: '#c0392b',
+        danger: 'var(--status-danger)',
       }
 
   const links = documents.filter((d) => d.url && d.url !== '#')

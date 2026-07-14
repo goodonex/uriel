@@ -44,10 +44,10 @@ export function SidebarSubmenuFlyout({
             overflowY: 'auto',
             borderRadius: 14,
             border: '1px solid var(--glass-border-1)',
-            background: 'rgba(8, 8, 16, 0.88)',
+            background: 'var(--surface-popover)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: '12px 0 40px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--shadow-md)',
             pointerEvents: 'auto',
           }}
         >
@@ -59,7 +59,7 @@ export function SidebarSubmenuFlyout({
               textTransform: 'uppercase',
               color: `var(${accentVar})`,
               borderBottom: '1px solid var(--glass-border-1)',
-              background: 'rgba(8, 8, 16, 0.95)',
+              background: 'var(--surface-popover)',
             }}
           >
             {title}

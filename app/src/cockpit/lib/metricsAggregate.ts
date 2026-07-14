@@ -8,7 +8,15 @@ export function sumField(rows: DailyMetricsRow[], field: keyof DailyMetricsRow):
 }
 
 export function anfragenTotal(row: DailyMetricsRow): number {
-  return row.li_anfragen + row.inmails + row.ig_anfragen + row.coldmails
+  return (
+    row.li_anfragen +
+    row.li_nachrichten +
+    row.inmails +
+    row.ig_anfragen +
+    row.ig_nachrichten +
+    row.cold_calls +
+    row.coldmails
+  )
 }
 
 export function antwortenTotal(row: DailyMetricsRow): number {
@@ -130,15 +138,18 @@ export interface ChannelRate {
 
 /** Antwortrate je Kanal über die übergebenen Zeilen (typisch: laufender Monat). */
 export function channelRates(rows: DailyMetricsRow[]): ChannelRate[] {
+  // `a` = Anfrage-Felder, die auf dieselbe Antwort-Zahl einzahlen (LinkedIn:
+  // Vernetzungen + Nachrichten, Instagram: Follows + Nachrichten). Cold Calls
+  // haben kein eigenes Antwort-Feld und tauchen daher hier nicht auf.
   const defs = [
-    { key: 'li', label: 'LinkedIn', a: 'li_anfragen', r: 'antworten_li', min: 0.15, max: 0.25 },
-    { key: 'inmail', label: 'InMail', a: 'inmails', r: 'antworten_inmail', min: 0.1, max: 0.25 },
-    { key: 'ig', label: 'Instagram', a: 'ig_anfragen', r: 'antworten_ig', min: 0.1, max: 0.15 },
-    { key: 'cold', label: 'Cold-Mail', a: 'coldmails', r: 'antworten_cold', min: 0.04, max: 0.08 },
+    { key: 'li', label: 'LinkedIn', a: ['li_anfragen', 'li_nachrichten'], r: 'antworten_li', min: 0.15, max: 0.25 },
+    { key: 'inmail', label: 'InMail', a: ['inmails'], r: 'antworten_inmail', min: 0.1, max: 0.25 },
+    { key: 'ig', label: 'Instagram', a: ['ig_anfragen', 'ig_nachrichten'], r: 'antworten_ig', min: 0.1, max: 0.15 },
+    { key: 'cold', label: 'Cold-Mail', a: ['coldmails'], r: 'antworten_cold', min: 0.04, max: 0.08 },
   ] as const
 
   return defs.map((d) => {
-    const anfragen = sumField(rows, d.a as keyof DailyMetricsRow)
+    const anfragen = d.a.reduce((acc, f) => acc + sumField(rows, f as keyof DailyMetricsRow), 0)
     const antworten = sumField(rows, d.r as keyof DailyMetricsRow)
     return {
       key: d.key,

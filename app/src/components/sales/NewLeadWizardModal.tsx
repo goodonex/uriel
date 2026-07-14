@@ -160,7 +160,7 @@ export function NewLeadWizardModal({
         position: 'fixed',
         inset: 0,
         zIndex: 80,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'var(--overlay-scrim-strong)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -205,8 +205,8 @@ export function NewLeadWizardModal({
                 style={{
                   fontSize: 11,
                   color: 'var(--text-primary)',
-                  background: 'color-mix(in srgb, #f59e0b 12%, var(--glass-2))',
-                  border: '1px solid color-mix(in srgb, #f59e0b 45%, transparent)',
+                  background: 'color-mix(in srgb, var(--accent-amber) 12%, var(--glass-2))',
+                  border: '1px solid color-mix(in srgb, var(--accent-amber) 45%, transparent)',
                 }}
               >
                 Ähnlicher Kontakt gefunden: {companyDisplayName(fuzzyMatch)} —{' '}

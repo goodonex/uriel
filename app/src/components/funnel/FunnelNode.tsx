@@ -13,10 +13,10 @@ const glass: React.CSSProperties = {
   width: NODE_W,
   minHeight: 80,
   borderRadius: 14,
-  background: 'rgba(10,10,20,0.8)',
+  background: 'var(--surface-popover)',
   backdropFilter: 'blur(12px)',
   WebkitBackdropFilter: 'blur(12px)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  border: '1px solid var(--glass-border-1)',
   position: 'absolute',
   left: 0,
   top: 0,
@@ -138,7 +138,9 @@ export function FunnelNode({
     setDragPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy })
   }
 
-  const borderColor = configured ? 'rgba(255,255,255,0.08)' : 'rgba(255,80,80,0.35)'
+  const borderColor = configured
+    ? 'var(--glass-border-1)'
+    : 'color-mix(in srgb, var(--status-danger) 40%, transparent)'
 
   const cfg = node.config as Record<string, unknown>
 
@@ -217,8 +219,8 @@ export function FunnelNode({
                 lineHeight: 1,
                 padding: '2px 6px',
                 borderRadius: 6,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(0,0,0,0.25)',
+                border: '1px solid var(--glass-border-2)',
+                background: 'color-mix(in srgb, var(--bg-void) 25%, transparent)',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
@@ -234,8 +236,8 @@ export function FunnelNode({
                   top: 22,
                   minWidth: 140,
                   borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'rgba(12,12,22,0.95)',
+                  border: '1px solid var(--glass-border-2)',
+                  background: 'var(--surface-popover)',
                   zIndex: 30,
                   padding: 4,
                 }}
@@ -307,7 +309,7 @@ export function FunnelNode({
           borderRadius: '50%',
           background: inputHot ? 'rgba(80,160,255,0.95)' : 'rgba(80,160,255,0.65)',
           boxShadow: inputHot ? '0 0 0 3px rgba(80,160,255,0.25)' : undefined,
-          border: '1px solid rgba(255,255,255,0.2)',
+          border: '1px solid var(--glass-border-3)',
           cursor: 'crosshair',
           zIndex: 8,
         }}
@@ -329,7 +331,7 @@ export function FunnelNode({
           borderRadius: '50%',
           background: outputHot ? 'rgba(60,220,120,0.95)' : 'rgba(60,220,120,0.65)',
           boxShadow: outputHot ? '0 0 0 3px rgba(60,220,120,0.25)' : undefined,
-          border: '1px solid rgba(255,255,255,0.2)',
+          border: '1px solid var(--glass-border-3)',
           cursor: 'crosshair',
           zIndex: 8,
         }}

@@ -148,7 +148,7 @@ export function PortalLeadDashboard({
         ) : null}
 
         {error ? (
-          <p style={{ fontSize: 13, color: '#c0392b' }}>{error}</p>
+          <p style={{ fontSize: 13, color: 'var(--status-danger)' }}>{error}</p>
         ) : null}
 
         {isCrm ? (

@@ -50,8 +50,8 @@ export function BrandAssistant() {
             width: 56,
             height: 56,
             borderRadius: '50%',
-            border: `1px solid color-mix(in srgb, ${accent} 55%, rgba(255,255,255,0.15))`,
-            background: `color-mix(in srgb, ${accent} 35%, rgba(12,12,24,0.9))`,
+            border: `1px solid color-mix(in srgb, ${accent} 55%, var(--glass-border-2))`,
+            background: `color-mix(in srgb, ${accent} 35%, var(--bg-surface))`,
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             color: '#0a0a12',
@@ -60,7 +60,7 @@ export function BrandAssistant() {
             cursor: 'pointer',
             display: 'grid',
             placeItems: 'center',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--shadow-md)',
           }}
         >
           ✦

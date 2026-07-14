@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useScrollFlow } from '../context/ScrollFlowContext'
 import { useScrollSectionContext } from '../context/ScrollSectionContext'
+import { useUiTheme } from '../hooks/useUiTheme'
 import { SECTION_LABELS, SECTION_ORDER, type SectionKey } from '../lib/scrollFlow'
 
 interface SectionDotNavProps {
@@ -12,7 +13,10 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
   const [hovered, setHovered] = useState<SectionKey | null>(null)
   const scrollCtx = useScrollSectionContext()
   const { scrollBusy } = useScrollFlow()
+  const { isPlainLight } = useUiTheme()
   const active = scrollCtx?.activeSection ?? 'dashboard'
+  // Konkreter Wert statt var(): framer-motion interpoliert backgroundColor.
+  const inactiveDot = isPlainLight ? 'rgba(70, 74, 92, 0.55)' : 'rgba(200, 204, 220, 0.5)'
 
   return (
     <nav
@@ -61,8 +65,8 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
                   whiteSpace: 'nowrap',
                   padding: '4px 8px',
                   borderRadius: 6,
-                  background: 'rgba(8,8,16,0.8)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'var(--surface-popover)',
+                  border: '1px solid var(--glass-border-1)',
                 }}
               >
                 {SECTION_LABELS[key]}
@@ -90,7 +94,7 @@ export function SectionDotNav({ onSelect }: SectionDotNavProps) {
                 animate={{
                   scale: isActive ? 1.4 : 1,
                   opacity: isActive ? 1 : inactiveOpacity,
-                  backgroundColor: isActive ? accent : 'rgba(200,204,220,0.5)',
+                  backgroundColor: isActive ? accent : inactiveDot,
                   boxShadow: isActive
                     ? '0 0 14px color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 55%, transparent)'
                     : 'none',

@@ -155,7 +155,7 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
                 fontWeight: 600,
                 letterSpacing: '-0.02em',
                 color: 'var(--text-primary)',
-                textShadow: '0 10px 36px rgba(0,0,0,0.45)',
+                textShadow: 'var(--shadow-md)',
               }}
             >
               {brand?.name ?? slug}
@@ -315,7 +315,7 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
             color: 'var(--text-secondary)',
             borderRadius: 10,
             border: '1px solid var(--glass-border-2)',
-            background: 'rgba(8, 8, 16, 0.55)',
+            background: 'var(--surface-card-strong)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             padding: '8px 10px',
@@ -341,7 +341,7 @@ export function BrandSystemDashboard({ slug, embedded = false }: { slug: string;
               minHeight: embedded ? 0 : undefined,
               borderRadius: embedded ? 12 : 16,
               border: embedded ? 'none' : '1px solid var(--glass-border-1)',
-              background: embedded ? 'transparent' : 'rgba(8, 8, 16, 0.55)',
+              background: embedded ? 'transparent' : 'var(--surface-card-strong)',
               backdropFilter: embedded ? undefined : 'blur(20px)',
               WebkitBackdropFilter: embedded ? undefined : 'blur(20px)',
               padding: embedded ? 0 : 16,
@@ -363,7 +363,7 @@ function SummaryCard({ title, children }: { title: string; children: ReactNode }
       style={{
         borderRadius: 14,
         border: '1px solid var(--glass-border-1)',
-        background: 'rgba(8, 8, 16, 0.55)',
+        background: 'var(--surface-card-strong)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         padding: '12px 12px 10px',

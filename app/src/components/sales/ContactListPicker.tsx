@@ -72,7 +72,7 @@ export function ContactListPicker({ brandSlug, contact }: { brandSlug: string; c
             borderRadius: 10,
             border: '1px solid var(--glass-border-1)',
             padding: 6,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--shadow-md)',
           }}
         >
           {available.length === 0 ? (

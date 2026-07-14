@@ -83,7 +83,7 @@ export function PortalShell({
                 style={{
                   fontSize: 10,
                   background: accentColor,
-                  color: '#0a0a12',
+                  color: 'var(--chip-text-on-accent)',
                 }}
                 title="Neue Nachrichten"
               >

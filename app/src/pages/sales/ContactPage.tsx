@@ -405,7 +405,7 @@ export function ContactPage({
                 borderRadius: 10,
                 border: 'none',
                 background: 'var(--accent-teal)',
-                color: '#0a0a12',
+                color: 'var(--chip-text-on-accent)',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}

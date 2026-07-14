@@ -26,7 +26,7 @@ function WebsitePreview({ url }: { url: string }) {
       src={url}
       sandbox="allow-same-origin"
       onError={() => setUseScreenshot(true)}
-      style={{ width: '100%', height: 300, border: 'none', borderRadius: 14, background: '#0e0e12' }}
+      style={{ width: '100%', height: 300, border: 'none', borderRadius: 14, background: 'var(--bg-surface)' }}
     />
   )
 }

@@ -33,7 +33,7 @@ export function ContactDeleteConfirm({
         position: 'fixed',
         inset: 0,
         zIndex: 300,
-        background: 'rgba(0,0,0,0.6)',
+        background: 'var(--overlay-scrim-strong)',
         display: 'grid',
         placeItems: 'center',
         padding: 16,

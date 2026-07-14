@@ -83,11 +83,11 @@ export function BrandAssistantPanel({
         flexDirection: 'column',
         borderRadius: 16,
         overflow: 'hidden',
-        background: 'rgba(10,10,22,0.78)',
+        background: 'var(--surface-popover)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: `1px solid color-mix(in srgb, ${brandAccent} 35%, rgba(255,255,255,0.1))`,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+        border: `1px solid color-mix(in srgb, ${brandAccent} 35%, var(--glass-border-2))`,
+        boxShadow: 'var(--shadow-lg)',
       }
 
   const Wrapper = embedded ? 'div' : motion.div
@@ -106,7 +106,7 @@ export function BrandAssistantPanel({
       <header
         style={{
           padding: '14px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: '1px solid var(--glass-border-1)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -181,7 +181,7 @@ export function BrandAssistantPanel({
         </div>
       ) : null}
 
-      <footer style={{ padding: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <footer style={{ padding: 12, borderTop: '1px solid var(--glass-border-1)' }}>
         <input
           ref={fileRef}
           type="file"
@@ -202,8 +202,8 @@ export function BrandAssistantPanel({
               width: 36,
               height: 36,
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--input-bg)',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               flexShrink: 0,
@@ -222,8 +222,8 @@ export function BrandAssistantPanel({
               resize: 'none',
               padding: '10px 12px',
               borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(0,0,0,0.25)',
+              border: '1px solid var(--glass-border-2)',
+              background: 'var(--input-bg)',
               color: 'var(--text-primary)',
               fontSize: 13,
               fontFamily: 'inherit',
@@ -238,7 +238,7 @@ export function BrandAssistantPanel({
               borderRadius: 10,
               border: 'none',
               background: brandAccent,
-              color: '#0a0a12',
+              color: 'var(--chip-text-on-accent)',
               fontWeight: 700,
               fontSize: 12,
               cursor: loading ? 'wait' : 'pointer',
@@ -263,9 +263,9 @@ function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content:
           padding: '10px 12px',
           borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
           background: isUser
-            ? 'color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 20%, rgba(255,255,255,0.06))'
-            : 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.08)',
+            ? 'color-mix(in srgb, var(--brand-accent, var(--accent-teal)) 20%, var(--glass-2))'
+            : 'var(--glass-2)',
+          border: '1px solid var(--glass-border-1)',
         }}
       >
         {isUser ? (
@@ -304,8 +304,8 @@ function chipStyle(accent: string): CSSProperties {
     textTransform: 'uppercase',
     padding: '5px 8px',
     borderRadius: 8,
-    border: `1px solid color-mix(in srgb, ${accent} 40%, rgba(255,255,255,0.12))`,
-    background: 'rgba(255,255,255,0.04)',
+    border: `1px solid color-mix(in srgb, ${accent} 40%, var(--glass-border-2))`,
+    background: 'var(--glass-1)',
     color: 'var(--text-secondary)',
     cursor: 'pointer',
   }
@@ -321,7 +321,7 @@ function HeaderBtn({ label, onClick }: { label: string; onClick: () => void }) {
         fontSize: 9,
         padding: '5px 8px',
         borderRadius: 6,
-        border: '1px solid rgba(255,255,255,0.12)',
+        border: '1px solid var(--glass-border-2)',
         background: 'transparent',
         color: 'var(--text-tertiary)',
         cursor: 'pointer',

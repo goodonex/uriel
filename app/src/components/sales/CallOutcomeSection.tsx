@@ -298,8 +298,8 @@ export function CallOutcomeSection({
                           ? '1px solid var(--mode-sales)'
                           : '1px solid var(--glass-border-2)',
                         background: on
-                          ? 'color-mix(in srgb, var(--mode-sales) 22%, #1a1a2e)'
-                          : '#1a1a2e',
+                          ? 'color-mix(in srgb, var(--mode-sales) 22%, var(--bg-surface))'
+                          : 'var(--glass-2)',
                         color: on ? 'var(--mode-sales)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -339,7 +339,7 @@ export function CallOutcomeSection({
                 padding: 12,
                 borderRadius: 10,
                 border: '1px solid color-mix(in srgb, var(--mode-sales) 35%, var(--glass-border-2))',
-                background: 'color-mix(in srgb, var(--mode-sales) 12%, #1a1a2e)',
+                background: 'color-mix(in srgb, var(--mode-sales) 12%, var(--bg-surface))',
               }}
             >
               <div style={{ fontSize: 11, color: 'var(--mode-sales)', marginBottom: 10, fontWeight: 600 }}>
@@ -367,8 +367,8 @@ export function CallOutcomeSection({
                               ? '1px solid var(--mode-sales)'
                               : '1px solid var(--glass-border-2)',
                             background: active
-                              ? 'color-mix(in srgb, var(--mode-sales) 22%, #1a1a2e)'
-                              : '#1a1a2e',
+                              ? 'color-mix(in srgb, var(--mode-sales) 22%, var(--bg-surface))'
+                              : 'var(--glass-2)',
                             color: active ? 'var(--mode-sales)' : 'var(--text-secondary)',
                             cursor: 'pointer',
                           }}
@@ -471,7 +471,7 @@ export function CallOutcomeSection({
                   padding: '8px 14px',
                   borderRadius: 8,
                   border: '1px solid var(--glass-border-2)',
-                  background: '#1a1a2e',
+                  background: 'var(--glass-2)',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
                 }}
@@ -487,7 +487,7 @@ export function CallOutcomeSection({
                   padding: '8px 14px',
                   borderRadius: 8,
                   border: '1px solid var(--mode-sales)',
-                  background: 'color-mix(in srgb, var(--mode-sales) 28%, #1a1a2e)',
+                  background: 'color-mix(in srgb, var(--mode-sales) 28%, var(--bg-surface))',
                   color: 'var(--mode-sales)',
                   fontWeight: 600,
                   cursor: busy ? 'wait' : 'pointer',

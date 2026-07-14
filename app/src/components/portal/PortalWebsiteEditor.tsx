@@ -17,8 +17,8 @@ function StatusChip({ status }: { status: SiteContentField['status'] }) {
         fontSize: 10.5,
         padding: '2px 8px',
         borderRadius: 99,
-        background: pending ? '#fef3c7' : '#dcfce7',
-        color: pending ? '#92400e' : '#166534',
+        background: pending ? 'var(--status-warn-bg)' : 'var(--status-success-bg)',
+        color: pending ? 'var(--accent-amber)' : 'var(--accent-success)',
         whiteSpace: 'nowrap',
       }}
     >
@@ -97,7 +97,7 @@ function ImageField({
           e.target.value = ''
         }}
       />
-      {err ? <span style={{ fontSize: 11, color: '#c0392b' }}>{err}</span> : null}
+      {err ? <span style={{ fontSize: 11, color: 'var(--status-danger)' }}>{err}</span> : null}
     </div>
   )
 }
@@ -129,7 +129,7 @@ export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
     border: '1px solid var(--portal-border)',
     fontSize: 13.5,
     color: 'var(--portal-text)',
-    background: '#fff',
+    background: 'var(--portal-surface)',
   } as const
 
   return (
@@ -139,7 +139,7 @@ export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
         Texte und Bilder hier anpassen — Änderungen gehen nach kurzer Prüfung durch uns live.
       </p>
 
-      {error ? <p style={{ fontSize: 12, color: '#c0392b' }}>{error}</p> : null}
+      {error ? <p style={{ fontSize: 12, color: 'var(--status-danger)' }}>{error}</p> : null}
 
       {sections.map(({ section, fields }) => (
         <div key={section} style={{ marginBottom: 18 }}>

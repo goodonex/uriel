@@ -40,7 +40,7 @@ export function PortalMessages({ projectId, senderName, accentColor }: PortalMes
       <p className="portal-section-meta">Schreib uns — wir melden uns zeitnah.</p>
 
       {error ? (
-        <p style={{ fontSize: 13, color: '#c0392b', marginBottom: 12 }}>{error}</p>
+        <p style={{ fontSize: 13, color: 'var(--status-danger)', marginBottom: 12 }}>{error}</p>
       ) : null}
 
       {loading && messages.length === 0 ? (

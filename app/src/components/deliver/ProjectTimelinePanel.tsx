@@ -56,7 +56,7 @@ export function ProjectTimelinePanel({ project, onStageChange }: ProjectTimeline
                     : current
                       ? 'color-mix(in srgb, var(--accent-teal) 20%, transparent)'
                       : 'var(--glass-2)',
-                  color: done ? '#080810' : 'var(--text-secondary)',
+                  color: done ? 'var(--chip-text-on-accent)' : 'var(--text-secondary)',
                 }}
               >
                 {done ? '✓' : i + 1}
@@ -99,7 +99,7 @@ export function ProjectTimelinePanel({ project, onStageChange }: ProjectTimeline
                 style={{
                   fontSize: 11,
                   background: done ? 'var(--accent-teal)' : 'var(--glass-3)',
-                  color: done ? '#080810' : 'var(--text-secondary)',
+                  color: done ? 'var(--chip-text-on-accent)' : 'var(--text-secondary)',
                 }}
               >
                 {done ? '✓' : i + 1}

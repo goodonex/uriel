@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useUiTheme } from '../../hooks/useUiTheme'
 import type { NebulaNode } from '../graph/nebulaLayout'
-import { LAYER_COLOR } from '../graph/nebulaLayout'
+import { getLayerColors } from '../graph/nebulaLayout'
 import { fetchOsFile, openInObsidian } from '../lib/runnerApi'
 
 /**
@@ -14,6 +15,7 @@ export function OsDetailPanel({ node, onClose }: { node: NebulaNode; onClose: ()
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const { isPlainLight } = useUiTheme()
 
   const showsFile = (node.kind === 'skill' || node.kind === 'note') && !!node.path
 
@@ -88,7 +90,7 @@ export function OsDetailPanel({ node, onClose }: { node: NebulaNode; onClose: ()
               width: 9,
               height: 9,
               borderRadius: '50%',
-              background: LAYER_COLOR[node.layer],
+              background: getLayerColors(isPlainLight)[node.layer],
               flexShrink: 0,
             }}
           />

@@ -382,7 +382,7 @@ function ThreadShell({
           type="button"
           disabled={sending || !draft.trim()}
           className="rounded-lg px-3"
-          style={{ background: 'var(--accent-teal)', color: '#0a0a12', fontSize: 12 }}
+          style={{ background: 'var(--accent-teal)', color: 'var(--chip-text-on-accent)', fontSize: 12 }}
           onClick={onSend}
         >
           ↑

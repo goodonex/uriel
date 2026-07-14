@@ -113,6 +113,37 @@
   --node-size-brand:  80px;   /* brand nodes in 3D graph */
   --node-size-module: 48px;   /* module nodes */
   --node-size-item:   28px;   /* leaf nodes */
+
+  /* --- Surfaces & overlays --- */
+  --overlay-backdrop:       rgba(8, 12, 22, 0.55);   /* drawer/modal backdrop */
+  --overlay-scrim-strong:   rgba(0, 0, 0, 0.55);     /* fullscreen overlays */
+  --surface-drawer:         rgba(18, 18, 22, 0.96);  /* drawer/modal panel */
+  --surface-popover:        rgba(10, 10, 20, 0.92);  /* flyouts, menus, tooltips */
+  --surface-card-strong:    rgba(12, 12, 24, 0.72);  /* opaque-ish cards */
+  --input-bg:               rgba(255, 255, 255, 0.05);
+  --chip-text-on-accent:    #0a0a12;                 /* text on filled accent chips */
+  --bg-blob-opacity:        0.16;                    /* Background glow blobs */
+
+  /* Frosted module tiles (BrandPage) — Schleier über den Background-Blobs.
+     Dunkel im Dark-Theme, hell im Light-Theme; Transluzenz bleibt erhalten. */
+  --tile-veil:        rgba(8, 8, 16, 0.42);
+  --tile-veil-nested: rgba(8, 8, 16, 0.32);
+  --tile-veil-strong: rgba(8, 8, 16, 0.70);
+
+  /* --- Shadows (bucketed) --- */
+  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 22px 48px rgba(0, 0, 0, 0.45);
+
+  /* --- Status / trend --- */
+  --status-danger:      #f87171;
+  --status-danger-bg:   rgba(40, 15, 15, 0.82);
+  --status-warn-bg:     rgba(245, 158, 11, 0.14);
+  --status-success-bg:  rgba(74, 222, 128, 0.14);
+  --trend-up:           #86efac;
+  --trend-down:         #fca5a5;
+
+  color-scheme: dark;
 }
 
 /* ============================================================
@@ -238,6 +269,8 @@ select:focus-visible {
 
 /* Plain light — hoher Kontrast bei hellem Umgebungslicht */
 [data-ui-theme='plain-light'] {
+  color-scheme: light;
+
   --bg-void: #ececf0;
   --bg-base: #f7f7f9;
   --bg-surface: #ffffff;
@@ -262,6 +295,54 @@ select:focus-visible {
   --blur-xl: none;
 
   --shadow-glass: 0 1px 4px rgba(0, 0, 0, 0.07);
+
+  /* Akzente — für weiße Flächen abgedunkelt (textsicher) */
+  --accent-blue:    #2f5fd4;
+  --accent-purple:  #6d28d9;
+  --accent-teal:    #0f766e;
+  --accent-amber:   #b45309;
+  --accent-coral:   #c2410c;
+  --accent-ember:   #b23c22;
+  --accent-success: #16a34a;
+
+  /* Mode-Farben */
+  --mode-building:     #2f5fd4;
+  --mode-promo:        #6d28d9;
+  --mode-sales:        #0f766e;
+  --mode-intelligence: #b45309;
+
+  /* Glows — deutlich weicher auf hell */
+  --glow-blue:   rgba(47, 95, 212, 0.16);
+  --glow-purple: rgba(109, 40, 217, 0.14);
+  --glow-teal:   rgba(15, 118, 110, 0.14);
+  --shadow-node:        0 2px 10px rgba(15, 23, 42, 0.12);
+  --shadow-glow-blue:   0 0 24px rgba(47, 95, 212, 0.14);
+  --shadow-glow-purple: 0 0 24px rgba(109, 40, 217, 0.12);
+
+  /* Surfaces & Overlays */
+  --overlay-backdrop:     rgba(15, 23, 42, 0.30);
+  --overlay-scrim-strong: rgba(15, 23, 42, 0.42);
+  --surface-drawer:       #ffffff;
+  --surface-popover:      #ffffff;
+  --surface-card-strong:  #ffffff;
+  --input-bg:             #ffffff;
+  --chip-text-on-accent:  #ffffff;
+  --bg-blob-opacity:      0.10;
+
+  --tile-veil:        rgba(255, 255, 255, 0.62);
+  --tile-veil-nested: rgba(255, 255, 255, 0.46);
+  --tile-veil-strong: rgba(255, 255, 255, 0.78);
+
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.10);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 14px 34px rgba(15, 23, 42, 0.18);
+
+  --status-danger:     #b91c1c;
+  --status-danger-bg:  #fee2e2;
+  --status-warn-bg:    #fef3c7;
+  --status-success-bg: #dcfce7;
+  --trend-up:          #15803d;
+  --trend-down:        #b91c1c;
 }
 
 [data-ui-theme='plain-light'] body {

@@ -38,7 +38,7 @@ export function PortalDeliverableCard({
           className={`portal-deliverable-badge portal-deliverable-badge--${item.status}`}
           style={
             ready
-              ? { background: `color-mix(in srgb, ${accentColor} 12%, #fff)`, color: accentColor }
+              ? { background: `color-mix(in srgb, ${accentColor} 12%, var(--portal-surface))`, color: accentColor }
               : undefined
           }
         >

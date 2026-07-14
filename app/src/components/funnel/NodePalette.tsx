@@ -53,10 +53,10 @@ export function NodePalette({
             height: 42,
             borderRadius: 12,
             border: '1px solid color-mix(in srgb, var(--glass-border-2) 88%, transparent)',
-            background: 'rgba(8, 8, 16, 0.78)',
+            background: 'var(--surface-popover)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
-            boxShadow: '0 6px 22px rgba(0,0,0,0.32)',
+            boxShadow: 'var(--shadow-md)',
             color: 'var(--text-primary)',
             fontSize: 17,
             lineHeight: 1,
@@ -69,11 +69,11 @@ export function NodePalette({
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)'
-            e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.4)'
+            e.currentTarget.style.boxShadow = 'var(--shadow-lg)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = ''
-            e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.32)'
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)'
           }}
         >
           {nodeTypeEmoji(t)}

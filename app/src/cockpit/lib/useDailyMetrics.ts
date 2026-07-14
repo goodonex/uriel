@@ -8,17 +8,21 @@ export interface DailyMetricsRow {
   id?: string
   datum: string // YYYY-MM-DD
   li_anfragen: number
+  li_nachrichten: number
   inmails: number
+  looms: number
   ig_anfragen: number
+  ig_nachrichten: number
+  cold_calls: number
   coldmails: number
   followups: number
-  looms: number
   antworten_li: number
   antworten_inmail: number
   antworten_ig: number
   antworten_cold: number
   quali_termine: number
   sales_calls: number
+  termine_vereinbart: number
   abschluesse: number
   umsatz: number
   note?: string | null
@@ -26,17 +30,21 @@ export interface DailyMetricsRow {
 
 export const METRIC_FIELDS = [
   'li_anfragen',
+  'li_nachrichten',
   'inmails',
+  'looms',
   'ig_anfragen',
+  'ig_nachrichten',
+  'cold_calls',
   'coldmails',
   'followups',
-  'looms',
   'antworten_li',
   'antworten_inmail',
   'antworten_ig',
   'antworten_cold',
   'quali_termine',
   'sales_calls',
+  'termine_vereinbart',
   'abschluesse',
 ] as const
 export type MetricField = (typeof METRIC_FIELDS)[number]
@@ -45,17 +53,21 @@ export function emptyRow(datum: string): DailyMetricsRow {
   return {
     datum,
     li_anfragen: 0,
+    li_nachrichten: 0,
     inmails: 0,
+    looms: 0,
     ig_anfragen: 0,
+    ig_nachrichten: 0,
+    cold_calls: 0,
     coldmails: 0,
     followups: 0,
-    looms: 0,
     antworten_li: 0,
     antworten_inmail: 0,
     antworten_ig: 0,
     antworten_cold: 0,
     quali_termine: 0,
     sales_calls: 0,
+    termine_vereinbart: 0,
     abschluesse: 0,
     umsatz: 0,
   }

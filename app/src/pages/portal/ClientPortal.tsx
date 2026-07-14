@@ -49,7 +49,7 @@ export function ClientPortal({
     return (
       <div className="portal-root">
         <div className="portal-shell__main">
-          <p style={{ fontSize: 14, color: '#c0392b' }}>
+          <p style={{ fontSize: 14, color: 'var(--status-danger)' }}>
             {error ?? 'Projekt nicht gefunden.'}
           </p>
         </div>

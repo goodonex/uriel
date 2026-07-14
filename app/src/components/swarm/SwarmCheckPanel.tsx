@@ -51,17 +51,17 @@ export function SwarmCheckPanel({
           zIndex: 300,
           display: 'flex',
           flexDirection: 'column',
-          background: 'rgba(10,10,22,0.72)',
+          background: 'var(--surface-drawer)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderLeft: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '-12px 0 40px rgba(0,0,0,0.35)',
+          borderLeft: '1px solid var(--glass-border-2)',
+          boxShadow: 'var(--shadow-lg)',
         }}
       >
         <header
           style={{
             padding: '16px 18px',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid var(--glass-border-1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -149,8 +149,8 @@ export function SwarmCheckPanel({
                       key={icp.icpName}
                       style={{
                         borderRadius: 10,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid var(--glass-border-1)',
+                        background: 'var(--glass-1)',
                         overflow: 'hidden',
                       }}
                     >
@@ -227,8 +227,8 @@ export function SwarmCheckPanel({
                   style={{
                     padding: 12,
                     borderRadius: 10,
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid var(--glass-border-2)',
+                    background: 'var(--glass-1)',
                   }}
                 >
                   <div

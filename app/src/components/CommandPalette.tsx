@@ -6,6 +6,7 @@ import { useBrandId } from '../hooks/useBrandId'
 import { useContacts } from '../hooks/useContacts'
 import { useDeliverProjects } from '../hooks/useDeliverProjects'
 import { useICPs } from '../hooks/useICPs'
+import { useUiTheme } from '../hooks/useUiTheme'
 import { useToast } from './Toast'
 
 interface CommandPaletteProps {
@@ -73,6 +74,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const contacts = useContacts(slug)
   const projects = useDeliverProjects(slug)
   const icps = useICPs(slug)
+  const { togglePlainLight } = useUiTheme()
 
   const [query, setQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
@@ -191,6 +193,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       })
     }
 
+    list.push({
+      id: 'action-toggle-theme',
+      kind: 'action',
+      title: 'Hell/Dunkel-Modus umschalten',
+      subtitle: 'UI-Theme',
+      keywords: ['theme', 'light', 'dark', 'hell', 'dunkel', 'modus'],
+      accent: 'var(--accent-amber)',
+      run: () => {
+        togglePlainLight()
+        close()
+      },
+    })
+
     for (const b of brands) {
       if (b.slug === slug) continue
       list.push({
@@ -270,7 +285,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
 
     return list
-  }, [slug, brands, contacts.items, projects.items, icps.items, goTo, copyOnboardingLink])
+  }, [slug, brands, contacts.items, projects.items, icps.items, goTo, copyOnboardingLink, togglePlainLight, close])
 
   const filtered = useMemo(() => {
     const scored = allCommands
@@ -341,7 +356,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           }}
           className="fixed inset-0 z-[80] flex items-start justify-center"
           style={{
-            background: 'rgba(8, 12, 22, 0.5)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             paddingTop: '12vh',
@@ -362,8 +377,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               borderRadius: 18,
               background: 'color-mix(in srgb, var(--bg-base) 92%, transparent)',
               border: '1px solid var(--glass-border-2)',
-              boxShadow:
-                '0 32px 72px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset',
+              boxShadow: 'var(--shadow-lg), 0 1px 0 var(--glass-border-1) inset',
               backdropFilter: 'var(--blur-lg)',
               WebkitBackdropFilter: 'var(--blur-lg)',
               display: 'flex',

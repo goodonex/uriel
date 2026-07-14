@@ -93,7 +93,7 @@ export function CallModePage() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--bg-deep)',
+        background: 'var(--bg-void)',
       }}
     >
       <header
@@ -281,7 +281,7 @@ function LeadCard({ contact, onSelect }: { contact: Contact; onSelect: () => voi
             display: 'grid',
             placeItems: 'center',
             background: 'linear-gradient(135deg, var(--mode-sales), color-mix(in srgb, var(--mode-sales) 60%, var(--accent-teal)))',
-            color: '#0e0e10',
+            color: 'var(--chip-text-on-accent)',
             fontWeight: 700,
             fontSize: 14,
             flexShrink: 0,
@@ -495,7 +495,7 @@ function CallSheet({
               padding: '22px 18px',
               borderRadius: 18,
               background: 'linear-gradient(135deg, var(--mode-sales), color-mix(in srgb, var(--mode-sales) 60%, var(--accent-teal)))',
-              color: '#0e0e10',
+              color: 'var(--chip-text-on-accent)',
               textDecoration: 'none',
               fontSize: 17,
               fontWeight: 700,
@@ -609,7 +609,7 @@ function CallSheet({
               borderRadius: 14,
               border: 'none',
               background: 'linear-gradient(135deg, var(--mode-sales), color-mix(in srgb, var(--mode-sales) 60%, var(--accent-teal)))',
-              color: '#0e0e10',
+              color: 'var(--chip-text-on-accent)',
               fontWeight: 700,
               fontSize: 16,
               cursor: saving ? 'wait' : 'pointer',

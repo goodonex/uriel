@@ -85,10 +85,10 @@ export function ContactListCardMenu({
           padding: 4,
           borderRadius: 12,
           border: '1px solid var(--glass-border-2)',
-          background: 'color-mix(in srgb, var(--glass-3) 92%, rgba(8, 8, 20, 0.88))',
+          background: 'var(--surface-popover)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.42)',
+          boxShadow: 'var(--shadow-lg)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -121,7 +121,7 @@ export function ContactListCardMenu({
           role="menuitem"
           style={{
             ...itemStyle,
-            color: '#ef4444',
+            color: 'var(--status-danger)',
             borderTop: '1px solid var(--glass-border-2)',
             marginTop: 2,
             paddingTop: 10,

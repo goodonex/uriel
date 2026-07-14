@@ -45,15 +45,15 @@ export function SaveStatusIndicator() {
               gap: 8,
               padding: '7px 12px',
               borderRadius: 999,
-              background: 'rgba(40, 15, 15, 0.82)',
-              border: '1px solid rgba(255, 110, 110, 0.35)',
+              background: 'var(--status-danger-bg)',
+              border: '1px solid color-mix(in srgb, var(--status-danger) 45%, transparent)',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
-              color: 'rgba(255, 200, 200, 0.95)',
+              color: 'var(--status-danger)',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               fontSize: 11,
               letterSpacing: 0.2,
-              boxShadow: '0 12px 32px rgba(0,0,0,0.32)',
+              boxShadow: 'var(--shadow-md)',
             }}
           >
             <Dot color="var(--accent-coral, #FF6E6E)" />
@@ -75,7 +75,7 @@ export function SaveStatusIndicator() {
                 width: 8,
                 height: 8,
                 borderRadius: 999,
-                background: 'rgba(255,255,255,0.55)',
+                background: 'var(--text-secondary)',
                 display: 'inline-block',
               }}
             />
@@ -146,9 +146,9 @@ const pillStyle = {
   justifyContent: 'center',
   padding: 8,
   borderRadius: 999,
-  background: 'rgba(15, 22, 24, 0.5)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'var(--surface-card-strong)',
+  border: '1px solid var(--glass-border-1)',
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
-  boxShadow: '0 6px 18px rgba(0,0,0,0.22)',
+  boxShadow: 'var(--shadow-sm)',
 } as const

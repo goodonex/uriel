@@ -45,7 +45,7 @@ export function CrmFilterPanel({
         padding: 14,
         borderRadius: 12,
         border: '1px solid var(--glass-border-1)',
-        boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <FilterSection title="Status">

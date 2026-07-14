@@ -2,17 +2,21 @@ import { useState } from 'react'
 import type { DailyMetricsRow, MetricField } from '../lib/useDailyMetrics'
 
 const INPUT_FIELDS: Array<{ field: MetricField; label: string }> = [
-  { field: 'li_anfragen', label: 'LinkedIn' },
+  { field: 'li_anfragen', label: 'LI Vernetzung' },
+  { field: 'li_nachrichten', label: 'LI Nachricht' },
   { field: 'inmails', label: 'InMail' },
-  { field: 'ig_anfragen', label: 'Insta' },
-  { field: 'coldmails', label: 'Cold' },
-  { field: 'followups', label: 'Follow-up' },
   { field: 'looms', label: 'Loom' },
+  { field: 'ig_anfragen', label: 'IG Follow' },
+  { field: 'ig_nachrichten', label: 'IG Nachricht' },
+  { field: 'cold_calls', label: 'Cold Call' },
+  { field: 'coldmails', label: 'Cold-Mail' },
+  { field: 'followups', label: 'Follow-up' },
 ]
 
 const RESULT_FIELDS: Array<{ field: MetricField; label: string }> = [
   { field: 'quali_termine', label: 'Quali' },
   { field: 'sales_calls', label: 'Call' },
+  { field: 'termine_vereinbart', label: 'Termin' },
   { field: 'abschluesse', label: 'Deal' },
 ]
 

@@ -160,14 +160,14 @@ export function CardTile({
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    background: nested ? 'rgba(8, 8, 16, 0.32)' : 'rgba(8, 8, 16, 0.42)',
+    background: nested ? 'var(--tile-veil-nested)' : 'var(--tile-veil)',
     backdropFilter: nested ? 'blur(12px)' : 'blur(18px)',
     WebkitBackdropFilter: nested ? 'blur(12px)' : 'blur(18px)',
     border: '1px solid color-mix(in srgb, var(--glass-border-1) 85%, transparent)',
     borderRadius: 16,
     boxShadow: nested
-      ? '0 10px 36px rgba(0,0,0,0.32), 0 2px 0 rgba(255,255,255,0.03) inset'
-      : '0 16px 48px rgba(0,0,0,0.38), 0 1px 0 rgba(255,255,255,0.05) inset',
+      ? 'var(--shadow-md), 0 2px 0 rgba(255,255,255,0.03) inset'
+      : 'var(--shadow-lg), 0 1px 0 rgba(255,255,255,0.05) inset',
   }
 
   const bareChrome: CSSProperties = {

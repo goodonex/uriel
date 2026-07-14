@@ -56,7 +56,7 @@ export function WorkspaceContextMenu({
         background: 'color-mix(in srgb, var(--bg-base) 96%, transparent)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <button

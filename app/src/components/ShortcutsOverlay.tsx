@@ -79,7 +79,7 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
             position: 'fixed',
             inset: 0,
             zIndex: 1200,
-            background: 'rgba(0, 0, 0, 0.55)',
+            background: 'var(--overlay-scrim-strong)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             display: 'grid',
@@ -99,12 +99,12 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
               maxWidth: 760,
               maxHeight: '85vh',
               overflowY: 'auto',
-              background: 'rgba(18, 18, 22, 0.92)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--surface-drawer)',
+              border: '1px solid var(--glass-border-1)',
               borderRadius: 18,
               padding: 28,
-              color: 'rgba(255, 255, 255, 0.92)',
-              boxShadow: '0 28px 60px rgba(0, 0, 0, 0.55)',
+              color: 'var(--text-primary)',
+              boxShadow: 'var(--shadow-lg)',
             }}
           >
             <div
@@ -119,7 +119,7 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
                 <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.2 }}>
                   Tastatur-Shortcuts
                 </div>
-                <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(255, 255, 255, 0.55)' }}>
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
                   Drücke{' '}
                   <KeyHint>?</KeyHint> um diese Übersicht jederzeit zu öffnen.
                 </div>
@@ -128,9 +128,9 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
                 type="button"
                 onClick={onClose}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  background: 'var(--glass-2)',
+                  border: '1px solid var(--glass-border-1)',
+                  color: 'var(--text-secondary)',
                   borderRadius: 8,
                   fontSize: 12,
                   padding: '6px 10px',
@@ -156,7 +156,7 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
                       fontWeight: 600,
                       letterSpacing: 1.2,
                       textTransform: 'uppercase',
-                      color: 'rgba(255, 255, 255, 0.45)',
+                      color: 'var(--text-secondary)',
                       marginBottom: 10,
                     }}
                   >
@@ -172,7 +172,7 @@ export function ShortcutsOverlay({ open, onClose }: ShortcutsOverlayProps) {
                           justifyContent: 'space-between',
                           gap: 12,
                           fontSize: 13,
-                          color: 'rgba(255, 255, 255, 0.82)',
+                          color: 'var(--text-primary)',
                         }}
                       >
                         <span>{item.label}</span>
@@ -205,13 +205,13 @@ function KeyHint({ children }: { children: React.ReactNode }) {
         height: 22,
         padding: '0 6px',
         borderRadius: 5,
-        background: 'rgba(255, 255, 255, 0.08)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
+        background: 'var(--glass-2)',
+        border: '1px solid var(--glass-border-2)',
         boxShadow: 'inset 0 -1px 0 rgba(0, 0, 0, 0.25)',
         fontSize: 11,
         fontFamily:
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-        color: 'rgba(255, 255, 255, 0.88)',
+        color: 'var(--text-primary)',
       }}
     >
       {children}

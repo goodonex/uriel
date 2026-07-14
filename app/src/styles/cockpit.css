@@ -20,6 +20,14 @@
   --ck-warn: #f59e0b;         /* Amber: error/warn */
   --ck-warn-dim: rgba(245, 158, 11, 0.14);
 
+  /* Graph (OsNebula) */
+  --ck-graph-bg: #05080c;
+  --ck-graph-star: #cfd8e3;
+  --ck-graph-line: #f2f4f5;
+  --ck-graph-core: #f2f4f5;
+  --ck-graph-label: #9aa4a8;
+  --ck-graph-panel: rgba(8, 12, 17, 0.92);
+
   /* Typo */
   --ck-font: 'JetBrains Mono', ui-monospace, monospace;
 
@@ -124,7 +132,7 @@
 .ck-nav-item.active {
   color: var(--ck-accent);
   background: var(--ck-accent-dim);
-  border-color: rgba(52, 211, 153, 0.25);
+  border-color: color-mix(in srgb, var(--ck-accent) 25%, transparent);
 }
 
 /* --- Buttons --- */
@@ -148,7 +156,7 @@
 .ck-btn:hover { border-color: var(--ck-accent); background: var(--ck-panel-2); }
 .ck-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ck-btn--primary {
-  border-color: rgba(52, 211, 153, 0.4);
+  border-color: color-mix(in srgb, var(--ck-accent) 40%, transparent);
   background: var(--ck-accent-dim);
   color: var(--ck-accent);
 }
@@ -345,4 +353,31 @@
     right: 10px;
     width: min(400px, calc(100vw - 20px)) !important;
   }
+}
+
+/* ============================================================
+   COCKPIT — Plain Light
+   Gleiche Geometrie, helle Flächen, Kontrast ≥ 4.5:1 bleibt Regel.
+   ============================================================ */
+[data-ui-theme='plain-light'] .ck-root {
+  --ck-bg: #f4f6f7;
+  --ck-panel: #ffffff;
+  --ck-panel-2: #eef1f3;
+  --ck-border: #d8dee2;
+  --ck-border-strong: #c2ccd2;
+  --ck-text-1: #101518;
+  --ck-text-2: #46525a;
+  --ck-text-3: #6b7880;
+  --ck-accent: #047857;                 /* Phosphor-Grün → Emerald-700 */
+  --ck-accent-dim: rgba(4, 120, 87, 0.10);
+  --ck-idle: #64748b;
+  --ck-warn: #b45309;
+  --ck-warn-dim: rgba(180, 83, 7, 0.12);
+
+  --ck-graph-bg: #eef1f4;
+  --ck-graph-star: #9aa8b8;
+  --ck-graph-line: #24303a;
+  --ck-graph-core: #111827;
+  --ck-graph-label: #46525a;
+  --ck-graph-panel: rgba(255, 255, 255, 0.94);
 }

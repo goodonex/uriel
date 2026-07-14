@@ -14,7 +14,7 @@ export function Background() {
           left: -100,
           background: 'var(--accent-blue)',
           filter: 'blur(80px)',
-          opacity: 0.16,
+          opacity: 'var(--bg-blob-opacity)',
         }}
       />
       <div
@@ -26,7 +26,7 @@ export function Background() {
           right: -100,
           background: 'var(--accent-purple)',
           filter: 'blur(80px)',
-          opacity: 0.16,
+          opacity: 'var(--bg-blob-opacity)',
         }}
       />
       <div
@@ -38,7 +38,7 @@ export function Background() {
           left: '50%',
           background: 'var(--accent-teal)',
           filter: 'blur(80px)',
-          opacity: 0.16,
+          opacity: 'var(--bg-blob-opacity)',
         }}
       />
     </div>

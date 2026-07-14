@@ -117,7 +117,7 @@ export function BrandPage() {
               style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(0,0,0,0.55)',
+                background: 'var(--overlay-scrim-strong)',
                 backdropFilter: 'blur(4px)',
                 WebkitBackdropFilter: 'blur(4px)',
                 zIndex: 60,
@@ -272,7 +272,7 @@ export function BrandPage() {
             display: 'grid',
             placeItems: 'center',
             background: 'linear-gradient(135deg, var(--mode-sales), color-mix(in srgb, var(--mode-sales) 60%, var(--accent-teal)))',
-            color: '#0e0e10',
+            color: 'var(--chip-text-on-accent)',
             fontSize: 24,
             textDecoration: 'none',
             boxShadow: '0 12px 32px color-mix(in srgb, var(--mode-sales) 45%, transparent), 0 0 0 1px rgba(0,0,0,0.18)',

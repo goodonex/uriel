@@ -111,9 +111,9 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 const STAGE_ACCENT: Record<PipelineStage, string> = {
   first_contact: 'var(--mode-sales)',
   conversation: 'var(--accent-blue)',
-  follow_up: '#f59e0b',
+  follow_up: 'var(--accent-amber)',
   proposal: 'var(--accent-teal)',
-  deal: '#4ade80',
+  deal: 'var(--accent-success)',
   paused: 'var(--text-tertiary)',
 }
 
@@ -240,7 +240,7 @@ function QuickNotePopover({
         padding: 10,
         borderRadius: 10,
         border: '1px solid var(--glass-border-2)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+        boxShadow: 'var(--shadow-md)',
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -477,7 +477,7 @@ function PipelineFilterBar({
                 padding: '0 6px',
                 borderRadius: 999,
                 background: 'var(--mode-sales)',
-                color: '#000',
+                color: 'var(--chip-text-on-accent)',
                 fontSize: 9,
                 fontWeight: 700,
                 lineHeight: 1.6,
@@ -531,7 +531,7 @@ function PipelineFilterBar({
                       zIndex: 200,
                       minWidth: 200,
                       border: '1px solid var(--glass-border-1)',
-                      boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+                      boxShadow: 'var(--shadow-md)',
                       pointerEvents: 'auto',
                     }}
                     role="listbox"
@@ -619,7 +619,7 @@ function PipelineFilterBar({
                       zIndex: 200,
                       minWidth: 180,
                       border: '1px solid var(--glass-border-1)',
-                      boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+                      boxShadow: 'var(--shadow-md)',
                       pointerEvents: 'auto',
                     }}
                     role="listbox"
@@ -850,8 +850,8 @@ function DroppableStageColumn({
       : '1px solid var(--glass-border-1)',
     background: scrollEmbed
       ? highlighted
-        ? 'rgba(12, 12, 24, 0.72)'
-        : 'rgba(8, 8, 16, 0.45)'
+        ? 'var(--surface-card-strong)'
+        : 'var(--glass-2)'
       : highlighted
         ? 'color-mix(in srgb, var(--mode-sales) 8%, var(--glass-2))'
         : undefined,
@@ -860,9 +860,9 @@ function DroppableStageColumn({
     minHeight: isDragActive ? (emptyWhileDragging ? 220 : 160) : 120,
     transform: highlighted ? 'translateY(-10px)' : undefined,
     boxShadow: highlighted
-      ? '0 20px 48px rgba(0, 0, 0, 0.38), 0 0 0 1px color-mix(in srgb, var(--mode-sales) 35%, transparent)'
+      ? 'var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--mode-sales) 35%, transparent)'
       : isDragActive
-        ? '0 8px 24px rgba(0, 0, 0, 0.18)'
+        ? 'var(--shadow-md)'
         : undefined,
     zIndex: highlighted ? 30 : isDragActive ? 2 : 1,
     transition:
@@ -1021,7 +1021,7 @@ function DraggableContactCard({
     cursor: isDragging ? 'grabbing' : 'grab',
     touchAction: 'none' as const,
     boxShadow: isDragging
-      ? '0 18px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25)'
+      ? 'var(--shadow-lg)'
       : undefined,
     zIndex: isDragging ? 50 : undefined,
   }
@@ -1556,7 +1556,7 @@ function PipelineBoard({
               background: 'var(--glass-3)',
               border: '1px solid var(--mode-sales)',
               borderLeft: `4px solid ${STAGE_ACCENT[activeDrag.pipeline_stage]}`,
-              boxShadow: '0 22px 48px rgba(0,0,0,0.42)',
+              boxShadow: 'var(--shadow-lg)',
               minWidth: 168,
               cursor: 'grabbing',
             }}
@@ -2297,7 +2297,7 @@ export function SalesMode({
                 padding: '14px 16px',
                 borderRadius: 14,
                 border: '1px solid var(--glass-border-1)',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                boxShadow: 'var(--shadow-lg)',
                 display: 'flex',
                 flexWrap: 'wrap',
                 alignItems: 'center',
