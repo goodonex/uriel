@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { loadOsMapSnapshot, saveOsMapSnapshot } from './osMapSnapshot'
 import type { OsMap } from './runnerApi'
 import { fetchOsMap } from './runnerApi'
 import type { RunnerState } from './useRunnerStatus'
@@ -24,16 +25,28 @@ export function useOsMap(runnerState: RunnerState): {
 } {
   const [osMap, setOsMap] = useState<OsMap>(EMPTY)
   const [loading, setLoading] = useState(true)
+  // Signatur der zuletzt nach Supabase gespiegelten Map — verhindert redundante Writes.
+  const lastSavedRef = useRef('')
 
   const refresh = useCallback(
     async (fresh = false) => {
       if (runnerState !== 'online') {
+        // Runner nicht erreichbar (z.B. HTTPS-Live-Domain, Safari-Mixed-Content):
+        // letzten Snapshot aus Supabase lesen, damit der Graph nicht leer bleibt.
+        const snap = await loadOsMapSnapshot()
+        if (snap) setOsMap((prev) => (JSON.stringify(prev) === JSON.stringify(snap) ? prev : snap))
         setLoading(false)
         return
       }
       try {
         const next = await fetchOsMap(fresh)
         setOsMap((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+        // Frische Map für die Live-Domain spiegeln — nur bei echter Änderung.
+        const sig = JSON.stringify(next)
+        if (sig !== lastSavedRef.current) {
+          lastSavedRef.current = sig
+          void saveOsMapSnapshot(next)
+        }
       } catch {
         /* Runner kurz weg — nächster Poll versucht es erneut */
       } finally {
