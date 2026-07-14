@@ -3,7 +3,7 @@ import { MonthCurve } from '../components/MonthCurve'
 import { VitalsPanel } from '../components/VitalsPanel'
 import { channelRates, weekVitals } from '../lib/metricsAggregate'
 import type { MetricField } from '../lib/useDailyMetrics'
-import { useDailyMetrics } from '../lib/useDailyMetrics'
+import { toIsoDate, useDailyMetrics } from '../lib/useDailyMetrics'
 import { formatEuro } from '../lib/goals'
 
 /** Aktivitäten-Eingabe, gruppiert nach Plattform (Kevins realer Akquise-Tag). */
@@ -63,13 +63,26 @@ function Stepper({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 8,
+        minWidth: 0, // erlaubt Schrumpfen im Grid (sonst Overflow → Karte übersteht)
         padding: '7px 10px',
         border: '1px solid var(--ck-border)',
         borderRadius: 6,
       }}
     >
-      <span className="ck-label" style={{ fontSize: 10.5 }}>{label}</span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <span
+        className="ck-label"
+        style={{
+          fontSize: 10.5,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={label}
+      >
+        {label}
+      </span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(-1)} aria-label={`${label} minus 1`}>
           −
         </button>
@@ -96,7 +109,7 @@ function UmsatzInput({ value, onSet }: { value: number; onSet: (v: number) => vo
         borderRadius: 6,
       }}
     >
-      <span className="ck-label" style={{ fontSize: 10.5 }}>Umsatz heute (€)</span>
+      <span className="ck-label" style={{ fontSize: 10.5 }}>Umsatz (€)</span>
       <input
         className="ck-input"
         type="number"
@@ -175,6 +188,8 @@ export function TrackingArea() {
     [metrics.weekRows, metrics.monthRows],
   )
   const rates = useMemo(() => channelRates(metrics.monthRows), [metrics.monthRows])
+  // Ausgewählter Tag fürs (rückwirkende) Eintragen — Default heute.
+  const [selectedDate, setSelectedDate] = useState(toIsoDate(new Date()))
 
   if (metrics.tableMissing) {
     return (
@@ -193,12 +208,81 @@ export function TrackingArea() {
 
   const weekUmsatz = metrics.weekRows.reduce((a, r) => a + (Number(r.umsatz) || 0), 0)
 
+  // Datums-Navigation fürs rückwirkende Eintragen.
+  const todayIso = toIsoDate(new Date())
+  const shiftDate = (iso: string, delta: number) => {
+    const d = new Date(`${iso}T12:00:00`) // Mittag → kein DST/TZ-Tagessprung
+    d.setDate(d.getDate() + delta)
+    return toIsoDate(d)
+  }
+  const isToday = selectedDate === todayIso
+  const canPrev = selectedDate > metrics.windowStart
+  const canNext = selectedDate < todayIso
+  const relLabel =
+    selectedDate === todayIso
+      ? 'Heute'
+      : selectedDate === shiftDate(todayIso, -1)
+        ? 'Gestern'
+        : selectedDate === shiftDate(todayIso, -2)
+          ? 'Vorgestern'
+          : null
+  const fullLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString('de-DE', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  })
+  const row = metrics.rowFor(selectedDate)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1100 }}>
-      {/* Heute-Eingabe */}
-      <section className="ck-panel" aria-label="Heute eintragen">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 12px 6px' }}>
-          <span className="ck-label">Heute · {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}</span>
+      {/* Tages-Eingabe (mit Datums-Navigation fürs rückwirkende Eintragen) */}
+      <section
+        className="ck-panel"
+        aria-label="Tag eintragen"
+        style={!isToday ? { borderColor: 'var(--ck-accent)' } : undefined}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            padding: '10px 12px 6px',
+          }}
+        >
+          <span className="ck-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="ck-btn ck-counter-btn"
+              style={{ padding: '2px 9px' }}
+              disabled={!canPrev}
+              onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}
+              aria-label="Einen Tag zurück"
+            >
+              ‹
+            </button>
+            <span style={{ minWidth: 200, textAlign: 'center' }}>
+              {relLabel ? `${relLabel} · ${fullLabel}` : fullLabel}
+            </span>
+            <button
+              className="ck-btn ck-counter-btn"
+              style={{ padding: '2px 9px' }}
+              disabled={!canNext}
+              onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+              aria-label="Einen Tag vor"
+            >
+              ›
+            </button>
+            {!isToday ? (
+              <button
+                className="ck-btn"
+                style={{ fontSize: 10 }}
+                onClick={() => setSelectedDate(todayIso)}
+              >
+                Heute
+              </button>
+            ) : null}
+          </span>
           {metrics.error ? (
             <span className="ck-label" style={{ color: 'var(--ck-warn)' }}>Speichern fehlgeschlagen: {metrics.error}</span>
           ) : null}
@@ -214,8 +298,8 @@ export function TrackingArea() {
                   <Stepper
                     key={f.field}
                     label={f.label}
-                    value={metrics.today[f.field]}
-                    onBump={(d) => void metrics.bump(f.field, d)}
+                    value={row[f.field]}
+                    onBump={(d) => metrics.bumpOn(selectedDate, f.field, d)}
                   />
                 ))}
               </div>
@@ -227,11 +311,11 @@ export function TrackingArea() {
               <Stepper
                 key={f.field}
                 label={f.label}
-                value={metrics.today[f.field]}
-                onBump={(d) => void metrics.bump(f.field, d)}
+                value={row[f.field]}
+                onBump={(d) => metrics.bumpOn(selectedDate, f.field, d)}
               />
             ))}
-            <UmsatzInput value={metrics.today.umsatz} onSet={(v) => void metrics.setUmsatz(v)} />
+            <UmsatzInput key={selectedDate} value={row.umsatz} onSet={(v) => metrics.setUmsatzOn(selectedDate, v)} />
           </div>
         </div>
       </section>

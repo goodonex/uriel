@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { useActiveBrand } from './activeBrand'
@@ -100,30 +100,65 @@ interface UseDailyMetricsResult {
   /** Tabelle fehlt → Migration 0049 noch nicht ausgeführt */
   tableMissing: boolean
   error: string | null
-  /** Feld der heutigen Zeile um delta ändern (optimistisch + upsert) */
-  bump: (field: MetricField, delta: number) => Promise<void>
-  /** Umsatz der heutigen Zeile setzen */
-  setUmsatz: (value: number) => Promise<void>
+  /** frühestes Datum, das rückwirkend eingetragen werden kann (Ladefenster-Start) */
+  windowStart: string
+  /** Zeile eines beliebigen Tages (leer, wenn nichts eingetragen) */
+  rowFor: (datum: string) => DailyMetricsRow
+  /** Feld der HEUTIGEN Zeile ändern (optimistisch, race-sicher, gebündelt gespeichert) */
+  bump: (field: MetricField, delta: number) => void
+  /** Umsatz der HEUTIGEN Zeile setzen */
+  setUmsatz: (value: number) => void
+  /** Feld eines BELIEBIGEN Tages ändern (rückwirkendes Tracking) */
+  bumpOn: (datum: string, field: MetricField, delta: number) => void
+  /** Umsatz eines BELIEBIGEN Tages setzen */
+  setUmsatzOn: (datum: string, value: number) => void
   refresh: () => Promise<void>
 }
 
 /**
  * Echte daily_metrics aus Supabase (ersetzt useVitalsMock ab Phase 3).
- * Lädt den laufenden Monat, schreibt per Upsert auf (user, brand, datum).
+ * Lädt ein ~45-Tage-Fenster (für rückwirkendes Eintragen), schreibt per Upsert
+ * auf (user, brand, datum). Bumps laufen über eine synchrone Ref-Kopie +
+ * gebündelten (debounced) Upsert — so gehen schnelle Klicks nicht verloren
+ * (kein Stale-Closure-Race) und out-of-order-Writes können sich nicht
+ * gegenseitig überschreiben.
  */
 export function useDailyMetrics(): UseDailyMetricsResult {
   const { user } = useAuth()
   const { activeBrand } = useActiveBrand()
-  const [monthRows, setMonthRows] = useState<DailyMetricsRow[]>([])
+  const [allRows, setAllRows] = useState<DailyMetricsRow[]>([])
   const [loading, setLoading] = useState(true)
   const [tableMissing, setTableMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const todayIso = toIsoDate(new Date())
   const monthStart = todayIso.slice(0, 8) + '01'
+  // Ladefenster ~45 Tage zurück → rückwirkendes Eintragen (auch über die
+  // Monatsgrenze) funktioniert. Aggregate filtern davon wieder auf Monat/Woche.
+  const windowStart = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 45)
+    return toIsoDate(d)
+  }, [todayIso])
+
+  // Autoritative, SYNCHRON aktualisierte Kopie — Bumps lesen daraus statt aus
+  // dem Render-Closure, damit schnelle Mehrfachklicks korrekt akkumulieren.
+  const rowsRef = useRef<DailyMetricsRow[]>([])
+  const userRef = useRef(user)
+  userRef.current = user
+  const brandRef = useRef(activeBrand)
+  brandRef.current = activeBrand
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  const applyRows = useCallback((rows: DailyMetricsRow[]) => {
+    rowsRef.current = rows
+    setAllRows(rows)
+  }, [])
 
   const refresh = useCallback(async () => {
-    if (!supabase || !user || !activeBrand) {
+    const u = userRef.current
+    const b = brandRef.current
+    if (!supabase || !u || !b) {
       setLoading(false)
       return
     }
@@ -131,9 +166,9 @@ export function useDailyMetrics(): UseDailyMetricsResult {
     const { data, error: err } = await supabase
       .from('daily_metrics')
       .select('*')
-      .eq('user_id', user.id)
-      .eq('brand_id', activeBrand.id)
-      .gte('datum', monthStart)
+      .eq('user_id', u.id)
+      .eq('brand_id', b.id)
+      .gte('datum', windowStart)
       .order('datum', { ascending: true })
 
     if (err) {
@@ -149,74 +184,140 @@ export function useDailyMetrics(): UseDailyMetricsResult {
       } else {
         setError(err.message)
       }
-      setMonthRows([])
+      applyRows([])
     } else {
       setTableMissing(false)
       setError(null)
-      setMonthRows((data as DailyMetricsRow[]) ?? [])
+      applyRows((data as DailyMetricsRow[]) ?? [])
     }
     setLoading(false)
-  }, [user, activeBrand, monthStart])
+  }, [windowStart, applyRows])
 
   useEffect(() => {
     void refresh()
-  }, [refresh])
+  }, [refresh, user?.id, activeBrand?.id])
 
-  const today = useMemo(
-    () => monthRows.find((r) => r.datum === todayIso) ?? emptyRow(todayIso),
-    [monthRows, todayIso],
-  )
-
-  const weekRows = useMemo(() => {
-    const monday = mondayOf(new Date())
-    const mondayIso = toIsoDate(monday)
-    return monthRows.filter((r) => r.datum >= mondayIso)
-  }, [monthRows])
-
-  const upsertToday = useCallback(
-    async (patch: Partial<DailyMetricsRow>) => {
-      if (!supabase || !user || !activeBrand) return
-      // Nicht mit Fallback-Brand schreiben (keine echte UUID) → sonst schlägt der
-      // Insert fehl und der optimistische Wert geht beim Reload verloren.
-      if (activeBrand.id.startsWith('local-fallback-')) {
-        setError('Brand lädt noch — bitte 1–2 Sekunden warten und erneut tracken.')
-        return
-      }
-      const next = { ...today, ...patch }
-
-      // Optimistisch in den Monats-Zeilen ersetzen/ergänzen
-      setMonthRows((rows) => {
-        const others = rows.filter((r) => r.datum !== todayIso)
-        return [...others, next].sort((a, b) => a.datum.localeCompare(b.datum))
-      })
-
-      const { id: _id, ...payload } = next
+  // Einen Tag zur Server-Wahrheit schreiben (liest den frischen Ref-Stand).
+  const persist = useCallback(
+    async (datum: string) => {
+      const u = userRef.current
+      const b = brandRef.current
+      if (!supabase || !u || !b) return
+      const row = rowsRef.current.find((r) => r.datum === datum)
+      if (!row) return
+      const { id: _id, ...payload } = row
       const { error: err } = await supabase.from('daily_metrics').upsert(
-        { ...payload, user_id: user.id, brand_id: activeBrand.id },
+        { ...payload, user_id: u.id, brand_id: b.id },
         { onConflict: 'user_id,brand_id,datum' },
       )
       if (err) {
         setError(err.message)
         void refresh() // Server-Wahrheit wiederherstellen
+      } else {
+        setError(null)
       }
     },
-    [today, todayIso, user, activeBrand, refresh],
+    [refresh],
+  )
+
+  // Bündelt schnelle Klicks pro Tag zu einem Write des Endstands (350ms).
+  const schedulePersist = useCallback(
+    (datum: string) => {
+      const timers = timersRef.current
+      const existing = timers.get(datum)
+      if (existing) clearTimeout(existing)
+      timers.set(
+        datum,
+        setTimeout(() => {
+          timers.delete(datum)
+          void persist(datum)
+        }, 350),
+      )
+    },
+    [persist],
+  )
+
+  const mutate = useCallback(
+    (datum: string, patch: Partial<DailyMetricsRow>) => {
+      const b = brandRef.current
+      // Nicht mit Fallback-Brand schreiben (keine echte UUID) → Insert schlüge fehl.
+      if (b && b.id.startsWith('local-fallback-')) {
+        setError('Brand lädt noch — bitte 1–2 Sekunden warten und erneut tracken.')
+        return
+      }
+      const cur = rowsRef.current.find((r) => r.datum === datum) ?? emptyRow(datum)
+      const next = { ...cur, ...patch }
+      const others = rowsRef.current.filter((r) => r.datum !== datum)
+      applyRows([...others, next].sort((a, c) => a.datum.localeCompare(c.datum)))
+      schedulePersist(datum)
+    },
+    [applyRows, schedulePersist],
+  )
+
+  // Ausstehende Writes beim Verlassen sofort rausschicken (kein Datenverlust).
+  useEffect(() => {
+    const timers = timersRef.current
+    return () => {
+      timers.forEach((t, datum) => {
+        clearTimeout(t)
+        void persist(datum)
+      })
+      timers.clear()
+    }
+  }, [persist])
+
+  const rowFor = useCallback(
+    (datum: string) => allRows.find((r) => r.datum === datum) ?? emptyRow(datum),
+    [allRows],
+  )
+
+  const monthRows = useMemo(
+    () => allRows.filter((r) => r.datum >= monthStart),
+    [allRows, monthStart],
+  )
+
+  const today = useMemo(() => rowFor(todayIso), [rowFor, todayIso])
+
+  const weekRows = useMemo(() => {
+    const mondayIso = toIsoDate(mondayOf(new Date()))
+    return monthRows.filter((r) => r.datum >= mondayIso)
+  }, [monthRows])
+
+  const bumpOn = useCallback(
+    (datum: string, field: MetricField, delta: number) => {
+      const cur = rowsRef.current.find((r) => r.datum === datum) ?? emptyRow(datum)
+      mutate(datum, { [field]: Math.max(0, (cur[field] ?? 0) + delta) })
+    },
+    [mutate],
+  )
+
+  const setUmsatzOn = useCallback(
+    (datum: string, value: number) => {
+      mutate(datum, { umsatz: Math.max(0, value) })
+    },
+    [mutate],
   )
 
   const bump = useCallback(
-    async (field: MetricField, delta: number) => {
-      const value = Math.max(0, (today[field] ?? 0) + delta)
-      await upsertToday({ [field]: value })
-    },
-    [today, upsertToday],
+    (field: MetricField, delta: number) => bumpOn(todayIso, field, delta),
+    [bumpOn, todayIso],
   )
 
-  const setUmsatz = useCallback(
-    async (value: number) => {
-      await upsertToday({ umsatz: Math.max(0, value) })
-    },
-    [upsertToday],
-  )
+  const setUmsatz = useCallback((value: number) => setUmsatzOn(todayIso, value), [setUmsatzOn, todayIso])
 
-  return { monthRows, weekRows, today, loading, tableMissing, error, bump, setUmsatz, refresh }
+  return {
+    monthRows,
+    weekRows,
+    today,
+    loading,
+    tableMissing,
+    error,
+    windowStart,
+    rowFor,
+    bump,
+    setUmsatz,
+    bumpOn,
+    setUmsatzOn,
+    refresh,
+  }
 }
