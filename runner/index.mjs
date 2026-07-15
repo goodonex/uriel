@@ -10,8 +10,33 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
+
+// ---------- Lokale .env (nur für Secrets wie den Supabase-Key; gitignored) ----------
+// Minimaler Parser (zero-dependency). Prozess-Env hat Vorrang vor der Datei.
+function loadLocalEnv() {
+  try {
+    const raw = readFileSync(new URL('.env', import.meta.url), 'utf8')
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i)
+      if (!m) continue
+      const key = m[1]
+      if (process.env[key] != null) continue // Prozess-Env gewinnt
+      let val = m[2].trim()
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      )
+        val = val.slice(1, -1)
+      process.env[key] = val
+    }
+  } catch {
+    /* keine .env → Snapshot-Push bleibt einfach aus */
+  }
+}
+loadLocalEnv()
 
 // ---------- Konfiguration ----------
 const PORT = Number(process.env.RUNNER_PORT ?? 4711)
@@ -20,10 +45,27 @@ const RUNS_DIR = join(VAULT, 'System', 'Runs')
 const QUEUE_DIR = join(VAULT, 'System', 'Queue')
 const TIMEOUT_MS = 10 * 60 * 1000 // 10 Minuten (Plan §6)
 
+// OS-Map-Snapshot → Supabase, damit die HTTPS-Live-Domain (frameworkos.de) den
+// Graphen zeigt, ohne dass der lokale Runner erreichbar ist. Der Runner spiegelt
+// die Map periodisch selbst; kein localhost-Cockpit-Tab mehr nötig. Service-Role-Key
+// bleibt lokal in runner/.env. Fehlt er, läuft der Runner normal weiter (Push aus).
+const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+const SNAPSHOT_PUSH_MS = Number(process.env.SNAPSHOT_PUSH_MS ?? 60_000)
+const SNAPSHOT_ENABLED = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+
 // Kunden-Ads (Cockpit /ads): Ad-Creatives + Manifeste liegen in den Kundenordnern.
 const KUNDEN_ROOT = resolve(process.env.KUNDEN_ROOT ?? join(homedir(), 'Kevin OS', '02 Projekte', 'Kunden'))
 const KUNDEN_CONFIG = join(KUNDEN_ROOT, 'cockpit-kunden.json')
 const MANIFEST_MAX_BYTES = 2_000_000
+
+// Social-Content (Cockpit /content): Wochen-Batches der Content-Engine (Montags-Lauf).
+// Die woche-<KW>.html ist self-contained (CSS inline, Bilder als Data-URI) → 1 Datei genügt.
+const SOCIAL_ROOT = resolve(
+  process.env.SOCIAL_ROOT ??
+    join(homedir(), 'Kevin OS', '02 Projekte', 'Herrmann & Co', 'Intern', '04_social'),
+)
+const SOCIAL_WEEKLY = join(SOCIAL_ROOT, 'content-engine', 'weekly')
 
 /** Erlaubte Agenten = Skills im Vault. Alles andere wird abgelehnt. */
 const AGENTS = new Set(['wochenrecap', 'followup-entwuerfe', 'lead-research', 'dream-check'])
@@ -337,6 +379,64 @@ async function buildOsMap() {
   }
 }
 
+// ---------- OS-Map-Snapshot → Supabase ----------
+let lastSnapshotSig = ''
+
+/**
+ * Spiegelt die aktuelle Map nach Supabase (Upsert der Singleton-Zeile 'global').
+ * Nur bei echter Änderung → keine unnötigen Writes. Service-Role-Key umgeht RLS,
+ * bleibt aber lokal. Fehler werden geloggt, nicht geworfen (Runner läuft weiter).
+ */
+async function pushSnapshot() {
+  if (!SNAPSHOT_ENABLED) return
+  let map
+  try {
+    map = await osMap()
+  } catch (e) {
+    console.error('[runner] Snapshot: Map bauen fehlgeschlagen:', e?.message ?? e)
+    return
+  }
+  const sig = JSON.stringify({
+    s: map.skills?.length,
+    r: map.routines?.length,
+    a: map.apps?.length,
+    m: map.memory?.length,
+    e: map.memoryEdges?.length,
+    // Inhalt, nicht nur Zähler: erkennt Umbenennungen/Umzüge.
+    h: [...(map.skills ?? []), ...(map.memory ?? [])].map((n) => n.id ?? n.path).join('|'),
+  })
+  if (sig === lastSnapshotSig) return
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/os_map_snapshot`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        id: 'global',
+        data: map,
+        generated_at: map.generatedAt ?? null,
+        updated_at: new Date().toISOString(),
+      }),
+    })
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '')
+      console.error(`[runner] Snapshot-Push HTTP ${res.status}: ${txt.slice(0, 200)}`)
+      return
+    }
+    lastSnapshotSig = sig
+    console.log(
+      `[runner] Snapshot gepusht (${map.skills?.length ?? 0} Skills · ${map.memory?.length ?? 0} Memory · ${map.apps?.length ?? 0} Apps)`,
+    )
+  } catch (e) {
+    console.error('[runner] Snapshot-Push fehlgeschlagen:', e?.message ?? e)
+  }
+}
+
 /** Erlaubte Roots einmalig realpath-auflösen (Symlink-sicher). */
 let osFileRootsPromise = null
 function osFileRoots() {
@@ -391,6 +491,78 @@ let kundenRootRealPromise = null
 function kundenRootReal() {
   kundenRootRealPromise ??= realpath(KUNDEN_ROOT).catch(() => null)
   return kundenRootRealPromise
+}
+
+/** Social-Root einmalig realpath-auflösen (Symlink-sicher, analog kundenRootReal). */
+let socialRootRealPromise = null
+function socialRootReal() {
+  socialRootRealPromise ??= realpath(SOCIAL_ROOT).catch(() => null)
+  return socialRootRealPromise
+}
+
+/**
+ * Wochen-Batches: content-engine/weekly/<YYYY-Www>/woche-*.html — neueste zuerst.
+ * Titel aus dem <title> der HTML (nur Kopf lesen), Post-Anzahl aus posts/.
+ */
+async function socialWeeks() {
+  let dirs
+  try {
+    dirs = await readdir(SOCIAL_WEEKLY, { withFileTypes: true })
+  } catch {
+    return [] // Ordner (noch) nicht da → leer, kein Fehler
+  }
+  const weeks = []
+  for (const d of dirs) {
+    if (!d.isDirectory() || d.name.startsWith('.')) continue
+    const dir = join(SOCIAL_WEEKLY, d.name)
+    let files
+    try {
+      files = await readdir(dir)
+    } catch {
+      continue
+    }
+    const html =
+      files.find((f) => /^woche-.*\.html$/i.test(f)) ?? files.find((f) => f.endsWith('.html'))
+    if (!html) continue
+
+    let mtime = 0
+    let title = `Woche ${d.name}`
+    try {
+      mtime = (await stat(join(dir, html))).mtimeMs
+    } catch {
+      /* egal */
+    }
+    try {
+      const head = (await readFile(join(dir, html), 'utf8')).slice(0, 2000)
+      const m = head.match(/<title>([^<]+)<\/title>/i)
+      if (m) {
+        title = m[1]
+          .trim()
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&#0?39;/g, "'")
+          .replace(/&quot;/g, '"')
+      }
+    } catch {
+      /* egal */
+    }
+    let postsCount = 0
+    try {
+      postsCount = (await readdir(join(dir, 'posts'))).filter((f) => f.endsWith('.html')).length
+    } catch {
+      /* keine posts/ */
+    }
+    weeks.push({
+      week: d.name,
+      title,
+      htmlPath: `content-engine/weekly/${d.name}/${html}`, // rel zu SOCIAL_ROOT
+      mtime,
+      postsCount,
+    })
+  }
+  weeks.sort((a, b) => (a.week < b.week ? 1 : a.week > b.week ? -1 : 0))
+  return weeks
 }
 
 async function kundenRegistry() {
@@ -550,6 +722,31 @@ const server = createServer(async (req, res) => {
       return res.end(buf)
     }
 
+    // ---------- Social-Content: statische Wochen-HTML (self-contained) ----------
+    if (req.method === 'GET' && url.pathname.startsWith('/files/social/')) {
+      const rel = decodeURIComponent(url.pathname.slice('/files/social/'.length))
+      const dot = rel.lastIndexOf('.')
+      const mime = dot >= 0 ? KUNDEN_MIME[rel.slice(dot).toLowerCase()] : undefined
+      if (!mime) return json(res, 403, { error: 'Dateityp nicht erlaubt' })
+      const root = await socialRootReal()
+      if (!root) return json(res, 404, { error: 'Social-Root existiert nicht' })
+      const real = await realpath(resolve(join(SOCIAL_ROOT, rel)))
+      if (real !== root && !real.startsWith(root + sep)) {
+        return json(res, 403, { error: 'Pfad außerhalb Social-Root' })
+      }
+      const buf = await readFile(real)
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*',
+      })
+      return res.end(buf)
+    }
+
+    if (req.method === 'GET' && url.pathname === '/social/weeks') {
+      return json(res, 200, { weeks: await socialWeeks() })
+    }
+
     // ---------- Kunden-Ads: Register + Manifest ----------
     if (req.method === 'GET' && url.pathname === '/ads/customers') {
       return json(res, 200, { kunden: await kundenRegistry() })
@@ -650,4 +847,14 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[runner] alive auf http://127.0.0.1:${PORT} · Vault: ${VAULT}`)
   // leicht verzögert, damit der Start nicht blockiert
   setTimeout(() => void maybeDream(), 5000)
+
+  // OS-Map-Snapshot für die Live-Domain: einmal beim Start + periodisch spiegeln.
+  if (SNAPSHOT_ENABLED) {
+    console.log(`[runner] Snapshot-Push aktiv → Supabase alle ${Math.round(SNAPSHOT_PUSH_MS / 1000)}s`)
+    setTimeout(() => void pushSnapshot(), 3000)
+    const t = setInterval(() => void pushSnapshot(), SNAPSHOT_PUSH_MS)
+    t.unref?.()
+  } else {
+    console.log('[runner] Snapshot-Push AUS (kein SUPABASE_SERVICE_ROLE_KEY in runner/.env) — Live-Graph bleibt leer')
+  }
 })
