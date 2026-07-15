@@ -217,28 +217,92 @@ export function useDailyMetrics(): UseDailyMetricsResult {
     void refresh()
   }, [refresh, user?.id, activeBrand?.id])
 
-  // Einen Tag zur Server-Wahrheit schreiben (liest den frischen Ref-Stand).
+  // Transiente Fehler (Auth-Lock/Token/Netz) sind KEINE echten Schreibfehler:
+  // GoTrue „stiehlt" beim Token-Refresh bzw. über mehrere Tabs kurz den
+  // Navigator-Lock → NavigatorLockAcquireTimeoutError schlägt bis in den Upsert
+  // durch. Per Design retrybar. Bei sowas NICHT die Eingabe verwerfen.
+  const isTransientWriteError = (msg: string, name?: string): boolean => {
+    const m = `${msg} ${name ?? ''}`.toLowerCase()
+    return (
+      m.includes('stole') || // „…released because another request stole it"
+      m.includes('lock') ||
+      m.includes('abort') ||
+      m.includes('jwt') ||
+      m.includes('token') ||
+      m.includes('refresh') ||
+      m.includes('fetch') || // „Failed to fetch"
+      m.includes('network') ||
+      m.includes('timeout')
+    )
+  }
+
+  // Selbstheilendes persist(): schreibt den FRISCHEN Ref-Stand des Tages und
+  // versucht bei transienten Fehlern mehrfach erneut, ohne die Eingabe zu
+  // verwerfen. Nur ein echter DB-Fehler setzt auf die Server-Wahrheit zurück.
+  const persistRef = useRef<(datum: string) => Promise<void>>(async () => {})
   const persist = useCallback(
     async (datum: string) => {
       const u = userRef.current
       const b = brandRef.current
       if (!supabase || !u || !b) return
-      const row = rowsRef.current.find((r) => r.datum === datum)
-      if (!row) return
-      const { id: _id, ...payload } = row
-      const { error: err } = await supabase.from('daily_metrics').upsert(
-        { ...payload, user_id: u.id, brand_id: b.id },
-        { onConflict: 'user_id,brand_id,datum' },
-      )
-      if (err) {
-        setError(err.message)
-        void refresh() // Server-Wahrheit wiederherstellen
-      } else {
-        setError(null)
+
+      const delays = [0, 350, 900, 1800] // 1 Versuch + 3 Retries
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]))
+
+        // Pro Versuch neu lesen → schnelle Klicks während des Retrys gehen mit.
+        const row = rowsRef.current.find((r) => r.datum === datum)
+        if (!row) return
+        // created_at/updated_at/user_id/brand_id einer geladenen Zeile NICHT
+        // mitschreiben (Trigger/Defaults pflegen sie; created_at bliebe sonst
+        // bei jedem Update überschrieben).
+        const {
+          id: _id,
+          created_at: _c,
+          updated_at: _u2,
+          user_id: _uid,
+          brand_id: _bid,
+          ...payload
+        } = row as DailyMetricsRow & {
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+          brand_id?: string
+        }
+
+        const { error: err } = await supabase.from('daily_metrics').upsert(
+          { ...payload, user_id: u.id, brand_id: b.id },
+          { onConflict: 'user_id,brand_id,datum' },
+        )
+        if (!err) {
+          setError(null)
+          return
+        }
+        if (!isTransientWriteError(err.message, (err as { name?: string }).name)) {
+          // Echter DB-Fehler (Constraint/RLS/fehlende Spalte) → sichtbar machen
+          // und mit Server-Wahrheit abgleichen. NUR hier wird zurückgesetzt.
+          setError(err.message)
+          void refresh()
+          return
+        }
+        // Transient: bei Token/JWT einmal aktiv erneuern, dann weiter retryen.
+        if (/jwt|token|refresh/i.test(err.message)) {
+          try {
+            await supabase.auth.refreshSession()
+          } catch {
+            /* egal — der nächste Versuch zieht die frische Session */
+          }
+        }
       }
+
+      // Retries erschöpft: Eingabe bleibt erhalten (kein refresh()!), sanfter
+      // Hinweis + späterer Selbstheil-Versuch, sobald der Lock frei ist.
+      setError('Speichern hakt kurz (Verbindung/Session) — dein Eintrag bleibt erhalten und wird automatisch nachgezogen.')
+      setTimeout(() => void persistRef.current(datum), 4000)
     },
     [refresh],
   )
+  persistRef.current = persist
 
   // Bündelt schnelle Klicks pro Tag zu einem Write des Endstands (350ms).
   const schedulePersist = useCallback(

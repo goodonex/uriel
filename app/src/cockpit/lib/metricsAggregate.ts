@@ -7,8 +7,26 @@ export function sumField(rows: DailyMetricsRow[], field: keyof DailyMetricsRow):
   return rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0)
 }
 
-export function anfragenTotal(row: DailyMetricsRow): number {
-  // Cold-Mail (coldmails) bewusst nicht mehr enthalten — Kanal aus dem Tracking genommen.
+/**
+ * Kontaktanfragen (Erstkontakt): LinkedIn-Vernetzung + Instagram-Follows.
+ * Im Outcome dasselbe („jemanden neu ansprechen"), darum EIN Topf.
+ */
+export function anfragenSum(row: DailyMetricsRow): number {
+  return row.li_anfragen + row.ig_anfragen
+}
+
+/** Erstnachrichten (DMs) über beide Kanäle — Nachrichten sind Nachrichten. */
+export function nachrichtenSum(row: DailyMetricsRow): number {
+  return row.li_nachrichten + row.ig_nachrichten
+}
+
+/**
+ * Alle Erst-Aktionen eines Tages (Anfragen + Nachrichten + InMails + Cold Calls).
+ * NICHT für die Vitals-Kategorien — dort sind Anfragen/Nachrichten getrennt —,
+ * sondern als Nenner für Funnel-Quoten & Termin-Attribution.
+ * Cold-Mail (coldmails) bewusst raus — Kanal aus dem Tracking genommen.
+ */
+export function aktionenTotal(row: DailyMetricsRow): number {
   return (
     row.li_anfragen +
     row.li_nachrichten +
@@ -55,18 +73,25 @@ export function historySeries(
 export function weekVitals(weekRows: DailyMetricsRow[], monthRows: DailyMetricsRow[]): Vital[] {
   return [
     {
+      key: 'anfragen',
+      label: 'Anfragen',
+      current: weekRows.reduce((a, r) => a + anfragenSum(r), 0),
+      target: WEEK_TARGETS.anfragen,
+      history: historySeries(monthRows, anfragenSum),
+    },
+    {
+      key: 'nachrichten',
+      label: 'Nachrichten',
+      current: weekRows.reduce((a, r) => a + nachrichtenSum(r), 0),
+      target: WEEK_TARGETS.nachrichten,
+      history: historySeries(monthRows, nachrichtenSum),
+    },
+    {
       key: 'looms',
       label: 'Looms',
       current: sumField(weekRows, 'looms'),
       target: WEEK_TARGETS.looms,
       history: historySeries(monthRows, (r) => r.looms),
-    },
-    {
-      key: 'anfragen',
-      label: 'Anfragen',
-      current: weekRows.reduce((a, r) => a + anfragenTotal(r), 0),
-      target: WEEK_TARGETS.anfragen,
-      history: historySeries(monthRows, anfragenTotal),
     },
     {
       key: 'termine',
@@ -108,7 +133,8 @@ export interface FunnelKpis {
 }
 
 export function funnelKpis(monthRows: DailyMetricsRow[], monthRevenue: number): FunnelKpis {
-  const nachrichten = monthRows.reduce((a, r) => a + anfragenTotal(r), 0)
+  // Nenner „Nachricht → Loom" = alle Erst-Aktionen des Monats (unverändert).
+  const nachrichten = monthRows.reduce((a, r) => a + aktionenTotal(r), 0)
   const looms = sumField(monthRows, 'looms')
   const quali = sumField(monthRows, 'quali_termine')
   const kunden = sumField(monthRows, 'abschluesse')
@@ -185,7 +211,7 @@ export function termineAttribution(rows: DailyMetricsRow[]): TermineAttribution 
   const ig = sumField(rows, 'termine_ig')
   const call = sumField(rows, 'termine_call')
   const total = li + ig + call
-  const aktionen = rows.reduce((a, r) => a + anfragenTotal(r), 0)
+  const aktionen = rows.reduce((a, r) => a + aktionenTotal(r), 0)
   return { li, ig, call, total, aktionen, proAktion: aktionen > 0 ? total / aktionen : null }
 }
 

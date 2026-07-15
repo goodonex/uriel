@@ -5,7 +5,11 @@
  */
 
 export const WEEK_TARGETS = {
-  anfragen: 150, // 30/Tag × 5 Tage, alle Kanäle
+  // Getrennt seit der Vitals-Trennung: Anfragen = LI-Vernetzung + IG-Follows,
+  // Nachrichten = LI- + IG-Erstnachrichten. Split der alten Sammel-150
+  // („alle Kanäle") — bei Bedarf hier justieren.
+  anfragen: 75,
+  nachrichten: 75,
   looms: 25,
   termine: 5, // neu vereinbarte Termine (alle Herkunfts-Kanäle)
   abschluesse: 2,
