@@ -128,7 +128,7 @@ create policy "site_assets_owner_all" on storage.objects
     and exists (
       select 1 from deliver_projects dp
       join brands b on b.id = dp.owner_brand_id
-      where dp.id::text = (storage.foldername(name))[1] and b.user_id = auth.uid()
+      where dp.id::text = (storage.foldername(storage.objects.name))[1] and b.user_id = auth.uid()
     )
   )
   with check (
@@ -136,7 +136,7 @@ create policy "site_assets_owner_all" on storage.objects
     and exists (
       select 1 from deliver_projects dp
       join brands b on b.id = dp.owner_brand_id
-      where dp.id::text = (storage.foldername(name))[1] and b.user_id = auth.uid()
+      where dp.id::text = (storage.foldername(storage.objects.name))[1] and b.user_id = auth.uid()
     )
   );
 
@@ -146,5 +146,5 @@ create policy "site_assets_client_insert" on storage.objects
   with check (
     bucket_id = 'site-assets'
     and public.client_portal_project_id() is not null
-    and (storage.foldername(name))[1] = public.client_portal_project_id()::text
+    and (storage.foldername(storage.objects.name))[1] = public.client_portal_project_id()::text
   );

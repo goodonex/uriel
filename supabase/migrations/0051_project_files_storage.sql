@@ -17,7 +17,7 @@ create policy "project_files_owner_all" on storage.objects
       select 1
       from deliver_projects dp
       join brands b on b.id = dp.owner_brand_id
-      where dp.id::text = (storage.foldername(name))[1]
+      where dp.id::text = (storage.foldername(storage.objects.name))[1]
         and b.user_id = auth.uid()
     )
   )
@@ -27,7 +27,7 @@ create policy "project_files_owner_all" on storage.objects
       select 1
       from deliver_projects dp
       join brands b on b.id = dp.owner_brand_id
-      where dp.id::text = (storage.foldername(name))[1]
+      where dp.id::text = (storage.foldername(storage.objects.name))[1]
         and b.user_id = auth.uid()
     )
   );
@@ -39,7 +39,7 @@ create policy "project_files_client_select" on storage.objects
   using (
     bucket_id = 'project-files'
     and public.client_portal_project_id() is not null
-    and (storage.foldername(name))[1] = public.client_portal_project_id()::text
+    and (storage.foldername(storage.objects.name))[1] = public.client_portal_project_id()::text
   );
 
 -- Client: hochladen ins eigene Projekt (kein Update/Delete)
@@ -49,5 +49,5 @@ create policy "project_files_client_insert" on storage.objects
   with check (
     bucket_id = 'project-files'
     and public.client_portal_project_id() is not null
-    and (storage.foldername(name))[1] = public.client_portal_project_id()::text
+    and (storage.foldername(storage.objects.name))[1] = public.client_portal_project_id()::text
   );
