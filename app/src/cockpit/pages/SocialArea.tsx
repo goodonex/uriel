@@ -1,96 +1,120 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  fetchSocialWeeks,
-  getSeenWeeks,
-  markWeekSeen,
-  socialFileUrl,
-  type SocialWeek,
-} from '../lib/socialApi'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useActiveBrand } from '../lib/activeBrand'
+import { getSeenWeeks, markWeekSeen, syncSocialBatchesFromRunner } from '../lib/socialApi'
+import { loadSocialBatchHtml, loadSocialBatchList, type SocialBatchMeta } from '../lib/socialBatchStore'
 
 /**
  * Content-Area (Cockpit /content): die wöchentlichen Content-Batches der
- * Content-Engine landen hier als „Nachricht" statt als E-Mail. Quelle sind die
- * self-contained woche-<KW>.html unter 04_social/content-engine/weekly/, gelesen
- * über den lokalen Runner (funktioniert, wenn das Cockpit lokal läuft — wie /ads).
+ * Content-Engine als „Nachricht" statt E-Mail. Quelle = Supabase (social_batches,
+ * 0056) → funktioniert live/mobil über HTTPS. Ist das Cockpit lokal geöffnet und
+ * der Runner erreichbar, werden frische Wochen vorher vom Filesystem gespiegelt.
+ * Die self-contained Wochen-HTML wird per srcdoc gerendert (kein Mixed Content).
  */
 const DATE_FMT = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export function SocialArea() {
-  const [weeks, setWeeks] = useState<SocialWeek[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { activeSlug } = useActiveBrand()
+  const [list, setList] = useState<SocialBatchMeta[] | null>(null)
   const [activeWeek, setActiveWeek] = useState<string | null>(null)
+  const [html, setHtml] = useState<string | null>(null)
+  const [htmlLoading, setHtmlLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [seenTick, setSeenTick] = useState(0)
+  const htmlCache = useRef<Map<string, string>>(new Map())
+
+  const refreshList = useCallback(async () => {
+    const rows = await loadSocialBatchList(activeSlug)
+    setList(rows)
+    return rows
+  }, [activeSlug])
+
+  const openWeek = useCallback(
+    async (week: string) => {
+      setActiveWeek(week)
+      markWeekSeen(week)
+      setSeenTick((t) => t + 1)
+      const cached = htmlCache.current.get(week)
+      if (cached != null) {
+        setHtml(cached)
+        return
+      }
+      setHtmlLoading(true)
+      setHtml(null)
+      const h = await loadSocialBatchHtml(activeSlug, week)
+      htmlCache.current.set(week, h ?? '')
+      setHtml(h ?? '')
+      setHtmlLoading(false)
+    },
+    [activeSlug],
+  )
 
   useEffect(() => {
-    fetchSocialWeeks()
-      .then((w) => {
-        setWeeks(w)
-        // Neueste Woche direkt öffnen (und als gesehen markieren).
-        if (w[0]) {
-          setActiveWeek(w[0].week)
-          markWeekSeen(w[0].week)
-        }
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-  }, [])
+    let alive = true
+    htmlCache.current.clear()
+    setList(null)
+    ;(async () => {
+      // Erst schnell aus Supabase zeigen …
+      let rows = await refreshList()
+      // … dann lokal frische Wochen spiegeln (no-op ohne Runner) und neu laden.
+      setSyncing(true)
+      const synced = await syncSocialBatchesFromRunner(activeSlug).catch(() => 0)
+      if (!alive) return
+      setSyncing(false)
+      if (synced > 0) rows = await refreshList()
+      if (!alive) return
+      if (rows[0]) void openWeek(rows[0].week)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [activeSlug, refreshList, openWeek])
 
-  const seen = useMemo(() => getSeenWeeks(), [seenTick, weeks])
-  const active = useMemo(() => weeks?.find((w) => w.week === activeWeek) ?? null, [weeks, activeWeek])
+  const seen = useMemo(() => getSeenWeeks(), [seenTick, list])
+  const active = useMemo(() => list?.find((w) => w.week === activeWeek) ?? null, [list, activeWeek])
 
-  const open = (w: SocialWeek) => {
-    setActiveWeek(w.week)
-    markWeekSeen(w.week)
-    setSeenTick((t) => t + 1)
+  const openInTab = () => {
+    if (!html) return
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+    window.open(url, '_blank', 'noopener')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
-  if (error) {
-    return (
-      <div style={{ maxWidth: 820 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Content · Wochen-Batches</div>
-        <div
-          className="ck-panel"
-          style={{ padding: '12px 14px', border: '1px solid var(--ck-warn)', color: 'var(--ck-warn)', fontSize: 12.5 }}
-        >
-          Runner nicht erreichbar: {error}
-          <div className="ck-label" style={{ marginTop: 6, color: 'var(--ck-text-3)' }}>
-            Der Content-Bereich liest die Wochen-Pakete lokal über den Runner — starte das Cockpit
-            mit <code>npm run cockpit:full</code>, dann erscheinen die Batches hier.
-          </div>
-        </div>
-      </div>
-    )
-  }
-  if (!weeks) return <p className="ck-label">Lade…</p>
+  if (!list) return <p className="ck-label">Lade…</p>
 
   return (
     <div style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 600 }}>Content · Wochen-Batches</div>
         <div className="ck-label" style={{ marginTop: 2 }}>
-          {weeks.length > 0
-            ? `${weeks.length} Woche${weeks.length === 1 ? '' : 'n'} · vom Montags-Lauf geliefert`
+          {list.length > 0
+            ? `${list.length} Woche${list.length === 1 ? '' : 'n'} · vom Montags-Lauf geliefert`
             : 'Noch kein Batch — der Montags-Lauf legt hier die Woche als klickbares Paket ab'}
+          {syncing ? ' · spiegle lokal…' : ''}
         </div>
       </div>
 
-      {weeks.length === 0 ? (
+      {list.length === 0 ? (
         <div className="ck-panel" style={{ padding: 20, textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: 'var(--ck-text-2)', margin: 0 }}>
-            Sobald der Montags-Lauf (Content-Engine) eine Woche gebaut hat, taucht sie hier als
-            Nachricht auf — sichten, auswählen, selbst posten.
+            Sobald der Montags-Lauf eine Woche gebaut hat, taucht sie hier als Nachricht auf —
+            sichten, auswählen, selbst posten.
+          </p>
+          <p className="ck-label" style={{ marginTop: 8, color: 'var(--ck-text-3)' }}>
+            Bestehende Wochen erscheinen, sobald das Cockpit einmal lokal mit laufendem Runner
+            geöffnet wird (spiegelt die Pakete nach Supabase).
           </p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 300px) 1fr', gap: 16, alignItems: 'start' }}>
           {/* Liste = „Posteingang" */}
           <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
-            {weeks.map((w) => {
+            {list.map((w) => {
               const isNew = !seen.has(w.week)
               const isActive = w.week === activeWeek
               return (
                 <button
                   key={w.week}
-                  onClick={() => open(w)}
+                  onClick={() => void openWeek(w.week)}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -103,34 +127,37 @@ export function SocialArea() {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    {isNew ? (
-                      <span
-                        aria-label="neu"
-                        style={{ width: 7, height: 7, borderRadius: 99, background: 'var(--ck-accent)', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <span style={{ width: 7, flexShrink: 0 }} />
-                    )}
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 7,
+                        height: 7,
+                        flexShrink: 0,
+                        borderRadius: 99,
+                        background: isNew ? 'var(--ck-accent)' : 'transparent',
+                      }}
+                    />
                     <span style={{ fontSize: 13, fontWeight: isNew ? 600 : 500 }}>{w.week}</span>
-                    {isNew ? (
-                      <span
-                        className="ck-label"
-                        style={{ marginLeft: 'auto', color: 'var(--ck-accent)', fontSize: 10 }}
-                      >
+                    {w.posted ? (
+                      <span className="ck-label" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ck-accent)' }}>
+                        gepostet
+                      </span>
+                    ) : isNew ? (
+                      <span className="ck-label" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ck-accent)' }}>
                         neu
                       </span>
                     ) : null}
                   </span>
                   <span className="ck-label" style={{ display: 'block', marginLeft: 14, marginTop: 3 }}>
                     {w.postsCount > 0 ? `${w.postsCount} Posts · ` : ''}
-                    {w.mtime ? DATE_FMT.format(new Date(w.mtime)) : ''}
+                    {w.generatedAt ? DATE_FMT.format(new Date(w.generatedAt)) : ''}
                   </span>
                 </button>
               )
             })}
           </div>
 
-          {/* Vorschau der self-contained Wochen-HTML */}
+          {/* Vorschau der self-contained Wochen-HTML (srcdoc) */}
           <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
             {active ? (
               <>
@@ -145,23 +172,26 @@ export function SocialArea() {
                     flexWrap: 'wrap',
                   }}
                 >
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{active.title}</span>
-                  <a
-                    className="ck-btn"
-                    style={{ fontSize: 11.5, textDecoration: 'none' }}
-                    href={socialFileUrl(active.htmlPath)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{active.title || `Woche ${active.week}`}</span>
+                  <button className="ck-btn" style={{ fontSize: 11.5 }} onClick={openInTab} disabled={!html}>
                     In neuem Tab ↗
-                  </a>
+                  </button>
                 </div>
-                <iframe
-                  key={active.week}
-                  src={socialFileUrl(active.htmlPath)}
-                  title={active.title}
-                  style={{ width: '100%', height: '72vh', border: 'none', background: '#fff', display: 'block' }}
-                />
+                {htmlLoading ? (
+                  <p className="ck-label" style={{ padding: 16 }}>Lade Vorschau…</p>
+                ) : html ? (
+                  <iframe
+                    key={active.week}
+                    srcDoc={html}
+                    title={active.title || active.week}
+                    // Eigener, self-generierter Content → allow-scripts für die
+                    // Galerie-Interaktion (Lightbox/Navigation) ist unbedenklich.
+                    sandbox="allow-same-origin allow-scripts allow-popups"
+                    style={{ width: '100%', height: '72vh', border: 'none', background: '#fff', display: 'block' }}
+                  />
+                ) : (
+                  <p className="ck-label" style={{ padding: 16 }}>Für diese Woche liegt kein Inhalt vor.</p>
+                )}
               </>
             ) : (
               <p className="ck-label" style={{ padding: 16 }}>Woche links wählen.</p>

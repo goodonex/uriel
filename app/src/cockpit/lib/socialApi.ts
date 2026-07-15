@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RUNNER_BASE_URL } from './useRunnerStatus'
+import { useActiveBrandOptional } from './activeBrand'
+import { loadSocialBatchList, saveSocialBatch } from './socialBatchStore'
 
 /**
  * Social-Content (Cockpit /content): die wöchentlichen Content-Batches der
@@ -56,30 +58,74 @@ export function markWeekSeen(week: string): void {
   }
 }
 
-/** Anzahl noch nicht gesichteter Wochen — für den Nav-Badge („Meldung oben"). */
+/**
+ * Spiegelt neue/aktualisierte Wochen vom Runner nach Supabase (nur lokal, wo der
+ * Runner erreichbar ist). Vergleicht per mtime — schon aktuelle Wochen werden
+ * übersprungen (kein unnötiger HTML-Transfer). Gibt die Zahl gespiegelter Wochen
+ * zurück. Runner offline → 0, kein Fehler.
+ */
+export async function syncSocialBatchesFromRunner(brandSlug: string): Promise<number> {
+  let weeks: SocialWeek[]
+  try {
+    weeks = await fetchSocialWeeks()
+  } catch {
+    return 0 // Runner nicht erreichbar (z.B. Live-Domain/Handy) → nichts zu spiegeln
+  }
+  const known = new Map(
+    (await loadSocialBatchList(brandSlug)).map((b) => [b.week, b.sourceMtime ?? 0]),
+  )
+  let synced = 0
+  for (const w of weeks) {
+    const have = known.get(w.week)
+    if (have != null && have >= w.mtime) continue // schon aktuell
+    try {
+      const res = await fetch(socialFileUrl(w.htmlPath), { cache: 'no-store' })
+      if (!res.ok) continue
+      const html = await res.text()
+      await saveSocialBatch(brandSlug, {
+        week: w.week,
+        title: w.title,
+        html,
+        postsCount: w.postsCount,
+        sourceMtime: w.mtime,
+      })
+      synced++
+    } catch {
+      /* einzelne Woche überspringen, Rest weiter */
+    }
+  }
+  return synced
+}
+
+/**
+ * Anzahl noch nicht gesichteter Wochen — für den Nav-Badge („Meldung oben").
+ * Quelle ist Supabase (funktioniert live/mobil); ist der Runner lokal erreichbar,
+ * wird vorher gespiegelt, sodass neue Batches sofort auftauchen.
+ */
 export function useSocialUnread(): number {
+  const brand = useActiveBrandOptional()
+  const brandSlug = brand?.activeSlug ?? 'herrmann'
   const [count, setCount] = useState(0)
   useEffect(() => {
     let alive = true
-    const load = () =>
-      fetchSocialWeeks()
-        .then((weeks) => {
-          if (!alive) return
-          const seen = getSeenWeeks()
-          setCount(weeks.filter((w) => !seen.has(w.week)).length)
-        })
-        .catch(() => {
-          if (alive) setCount(0) // Runner aus → kein Badge, kein Lärm
-        })
-    load()
-    const onSeen = () => load()
+    const load = async () => {
+      await syncSocialBatchesFromRunner(brandSlug) // no-op wenn Runner offline
+      const list = await loadSocialBatchList(brandSlug)
+      if (!alive) return
+      const seen = getSeenWeeks()
+      setCount(list.filter((w) => !seen.has(w.week)).length)
+    }
+    void load().catch(() => {
+      if (alive) setCount(0)
+    })
+    const onSeen = () => void load().catch(() => {})
     window.addEventListener(SEEN_EVENT, onSeen)
-    const iv = window.setInterval(load, 60_000)
+    const iv = window.setInterval(() => void load().catch(() => {}), 60_000)
     return () => {
       alive = false
       window.removeEventListener(SEEN_EVENT, onSeen)
       clearInterval(iv)
     }
-  }, [])
+  }, [brandSlug])
   return count
 }
