@@ -26,6 +26,20 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return body
 }
 
+export interface AgentInfo {
+  id: string
+  label: string
+  description: string
+  kind: 'readonly' | 'write'
+  running: boolean
+}
+
+/** Agenten-Katalog fürs Cockpit (/agenten). */
+export async function fetchAgents(): Promise<AgentInfo[]> {
+  const { agents } = await req<{ agents: AgentInfo[] }>('/agents')
+  return agents
+}
+
 export function postRun(agent: string, input?: Record<string, unknown>) {
   return req<{ id: string; agent: string; startedAt: string }>('/run', {
     method: 'POST',

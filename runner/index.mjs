@@ -67,8 +67,73 @@ const SOCIAL_ROOT = resolve(
 )
 const SOCIAL_WEEKLY = join(SOCIAL_ROOT, 'content-engine', 'weekly')
 
-/** Erlaubte Agenten = Skills im Vault. Alles andere wird abgelehnt. */
-const AGENTS = new Set(['wochenrecap', 'followup-entwuerfe', 'lead-research', 'dream-check'])
+/**
+ * Agenten-Katalog fürs Cockpit (/agenten). Zwei Sorten:
+ *  - kind:'readonly' → Vault-Skills (`/slug`), cwd=VAULT, kein Schreibrecht;
+ *    der Agent liefert Markdown auf stdout, der Runner schreibt die Datei.
+ *  - kind:'write'    → autonome Agenten mit eigenem cwd + Schreib-/Bash-Recht
+ *    (z.B. Content-Batch: baut selbst Post-HTMLs + Galerie via build-gallery.mjs).
+ * `prompt` bei write-Agenten ist ein direkter Auftrag (kein Slash-Command nötig).
+ */
+const AGENT_CATALOG = [
+  {
+    id: 'weekly-content',
+    label: 'Content-Batch (Woche)',
+    description:
+      'Baut den wöchentlichen Instagram-Content-Batch (Content-Engine) und legt die klickbare Galerie-HTML ab.',
+    kind: 'write',
+    cwd: SOCIAL_ROOT,
+    prompt:
+      'Führe den wöchentlichen Content-Batch aus. Befolge exakt die Anleitung in ' +
+      'content-engine/WEEKLY.md in DIESEM Ordner: bestimme die ISO-Woche, ziehe 3 frische ' +
+      'Angles aus content-engine/backlog.md (Abgleich mit content-engine/log.md), baue je Angle ' +
+      'ein Post-HTML + Captions, erzeuge die Galerie mit build-gallery.mjs und trage die Woche in ' +
+      'content-engine/log.md ein. Kein Auto-Posting — nur das Review-Paket bauen.',
+  },
+  {
+    id: 'wochenrecap',
+    label: 'Wochenrecap',
+    description: 'Fasst die Woche aus Vault + CRM zusammen (Fortschritt, Zahlen, offene Punkte).',
+    kind: 'readonly',
+  },
+  {
+    id: 'followup-entwuerfe',
+    label: 'Follow-up-Entwürfe',
+    description: 'Entwirft fällige Follow-up-Nachrichten für offene Leads.',
+    kind: 'readonly',
+  },
+  {
+    id: 'lead-research',
+    label: 'Lead-Research',
+    description: 'Recherchiert einen Lead/Kandidaten und fasst Kernpunkte zusammen.',
+    kind: 'readonly',
+  },
+  {
+    id: 'dream-check',
+    label: 'Dream-Check',
+    description: 'Tägliche Kurzanalyse der eigenen Skill-Nutzung + 1–2 Verbesserungsideen.',
+    kind: 'readonly',
+  },
+]
+
+const AGENT_BY_ID = new Map(AGENT_CATALOG.map((a) => [a.id, a]))
+
+/** Ausführungs-Konfig je Agent: cwd, Prompt-Builder, zusätzliche CLI-Flags. */
+function agentConfig(agent) {
+  const a = AGENT_BY_ID.get(agent)
+  if (!a) return null
+  if (a.kind === 'write') {
+    return {
+      cwd: a.cwd,
+      buildPrompt: (inputBlock) => `${a.prompt}${inputBlock}`,
+      // Scoped, KEIN Blanket-Bypass: acceptEdits erlaubt nur Datei-Writes im
+      // cwd; die konkreten Build-Befehle (node/mkdir/…) sind in a.cwd/.claude/
+      // settings.json allow-gelistet. Alles andere wird headless verweigert.
+      extraArgs: ['--permission-mode', 'acceptEdits'],
+    }
+  }
+  return { cwd: VAULT, buildPrompt: (inputBlock) => `/${agent}${inputBlock}`, extraArgs: [] }
+}
 
 // ---------- Zustand ----------
 /** @type {Map<string, {id:string, agent:string, startedAt:string, proc:import('node:child_process').ChildProcess}>} */
@@ -140,10 +205,13 @@ async function startRun(agent, input) {
     'utf8',
   )
 
+  const cfg = agentConfig(agent)
+  if (!cfg) throw Object.assign(new Error(`Unbekannter Agent: ${agent}`), { code: 'EAGENT' })
+
   const inputBlock = input && Object.keys(input).length
     ? `\n\nEingabedaten (JSON):\n\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``
     : ''
-  const prompt = `/${agent}${inputBlock}`
+  const prompt = cfg.buildPrompt(inputBlock)
 
   // Unter launchd fehlt claude oft im PATH → gängige Bin-Verzeichnisse anhängen.
   const extraBins = [
@@ -154,11 +222,15 @@ async function startRun(agent, input) {
   ]
   const PATH = [process.env.PATH ?? '', ...extraBins].filter(Boolean).join(':')
 
-  const proc = spawn(process.env.CLAUDE_BIN ?? 'claude', ['-p', prompt, '--output-format', 'text'], {
-    cwd: VAULT,
-    env: { ...process.env, PATH },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const proc = spawn(
+    process.env.CLAUDE_BIN ?? 'claude',
+    ['-p', prompt, '--output-format', 'text', ...cfg.extraArgs],
+    {
+      cwd: cfg.cwd,
+      env: { ...process.env, PATH },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
 
   let stdout = ''
   let stderr = ''
@@ -643,10 +715,24 @@ const server = createServer(async (req, res) => {
       })
     }
 
+    // Agenten-Katalog fürs Cockpit (/agenten): Liste + Run-Buttons.
+    if (req.method === 'GET' && url.pathname === '/agents') {
+      const runningIds = new Set([...running.values()].map((r) => r.agent))
+      return json(res, 200, {
+        agents: AGENT_CATALOG.map((a) => ({
+          id: a.id,
+          label: a.label,
+          description: a.description,
+          kind: a.kind,
+          running: runningIds.has(a.id),
+        })),
+      })
+    }
+
     if (req.method === 'POST' && url.pathname === '/run') {
       const body = await readBody(req)
       const agent = String(body.agent ?? '')
-      if (!AGENTS.has(agent)) return json(res, 400, { error: `Unbekannter Agent: ${agent}` })
+      if (!AGENT_BY_ID.has(agent)) return json(res, 400, { error: `Unbekannter Agent: ${agent}` })
       if ([...running.values()].some((r) => r.agent === agent)) {
         return json(res, 409, { error: `${agent} läuft bereits` })
       }

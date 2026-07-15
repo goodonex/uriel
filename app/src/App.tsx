@@ -31,6 +31,7 @@ import { EmailArea } from './cockpit/pages/EmailArea'
 import { TrackingArea } from './cockpit/pages/TrackingArea'
 import { AdsArea } from './cockpit/pages/AdsArea'
 import { SocialArea } from './cockpit/pages/SocialArea'
+import { AgentsArea } from './cockpit/pages/AgentsArea'
 
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -206,6 +207,7 @@ function App() {
                 <Route path="/projekte/*" element={<ProjekteArea />} />
                 <Route path="/ads/*" element={<AdsArea />} />
               <Route path="/content/*" element={<SocialArea />} />
+              <Route path="/agenten" element={<AgentsArea />} />
                 <Route path="/email/*" element={<EmailArea />} />
                 <Route path="/tracking" element={<TrackingArea />} />
               </Route>
