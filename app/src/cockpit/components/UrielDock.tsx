@@ -330,6 +330,11 @@ export function UrielDock() {
               </div>
             ) : null}
             {error ? <p className="ck-label" style={{ color: 'var(--ck-warn)' }}>{error}</p> : null}
+            {voice.voiceError ? (
+              <p className="ck-label" style={{ color: 'var(--ck-warn)' }}>
+                Stimme: {voice.voiceError} — Browser-Fallback aktiv.
+              </p>
+            ) : null}
           </div>
 
           {/* Eingabe */}

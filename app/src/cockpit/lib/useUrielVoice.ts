@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+
 /**
  * Uriel-Stimme (Phase A). Sprechen über ElevenLabs (Edge Function `uriel-voice`,
  * Key serverseitig) statt Browser-Roboterstimme — mit Browser-Fallback, falls
@@ -52,6 +55,8 @@ export interface UrielVoice {
   ttsSupported: boolean
   listening: boolean
   speaking: boolean
+  /** Letzter Stimm-Fehler (ElevenLabs), damit ein Fallback nicht stumm bleibt. */
+  voiceError: string | null
   /** Push-to-talk: onInterim = live mitlaufender Text, onFinal = fertiger Satz. */
   startListening: (onInterim: (text: string) => void, onFinal: (text: string) => void) => void
   stopListening: () => void
@@ -62,6 +67,7 @@ export interface UrielVoice {
 export function useUrielVoice(): UrielVoice {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const recRef = useRef<SpeechRecognitionLike | null>(null)
   const finalRef = useRef('')
   const onFinalRef = useRef<((t: string) => void) | null>(null)
@@ -162,11 +168,33 @@ export function useUrielVoice(): UrielVoice {
       setSpeaking(true)
       try {
         if (!supabase) throw new Error('no supabase')
-        const { data, error } = await supabase.functions.invoke('uriel-voice', {
-          body: { text: clean },
+        // WICHTIG: supabase.functions.invoke liest audio/mpeg fälschlich als Text
+        // (nur application/octet-stream → Blob) und zerstört die Binärdaten.
+        // Darum direkter fetch mit dem Session-Token → sauberes Audio-Blob.
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token
+        if (!token) throw new Error('no session')
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/uriel-voice`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            apikey: SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ text: clean }),
         })
-        if (error || !(data instanceof Blob) || data.size === 0) throw error ?? new Error('no audio')
-        const url = URL.createObjectURL(data)
+        if (!res.ok) {
+          let detail = `${res.status}`
+          try {
+            const j = await res.json()
+            if (j?.message) detail = j.message
+          } catch { /* kein JSON-Body */ }
+          throw new Error(`ElevenLabs: ${detail}`)
+        }
+        const blob = await res.blob()
+        if (blob.size === 0) throw new Error('leeres Audio')
+        setVoiceError(null)
+        const url = URL.createObjectURL(blob)
         const audio = new Audio(url)
         audioRef.current = audio
         audio.onended = () => {
@@ -179,8 +207,11 @@ export function useUrielVoice(): UrielVoice {
           URL.revokeObjectURL(url)
         }
         await audio.play()
-      } catch {
-        // Fallback: Browser-Stimme (bis ElevenLabs-Key gesetzt ist).
+      } catch (e) {
+        // Fallback: Browser-Stimme — aber Fehler sichtbar machen (nicht stumm).
+        const msg = e instanceof Error ? e.message : 'Stimme fehlgeschlagen'
+        setVoiceError(msg)
+        console.warn('[Uriel-Stimme] Fallback auf Browser:', msg)
         browserSpeak(clean)
       }
     },
@@ -198,5 +229,5 @@ export function useUrielVoice(): UrielVoice {
     }
   }, [])
 
-  return { sttSupported, ttsSupported, listening, speaking, startListening, stopListening, speak, cancelSpeak }
+  return { sttSupported, ttsSupported, listening, speaking, voiceError, startListening, stopListening, speak, cancelSpeak }
 }

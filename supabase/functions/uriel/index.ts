@@ -44,7 +44,11 @@ Deno.serve(async (req) => {
   }
 
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim()
-  const anthropicModel = Deno.env.get('ANTHROPIC_MODEL')?.trim() || 'claude-sonnet-5'
+  // Uriel läuft bewusst auf einem schnellen Modell (Haiku): Cockpit-Kommandos =
+  // Tool wählen, Ergebnis lesen, knapp antworten — da zählt Reaktionszeit mehr
+  // als Tiefe. Eigene Env, damit der geteilte ANTHROPIC_MODEL (sonnet, für
+  // brand-assistant) unberührt bleibt.
+  const anthropicModel = Deno.env.get('URIEL_MODEL')?.trim() || 'claude-haiku-4-5-20251001'
   if (!anthropicKey) {
     return json(500, { ok: false, message: 'ANTHROPIC_API_KEY fehlt — Uriel nicht verfügbar.' })
   }
