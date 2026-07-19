@@ -16,15 +16,28 @@ export interface UrielTool {
 }
 
 export const URIEL_TOOLS: UrielTool[] = [
+  // ---- Gedächtnis (Client persistiert lokal) ----
+  {
+    name: 'remember',
+    description:
+      'Merkt dir dauerhaft einen kurzen Fakt über Kevin oder seine Arbeit (Präferenz, Kontext, Entscheidung, Person), damit du ihn in KÜNFTIGEN Gesprächen kennst. Nutze das still im Hintergrund, wenn etwas Merkenswertes fällt — kündige es nicht groß an. Ein Fakt = ein knapper Satz.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        fact: { type: 'string', description: 'Der zu merkende Fakt, ein knapper Satz.' },
+      },
+      required: ['fact'],
+    },
+  },
   // ---- UI-Steuerung (Client führt aus) ----
   {
     name: 'set_graph_view',
     description:
-      'Schaltet den Nebula-Graphen im Cockpit auf eine der drei Ansichten. "leads" = Vertriebs-Pipelines (Kaltakquise/Loom/Sales), "rings" = Betriebssystem-Ringe (Skills/Memory/Routines/Apps), "nebula" = Galaxie-Cluster nach Bereich. Nutze das, wenn Kevin eine Ansicht sehen will.',
+      'Schaltet den Nebula-Graphen im Cockpit auf eine der Ansichten. "leads" = Vertriebs-Pipelines (Kaltakquise/Loom/Sales), "rings" = Betriebssystem-Ringe (Skills/Memory/Routines/Apps), "nebula" = Galaxie-Cluster nach Bereich, "workflows" = Agenten und ihre letzten Läufe (Status-Farben). Nutze das, wenn Kevin eine Ansicht sehen will.',
     input_schema: {
       type: 'object',
       properties: {
-        view: { type: 'string', enum: ['rings', 'nebula', 'leads'] },
+        view: { type: 'string', enum: ['rings', 'nebula', 'leads', 'workflows'] },
       },
       required: ['view'],
     },

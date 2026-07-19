@@ -110,6 +110,12 @@ const AGENT_CATALOG = [
     kind: 'readonly',
   },
   {
+    id: 'morgenbrief',
+    label: 'Morgen-Brief',
+    description: 'Knapper Tagesstart: fällige Follow-ups, Akquise-Stand, ein Fokus-Satz.',
+    kind: 'readonly',
+  },
+  {
     id: 'followup-entwuerfe',
     label: 'Follow-up-Entwürfe',
     description: 'Entwirft fällige Follow-up-Nachrichten für offene Leads.',
@@ -786,6 +792,26 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/os/map') {
       return json(res, 200, await osMap({ fresh: url.searchParams.get('fresh') === '1' }))
+    }
+
+    // Kalender-Proxy: holt eine private iCal-URL (z. B. Google Calendar) server-
+    // seitig (Browser blockt das als Mixed-Content/CORS) und gibt den Rohtext
+    // zurück. Das Parsen macht die App (testbar). Nur https, 10s-Timeout, ~4MB-Cap.
+    if (req.method === 'GET' && url.pathname === '/calendar') {
+      const ical = url.searchParams.get('url') ?? ''
+      if (!/^https:\/\//i.test(ical)) return json(res, 400, { error: 'nur https iCal-URL erlaubt' })
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 10_000)
+      try {
+        const r = await fetch(ical, { signal: ctrl.signal, redirect: 'follow' })
+        if (!r.ok) return json(res, 502, { error: `Kalender-Quelle antwortete ${r.status}` })
+        const text = (await r.text()).slice(0, 4_000_000)
+        return json(res, 200, { ical: text })
+      } catch (e) {
+        return json(res, 502, { error: `Kalender nicht erreichbar: ${e instanceof Error ? e.message : e}` })
+      } finally {
+        clearTimeout(timer)
+      }
     }
 
     if (req.method === 'GET' && url.pathname === '/os/file') {

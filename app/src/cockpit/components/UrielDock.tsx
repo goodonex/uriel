@@ -13,7 +13,7 @@ import {
   termineVereinbartTotal,
   weekVitals,
 } from '../lib/metricsAggregate'
-import { MONTH_TARGETS, currentSoll, formatEuro } from '../lib/goals'
+import { currentSoll, formatEuro, monthTargetFor } from '../lib/goals'
 import { useUrielVoice } from '../lib/useUrielVoice'
 import {
   URIEL_MODELS,
@@ -25,6 +25,15 @@ import {
   type UrielVoiceSettings,
 } from '../lib/urielVoiceSettings'
 import { runUrielTurn, type ToolResult, type UrielAction, type UrielMessage } from '../lib/urielAgent'
+import {
+  createThread,
+  deleteThread,
+  loadThread,
+  loadThreads,
+  saveThreadContent,
+  type UrielThread,
+} from '../lib/urielThreads'
+import { addMemory, loadMemory, removeMemory, type UrielFact } from '../lib/urielMemory'
 import type { ViewMode } from '../graph/nebulaLayout'
 
 const AREA_PATH: Record<string, string> = {
@@ -37,7 +46,12 @@ const AREA_PATH: Record<string, string> = {
   email: '/email',
   tracking: '/tracking',
 }
-const VIEW_LABEL: Record<ViewMode, string> = { rings: 'Ringe', nebula: 'Nebula', leads: 'Leads' }
+const VIEW_LABEL: Record<ViewMode, string> = {
+  rings: 'Ringe',
+  nebula: 'Nebula',
+  leads: 'Leads',
+  workflows: 'Agenten',
+}
 
 interface DisplayTurn {
   role: 'user' | 'uriel'
@@ -69,6 +83,41 @@ export function UrielDock() {
   const voicesLoadedRef = useRef(false)
   const historyRef = useRef<UrielMessage[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const turnsRef = useRef<DisplayTurn[]>([])
+  turnsRef.current = turns
+
+  // Persistente Chats (Phase C) — Threads + „remember"-Gedächtnis, localStorage.
+  const [threads, setThreads] = useState<UrielThread[]>(() => loadThreads())
+  const [activeThreadId, setActiveThreadId] = useState<string>(() => {
+    const t = loadThreads()
+    return t[0]?.id ?? createThread().id
+  })
+  const [showThreads, setShowThreads] = useState(false)
+  const [memory, setMemory] = useState<UrielFact[]>(() => loadMemory())
+
+  // Aktiven Thread laden (Inhalt + History) — bei Wechsel und beim Mount.
+  useEffect(() => {
+    const t = loadThread(activeThreadId)
+    setTurns(t?.turns ?? [])
+    historyRef.current = t?.messages ?? []
+    setThreads(loadThreads())
+  }, [activeThreadId])
+
+  const newChat = useCallback(() => {
+    const nt = createThread()
+    setActiveThreadId(nt.id)
+    setShowThreads(false)
+  }, [])
+
+  const removeThread = useCallback(
+    (id: string) => {
+      deleteThread(id)
+      const rest = loadThreads()
+      setThreads(rest)
+      if (id === activeThreadId) setActiveThreadId(rest[0]?.id ?? createThread().id)
+    },
+    [activeThreadId],
+  )
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -114,6 +163,11 @@ export function UrielDock() {
   const execute = useCallback(
     async (name: string, input: Record<string, unknown>): Promise<ToolResult> => {
       switch (name) {
+        case 'remember': {
+          const fact = String(input.fact ?? '').trim()
+          if (fact) setMemory(addMemory(fact))
+          return { ok: true, summary: fact ? `gemerkt: ${fact}` : 'nichts zu merken', data: { done: true } }
+        }
         case 'set_graph_view': {
           const view = input.view as ViewMode
           ensureCockpit()
@@ -176,7 +230,7 @@ export function UrielDock() {
         }
         case 'get_month_revenue': {
           const monthKey = new Date().toISOString().slice(0, 7)
-          const target = MONTH_TARGETS[monthKey]
+          const target = monthTargetFor(monthKey)
           const monthRevenue = sumField(metrics.monthRows, 'umsatz')
           const data = {
             brand: activeBrand?.name ?? activeSlug,
@@ -228,17 +282,25 @@ export function UrielDock() {
       setDraft('')
       setError(null)
       setBusy(true)
-      setTurns((t) => [...t, { role: 'user', text: msg }])
+      const withUser: DisplayTurn[] = [...turnsRef.current, { role: 'user', text: msg }]
+      setTurns(withUser)
       try {
         const result = await runUrielTurn(historyRef.current, msg, execute, {
           brandName: activeBrand?.name,
           brandSlug: activeSlug,
           date: new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }),
           area: location.pathname.replace('/', '') || 'cockpit',
+          memory: memory.map((f) => f.text),
         })
         historyRef.current = result.messages
         const finalText = result.finalText || '(keine Antwort)'
-        setTurns((t) => [...t, { role: 'uriel', text: finalText, actions: result.actions }])
+        const withUriel: DisplayTurn[] = [
+          ...withUser,
+          { role: 'uriel', text: finalText, actions: result.actions },
+        ]
+        setTurns(withUriel)
+        setThreads(saveThreadContent(activeThreadId, result.messages, withUriel))
+        setMemory(loadMemory()) // falls Uriel im Zug via remember etwas gemerkt hat
         if (speakReplies) voice.speak(finalText)
       } catch (e) {
         setError((e as Error).message)
@@ -246,7 +308,7 @@ export function UrielDock() {
         setBusy(false)
       }
     },
-    [busy, execute, activeBrand, activeSlug, location.pathname, speakReplies, voice],
+    [busy, execute, activeBrand, activeSlug, location.pathname, speakReplies, voice, memory, activeThreadId],
   )
 
   const onMic = useCallback(() => {
@@ -323,10 +385,33 @@ export function UrielDock() {
               <span style={{ color: 'var(--ck-accent)', fontSize: 15 }}>✦</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.06em' }}>URIEL</div>
-                <div className="ck-label">{activeBrand?.name ?? activeSlug}</div>
+                <div
+                  className="ck-label"
+                  style={{ maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {threads.find((t) => t.id === activeThreadId)?.title ?? 'Neuer Chat'}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                className="ck-btn"
+                style={{ padding: '3px 8px' }}
+                onClick={newChat}
+                aria-label="Neuer Chat"
+                title="Neuer Chat"
+              >
+                ＋
+              </button>
+              <button
+                className="ck-btn"
+                style={{ padding: '3px 8px', color: showThreads ? 'var(--ck-accent)' : undefined }}
+                onClick={() => setShowThreads((s) => !s)}
+                aria-label="Chats & Gedächtnis"
+                title="Chats & Gedächtnis"
+              >
+                ☰
+              </button>
               <button
                 className="ck-btn"
                 style={{ padding: '3px 8px', color: showSettings ? 'var(--ck-accent)' : undefined }}
@@ -348,6 +433,75 @@ export function UrielDock() {
               <button className="ck-btn" style={{ padding: '3px 8px' }} onClick={() => setOpen(false)} aria-label="Uriel schließen">✕</button>
             </div>
           </div>
+
+          {showThreads ? (
+            <div style={{ borderBottom: '1px solid var(--ck-border)', background: 'var(--ck-panel-2)', maxHeight: 260, overflowY: 'auto' }}>
+              <div style={{ padding: '8px 14px' }}>
+                <div className="ck-label" style={{ marginBottom: 4 }}>Chats</div>
+                {threads.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>Noch keine Chats.</div>
+                ) : (
+                  threads.map((t) => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveThreadId(t.id)
+                          setShowThreads(false)
+                        }}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: t.id === activeThreadId ? 'var(--ck-accent)' : 'var(--ck-text-1)',
+                          fontSize: 12.5,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {t.id === activeThreadId ? '● ' : ''}
+                        {t.title}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeThread(t.id)}
+                        aria-label="Chat löschen"
+                        style={{ background: 'none', border: 'none', color: 'var(--ck-text-3)', cursor: 'pointer', fontSize: 12 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div style={{ padding: '8px 14px', borderTop: '1px solid var(--ck-border)' }}>
+                <div className="ck-label" style={{ marginBottom: 4 }}>🧠 Gedächtnis · {memory.length}</div>
+                {memory.length === 0 ? (
+                  <div style={{ fontSize: 11.5, color: 'var(--ck-text-3)' }}>
+                    Uriel merkt sich hier still Fakten über dich.
+                  </div>
+                ) : (
+                  memory.map((f) => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '3px 0' }}>
+                      <span style={{ flex: 1, fontSize: 11.5, color: 'var(--ck-text-2)', lineHeight: 1.4 }}>{f.text}</span>
+                      <button
+                        type="button"
+                        onClick={() => setMemory(removeMemory(f.id))}
+                        aria-label="Vergessen"
+                        style={{ background: 'none', border: 'none', color: 'var(--ck-text-3)', cursor: 'pointer', fontSize: 11 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {showSettings ? (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--ck-border)', background: 'var(--ck-panel-2)', display: 'flex', flexDirection: 'column', gap: 9 }}>

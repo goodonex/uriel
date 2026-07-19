@@ -1,10 +1,10 @@
-import { MONTH_TARGETS, currentSoll, formatEuro } from '../lib/goals'
+import { currentSoll, formatEuro, monthTargetFor } from '../lib/goals'
 
 /** Kumulierter Monatsumsatz groß + aktuelles Wochen-Soll (REBUILD-PLAN §5.1). */
 export function PrimaryDirective({ monthRevenue }: { monthRevenue: number }) {
   const now = new Date()
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const month = MONTH_TARGETS[monthKey]
+  const month = monthTargetFor(monthKey)
 
   const soll = month ? currentSoll(month.curve, now) : 0
   const total = month?.total ?? 0
@@ -14,7 +14,10 @@ export function PrimaryDirective({ monthRevenue }: { monthRevenue: number }) {
 
   return (
     <section className="ck-panel" aria-label="Monatsziel" style={{ padding: '12px 14px' }}>
-      <div className="ck-label">Primary Directive · {month?.label ?? 'Monat'}</div>
+      <div className="ck-label">
+        Primary Directive · {month?.label ?? 'Monat'}
+        {month?.generated ? <span style={{ color: 'var(--ck-text-3)' }}> · Ziel geplant</span> : null}
+      </div>
       <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1.25 }}>
         {formatEuro(monthRevenue)}
         <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ck-text-3)' }}>

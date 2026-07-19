@@ -391,7 +391,7 @@ function withoutDeleted(brandSlug: string, rows: Contact[]): Contact[] {
   return rows.filter((c) => !deleted.has(c.id))
 }
 
-interface UseContactsResult {
+export interface UseContactsResult {
   items: Contact[]
   loading: boolean
   error: string | null

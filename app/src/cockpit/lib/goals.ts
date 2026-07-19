@@ -99,3 +99,108 @@ export function formatEuro(value: number): string {
     maximumFractionDigits: 0,
   }).format(value)
 }
+
+// ---------------------------------------------------------------------------
+// Monatsziel für JEDEN Monat (nicht mehr nur Juli/Aug 2026 hartverdrahtet).
+// Juli/August bleiben exakt wie oben; alle anderen Monate werden generiert:
+// Total = localStorage-Override (`cockpit.monthTarget.<YYYY-MM>`) oder ein
+// Planungs-Default; Kurve back-loaded über die ISO-Montage des Monats.
+// ---------------------------------------------------------------------------
+
+const MONTHS_DE = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+] as const
+
+/** Planungs-Default, bis Kevin für den Monat ein echtes Ziel setzt. */
+export const DEFAULT_MONTH_TOTAL = LIFE_TARGET.umsatzMonat
+
+export interface MonthTarget {
+  label: string
+  total: number
+  curve: WeekTarget[]
+  /** true, wenn die Kurve generiert wurde (kein hartverdrahteter Monat). */
+  generated: boolean
+}
+
+function goalYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+}
+
+/** ISO-Montage, deren Datum in den Monat fällt (wie die hartverdrahteten Kurven). */
+function isoMondaysOfMonth(year: number, monthIndex: number): Date[] {
+  const mondays: Date[] = []
+  const d = new Date(year, monthIndex, 1)
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+  while (d.getMonth() === monthIndex) {
+    mondays.push(new Date(d))
+    d.setDate(d.getDate() + 7)
+  }
+  return mondays
+}
+
+/** Back-loaded kumulierte Kurve (Sales-Lag): letzter Montag trifft den Total exakt. */
+function backLoadedCurve(mondays: Date[], total: number): WeekTarget[] {
+  const n = mondays.length || 1
+  return mondays.map((m, i) => ({
+    kw: isoWeek(m),
+    weekStart: goalYmd(m),
+    sollKumuliert: Math.round(total * Math.pow((i + 1) / n, 1.6)),
+  }))
+}
+
+/** Optionales, vom Nutzer gesetztes Monats-Total (localStorage). */
+export function monthTotalOverride(monthKey: string): number | null {
+  try {
+    const raw = localStorage.getItem(`cockpit.monthTarget.${monthKey}`)
+    if (!raw) return null
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
+
+export function setMonthTotalOverride(monthKey: string, total: number | null): void {
+  try {
+    if (total && total > 0) {
+      localStorage.setItem(`cockpit.monthTarget.${monthKey}`, String(Math.round(total)))
+    } else {
+      localStorage.removeItem(`cockpit.monthTarget.${monthKey}`)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Monatsziel für einen Schlüssel `YYYY-MM` — hartverdrahtet (Juli/Aug 2026)
+ * oder generiert. Gibt null nur bei kaputtem Schlüssel zurück.
+ */
+export function monthTargetFor(monthKey: string): MonthTarget | null {
+  const fixed = MONTH_TARGETS[monthKey]
+  if (fixed) return { ...fixed, generated: false }
+
+  const [ys, ms] = monthKey.split('-')
+  const year = Number(ys)
+  const monthIndex = Number(ms) - 1
+  if (!Number.isFinite(year) || monthIndex < 0 || monthIndex > 11) return null
+
+  const total = monthTotalOverride(monthKey) ?? DEFAULT_MONTH_TOTAL
+  return {
+    label: `${MONTHS_DE[monthIndex]} ${year}`,
+    total,
+    curve: backLoadedCurve(isoMondaysOfMonth(year, monthIndex), total),
+    generated: true,
+  }
+}

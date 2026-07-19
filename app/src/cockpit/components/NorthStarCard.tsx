@@ -1,34 +1,26 @@
-import { useState } from 'react'
-import { LIFE_TARGET, RETAINER_KUNDEN_KEY, formatEuro } from '../lib/goals'
+import { useMemo } from 'react'
+import { computeMrrMetrics } from '../../lib/performanceMetrics'
+import type { Contact } from '../../types/db'
+import { LIFE_TARGET, formatEuro } from '../lib/goals'
 
 /**
  * Nordstern-Karte (Zielplanung 2026 §5): der MRR-Meilenstein, der das Warum trägt.
  * Zeigt den Weg zu 20 Retainer-Kunden = 10.000 € MRR ("Freundin in Rente").
- * Ist-Stand der aktiven Retainer-Kunden wird v1 manuell gepflegt (localStorage) —
- * später an echte CRM-/Deliver-Daten hängen.
+ * Ist-Stand jetzt ECHT aus dem CRM (IDEAS-2026 H7): aktive Retainer =
+ * Kontakte in Stage "deal" mit potenzial_typ "monatlich", nicht verloren.
  */
-export function NorthStarCard() {
-  const [kunden, setKunden] = useState<number>(() => {
-    try {
-      return Number(localStorage.getItem(RETAINER_KUNDEN_KEY)) || 0
-    } catch {
-      return 0
-    }
-  })
+export function NorthStarCard({ contacts }: { contacts: Contact[] }) {
+  const { activeRetainers, currentMrr } = useMemo(
+    () => computeMrrMetrics(contacts),
+    [contacts],
+  )
 
-  const save = (next: number) => {
-    const v = Math.max(0, next)
-    setKunden(v)
-    try {
-      localStorage.setItem(RETAINER_KUNDEN_KEY, String(v))
-    } catch {
-      /* ohne localStorage nur für diese Session */
-    }
-  }
-
-  const mrr = kunden * LIFE_TARGET.mrrProKunde
+  // Wenn noch keine monatlichen Deals getaggt sind, zeigt currentMrr 0 — dann
+  // den Meilenstein-Fortschritt über die Kundenzahl schätzen (Fallback), damit
+  // die Karte nicht leer wirkt, solange potenzial_betrag ungepflegt ist.
+  const mrr = currentMrr > 0 ? currentMrr : activeRetainers * LIFE_TARGET.mrrProKunde
   const pct = Math.min(1, mrr / LIFE_TARGET.mrrMeilenstein)
-  const reached = kunden >= LIFE_TARGET.retainerKundenZiel
+  const reached = activeRetainers >= LIFE_TARGET.retainerKundenZiel
 
   return (
     <section
@@ -68,25 +60,10 @@ export function NorthStarCard() {
         <span style={{ fontSize: 12, color: reached ? 'var(--ck-accent)' : 'var(--ck-text-2)' }}>
           {reached
             ? '✓ Freundin kann aufhören'
-            : `${kunden} / ${LIFE_TARGET.retainerKundenZiel} Retainer-Kunden`}
+            : `${activeRetainers} / ${LIFE_TARGET.retainerKundenZiel} Retainer-Kunden`}
         </span>
-        <span style={{ display: 'inline-flex', gap: 6 }}>
-          <button
-            className="ck-btn"
-            onClick={() => save(kunden - 1)}
-            aria-label="Ein Retainer-Kunde weniger"
-            style={{ fontSize: 13, padding: '2px 9px', lineHeight: 1 }}
-          >
-            −
-          </button>
-          <button
-            className="ck-btn"
-            onClick={() => save(kunden + 1)}
-            aria-label="Ein Retainer-Kunde mehr"
-            style={{ fontSize: 13, padding: '2px 9px', lineHeight: 1 }}
-          >
-            +
-          </button>
+        <span className="ck-label" style={{ color: 'var(--ck-text-3)' }}>
+          aus CRM
         </span>
       </div>
     </section>

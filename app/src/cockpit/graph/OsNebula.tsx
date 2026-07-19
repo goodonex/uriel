@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUiTheme } from '../../hooks/useUiTheme'
 import { useUrielBus } from '../../store/urielBus'
-import type { OsMap } from '../lib/runnerApi'
+import type { OsMap, RunSummary } from '../lib/runnerApi'
 import type { LeadContact, NebulaLayout, NebulaNode, ViewMode } from './nebulaLayout'
 import { buildLayout, getLayerColors, TOP } from './nebulaLayout'
 
@@ -147,20 +147,28 @@ interface Comet {
 interface OsNebulaProps {
   map: OsMap
   contacts: LeadContact[]
+  /** Agenten-Läufe für die Workflows-Ansicht. */
+  runs?: RunSummary[]
   onNodeClick?: (node: NebulaNode) => void
   /** Erzwingt frisches /os/map (Cache-Bypass) — Button im Steuerpanel. */
   onRefresh?: () => void
   height?: number
 }
 
-const VIEW_LABEL: Record<ViewMode, string> = { rings: 'Ringe', nebula: 'Nebula', leads: 'Leads' }
+const VIEW_LABEL: Record<ViewMode, string> = {
+  rings: 'Ringe',
+  nebula: 'Nebula',
+  leads: 'Leads',
+  workflows: 'Agenten',
+}
 const SUBTITLE: Record<ViewMode, string> = {
   rings: 'CLAUDE.md ist der Router-Stern · jede Datei ein Körper im Orbit.',
   nebula: 'Jeder Bereich eine Galaxie · der Router hält sie zusammen.',
   leads: 'Sales innen · Loom · Kaltakquise außen — jeder Punkt ein Lead.',
+  workflows: 'Jeder Agent ein Hub · seine Läufe als Speiche, Farbe = Status.',
 }
 
-export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }: OsNebulaProps) {
+export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, height = 620 }: OsNebulaProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const tipRef = useRef<HTMLDivElement | null>(null)
@@ -180,8 +188,8 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
   )
 
   const layout = useMemo(
-    () => buildLayout(settings.view, map, contacts, layerColors),
-    [settings.view, map, contacts, layerColors],
+    () => buildLayout(settings.view, map, contacts, layerColors, runs),
+    [settings.view, map, contacts, layerColors, runs],
   )
 
   // Refs für den rAF-Loop (kein Loop-Neustart bei State-Wechseln)
@@ -888,7 +896,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
                 background: 'var(--ck-bg)',
               }}
             >
-              {(['rings', 'nebula', 'leads'] as ViewMode[]).map((v) => {
+              {(['rings', 'nebula', 'leads', 'workflows'] as ViewMode[]).map((v) => {
                 const on = settings.view === v
                 return (
                   <button

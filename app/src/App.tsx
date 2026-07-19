@@ -32,6 +32,9 @@ import { TrackingArea } from './cockpit/pages/TrackingArea'
 import { AdsArea } from './cockpit/pages/AdsArea'
 import { SocialArea } from './cockpit/pages/SocialArea'
 import { AgentsArea } from './cockpit/pages/AgentsArea'
+import { AufgabenArea } from './cockpit/pages/AufgabenArea'
+import { TermineArea } from './cockpit/pages/TermineArea'
+import { FreigabenArea } from './cockpit/pages/FreigabenArea'
 
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -203,6 +206,9 @@ function App() {
               {/* Neue Cockpit-Shell (REBUILD-PLAN §5) */}
               <Route element={<CockpitShell />}>
                 <Route path="/cockpit" element={<CockpitHome />} />
+                <Route path="/aufgaben" element={<AufgabenArea />} />
+                <Route path="/termine" element={<TermineArea />} />
+                <Route path="/freigaben" element={<FreigabenArea />} />
                 <Route path="/crm/*" element={<CrmArea />} />
                 <Route path="/projekte/*" element={<ProjekteArea />} />
                 <Route path="/ads/*" element={<AdsArea />} />

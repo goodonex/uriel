@@ -57,6 +57,12 @@ export function fetchRun(id: string): Promise<RunDetail> {
   return req<RunDetail>(`/runs/${encodeURIComponent(id)}`)
 }
 
+/** Holt eine private iCal-URL über den Runner-Proxy (umgeht Browser-CORS). */
+export async function fetchCalendar(icalUrl: string): Promise<string> {
+  const { ical } = await req<{ ical: string }>(`/calendar?url=${encodeURIComponent(icalUrl)}`)
+  return ical
+}
+
 export async function fetchVaultRecent(limit = 15): Promise<VaultNote[]> {
   const { notes } = await req<{ notes: VaultNote[] }>(`/vault/recent?limit=${limit}`)
   return notes

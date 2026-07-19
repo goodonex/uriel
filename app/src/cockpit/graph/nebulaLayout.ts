@@ -1,4 +1,4 @@
-import type { OsMap } from '../lib/runnerApi'
+import type { OsMap, RunSummary } from '../lib/runnerApi'
 
 /**
  * Nebula-Layout — pure, deterministische Layout-Builder für den OS-Graph
@@ -11,7 +11,7 @@ import type { OsMap } from '../lib/runnerApi'
  *  - leads  … 3 Lead-Pipelines als Ringe: Sales (innen) · Loom · Kaltakquise
  */
 
-export type ViewMode = 'rings' | 'nebula' | 'leads'
+export type ViewMode = 'rings' | 'nebula' | 'leads' | 'workflows'
 
 export type LayerId =
   | 'core'
@@ -23,6 +23,10 @@ export type LayerId =
   | 'loom'
   | 'kalt'
   | 'paused'
+  | 'agent'
+  | 'erledigt'
+  | 'fehler'
+  | 'läuft'
 
 export const LAYER_COLOR: Record<LayerId, string> = {
   core: '#f2f4f5',
@@ -34,6 +38,10 @@ export const LAYER_COLOR: Record<LayerId, string> = {
   loom: '#fbbf24', // amber
   kalt: '#60a5fa', // blau
   paused: '#64748b', // grau
+  agent: '#eab308', // Agent-Hub (gold, wie Routinen)
+  erledigt: '#34d399', // Run erfolgreich
+  fehler: '#f87171', // Run fehlgeschlagen (rot)
+  'läuft': '#22d3ee', // Run läuft gerade (cyan)
 }
 
 /** Abgedunkelte Pendants (gleiche Farbtöne) — lesbar auf hellem Hintergrund. */
@@ -47,6 +55,10 @@ export const LAYER_COLOR_LIGHT: Record<LayerId, string> = {
   loom: '#b45309', // amber
   kalt: '#2563eb', // blau
   paused: '#64748b', // grau
+  agent: '#a16207', // Agent-Hub (gold)
+  erledigt: '#047857', // Run erfolgreich
+  fehler: '#dc2626', // Run fehlgeschlagen (rot)
+  'läuft': '#0e7490', // Run läuft gerade (cyan)
 }
 
 export function getLayerColors(isLight: boolean): Record<LayerId, string> {
@@ -55,7 +67,7 @@ export function getLayerColors(isLight: boolean): Record<LayerId, string> {
 
 export interface NebulaNode {
   id: string
-  kind: 'core' | 'skill' | 'note' | 'routine' | 'app' | 'hub' | 'contact'
+  kind: 'core' | 'skill' | 'note' | 'routine' | 'app' | 'hub' | 'contact' | 'run'
   layer: LayerId
   label: string
   sub: string
@@ -753,13 +765,110 @@ export function buildLeads(
   return finalize('leads', nodes, () => [], bands, fogs, paused.length ? 396 : 360, 0)
 }
 
+// ---------- Ansicht 4: WORKFLOWS (Agenten + ihre Läufe) ----------
+
+const RUN_LAYER: Record<RunSummary['status'], LayerId> = {
+  done: 'erledigt',
+  error: 'fehler',
+  running: 'läuft',
+}
+
+/**
+ * Workflows-Ansicht (IDEAS-2026 G2): hebt die Agenten-Läufe aus der
+ * Dokumenten-Liste in den Graphen. Jeder Agent = Hub im Innenring; seine letzten
+ * Läufe hängen als Speiche daran (neuester am Hub), Farbe nach Status
+ * (erledigt/fehler/läuft). Klick auf einen Lauf → RunDrawer.
+ */
+export function buildWorkflows(
+  runs: RunSummary[],
+  colors: Record<LayerId, string> = LAYER_COLOR,
+): NebulaLayout {
+  const nodes: NebulaNode[] = [
+    coreNode('WORKFLOWS', runs.length ? `${runs.length} Läufe` : 'noch keine Läufe'),
+  ]
+
+  const byAgent = new Map<string, RunSummary[]>()
+  for (const r of runs) {
+    if (!byAgent.has(r.agent)) byAgent.set(r.agent, [])
+    byAgent.get(r.agent)!.push(r)
+  }
+  for (const arr of byAgent.values()) {
+    arr.sort((a, b) => String(b.started).localeCompare(String(a.started)))
+  }
+  const agents = [...byAgent.entries()].sort(
+    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
+  )
+
+  const rHub = 120
+  const MAX_RUNS = 8
+  const edges: NebulaEdge[] = []
+
+  agents.forEach(([agent, agentRuns], ai) => {
+    const angle = TOP + (ai / Math.max(agents.length, 1)) * TAU
+    const hubId = `agenthub:${agent}`
+    const errCount = agentRuns.filter((r) => r.status === 'error').length
+    nodes.push({
+      id: hubId,
+      kind: 'hub',
+      layer: 'agent',
+      label: agent,
+      sub: `${agentRuns.length} Läufe${errCount ? ` · ${errCount} Fehler` : ''}`,
+      angle,
+      radius: rHub,
+      speed: 0,
+      size: 11,
+      shape: 'disc',
+      glyph: agent[0]?.toUpperCase() ?? 'A',
+      count: agentRuns.length,
+      area: agent,
+    })
+
+    agentRuns.slice(0, MAX_RUNS).forEach((r, i) => {
+      const id = `run:${r.id}`
+      const when = (r.finished || r.started || '').slice(0, 10)
+      nodes.push({
+        id,
+        kind: 'run',
+        layer: RUN_LAYER[r.status],
+        label: r.agent,
+        sub: `${r.status === 'error' ? 'Fehler' : r.status === 'running' ? 'läuft…' : 'erledigt'}${
+          when ? ` · ${when}` : ''
+        }`,
+        angle: angle + (i % 2 === 0 ? 1 : -1) * 0.014 * (i + 1),
+        radius: rHub + 40 + i * 22,
+        speed: 0,
+        size: r.status === 'running' ? 6 : 4.4,
+        shape: 'disc',
+        path: r.id, // RunDrawer-Ziel
+        status: r.status,
+      })
+      edges.push({ a: hubId, b: id })
+    })
+  })
+
+  const bands: RingBand[] = [{ label: 'AGENTEN', color: colors.agent, arcs: [rHub], rLabel: rHub - 16 }]
+  const maxR = rHub + 40 + MAX_RUNS * 22 + 30
+
+  return finalize(
+    'workflows',
+    nodes,
+    (byId) => edges.filter((e) => byId.has(e.a) && byId.has(e.b)),
+    bands,
+    [],
+    maxR,
+    edges.length,
+  )
+}
+
 export function buildLayout(
   view: ViewMode,
   map: OsMap,
   contacts: LeadContact[],
   colors: Record<LayerId, string> = LAYER_COLOR,
+  runs: RunSummary[] = [],
 ): NebulaLayout {
   if (view === 'nebula') return buildNebula(map, colors)
   if (view === 'leads') return buildLeads(contacts, colors)
+  if (view === 'workflows') return buildWorkflows(runs, colors)
   return buildRings(map, colors)
 }

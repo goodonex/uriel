@@ -42,6 +42,8 @@ export interface UrielTurnContext {
   brandSlug?: string
   date?: string
   area?: string
+  /** Uriels „remember"-Fakten — pro Zug frisch eingespeist, nicht in der History persistiert. */
+  memory?: string[]
 }
 
 export interface UrielTurnResult {
@@ -84,7 +86,23 @@ export async function runUrielTurn(
 ): Promise<UrielTurnResult> {
   if (!supabase) throw new Error('Supabase nicht konfiguriert.')
 
+  // Gedächtnis als kurzer Vorspann in DIESEN Request (nicht in die persistierte
+  // History gebacken → nächster Zug bekommt den dann aktuellen Stand).
+  const memoryPrefix: UrielMessage[] =
+    context.memory && context.memory.length
+      ? [
+          {
+            role: 'user',
+            content: `[GEDÄCHTNIS — Hintergrundwissen über Kevin, nutze es beiläufig, erwähne es nicht ungefragt]\n${context.memory
+              .map((m) => `- ${m}`)
+              .join('\n')}`,
+          },
+          { role: 'assistant', content: 'Verstanden.' },
+        ]
+      : []
+
   const messages: UrielMessage[] = [
+    ...memoryPrefix,
     ...history,
     { role: 'user', content: userText },
   ]
@@ -111,7 +129,7 @@ export async function runUrielTurn(
 
     const toolUses = content.filter(isToolUse)
     if (data.stop_reason !== 'tool_use' || toolUses.length === 0) {
-      return { finalText: textFrom(content), actions, messages }
+      return { finalText: textFrom(content), actions, messages: messages.slice(memoryPrefix.length) }
     }
 
     const resultBlocks: Block[] = []
@@ -136,6 +154,6 @@ export async function runUrielTurn(
   return {
     finalText: 'Ich habe das Schritt-Limit erreicht — sag mir, wie ich weitermachen soll.',
     actions,
-    messages,
+    messages: messages.slice(memoryPrefix.length),
   }
 }

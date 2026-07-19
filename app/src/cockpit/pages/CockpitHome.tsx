@@ -5,6 +5,8 @@ import { CommandDeck } from '../components/CommandDeck'
 import { DocumentsPanel } from '../components/DocumentsPanel'
 import { ConversionPanel } from '../components/ConversionPanel'
 import { DreamCard } from '../components/DreamCard'
+import { HeuteDeck } from '../components/HeuteDeck'
+import { MonthCurve } from '../components/MonthCurve'
 import type { RunDoc } from '../components/DocumentsPanel'
 import { NorthStarCard } from '../components/NorthStarCard'
 import { OsDetailPanel } from '../components/OsDetailPanel'
@@ -23,9 +25,10 @@ import {
   saveCockpitLayout,
 } from '../lib/cockpitLayoutStorage'
 import type { CockpitLayout, LayoutPreset } from '../lib/cockpitLayoutStorage'
-import { MONTH_TARGETS, WEEK_TARGETS, currentSoll } from '../lib/goals'
+import { WEEK_TARGETS, currentSoll, monthTargetFor } from '../lib/goals'
 import { funnelKpis, sumField, weekVitals } from '../lib/metricsAggregate'
 import { postRun } from '../lib/runnerApi'
+import { buildFollowupInput } from '../lib/approvalDrafts'
 import { useDailyMetrics } from '../lib/useDailyMetrics'
 import { useOsMap } from '../lib/useOsMap'
 import { useRunnerData } from '../lib/useRunnerData'
@@ -307,6 +310,10 @@ export function CockpitHome() {
         navigate(node.href)
         return
       }
+      if (node.kind === 'run' && node.path) {
+        setOpenRunId(node.path)
+        return
+      }
       setSelNode(node)
     },
     [navigate],
@@ -335,7 +342,7 @@ export function CockpitHome() {
       let input: Record<string, unknown> = { ...extra }
       if (agentId === 'wochenrecap') {
         const monthKey = new Date().toISOString().slice(0, 7)
-        const month = MONTH_TARGETS[monthKey]
+        const month = monthTargetFor(monthKey)
         input = {
           weekRows: metrics.weekRows,
           targets: WEEK_TARGETS,
@@ -344,29 +351,46 @@ export function CockpitHome() {
           monatsziel: month?.total ?? null,
         }
       } else if (agentId === 'followup-entwuerfe') {
-        const now = new Date().toISOString()
+        input = buildFollowupInput(contacts.items)
+      } else if (agentId === 'morgenbrief') {
+        const now = new Date()
+        const startToday = new Date(now)
+        startToday.setHours(0, 0, 0, 0)
+        const endToday = new Date(now)
+        endToday.setHours(23, 59, 59, 999)
+        const mapC = (c: (typeof contacts.items)[number]) => ({
+          name: c.name,
+          company: c.company,
+          stage: c.pipeline_stage,
+          nextFollowUp: c.next_follow_up_at,
+        })
+        const withFu = contacts.items.filter(
+          (c) => c.next_follow_up_at && c.pipeline_stage !== 'paused',
+        )
+        const monthKey = now.toISOString().slice(0, 7)
+        const month = monthTargetFor(monthKey)
         input = {
-          contacts: contacts.items
-            .filter(
-              (c) =>
-                c.pipeline_stage === 'follow_up' ||
-                (c.next_follow_up_at != null && c.next_follow_up_at <= now),
-            )
-            .slice(0, 10)
-            .map((c) => ({
-              name: c.name,
-              company: c.company,
-              stage: c.pipeline_stage,
-              lastContact: c.stage_changed_at ?? null,
-              nextFollowUp: c.next_follow_up_at,
-              notes: c.entscheider_name ? `Entscheider: ${c.entscheider_name}` : null,
-            })),
+          weekday: now.toLocaleDateString('de-DE', { weekday: 'long' }),
+          date: now.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }),
+          overdueFollowUps: withFu
+            .filter((c) => new Date(c.next_follow_up_at as string).getTime() < startToday.getTime())
+            .map(mapC),
+          todayFollowUps: withFu
+            .filter((c) => {
+              const t = new Date(c.next_follow_up_at as string).getTime()
+              return t >= startToday.getTime() && t <= endToday.getTime()
+            })
+            .map(mapC),
+          weekVitals: vitals.map((v) => ({ label: v.label, current: v.current, target: v.target })),
+          monthRevenue,
+          sollKumuliert: month ? currentSoll(month.curve) : 0,
+          monatsziel: month?.total ?? null,
         }
       }
       await postRun(agentId, input)
       await refresh()
     },
-    [metrics.weekRows, monthRevenue, contacts.items, refresh],
+    [metrics.weekRows, monthRevenue, contacts.items, vitals, refresh],
   )
 
   return (
@@ -391,6 +415,9 @@ export function CockpitHome() {
             : `⚠ Tracking-Schreibfehler: ${metrics.error}`}
       </div>
     ) : null}
+    <div style={{ marginBottom: 12 }}>
+      <HeuteDeck slug={activeBrand?.slug} contacts={contacts} />
+    </div>
     <LayoutBar layout={layout} onChange={changeLayout} />
     <div
       ref={gridRef}
@@ -399,8 +426,11 @@ export function CockpitHome() {
     >
       {/* Links (schmal): Geld-Ziel → Quick-Track (schneller Zugriff) → Vitals → Conversion → Docs */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <NorthStarCard />
+        <NorthStarCard contacts={contacts.items} />
         <PrimaryDirective monthRevenue={monthRevenue} />
+        <section className="ck-panel" style={{ padding: '10px 12px' }}>
+          <MonthCurve monthRows={metrics.monthRows} />
+        </section>
         <QuickTrack
           today={metrics.today}
           onBump={(f, d) => void metrics.bump(f, d)}
@@ -419,6 +449,7 @@ export function CockpitHome() {
           <OsNebula
             map={osMap}
             contacts={leadContacts}
+            runs={runs}
             onNodeClick={onNodeClick}
             onRefresh={() => refreshOsMap(true)}
             height={graphHeight}

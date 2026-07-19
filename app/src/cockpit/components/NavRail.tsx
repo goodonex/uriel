@@ -1,8 +1,11 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useSocialUnread } from '../lib/socialApi'
 
-const ITEMS: Array<{ to: string; label: string; icon: string }> = [
+const ITEMS: Array<{ to: string; label: string; icon: string; paths?: string[] }> = [
   { to: '/cockpit', label: 'Cockpit', icon: '◉' },
+  // „Heute" fasst die täglichen Operativ-Bereiche zusammen (Sub-Tabs: HeuteTabs) —
+  // hält die Nav (v.a. mobile Bottom-Bar) schlank.
+  { to: '/aufgaben', label: 'Heute', icon: '☑', paths: ['/aufgaben', '/termine', '/freigaben'] },
   { to: '/crm', label: 'CRM', icon: '▤' },
   { to: '/projekte', label: 'Projekte', icon: '◈' },
   { to: '/ads', label: 'Ads', icon: '◨' },
@@ -14,6 +17,7 @@ const ITEMS: Array<{ to: string; label: string; icon: string }> = [
 
 export function NavRail() {
   const socialUnread = useSocialUnread()
+  const loc = useLocation()
   return (
     <nav aria-label="Cockpit-Bereiche" className="ck-nav-rail">
       {ITEMS.map((item) => {
@@ -22,7 +26,12 @@ export function NavRail() {
           <NavLink
             key={item.to}
             to={item.to}
-            className={({ isActive }) => `ck-nav-item${isActive ? ' active' : ''}`}
+            className={({ isActive }) => {
+              const active = item.paths
+                ? item.paths.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
+                : isActive
+              return `ck-nav-item${active ? ' active' : ''}`
+            }}
           >
             <span aria-hidden className="ck-nav-icon" style={{ position: 'relative' }}>
               {item.icon}

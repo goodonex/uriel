@@ -1,4 +1,4 @@
-import { MONTH_TARGETS, formatEuro } from '../lib/goals'
+import { formatEuro, monthTargetFor } from '../lib/goals'
 import type { DailyMetricsRow } from '../lib/useDailyMetrics'
 import { cumulativeRevenue } from '../lib/metricsAggregate'
 
@@ -13,7 +13,7 @@ const PAD = { left: 52, right: 16, top: 14, bottom: 26 }
 export function MonthCurve({ monthRows }: { monthRows: DailyMetricsRow[] }) {
   const now = new Date()
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const month = MONTH_TARGETS[monthKey]
+  const month = monthTargetFor(monthKey)
 
   if (!month) {
     return (
