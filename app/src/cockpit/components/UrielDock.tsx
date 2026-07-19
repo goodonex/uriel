@@ -17,10 +17,11 @@ import { MONTH_TARGETS, currentSoll, formatEuro } from '../lib/goals'
 import { useUrielVoice } from '../lib/useUrielVoice'
 import {
   URIEL_MODELS,
-  URIEL_VOICES,
   URIEL_VOICE_SAMPLE,
+  fetchAccountVoices,
   loadVoiceSettings,
   saveVoiceSettings,
+  type AccountVoice,
   type UrielVoiceSettings,
 } from '../lib/urielVoiceSettings'
 import { runUrielTurn, type ToolResult, type UrielAction, type UrielMessage } from '../lib/urielAgent'
@@ -63,6 +64,9 @@ export function UrielDock() {
   })
   const [showSettings, setShowSettings] = useState(false)
   const [vset, setVset] = useState<UrielVoiceSettings>(loadVoiceSettings)
+  const [accountVoices, setAccountVoices] = useState<AccountVoice[]>([])
+  const [voicesHint, setVoicesHint] = useState<string | null>(null)
+  const voicesLoadedRef = useRef(false)
   const historyRef = useRef<UrielMessage[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -85,6 +89,22 @@ export function UrielDock() {
       voice.listening ? 'listening' : busy || voice.speaking ? 'working' : 'idle',
     )
   }, [open, busy, voice.listening, voice.speaking, setPhase])
+
+  // Konto-Stimmen laden, sobald die Einstellungen erstmals geöffnet werden.
+  useEffect(() => {
+    if (!showSettings || voicesLoadedRef.current) return
+    voicesLoadedRef.current = true
+    void fetchAccountVoices().then(({ voices, error }) => {
+      setAccountVoices(voices)
+      setVoicesHint(error)
+      // Aktuelle Stimme nicht im Konto? → auf die erste nutzbare umstellen (verhindert 402).
+      if (voices.length && !voices.some((v) => v.id === vset.voiceId)) {
+        const next = { ...loadVoiceSettings(), voiceId: voices[0].id }
+        saveVoiceSettings(next)
+        setVset(next)
+      }
+    })
+  }, [showSettings, vset.voiceId])
 
   const ensureCockpit = useCallback(() => {
     if (location.pathname !== '/cockpit') navigate('/cockpit')
@@ -332,18 +352,26 @@ export function UrielDock() {
           {showSettings ? (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--ck-border)', background: 'var(--ck-panel-2)', display: 'flex', flexDirection: 'column', gap: 9 }}>
               <div>
-                <label className="ck-label" htmlFor="uriel-voice">Stimme</label>
+                <label className="ck-label" htmlFor="uriel-voice">Stimme (aus deinem ElevenLabs-Konto)</label>
                 <select
                   id="uriel-voice"
                   className="ck-select"
                   style={{ width: '100%', marginTop: 3 }}
                   value={vset.voiceId}
                   onChange={(e) => applyAndPreview({ voiceId: e.target.value })}
+                  disabled={accountVoices.length === 0}
                 >
-                  {URIEL_VOICES.map((v) => (
-                    <option key={v.id} value={v.id}>{v.label} — {v.note}</option>
-                  ))}
+                  {accountVoices.length === 0 ? (
+                    <option>{voicesHint ? 'Keine Stimmen geladen' : 'lädt …'}</option>
+                  ) : (
+                    accountVoices.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}{v.category ? ` (${v.category})` : ''}</option>
+                    ))
+                  )}
                 </select>
+                {voicesHint ? (
+                  <p className="ck-label" style={{ color: 'var(--ck-warn)', marginTop: 4, lineHeight: 1.4 }}>{voicesHint}</p>
+                ) : null}
               </div>
               <div>
                 <label className="ck-label" htmlFor="uriel-model">Modus</label>

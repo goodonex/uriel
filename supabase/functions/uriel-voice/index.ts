@@ -40,6 +40,41 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) return json(401, { ok: false, message: 'Unauthorized' })
 
+  const userClient = createClient(supabaseUrl, supabaseAnon, {
+    global: { headers: { Authorization: authHeader } },
+  })
+  const { data: { user }, error: userErr } = await userClient.auth.getUser()
+  if (userErr || !user) return json(401, { ok: false, message: 'Invalid session' })
+
+  // GET → die im ElevenLabs-Konto verfügbaren Stimmen auflisten. Free-Tier kann
+  // nur eigene Konto-Stimmen per API nutzen; das hier liefert genau die.
+  // Braucht „Voices → Read" auf dem Key.
+  if (req.method === 'GET') {
+    const vr = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: { 'xi-api-key': apiKey },
+    })
+    if (!vr.ok) {
+      const t = await vr.text()
+      return json(vr.status === 401 ? 403 : 502, {
+        ok: false,
+        needsVoicesRead: vr.status === 401,
+        message:
+          vr.status === 401
+            ? 'Kein Zugriff auf die Stimmen-Liste — aktiviere „Voices → Read" auf deinem ElevenLabs-Key.'
+            : `ElevenLabs ${vr.status}: ${t.slice(0, 200)}`,
+      })
+    }
+    const data = (await vr.json()) as {
+      voices?: { voice_id: string; name: string; category?: string }[]
+    }
+    const voices = (data.voices ?? []).map((v) => ({
+      id: v.voice_id,
+      name: v.name,
+      category: v.category ?? '',
+    }))
+    return json(200, { ok: true, voices })
+  }
+
   interface VoiceSettings {
     stability?: number
     similarity_boost?: number
@@ -55,12 +90,6 @@ Deno.serve(async (req) => {
   }
   const text = body.text?.trim()
   if (!text) return json(400, { ok: false, message: 'text required' })
-
-  const userClient = createClient(supabaseUrl, supabaseAnon, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: { user }, error: userErr } = await userClient.auth.getUser()
-  if (userErr || !user) return json(401, { ok: false, message: 'Invalid session' })
 
   const voice = body.voiceId?.trim() || voiceId
   const chosenModel = body.modelId?.trim() || model

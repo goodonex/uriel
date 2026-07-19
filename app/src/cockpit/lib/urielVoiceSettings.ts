@@ -3,6 +3,35 @@
  * In localStorage gehalten; useUrielVoice.speak() liest sie frisch pro Ausgabe.
  * Modell = Latenz↔Ausdruck-Regler: flash = schnell, multilingual = ausdrucksstark.
  */
+import { supabase } from '../../lib/supabase'
+
+const SB_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
+const SB_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+
+export interface AccountVoice {
+  id: string
+  name: string
+  category: string
+}
+
+/** Ruft die im ElevenLabs-Konto tatsächlich nutzbaren Stimmen ab (Free-tauglich). */
+export async function fetchAccountVoices(): Promise<{ voices: AccountVoice[]; error: string | null }> {
+  try {
+    if (!supabase) return { voices: [], error: 'Supabase nicht konfiguriert.' }
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token
+    if (!token) return { voices: [], error: 'Keine Session.' }
+    const res = await fetch(`${SB_URL}/functions/v1/uriel-voice`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}`, apikey: SB_ANON },
+    })
+    const j = (await res.json()) as { ok?: boolean; voices?: AccountVoice[]; message?: string }
+    if (!res.ok || j.ok === false) return { voices: [], error: j.message ?? `HTTP ${res.status}` }
+    return { voices: j.voices ?? [], error: null }
+  } catch (e) {
+    return { voices: [], error: (e as Error).message }
+  }
+}
 export type UrielModelId = 'eleven_flash_v2_5' | 'eleven_turbo_v2_5' | 'eleven_multilingual_v2'
 
 export interface UrielVoiceSettings {
