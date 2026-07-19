@@ -67,6 +67,19 @@ const SOCIAL_ROOT = resolve(
 )
 const SOCIAL_WEEKLY = join(SOCIAL_ROOT, 'content-engine', 'weekly')
 
+// Content-Manifest pro Brand (Cockpit /content, Post-Ebene). Feste Allowlist —
+// der Brand-Slug wird NIE in einen Pfad interpoliert (kein Traversal). MVP: nur
+// HERRMANN; weitere Brands (CoLective …) bekommen in Phase 3 einen eigenen Ordner.
+const CONTENT_MANIFESTS = {
+  herrmann: join(SOCIAL_ROOT, 'content-engine', 'content.json'),
+}
+function contentManifestPath(brand) {
+  return CONTENT_MANIFESTS[brand] ?? null
+}
+function emptyContentManifest(brand) {
+  return { schemaVersion: 1, brand, updatedAt: null, posts: [] }
+}
+
 /**
  * Agenten-Katalog fürs Cockpit (/agenten). Zwei Sorten:
  *  - kind:'readonly' → Vault-Skills (`/slug`), cwd=VAULT, kein Schreibrecht;
@@ -890,6 +903,51 @@ const server = createServer(async (req, res) => {
           return json(res, 409, {
             error: 'Konflikt: Manifest wurde extern geändert',
             current: onDisk ?? emptyManifest(slug),
+          })
+        }
+        manifest.updatedAt = new Date().toISOString()
+        await writeFile(file, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+        return json(res, 200, { ok: true, updatedAt: manifest.updatedAt })
+      }
+    }
+
+    // ---------- Content-Posts (Cockpit /content, Post-Ebene) ----------
+    // Spiegelt /ads/manifest 1:1: GET liefert das Manifest (leer, wenn die Datei
+    // noch nicht existiert), PUT schreibt mit Optimistic-Concurrency (409-Guard),
+    // sodass Kevin im UI + eine Claude-Session konfliktfrei dieselbe Datei pflegen.
+    if (url.pathname === '/content/manifest') {
+      const brand = url.searchParams.get('brand') ?? ''
+      const file = contentManifestPath(brand)
+      if (!file) return json(res, 400, { error: `Unbekannter Brand: ${brand}` })
+
+      let onDisk = null
+      try {
+        onDisk = JSON.parse(await readFile(file, 'utf8'))
+      } catch (e) {
+        if (e?.code !== 'ENOENT') throw e // kaputtes JSON soll auffallen, nicht leer wirken
+      }
+
+      if (req.method === 'GET') {
+        return json(res, 200, onDisk ?? emptyContentManifest(brand))
+      }
+
+      if (req.method === 'PUT') {
+        let body
+        try {
+          body = JSON.parse(await readBodyCapped(req, MANIFEST_MAX_BYTES))
+        } catch (e) {
+          if (e?.code === 'ETOOBIG') return json(res, 413, { error: 'Manifest zu groß (max 2 MB)' })
+          return json(res, 400, { error: 'ungültiges JSON' })
+        }
+        const manifest = body?.manifest
+        if (!manifest || manifest.schemaVersion !== 1 || !Array.isArray(manifest.posts)) {
+          return json(res, 400, { error: 'Manifest mit schemaVersion 1 und posts[] erwartet' })
+        }
+        const diskUpdatedAt = onDisk?.updatedAt ?? null
+        if ((body.baseUpdatedAt ?? null) !== diskUpdatedAt) {
+          return json(res, 409, {
+            error: 'Konflikt: Manifest wurde extern geändert',
+            current: onDisk ?? emptyContentManifest(brand),
           })
         }
         manifest.updatedAt = new Date().toISOString()

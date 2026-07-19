@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useToast } from '../../components/Toast'
 import { useActiveBrand } from '../lib/activeBrand'
 import { getSeenWeeks, markWeekSeen, syncSocialBatchesFromRunner } from '../lib/socialApi'
 import { loadSocialBatchHtml, loadSocialBatchList, type SocialBatchMeta } from '../lib/socialBatchStore'
+import { postRun } from '../lib/runnerApi'
+import { useContentManifest } from '../lib/useContentManifest'
+import { ContentCard } from '../components/content/ContentCard'
+import { ContentDetailPanel } from '../components/content/ContentDetailPanel'
 
 /**
  * Content-Area (Cockpit /content): die wöchentlichen Content-Batches der
@@ -12,7 +17,8 @@ import { loadSocialBatchHtml, loadSocialBatchList, type SocialBatchMeta } from '
  */
 const DATE_FMT = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })
 
-export function SocialArea() {
+/** Bestehende Wochen-Batch-Ansicht (Supabase, live/mobil) — unverändert. */
+function WeeksView() {
   const { activeSlug } = useActiveBrand()
   const [list, setList] = useState<SocialBatchMeta[] | null>(null)
   const [activeWeek, setActiveWeek] = useState<string | null>(null)
@@ -199,6 +205,133 @@ export function SocialArea() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Content-Area (Cockpit /content): Umschalter zwischen der neuen Post-Ebene
+ * (Datei-Manifest via Runner, lokal-first, nach /ads-Vorbild) und der bestehenden
+ * Wochen-Batch-Ansicht (Supabase, live/mobil). Default = Posts.
+ */
+export function SocialArea() {
+  const [view, setView] = useState<'posts' | 'weeks'>('posts')
+  return (
+    <div style={{ maxWidth: 1100 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        <button
+          className={`ck-btn${view === 'posts' ? ' ck-btn--primary' : ''}`}
+          style={{ fontSize: 12.5 }}
+          onClick={() => setView('posts')}
+        >
+          Posts
+        </button>
+        <button
+          className={`ck-btn${view === 'weeks' ? ' ck-btn--primary' : ''}`}
+          style={{ fontSize: 12.5 }}
+          onClick={() => setView('weeks')}
+        >
+          Wochen
+        </button>
+      </div>
+      {view === 'posts' ? <ContentPostsView /> : <WeeksView />}
+    </div>
+  )
+}
+
+/** Post-Ebene: Karten-Grid + Detail-Panel aus content.json (via Runner, lokal-first). */
+function ContentPostsView() {
+  const { activeSlug, activeBrand } = useActiveBrand()
+  const { show } = useToast()
+  const { manifest, loading, error, setStatus, toggleDone, setPlannedFor, setChannel, setFormat, addNote } =
+    useContentManifest(activeSlug)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [building, setBuilding] = useState(false)
+
+  const brandName = activeBrand?.name ?? activeSlug
+  const openPost = manifest?.posts.find((p) => p.id === openId) ?? null
+
+  const buildBatch = async () => {
+    setBuilding(true)
+    try {
+      await postRun('weekly-content')
+      show('Content-Batch gestartet — Ergebnis erscheint unter /agenten.', 'success')
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      if (err.status === 409) {
+        show('Läuft bereits — der Batch ist schon in Arbeit.', 'info')
+      } else {
+        show('Runner nicht erreichbar — Batch nur lokal startbar (npm run cockpit:full).', 'error')
+      }
+    } finally {
+      setBuilding(false)
+    }
+  }
+
+  // Nicht-gemappte Brand (Runner 400): freundlicher Phase-3-Leerzustand statt Fehlerbanner.
+  const isUnknownBrand = !!error && /Unbekannter Brand/i.test(error)
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Content · Posts</div>
+          <div className="ck-label" style={{ marginTop: 2 }}>
+            {manifest ? `${manifest.posts.length} Post${manifest.posts.length === 1 ? '' : 's'} · ${brandName}` : brandName}
+          </div>
+        </div>
+        <button className="ck-btn ck-btn--primary" style={{ fontSize: 12 }} onClick={buildBatch} disabled={building}>
+          {building ? 'Starte…' : 'Neue Beiträge bauen'}
+        </button>
+      </div>
+
+      {isUnknownBrand ? (
+        <div className="ck-panel" style={{ padding: 20, textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--ck-text-2)', margin: 0 }}>
+            Für <strong>{brandName}</strong> ist noch kein Content-Ordner angelegt.
+          </p>
+          <p className="ck-label" style={{ marginTop: 8, color: 'var(--ck-text-3)' }}>
+            Die Post-Ebene ist aktuell für HERRMANN aktiv — weitere Brands folgen (Phase 3).
+          </p>
+        </div>
+      ) : error ? (
+        <div className="ck-panel" style={{ padding: '10px 14px', border: '1px solid var(--ck-warn)', color: 'var(--ck-warn)', fontSize: 12.5 }}>
+          Runner nicht erreichbar: {error}
+          <div className="ck-label" style={{ marginTop: 4, color: 'var(--ck-text-3)' }}>
+            Die Post-Ebene läuft lokal-first — starte das Cockpit mit <code>npm run cockpit:full</code>. Die Wochen-Ansicht bleibt live.
+          </div>
+        </div>
+      ) : loading || !manifest ? (
+        <p className="ck-label">Lade…</p>
+      ) : manifest.posts.length === 0 ? (
+        <div className="ck-panel" style={{ padding: 20, textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--ck-text-2)', margin: 0 }}>
+            Noch keine Posts im Manifest ({activeSlug}/content-engine/content.json).
+          </p>
+          <p className="ck-label" style={{ marginTop: 8, color: 'var(--ck-text-3)' }}>
+            „Neue Beiträge bauen" startet den wöchentlichen Content-Batch.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {manifest.posts.map((post) => (
+            <ContentCard key={post.id} post={post} onOpen={() => setOpenId(post.id)} />
+          ))}
+        </div>
+      )}
+
+      {openPost ? (
+        <ContentDetailPanel
+          post={openPost}
+          onClose={() => setOpenId(null)}
+          onSetStatus={setStatus}
+          onToggleDone={toggleDone}
+          onSetPlannedFor={setPlannedFor}
+          onSetChannel={setChannel}
+          onSetFormat={setFormat}
+          onAddNote={addNote}
+        />
+      ) : null}
     </div>
   )
 }
