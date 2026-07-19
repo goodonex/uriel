@@ -1,4 +1,4 @@
-# Briefing: Content-Modul fürs Framework OS Cockpit
+# Briefing: Content-Modul fürs Uriel-Cockpit
 
 Stand: 17.07.2026 · Autor: Fable (Denk-Session) · Zweck: Grundlage, aus der eine frische Session den **genauen** Umsetzungsplan baut. Das hier ist die **Idee + Anforderung**, nicht der Plan.
 

@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NODE_BIN="$(command -v node)"
-PLIST_LABEL="de.kevinos.cockpit-runner"
+PLIST_LABEL="de.uriel.runner"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs/kevin-os"
 

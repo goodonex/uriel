@@ -807,7 +807,7 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
         }}
       >
         <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.08em' }}>
-          KEVIN OS · <span style={{ color: 'var(--ck-accent)' }}>NEBULA</span>
+          URIEL · <span style={{ color: 'var(--ck-accent)' }}>NEBULA</span>
         </div>
         <div style={{ fontSize: 10.5, color: 'var(--ck-text-2)', marginTop: 3 }}>
           {SUBTITLE[settings.view]}

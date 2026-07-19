@@ -16,7 +16,7 @@ sondern das Betriebssystem selbst — vier konzentrische Ebenen um einen Kern.
         │   ┌─ ROUTINES (gelb) — geplante/automatische Läufe
         │   │   ┌─ MEMORY (violett) — Vault-Notizen, geclustert nach PARA-Bereich
         │   │   │   ┌─ SKILLS (innen, orange) — CLI- + Vault-Skills
-        ○   ○   ○   ○   ● KEVIN OS CORE (Claude)
+        ○   ○   ○   ○   ● URIEL CORE (Claude)
 ```
 
 Regeln (aus Video 1 übernommen):

@@ -55,7 +55,7 @@ Kurzüberblick zum Einstieg. Details: `docs/system.md`, `docs/data-model.md`, `d
 - **Ordnerstruktur (Root)**:
 
 ```
-brand-os/
+uriel/
 ├── app/                 # Vite SPA (Port 5173: npm run dev)
 │   ├── src/
 │   │   ├── components/

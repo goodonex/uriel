@@ -332,7 +332,7 @@ export function buildRings(
   map: OsMap,
   colors: Record<LayerId, string> = LAYER_COLOR,
 ): NebulaLayout {
-  const nodes: NebulaNode[] = [coreNode('KEVIN OS', 'CLAUDE · DER ROUTER')]
+  const nodes: NebulaNode[] = [coreNode('URIEL', 'CLAUDE · DER ROUTER')]
 
   // SKILLS (innen, orange) — Gruppen Vault/Global
   const skills = groupedBand({
@@ -468,7 +468,7 @@ export function buildNebula(
   map: OsMap,
   colors: Record<LayerId, string> = LAYER_COLOR,
 ): NebulaLayout {
-  const nodes: NebulaNode[] = [coreNode('KEVIN OS', 'CLAUDE · DER ROUTER')]
+  const nodes: NebulaNode[] = [coreNode('URIEL', 'CLAUDE · DER ROUTER')]
 
   interface Cluster {
     key: string

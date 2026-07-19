@@ -423,7 +423,7 @@ async function buildOsMap() {
     {
       id: 'routine:cockpit-runner',
       name: 'Cockpit-Runner',
-      description: 'launchd de.kevinos.cockpit-runner · KeepAlive · Port 4711',
+      description: 'launchd de.uriel.runner · KeepAlive · Port 4711',
       schedule: 'immer an',
     },
     {

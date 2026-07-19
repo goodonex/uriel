@@ -1,14 +1,14 @@
-# REBUILD-PLAN — Framework OS → Cockpit
+# REBUILD-PLAN — Uriel → Cockpit
 
 **Stand:** 2026-07-06 · erarbeitet mit Claude (Session „KPI-Tracking → Agentic OS")
 **Ausführung:** Claude Code, Session im Repo-Root starten, Phasen strikt in Reihenfolge.
-**Play-Button:** `cd ~/Kevin OS/02 Projekte/brand-os && claude` → „Lies docs/REBUILD-PLAN.md und starte mit Phase 0."
+**Play-Button:** `cd ~/Kevin OS/02 Projekte/uriel && claude` → „Lies docs/REBUILD-PLAN.md und starte mit Phase 0."
 
 ---
 
 ## 1. Warum dieser Umbau (Kontext für die ausführende Session)
 
-Framework OS wollte Gehirn UND Hände sein. Die Denk-Modi (Foundation, Building,
+Uriel wollte Gehirn UND Hände sein. Die Denk-Modi (Foundation, Building,
 Discovery-UI, Intelligence) kann Obsidian besser — sie fühlen sich in der App leer an.
 Die Planeten-/Three.js-UI hat massive Lesbarkeitsprobleme verursacht.
 
@@ -29,7 +29,7 @@ Die Planeten-/Three.js-UI hat massive Lesbarkeitsprobleme verursacht.
 
 | Was | Detail |
 |---|---|
-| Repo | goodonex/FrameworkOS · lokal `~/Kevin OS/02 Projekte/brand-os` |
+| Repo | goodonex/uriel · lokal `~/Kevin OS/02 Projekte/uriel` |
 | Frontend | `app/` — Vite 8, React 19, TypeScript, Tailwind 3, Zustand, React Router 7, Supabase-Client, Framer Motion, TipTap, dnd-kit |
 | Backend | `supabase/` — Migrationen 0001–0013, 13 Edge Functions |
 | Umfang | ~77.500 Zeilen TS/TSX gesamt; Three.js-Anteil nur ~2.600 Zeilen |
@@ -101,7 +101,7 @@ lead-intake, marketing-ai, process-sequences, send-email, track-click, track-ope
 ## 5. Informationsarchitektur — 4 Bereiche
 
 ### 5.1 ⚡ Cockpit (`/cockpit`, Startseite)
-- **Top-Statusleiste:** Wortmarke links („KEVIN OS" — Arbeitstitel, leicht änderbar),
+- **Top-Statusleiste:** Wortmarke links („URIEL"),
   Mitte Status-Wörter mit Punkt-Indikator: `CORE`, `SUPABASE`, `RUNNER` (alive-Check
   gegen Runner-API), rechts große Uhr + Datum.
 - **Mitte — der Graph (Herzstück):** Force-Directed-Graph mit `d3-force`
