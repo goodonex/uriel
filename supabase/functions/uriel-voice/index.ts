@@ -1,0 +1,83 @@
+/**
+ * Uriel-Voice — ElevenLabs Text-to-Speech Proxy. Der Client schickt Text, wir
+ * holen die Audio-Stimme von ElevenLabs (API-Key bleibt serverseitig) und
+ * reichen die MP3 durch. Ersetzt die Browser-Roboterstimme.
+ * Secrets: ELEVENLABS_API_KEY, optional ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL.
+ */
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+
+const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Default: „Adam" — tiefe, ruhige, mehrsprachige Stimme (Jarvis-tauglich, Deutsch ok).
+const DEFAULT_VOICE = 'pNInz6obpgDQGcFmaJgB'
+const DEFAULT_MODEL = 'eleven_multilingual_v2'
+
+function json(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const apiKey = Deno.env.get('ELEVENLABS_API_KEY')?.trim()
+  if (!apiKey) {
+    return json(503, { ok: false, message: 'ELEVENLABS_API_KEY fehlt — Uriel-Stimme nicht konfiguriert.' })
+  }
+  const voiceId = Deno.env.get('ELEVENLABS_VOICE_ID')?.trim() || DEFAULT_VOICE
+  const model = Deno.env.get('ELEVENLABS_MODEL')?.trim() || DEFAULT_MODEL
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) return json(401, { ok: false, message: 'Unauthorized' })
+
+  let body: { text?: string; voiceId?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return json(400, { ok: false, message: 'Invalid JSON body' })
+  }
+  const text = body.text?.trim()
+  if (!text) return json(400, { ok: false, message: 'text required' })
+
+  const userClient = createClient(supabaseUrl, supabaseAnon, {
+    global: { headers: { Authorization: authHeader } },
+  })
+  const { data: { user }, error: userErr } = await userClient.auth.getUser()
+  if (userErr || !user) return json(401, { ok: false, message: 'Invalid session' })
+
+  const voice = body.voiceId?.trim() || voiceId
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`,
+    {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text: text.slice(0, 2500),
+        model_id: model,
+        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+      }),
+    },
+  )
+
+  if (!res.ok) {
+    const t = await res.text()
+    return json(502, { ok: false, message: `ElevenLabs ${res.status}: ${t.slice(0, 300)}` })
+  }
+
+  return new Response(res.body, {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' },
+  })
+})

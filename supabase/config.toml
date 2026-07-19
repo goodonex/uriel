@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.uriel]
 verify_jwt = true
 
+[functions.uriel-voice]
+verify_jwt = true
+
 [functions.discovery-feed-refresh]
 verify_jwt = false
 

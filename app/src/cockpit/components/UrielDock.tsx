@@ -66,11 +66,13 @@ export function UrielDock() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [turns, busy])
 
-  // Phase an die Aura melden: arbeitet > hört zu > ruhig.
+  // Phase an die Aura melden: hört zu > arbeitet/spricht > ruhig.
   useEffect(() => {
     if (!open) return
-    setPhase(busy ? 'working' : voice.listening ? 'listening' : 'idle')
-  }, [open, busy, voice.listening, setPhase])
+    setPhase(
+      voice.listening ? 'listening' : busy || voice.speaking ? 'working' : 'idle',
+    )
+  }, [open, busy, voice.listening, voice.speaking, setPhase])
 
   const ensureCockpit = useCallback(() => {
     if (location.pathname !== '/cockpit') navigate('/cockpit')
@@ -219,10 +221,10 @@ export function UrielDock() {
       voice.stopListening()
       return
     }
-    voice.startListening((text) => {
-      setDraft(text)
-      void send(text)
-    })
+    voice.startListening(
+      (interim) => setDraft(interim), // live mitlaufender Text
+      (finalText) => { setDraft(''); void send(finalText) }, // fertiger Satz → senden
+    )
   }, [voice, send])
 
   return (
