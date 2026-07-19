@@ -14,7 +14,9 @@ const corsHeaders: Record<string, string> = {
 
 // Default: „Adam" — tiefe, ruhige, mehrsprachige Stimme (Jarvis-tauglich, Deutsch ok).
 const DEFAULT_VOICE = 'pNInz6obpgDQGcFmaJgB'
-const DEFAULT_MODEL = 'eleven_multilingual_v2'
+// Flash = niedrigste Latenz (multilingual, ~sub-Sekunde). Der Client kann pro
+// Anfrage auf „eleven_multilingual_v2" (ausdrucksstärker, langsamer) umschalten.
+const DEFAULT_MODEL = 'eleven_flash_v2_5'
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -38,7 +40,14 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) return json(401, { ok: false, message: 'Unauthorized' })
 
-  let body: { text?: string; voiceId?: string }
+  interface VoiceSettings {
+    stability?: number
+    similarity_boost?: number
+    style?: number
+    speed?: number
+    use_speaker_boost?: boolean
+  }
+  let body: { text?: string; voiceId?: string; modelId?: string; voiceSettings?: VoiceSettings }
   try {
     body = await req.json()
   } catch {
@@ -54,6 +63,15 @@ Deno.serve(async (req) => {
   if (userErr || !user) return json(401, { ok: false, message: 'Invalid session' })
 
   const voice = body.voiceId?.trim() || voiceId
+  const chosenModel = body.modelId?.trim() || model
+  const vs = body.voiceSettings ?? {}
+  const voiceSettings = {
+    stability: typeof vs.stability === 'number' ? vs.stability : 0.4,
+    similarity_boost: typeof vs.similarity_boost === 'number' ? vs.similarity_boost : 0.8,
+    style: typeof vs.style === 'number' ? vs.style : 0.2,
+    speed: typeof vs.speed === 'number' ? vs.speed : 1.0,
+    use_speaker_boost: vs.use_speaker_boost ?? true,
+  }
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`,
     {
@@ -65,8 +83,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         text: text.slice(0, 2500),
-        model_id: model,
-        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+        model_id: chosenModel,
+        voice_settings: voiceSettings,
       }),
     },
   )

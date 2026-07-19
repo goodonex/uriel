@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { loadVoiceSettings } from './urielVoiceSettings'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
@@ -208,6 +209,7 @@ export function useUrielVoice(): UrielVoice {
         const { data: sess } = await supabase.auth.getSession()
         const token = sess.session?.access_token
         if (!token) throw new Error('no session')
+        const vs = loadVoiceSettings()
         const res = await fetch(`${SUPABASE_URL}/functions/v1/uriel-voice`, {
           method: 'POST',
           headers: {
@@ -215,7 +217,12 @@ export function useUrielVoice(): UrielVoice {
             Authorization: `Bearer ${token}`,
             apikey: SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ text: clean }),
+          body: JSON.stringify({
+            text: clean,
+            voiceId: vs.voiceId,
+            modelId: vs.modelId,
+            voiceSettings: { stability: vs.stability, style: vs.style, speed: vs.speed },
+          }),
         })
         if (!res.ok) {
           let detail = `${res.status}`

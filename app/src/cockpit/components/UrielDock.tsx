@@ -15,6 +15,14 @@ import {
 } from '../lib/metricsAggregate'
 import { MONTH_TARGETS, currentSoll, formatEuro } from '../lib/goals'
 import { useUrielVoice } from '../lib/useUrielVoice'
+import {
+  URIEL_MODELS,
+  URIEL_VOICES,
+  URIEL_VOICE_SAMPLE,
+  loadVoiceSettings,
+  saveVoiceSettings,
+  type UrielVoiceSettings,
+} from '../lib/urielVoiceSettings'
 import { runUrielTurn, type ToolResult, type UrielAction, type UrielMessage } from '../lib/urielAgent'
 import type { ViewMode } from '../graph/nebulaLayout'
 
@@ -50,7 +58,11 @@ export function UrielDock() {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [speakReplies, setSpeakReplies] = useState(false)
+  const [speakReplies, setSpeakReplies] = useState(() => {
+    try { return localStorage.getItem('uriel.speakReplies') === '1' } catch { return false }
+  })
+  const [showSettings, setShowSettings] = useState(false)
+  const [vset, setVset] = useState<UrielVoiceSettings>(loadVoiceSettings)
   const historyRef = useRef<UrielMessage[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -229,6 +241,29 @@ export function UrielDock() {
     )
   }, [voice, send])
 
+  const updateVset = useCallback((patch: Partial<UrielVoiceSettings>) => {
+    setVset((prev) => {
+      const next = { ...prev, ...patch }
+      saveVoiceSettings(next) // sofort persistieren → speak() liest es frisch
+      return next
+    })
+  }, [])
+
+  const toggleSpeak = useCallback(() => {
+    voice.unlock()
+    setSpeakReplies((v) => {
+      const next = !v
+      try { localStorage.setItem('uriel.speakReplies', next ? '1' : '0') } catch { /* egal */ }
+      return next
+    })
+    voice.cancelSpeak()
+  }, [voice])
+
+  const testVoice = useCallback(() => {
+    voice.unlock()
+    void voice.speak(URIEL_VOICE_SAMPLE)
+  }, [voice])
+
   return (
     <>
       {open ? (
@@ -258,20 +293,66 @@ export function UrielDock() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {voice.ttsSupported ? (
-                <button
-                  className="ck-btn"
-                  style={{ padding: '3px 8px', color: speakReplies ? 'var(--ck-accent)' : undefined }}
-                  onClick={() => { voice.unlock(); setSpeakReplies((v) => !v); voice.cancelSpeak() }}
-                  aria-label={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
-                  title={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
-                >
-                  {speakReplies ? '🔊' : '🔇'}
-                </button>
-              ) : null}
+              <button
+                className="ck-btn"
+                style={{ padding: '3px 8px', color: showSettings ? 'var(--ck-accent)' : undefined }}
+                onClick={() => setShowSettings((s) => !s)}
+                aria-label="Stimm-Einstellungen"
+                title="Stimme wählen & abstimmen"
+              >
+                ⚙
+              </button>
+              <button
+                className="ck-btn"
+                style={{ padding: '3px 8px', color: speakReplies ? 'var(--ck-accent)' : undefined }}
+                onClick={toggleSpeak}
+                aria-label={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
+                title={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
+              >
+                {speakReplies ? '🔊' : '🔇'}
+              </button>
               <button className="ck-btn" style={{ padding: '3px 8px' }} onClick={() => setOpen(false)} aria-label="Uriel schließen">✕</button>
             </div>
           </div>
+
+          {showSettings ? (
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--ck-border)', background: 'var(--ck-panel-2)', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div>
+                <label className="ck-label" htmlFor="uriel-voice">Stimme</label>
+                <select
+                  id="uriel-voice"
+                  className="ck-select"
+                  style={{ width: '100%', marginTop: 3 }}
+                  value={vset.voiceId}
+                  onChange={(e) => updateVset({ voiceId: e.target.value })}
+                >
+                  {URIEL_VOICES.map((v) => (
+                    <option key={v.id} value={v.id}>{v.label} — {v.note}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="ck-label" htmlFor="uriel-model">Modus</label>
+                <select
+                  id="uriel-model"
+                  className="ck-select"
+                  style={{ width: '100%', marginTop: 3 }}
+                  value={vset.modelId}
+                  onChange={(e) => updateVset({ modelId: e.target.value as UrielVoiceSettings['modelId'] })}
+                >
+                  {URIEL_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label} — {m.note}</option>
+                  ))}
+                </select>
+              </div>
+              <VsetSlider label="Tempo" value={vset.speed} min={0.7} max={1.2} step={0.05} onChange={(n) => updateVset({ speed: n })} />
+              <VsetSlider label="Lebendigkeit (Betonung)" value={1 - vset.stability} min={0} max={1} step={0.05} onChange={(n) => updateVset({ stability: 1 - n })} />
+              <VsetSlider label="Ausdruck" value={vset.style} min={0} max={1} step={0.05} onChange={(n) => updateVset({ style: n })} />
+              <button className="ck-btn ck-btn--primary" style={{ alignSelf: 'flex-start' }} onClick={testVoice}>
+                ▶ Stimme testen
+              </button>
+            </div>
+          ) : null}
 
           {/* Verlauf */}
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 4px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -390,5 +471,37 @@ export function UrielDock() {
         ✦
       </button>
     </>
+  )
+}
+
+function VsetSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <label style={{ display: 'block' }}>
+      <span className="ck-label">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: '100%', marginTop: 2, accentColor: 'var(--ck-accent)' }}
+        aria-label={label}
+      />
+    </label>
   )
 }
