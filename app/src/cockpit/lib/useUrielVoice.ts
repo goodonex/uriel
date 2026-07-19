@@ -4,6 +4,12 @@ import { supabase } from '../../lib/supabase'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
 
+// Winziges stilles WAV — spielt bei der ersten Nutzer-Geste auf DEM Audio-Element,
+// das wir wiederverwenden. Danach erlaubt der Browser spätere play()-Aufrufe auf
+// genau diesem Element (löst die Autoplay-Sperre nach dem async Denk-Vorgang).
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQgAAAAAAAAAAAAAAA=='
+
 /**
  * Uriel-Stimme (Phase A). Sprechen über ElevenLabs (Edge Function `uriel-voice`,
  * Key serverseitig) statt Browser-Roboterstimme — mit Browser-Fallback, falls
@@ -57,6 +63,8 @@ export interface UrielVoice {
   speaking: boolean
   /** Letzter Stimm-Fehler (ElevenLabs), damit ein Fallback nicht stumm bleibt. */
   voiceError: string | null
+  /** Bei einer Nutzer-Geste aufrufen → schaltet Audio-Wiedergabe frei. */
+  unlock: () => void
   /** Push-to-talk: onInterim = live mitlaufender Text, onFinal = fertiger Satz. */
   startListening: (onInterim: (text: string) => void, onFinal: (text: string) => void) => void
   stopListening: () => void
@@ -72,7 +80,29 @@ export function useUrielVoice(): UrielVoice {
   const finalRef = useRef('')
   const onFinalRef = useRef<((t: string) => void) | null>(null)
   const silenceRef = useRef<number | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const playerRef = useRef<HTMLAudioElement | null>(null)
+  const unlockedRef = useRef(false)
+  const urlRef = useRef<string | null>(null)
+
+  const getPlayer = () => {
+    if (!playerRef.current) playerRef.current = new Audio()
+    return playerRef.current
+  }
+
+  // Bei der ersten Nutzer-Geste aufrufen: „segnet" das Audio-Element, damit Uriel
+  // später (nach dem Denken) sprechen darf, ohne dass der Browser blockt.
+  const unlock = useCallback(() => {
+    if (unlockedRef.current) return
+    const p = getPlayer()
+    try {
+      p.src = SILENT_WAV
+      const r = p.play()
+      if (r && typeof r.then === 'function') {
+        r.then(() => { p.pause(); p.currentTime = 0 }).catch(() => {})
+      }
+      unlockedRef.current = true
+    } catch { /* egal */ }
+  }, [])
 
   const sttSupported = typeof window !== 'undefined' && getRecognitionCtor() !== null
   const ttsSupported = true // ElevenLabs serverseitig + Browser-Fallback → immer eine Stimme
@@ -141,9 +171,13 @@ export function useUrielVoice(): UrielVoice {
   )
 
   const cancelSpeak = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current = null
+    const p = playerRef.current
+    if (p) {
+      p.pause()
+    }
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current)
+      urlRef.current = null
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
@@ -195,18 +229,17 @@ export function useUrielVoice(): UrielVoice {
         if (blob.size === 0) throw new Error('leeres Audio')
         setVoiceError(null)
         const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        audioRef.current = audio
-        audio.onended = () => {
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+        urlRef.current = url
+        // Dasselbe (bei der Geste freigeschaltete) Element wiederverwenden.
+        const p = getPlayer()
+        p.src = url
+        p.onended = () => {
           setSpeaking(false)
-          URL.revokeObjectURL(url)
-          if (audioRef.current === audio) audioRef.current = null
+          if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null }
         }
-        audio.onerror = () => {
-          setSpeaking(false)
-          URL.revokeObjectURL(url)
-        }
-        await audio.play()
+        p.onerror = () => setSpeaking(false)
+        await p.play()
       } catch (e) {
         // Fallback: Browser-Stimme — aber Fehler sichtbar machen (nicht stumm).
         const msg = e instanceof Error ? e.message : 'Stimme fehlgeschlagen'
@@ -225,9 +258,10 @@ export function useUrielVoice(): UrielVoice {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
-      audioRef.current?.pause()
+      playerRef.current?.pause()
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current)
     }
   }, [])
 
-  return { sttSupported, ttsSupported, listening, speaking, voiceError, startListening, stopListening, speak, cancelSpeak }
+  return { sttSupported, ttsSupported, listening, speaking, voiceError, unlock, startListening, stopListening, speak, cancelSpeak }
 }

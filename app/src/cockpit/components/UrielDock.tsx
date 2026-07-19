@@ -192,6 +192,7 @@ export function UrielDock() {
     async (text: string) => {
       const msg = text.trim()
       if (!msg || busy) return
+      voice.unlock() // Audio bei dieser Geste freischalten, damit Uriel danach sprechen darf
       setDraft('')
       setError(null)
       setBusy(true)
@@ -217,6 +218,7 @@ export function UrielDock() {
   )
 
   const onMic = useCallback(() => {
+    voice.unlock() // Geste → Audio freischalten
     if (voice.listening) {
       voice.stopListening()
       return
@@ -260,7 +262,7 @@ export function UrielDock() {
                 <button
                   className="ck-btn"
                   style={{ padding: '3px 8px', color: speakReplies ? 'var(--ck-accent)' : undefined }}
-                  onClick={() => { setSpeakReplies((v) => !v); voice.cancelSpeak() }}
+                  onClick={() => { voice.unlock(); setSpeakReplies((v) => !v); voice.cancelSpeak() }}
                   aria-label={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
                   title={speakReplies ? 'Vorlesen aus' : 'Antworten vorlesen'}
                 >
