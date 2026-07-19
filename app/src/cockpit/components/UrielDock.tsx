@@ -264,6 +264,20 @@ export function UrielDock() {
     void voice.speak(URIEL_VOICE_SAMPLE)
   }, [voice])
 
+  // Beim Umstellen der Stimme/des Modus sofort eine Hörprobe — Kevin will hören,
+  // wie es klingt, ohne erst einen Prompt einzugeben. Synchron speichern, DANN
+  // sprechen, damit speak() die neue Einstellung aus localStorage liest.
+  const applyAndPreview = useCallback(
+    (patch: Partial<UrielVoiceSettings>) => {
+      const next = { ...loadVoiceSettings(), ...patch }
+      saveVoiceSettings(next)
+      setVset(next)
+      voice.unlock()
+      void voice.speak(URIEL_VOICE_SAMPLE)
+    },
+    [voice],
+  )
+
   return (
     <>
       {open ? (
@@ -324,7 +338,7 @@ export function UrielDock() {
                   className="ck-select"
                   style={{ width: '100%', marginTop: 3 }}
                   value={vset.voiceId}
-                  onChange={(e) => updateVset({ voiceId: e.target.value })}
+                  onChange={(e) => applyAndPreview({ voiceId: e.target.value })}
                 >
                   {URIEL_VOICES.map((v) => (
                     <option key={v.id} value={v.id}>{v.label} — {v.note}</option>
@@ -338,7 +352,7 @@ export function UrielDock() {
                   className="ck-select"
                   style={{ width: '100%', marginTop: 3 }}
                   value={vset.modelId}
-                  onChange={(e) => updateVset({ modelId: e.target.value as UrielVoiceSettings['modelId'] })}
+                  onChange={(e) => applyAndPreview({ modelId: e.target.value as UrielVoiceSettings['modelId'] })}
                 >
                   {URIEL_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>{m.label} — {m.note}</option>
