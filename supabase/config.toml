@@ -1,6 +1,9 @@
-# Brand OS — lokale Edge-Function-Defaults (Deploy: Supabase CLI / Dashboard)
+# Uriel — lokale Edge-Function-Defaults (Deploy: Supabase CLI / Dashboard)
 
 [functions.discovery-agent]
+verify_jwt = true
+
+[functions.uriel]
 verify_jwt = true
 
 [functions.discovery-feed-refresh]

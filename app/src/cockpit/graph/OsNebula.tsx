@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUiTheme } from '../../hooks/useUiTheme'
+import { useUrielBus } from '../../store/urielBus'
 import type { OsMap } from '../lib/runnerApi'
 import type { LeadContact, NebulaLayout, NebulaNode, ViewMode } from './nebulaLayout'
 import { buildLayout, getLayerColors, TOP } from './nebulaLayout'
@@ -218,6 +219,20 @@ export function OsNebula({ map, contacts, onNodeClick, onRefresh, height = 620 }
       }
       return next
     })
+
+  // Uriel-Command-Bus: der Assistent kann Ansicht/Suche fernsteuern. Wir wenden
+  // die Anfrage auf den lokalen State an; manuelle Panel-Bedienung bleibt Quelle
+  // der Wahrheit, Uriel injiziert nur. nonce erzwingt Wiederholbarkeit.
+  const graphRequest = useUrielBus((s) => s.graphRequest)
+  useEffect(() => {
+    if (!graphRequest) return
+    if (graphRequest.view) set({ view: graphRequest.view })
+    if (graphRequest.query !== undefined) {
+      setQuery(graphRequest.query)
+      needFitRef.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphRequest])
 
   useEffect(() => {
     const canvas = canvasRef.current
