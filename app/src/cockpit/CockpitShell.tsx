@@ -3,6 +3,7 @@ import { ChatBubble } from './components/ChatBubble'
 import { NavRail } from './components/NavRail'
 import { RunWatcher } from './components/RunWatcher'
 import { StatusBar } from './components/StatusBar'
+import { UrielAura } from './components/UrielAura'
 import { UrielDock } from './components/UrielDock'
 import { ActiveBrandProvider } from './lib/activeBrand'
 import '../styles/cockpit.css'
@@ -26,6 +27,7 @@ export function CockpitShell() {
           zIndex: 2,
         }}
       >
+        <UrielAura />
         <StatusBar />
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <NavRail />

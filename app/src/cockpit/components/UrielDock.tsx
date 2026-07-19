@@ -43,7 +43,9 @@ interface DisplayTurn {
  * geladenen, eingeloggten Cockpit-State. Konversation ist bewusst flüchtig (v1).
  */
 export function UrielDock() {
-  const [open, setOpen] = useState(false)
+  const open = useUrielBus((s) => s.open)
+  const setOpen = useUrielBus((s) => s.setOpen)
+  const setPhase = useUrielBus((s) => s.setPhase)
   const [turns, setTurns] = useState<DisplayTurn[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -63,6 +65,12 @@ export function UrielDock() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [turns, busy])
+
+  // Phase an die Aura melden: arbeitet > hört zu > ruhig.
+  useEffect(() => {
+    if (!open) return
+    setPhase(busy ? 'working' : voice.listening ? 'listening' : 'idle')
+  }, [open, busy, voice.listening, setPhase])
 
   const ensureCockpit = useCallback(() => {
     if (location.pathname !== '/cockpit') navigate('/cockpit')
@@ -355,7 +363,7 @@ export function UrielDock() {
       ) : null}
 
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         aria-label={open ? 'Uriel schließen' : 'Uriel öffnen'}
         className="ck-uriel-fab"
         style={{

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useUiTheme } from '../../hooks/useUiTheme'
+import { useUrielBus } from '../../store/urielBus'
 import { useActiveBrand } from '../lib/activeBrand'
 import { useRunnerStatus } from '../lib/useRunnerStatus'
 
@@ -48,14 +49,23 @@ export function StatusBar() {
   const { brands, activeSlug, setActiveSlug } = useActiveBrand()
   const runner = useRunnerStatus()
   const { isPlainLight, togglePlainLight } = useUiTheme()
+  const urielOpen = useUrielBus((s) => s.open)
+  const toggleUriel = useUrielBus((s) => s.toggleOpen)
 
   return (
     <header className="ck-statusbar">
-      {/* Wortmarke */}
-      <div className="ck-status-brand">
-        <span className="ck-wordmark">K E V I N&nbsp;&nbsp;O S</span>
+      {/* Wortmarke = Uriel-Trigger */}
+      <button
+        type="button"
+        className={`ck-status-brand ck-uriel-trigger${urielOpen ? ' is-active' : ''}`}
+        onClick={toggleUriel}
+        aria-pressed={urielOpen}
+        aria-label={urielOpen ? 'Uriel schließen' : 'Uriel aktivieren'}
+        title={urielOpen ? 'Uriel schließen' : 'Uriel aktivieren'}
+      >
+        <span className="ck-wordmark">U R I E L</span>
         <span className="ck-label ck-status-brand-tag" style={{ marginTop: 2 }}>Cockpit</span>
-      </div>
+      </button>
 
       {/* Status-Wörter — auf Mobile ausgeblendet (Platz für Nav+Tracking) */}
       <div className="ck-status-words">

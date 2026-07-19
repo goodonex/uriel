@@ -116,6 +116,51 @@
 .ck-uriel-fab { position: fixed; right: 80px; bottom: 20px; z-index: 61; }
 .ck-uriel-panel { position: fixed; right: 20px; bottom: 84px; z-index: 62; }
 
+/* Wortmarke als Uriel-Trigger */
+.ck-uriel-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: filter 0.3s ease, text-shadow 0.3s ease;
+}
+.ck-uriel-trigger:hover .ck-wordmark { color: var(--ck-accent); }
+.ck-uriel-trigger.is-active .ck-wordmark {
+  color: var(--ck-accent);
+  text-shadow: 0 0 14px var(--ck-accent);
+  animation: ck-uriel-word-pulse 2.4s ease-in-out infinite;
+}
+@keyframes ck-uriel-word-pulse {
+  0%, 100% { text-shadow: 0 0 8px var(--ck-accent); opacity: 0.92; }
+  50% { text-shadow: 0 0 20px var(--ck-accent); opacity: 1; }
+}
+
+/* Pulsierende Nebel-Aura im Uriel-Modus (rein atmosphärisch) */
+.ck-uriel-aura {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  background:
+    radial-gradient(120% 90% at 88% 100%, color-mix(in srgb, var(--ck-accent) 26%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 70% at 8% 0%, color-mix(in srgb, var(--ck-accent) 12%, transparent) 0%, transparent 50%);
+}
+.ck-uriel-aura.is-open { opacity: 0.5; animation: ck-aura-breathe 5s ease-in-out infinite; }
+.ck-uriel-aura.is-open[data-phase='listening'] { opacity: 0.8; animation-duration: 1.6s; }
+.ck-uriel-aura.is-open[data-phase='working'] { opacity: 0.72; animation-duration: 2.6s; }
+@keyframes ck-aura-breathe {
+  0%, 100% { opacity: 0.42; }
+  50% { opacity: 0.66; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ck-uriel-trigger.is-active .ck-wordmark { animation: none; }
+  .ck-uriel-aura.is-open { animation: none; opacity: 0.5; }
+}
+
 /* --- Nav --- */
 .ck-nav-item {
   display: flex;
