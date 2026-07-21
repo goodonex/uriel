@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
-import { CommandDeck } from '../components/CommandDeck'
-import { DocumentsPanel } from '../components/DocumentsPanel'
-import { ConversionPanel } from '../components/ConversionPanel'
-import { DreamCard } from '../components/DreamCard'
+import { AgentsPanel } from '../components/AgentsPanel'
+import { GoalCard } from '../components/GoalCard'
 import { HeuteDeck } from '../components/HeuteDeck'
-import { MonthCurve } from '../components/MonthCurve'
-import type { RunDoc } from '../components/DocumentsPanel'
-import { NorthStarCard } from '../components/NorthStarCard'
 import { OsDetailPanel } from '../components/OsDetailPanel'
-import { PrimaryDirective } from '../components/PrimaryDirective'
 import { QuickTrack } from '../components/QuickTrack'
 import { RunDrawer } from '../components/RunDrawer'
 import { VitalsPanel } from '../components/VitalsPanel'
@@ -20,26 +14,17 @@ import { useActiveBrand } from '../lib/activeBrand'
 import {
   LAYOUT_LIMITS,
   LAYOUT_PRESETS,
-  PRESET_LABEL,
   loadCockpitLayout,
   saveCockpitLayout,
 } from '../lib/cockpitLayoutStorage'
-import type { CockpitLayout, LayoutPreset } from '../lib/cockpitLayoutStorage'
+import type { CockpitLayout } from '../lib/cockpitLayoutStorage'
 import { WEEK_TARGETS, currentSoll, monthTargetFor } from '../lib/goals'
-import { funnelKpis, sumField, weekVitals } from '../lib/metricsAggregate'
+import { sumField, weekVitals } from '../lib/metricsAggregate'
 import { postRun } from '../lib/runnerApi'
 import { buildFollowupInput } from '../lib/approvalDrafts'
 import { useDailyMetrics } from '../lib/useDailyMetrics'
 import { useOsMap } from '../lib/useOsMap'
 import { useRunnerData } from '../lib/useRunnerData'
-
-function runDate(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
-}
 
 /** Graph-Höhe: nur auf schmalen (Mobile) Viewports deckeln — am Desktop frei ziehbar. */
 function useGraphHeight(desired: number): number {
@@ -167,91 +152,10 @@ function RowDivider({
   )
 }
 
-/** Fokus-Presets + Größen-Regler (persistiert). */
-function LayoutBar({
-  layout,
-  onChange,
-}: {
-  layout: CockpitLayout
-  onChange: (next: CockpitLayout) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const setPreset = (p: LayoutPreset) => onChange(LAYOUT_PRESETS[p])
-  const slider = (
-    label: string,
-    value: number,
-    min: number,
-    max: number,
-    apply: (v: number) => void,
-  ) => (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span className="ck-label" style={{ fontSize: 9.5 }}>{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={10}
-        value={value}
-        onChange={(e) => apply(Number(e.target.value))}
-        style={{ width: 110, accentColor: 'var(--ck-accent)' }}
-        aria-label={label}
-      />
-      <span className="ck-label" style={{ opacity: 0.7, minWidth: 34 }}>{value}px</span>
-    </label>
-  )
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        gap: 6,
-        flexWrap: 'wrap',
-        marginBottom: 10,
-      }}
-    >
-      {open ? (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, marginRight: 8 }}>
-          {slider('Sidebar', layout.sidebarPx, LAYOUT_LIMITS.sidebar.min, LAYOUT_LIMITS.sidebar.max, (v) =>
-            onChange({ ...layout, sidebarPx: v }),
-          )}
-          {slider('Graph', layout.graphHeight, LAYOUT_LIMITS.graph.min, LAYOUT_LIMITS.graph.max, (v) =>
-            onChange({ ...layout, graphHeight: v }),
-          )}
-        </div>
-      ) : null}
-      {(Object.keys(LAYOUT_PRESETS) as LayoutPreset[]).map((p) => (
-        <button
-          key={p}
-          className="ck-btn"
-          onClick={() => setPreset(p)}
-          style={{
-            fontSize: 10.5,
-            padding: '4px 10px',
-            borderColor: layout.preset === p ? 'var(--ck-accent)' : undefined,
-            color: layout.preset === p ? 'var(--ck-accent)' : undefined,
-          }}
-        >
-          {PRESET_LABEL[p]}
-        </button>
-      ))}
-      <button
-        className="ck-btn"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Größen-Regler ein-/ausblenden"
-        aria-expanded={open}
-        style={{ fontSize: 11, padding: '4px 8px' }}
-      >
-        ⚙
-      </button>
-    </div>
-  )
-}
-
 /**
- * Cockpit-Home — Hauptfläche ist der Agentic-OS-Graph (OsNebula): Kern +
- * Ebenen Skills/Memory/Routines/Apps aus /os/map, plus Leads-Pipelines.
- * Links schlanke Tracking-Spalte, unter dem Graph Command Deck + Dream.
+ * Cockpit-Home (vereinfacht Juli 2026) — Hauptfläche ist der Agentic-OS-Graph
+ * (OsNebula). Links schlanke Spalte: Ziel-Karte, Quick-Track, Vitals.
+ * Unter dem Graph das Agenten-Panel (Deck + Dream + letzte Runs).
  */
 export function CockpitHome() {
   const navigate = useNavigate()
@@ -268,26 +172,24 @@ export function CockpitHome() {
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
-  const changeLayout = useCallback((next: CockpitLayout) => {
-    setLayout(next)
-    saveCockpitLayout(next)
-  }, [])
-
   // Divider zieht die Sidebar-Breite live; gespeichert wird erst beim Loslassen.
   const resizeSidebar = useCallback((px: number) => {
     setLayout((l) => ({ ...l, sidebarPx: px }))
   }, [])
   const commitLayout = useCallback(() => saveCockpitLayout(layoutRef.current), [])
 
+  // Fokus-Umschalter im Graphen: setzt Sidebar-Breite + Graph-Höhe per Preset.
+  const setFocus = useCallback((f: 'tracking' | 'graph') => {
+    const next = LAYOUT_PRESETS[f]
+    setLayout(next)
+    saveCockpitLayout(next)
+  }, [])
+
   const vitals = useMemo(
     () => weekVitals(metrics.weekRows, metrics.monthRows),
     [metrics.weekRows, metrics.monthRows],
   )
   const monthRevenue = useMemo(() => sumField(metrics.monthRows, 'umsatz'), [metrics.monthRows])
-  const funnel = useMemo(
-    () => funnelKpis(metrics.monthRows, monthRevenue),
-    [metrics.monthRows, monthRevenue],
-  )
 
   /** Schlanker Kontakt-Auszug für die Leads-Ansicht des Graphen. */
   const leadContacts: LeadContact[] = useMemo(
@@ -317,18 +219,6 @@ export function CockpitHome() {
       setSelNode(node)
     },
     [navigate],
-  )
-
-  const runDocs: RunDoc[] = useMemo(
-    () =>
-      runs.slice(0, 6).map((r) => ({
-        id: r.id,
-        agent: r.agent,
-        title: r.status === 'error' ? `⚠ ${r.agent}` : r.agent,
-        date: r.status === 'running' ? 'läuft…' : runDate(r.finished || r.started),
-        active: r.status === 'running',
-      })),
-    [runs],
   )
 
   const activeAgents = useMemo(
@@ -418,32 +308,29 @@ export function CockpitHome() {
     <div style={{ marginBottom: 12 }}>
       <HeuteDeck slug={activeBrand?.slug} contacts={contacts} />
     </div>
-    <LayoutBar layout={layout} onChange={changeLayout} />
     <div
       ref={gridRef}
       className="ck-home-grid"
       style={{ ['--ck-sidebar-w' as string]: `${layout.sidebarPx}px` } as React.CSSProperties}
     >
-      {/* Links (schmal): Geld-Ziel → Quick-Track (schneller Zugriff) → Vitals → Conversion → Docs */}
+      {/* Links (schmal): Ziel-Karte → Quick-Track → Vitals */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <NorthStarCard contacts={contacts.items} />
-        <PrimaryDirective monthRevenue={monthRevenue} />
-        <section className="ck-panel" style={{ padding: '10px 12px' }}>
-          <MonthCurve monthRows={metrics.monthRows} />
-        </section>
+        <GoalCard
+          monthRevenue={monthRevenue}
+          monthRows={metrics.monthRows}
+          contacts={contacts.items}
+        />
         <QuickTrack
           today={metrics.today}
           onBump={(f, d) => void metrics.bump(f, d)}
           onAddUmsatz={(amount) => void metrics.setUmsatz(metrics.today.umsatz + amount)}
         />
         <VitalsPanel vitals={vitals} />
-        <ConversionPanel kpis={funnel} />
-        <DocumentsPanel runs={runDocs} onOpen={(r) => setOpenRunId(r.id)} />
       </div>
 
       <GridDivider gridRef={gridRef} onLive={resizeSidebar} onCommit={commitLayout} />
 
-      {/* Haupt (breit): großer OS-Graph, darunter Command Deck + Dream */}
+      {/* Haupt (breit): großer OS-Graph, darunter das Agenten-Panel */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
         <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
           <OsNebula
@@ -453,6 +340,8 @@ export function CockpitHome() {
             onNodeClick={onNodeClick}
             onRefresh={() => refreshOsMap(true)}
             height={graphHeight}
+            focus={layout.preset}
+            onFocus={setFocus}
           />
         </div>
         <RowDivider
@@ -462,10 +351,13 @@ export function CockpitHome() {
           onLive={(px) => setLayout((l) => ({ ...l, graphHeight: px }))}
           onCommit={commitLayout}
         />
-        <div className="ck-home-deck">
-          <CommandDeck runnerState={runner.state} activeAgents={activeAgents} onRun={onRun} />
-          <DreamCard runs={runs} onOpen={setOpenRunId} />
-        </div>
+        <AgentsPanel
+          runnerState={runner.state}
+          activeAgents={activeAgents}
+          runs={runs}
+          onRun={onRun}
+          onOpenRun={setOpenRunId}
+        />
       </div>
 
       {selNode ? <OsDetailPanel node={selNode} onClose={() => setSelNode(null)} /> : null}

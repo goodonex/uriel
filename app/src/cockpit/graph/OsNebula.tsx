@@ -144,6 +144,10 @@ interface Comet {
   offset: number
 }
 
+/** Layout-Fokus der Home (steuert Sidebar-Breite + Graph-Höhe) — als feine
+ *  Buttons oben im Graphen, statt einer separaten Leiste über dem Dashboard. */
+export type GraphFocus = 'tracking' | 'balanced' | 'graph'
+
 interface OsNebulaProps {
   map: OsMap
   contacts: LeadContact[]
@@ -153,6 +157,10 @@ interface OsNebulaProps {
   /** Erzwingt frisches /os/map (Cache-Bypass) — Button im Steuerpanel. */
   onRefresh?: () => void
   height?: number
+  /** Aktueller Layout-Fokus (für den Umschalter oben rechts). */
+  focus?: GraphFocus
+  /** Fokus umschalten — wirkt auf das Home-Grid (Sidebar/Graph). */
+  onFocus?: (focus: 'tracking' | 'graph') => void
 }
 
 const VIEW_LABEL: Record<ViewMode, string> = {
@@ -168,7 +176,7 @@ const SUBTITLE: Record<ViewMode, string> = {
   workflows: 'Jeder Agent ein Hub · seine Läufe als Speiche, Farbe = Status.',
 }
 
-export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, height = 620 }: OsNebulaProps) {
+export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, height = 620, focus, onFocus }: OsNebulaProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const tipRef = useRef<HTMLDivElement | null>(null)
@@ -770,7 +778,7 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
   }, [layout, layerColors])
 
   const slider = (label: string, key: 'glow' | 'spin' | 'links' | 'comets') => (
-    <label style={{ display: 'block', marginTop: 8 }}>
+    <label style={{ display: 'block', marginTop: 7 }}>
       <span style={{ display: 'flex', justifyContent: 'space-between' }}>
         <span className="ck-label">{label}</span>
         <span className="ck-label" style={{ opacity: 0.7 }}>
@@ -784,10 +792,36 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
         step={0.05}
         value={settings[key]}
         onChange={(e) => set({ [key]: Number(e.target.value) } as Partial<Settings>)}
-        style={{ width: '100%', accentColor: 'var(--ck-accent)', height: 18 }}
+        className="ck-nebula-slider"
+        style={{ width: '100%', marginTop: 3 }}
         aria-label={label}
       />
     </label>
+  )
+
+  /** Feiner Segmented-Button — geteilt von Ansicht- und Fokus-Leiste. */
+  const segBtn = (active: boolean, onClick: () => void, label: string, key: string) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: '3px 8px',
+        fontSize: 10,
+        fontWeight: active ? 600 : 400,
+        fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+        letterSpacing: '0.02em',
+        border: 'none',
+        borderRadius: 5,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        background: active ? 'color-mix(in srgb, var(--ck-accent) 18%, transparent)' : 'transparent',
+        color: active ? 'var(--ck-accent)' : 'var(--ck-text-2)',
+      }}
+    >
+      {label}
+    </button>
   )
 
   return (
@@ -818,30 +852,74 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
         <div style={{ color: 'var(--ck-text-2)' }} />
       </div>
 
-      {/* Header links oben — Breite gekappt, damit er nie unter das Steuerpanel läuft */}
+      {/* Header rechts oben — Ansicht-Umschalter immer sichtbar (nicht mehr im Panel) */}
       <div
         style={{
           position: 'absolute',
-          top: 12,
-          left: 14,
-          pointerEvents: 'none',
+          top: 10,
+          right: 12,
           zIndex: 4,
-          maxWidth: 'min(46%, 300px)',
+          maxWidth: 'min(52%, 340px)',
+          textAlign: 'right',
         }}
       >
-        <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.08em' }}>
-          URIEL · <span style={{ color: 'var(--ck-accent)' }}>NEBULA</span>
+        {/* Ansicht: Ringe · Nebula · Leads · Agenten */}
+        <div
+          style={{
+            display: 'inline-flex',
+            padding: 2,
+            gap: 2,
+            border: '1px solid var(--ck-border)',
+            borderRadius: 7,
+            background: 'var(--ck-graph-panel)',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          {(['rings', 'nebula', 'leads', 'workflows'] as ViewMode[]).map((v) =>
+            segBtn(settings.view === v, () => set({ view: v }), VIEW_LABEL[v], v),
+          )}
         </div>
-        <div style={{ fontSize: 10.5, color: 'var(--ck-text-2)', marginTop: 3 }}>
+        <div style={{ fontSize: 10.5, color: 'var(--ck-text-2)', marginTop: 5, pointerEvents: 'none' }}>
           {SUBTITLE[settings.view]}
         </div>
-        <div style={{ fontSize: 9.5, color: 'var(--ck-text-3)', marginTop: 3 }}>
+        <div style={{ fontSize: 9.5, color: 'var(--ck-text-3)', marginTop: 3, pointerEvents: 'none' }}>
           {layout.stats.items} Objekte · {layout.stats.links} Links
         </div>
       </div>
 
-      {/* Control-Panel rechts */}
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 4 }}>
+      {/* Control-Panel links: Fokus-Umschalter + ⚙ immer sichtbar, Detail-Panel klappt darunter auf */}
+      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+        {/* Immer sichtbar: Fokus (Tracking · Graph) + Panel-Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {onFocus ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                padding: 2,
+                gap: 2,
+                border: '1px solid var(--ck-border)',
+                borderRadius: 7,
+                background: 'var(--ck-graph-panel)',
+                backdropFilter: 'blur(6px)',
+              }}
+              title="Layout-Fokus: mehr Platz fürs Tracking oder für den Graphen"
+            >
+              {segBtn(focus === 'tracking', () => onFocus('tracking'), 'Tracking', 'foc-t')}
+              {segBtn(focus === 'graph', () => onFocus('graph'), 'Graph', 'foc-g')}
+            </div>
+          ) : null}
+          <button
+            className="ck-btn"
+            style={{ padding: '3px 8px', fontSize: 12 }}
+            onClick={() => setPanelOpen((o) => !o)}
+            aria-label={panelOpen ? 'Steuerung einklappen' : 'Steuerung öffnen'}
+            aria-expanded={panelOpen}
+            title="Steuerung"
+          >
+            ⚙
+          </button>
+        </div>
+
         {panelOpen ? (
           <div
             style={{
@@ -853,25 +931,6 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
               backdropFilter: 'blur(6px)',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 8,
-              }}
-            >
-              <span className="ck-label">Steuerung</span>
-              <button
-                className="ck-btn"
-                style={{ padding: '1px 7px', fontSize: 11 }}
-                onClick={() => setPanelOpen(false)}
-                aria-label="Panel einklappen"
-              >
-                ─
-              </button>
-            </div>
-
             <input
               className="ck-input"
               value={query}
@@ -881,86 +940,45 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
               style={{ width: '100%', fontSize: 11, padding: '5px 8px' }}
             />
 
-            <div className="ck-label" style={{ marginTop: 10 }}>
-              Ansicht
-            </div>
-            {/* Segmented control: ein Rahmen, aktives Segment gefüllt */}
-            <div
-              style={{
-                display: 'flex',
-                marginTop: 6,
-                padding: 2,
-                gap: 2,
-                border: '1px solid var(--ck-border)',
-                borderRadius: 8,
-                background: 'var(--ck-bg)',
-              }}
-            >
-              {(['rings', 'nebula', 'leads', 'workflows'] as ViewMode[]).map((v) => {
-                const on = settings.view === v
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => set({ view: v })}
-                    style={{
-                      flex: 1,
-                      padding: '5px 0',
-                      fontSize: 10.5,
-                      fontWeight: on ? 600 : 400,
-                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                      border: 'none',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      background: on ? 'color-mix(in srgb, var(--ck-accent) 18%, transparent)' : 'transparent',
-                      color: on ? 'var(--ck-accent)' : 'var(--ck-text-2)',
-                    }}
-                  >
-                    {VIEW_LABEL[v]}
-                  </button>
-                )
-              })}
-            </div>
-
             {slider('Glow', 'glow')}
             {slider('Ring-Spin', 'spin')}
             {slider('Kanten', 'links')}
             {slider('Kometen', 'comets')}
 
-            <label
-              style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 10, fontSize: 11 }}
-            >
-              <input
-                type="checkbox"
-                checked={settings.labels}
-                onChange={(e) => set({ labels: e.target.checked })}
-                style={{ accentColor: 'var(--ck-accent)' }}
-              />
-              <span className="ck-label">Labels</span>
-            </label>
-
-            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-              <button
-                className="ck-btn"
-                style={{ flex: 1, fontSize: 11 }}
-                onClick={() => {
-                  needFitRef.current = true
-                  setQuery('')
-                }}
-              >
-                Ansicht zurücksetzen
-              </button>
-              {onRefresh ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+              <label style={{ display: 'flex', gap: 7, alignItems: 'center', fontSize: 11 }}>
+                <input
+                  type="checkbox"
+                  checked={settings.labels}
+                  onChange={(e) => set({ labels: e.target.checked })}
+                  style={{ accentColor: 'var(--ck-accent)' }}
+                />
+                <span className="ck-label">Labels</span>
+              </label>
+              <span style={{ display: 'inline-flex', gap: 4 }}>
                 <button
                   className="ck-btn"
-                  style={{ fontSize: 11, padding: '0 9px' }}
-                  onClick={onRefresh}
-                  title="Daten neu laden (Cache umgehen)"
-                  aria-label="Daten neu laden"
+                  style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => {
+                    needFitRef.current = true
+                    setQuery('')
+                  }}
+                  title="Zoom/Suche zurücksetzen"
                 >
-                  ⟳
+                  Reset
                 </button>
-              ) : null}
+                {onRefresh ? (
+                  <button
+                    className="ck-btn"
+                    style={{ fontSize: 11, padding: '2px 7px' }}
+                    onClick={onRefresh}
+                    title="Daten neu laden (Cache umgehen)"
+                    aria-label="Daten neu laden"
+                  >
+                    ⟳
+                  </button>
+                ) : null}
+              </span>
             </div>
 
             <div
@@ -994,11 +1012,7 @@ export function OsNebula({ map, contacts, runs = [], onNodeClick, onRefresh, hei
               ))}
             </div>
           </div>
-        ) : (
-          <button className="ck-btn" onClick={() => setPanelOpen(true)} aria-label="Panel öffnen">
-            ⚙
-          </button>
-        )}
+        ) : null}
       </div>
     </div>
   )

@@ -1,17 +1,27 @@
 import { useState } from 'react'
 import type { DailyMetricsRow, MetricField } from '../lib/useDailyMetrics'
 
-const INPUT_FIELDS: Array<{ field: MetricField; label: string }> = [
+const EXPAND_KEY = 'ck.quicktrack.expanded'
+
+/**
+ * Dauerhaft sichtbare Zähler (Kevins tägliche Kanäle, Juli 2026) — der Rest
+ * ist Eingabe-Detail und lebt hinter „alle anzeigen": das Dashboard zeigt
+ * Status, kein Dauerformular.
+ */
+const FEATURED_FIELDS: Array<{ field: MetricField; label: string }> = [
   { field: 'li_anfragen', label: 'LI Vernetzung' },
   { field: 'li_nachrichten', label: 'LI Nachricht' },
-  { field: 'inmails', label: 'InMail' },
   { field: 'li_followups', label: 'LI Follow-up' },
   { field: 'looms', label: 'Loom' },
   { field: 'ig_anfragen', label: 'IG Follow' },
   { field: 'ig_nachrichten', label: 'IG Nachricht' },
+  { field: 'call_followups', label: 'FU Call' },
+]
+
+const MORE_FIELDS: Array<{ field: MetricField; label: string }> = [
+  { field: 'inmails', label: 'InMail' },
   { field: 'ig_followups', label: 'IG Follow-up' },
   { field: 'cold_calls', label: 'Cold Call' },
-  { field: 'call_followups', label: 'FU Call' },
 ]
 
 const RESULT_FIELDS: Array<{ field: MetricField; label: string }> = [
@@ -123,6 +133,15 @@ export function QuickTrack({
 }) {
   const [umsatzOpen, setUmsatzOpen] = useState(false)
   const [umsatzDraft, setUmsatzDraft] = useState('')
+  const [expanded, setExpanded] = useState(() => localStorage.getItem(EXPAND_KEY) === '1')
+
+  const toggleExpanded = () => {
+    setExpanded((e) => {
+      const next = !e
+      localStorage.setItem(EXPAND_KEY, next ? '1' : '0')
+      return next
+    })
+  }
 
   const commitUmsatz = () => {
     const amount = Number(umsatzDraft.replace(',', '.'))
@@ -131,10 +150,34 @@ export function QuickTrack({
     setUmsatzOpen(false)
   }
 
+  const inputFields = expanded ? [...FEATURED_FIELDS, ...MORE_FIELDS] : FEATURED_FIELDS
+
   return (
     <section className="ck-panel" aria-label="Schnell-Tracking heute">
-      <div className="ck-label" style={{ padding: '10px 12px 6px' }}>
-        Quick Track · heute
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          padding: '10px 12px 6px',
+        }}
+      >
+        <span className="ck-label">Quick Track · heute</span>
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={expanded}
+          style={{
+            fontSize: 10,
+            color: 'var(--ck-text-3)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {expanded ? 'weniger' : `alle anzeigen (${MORE_FIELDS.length}) ▸`}
+        </button>
       </div>
       <div
         style={{
@@ -144,7 +187,7 @@ export function QuickTrack({
           padding: '0 10px 8px',
         }}
       >
-        {INPUT_FIELDS.map((f) => (
+        {inputFields.map((f) => (
           <Counter
             key={f.field}
             label={f.label}

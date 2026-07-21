@@ -30,6 +30,18 @@ function Clock() {
   )
 }
 
+/**
+ * Startrampe (Dashboard-Vereinfachung Juli 2026): externe Sprungmarken als
+ * Icon-Links in der Statusbar — auf jeder Seite erreichbar (auch im CRM beim
+ * Outreach), kostet null Dashboardfläche. Neue Ziele hier ergänzen.
+ */
+const LAUNCH_LINKS: Array<{ label: string; href: string; mark: string }> = [
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/feed/', mark: 'in' },
+  { label: 'Sales Navigator', href: 'https://www.linkedin.com/sales/home', mark: '◎' },
+  { label: 'Mail', href: 'https://mail.google.com/mail/u/0/', mark: '✉' },
+  { label: 'YouTube', href: 'https://www.youtube.com/', mark: '▶' },
+]
+
 function StatusWord({ label, state }: { label: string; state: 'on' | 'off' | 'pulse' }) {
   const dotClass =
     state === 'on' ? 'ck-dot ck-dot--on' : state === 'pulse' ? 'ck-dot ck-dot--pulse' : 'ck-dot'
@@ -81,6 +93,21 @@ export function StatusBar() {
 
       {/* Brand-Switcher + Uhr */}
       <div className="ck-status-right">
+        <span className="ck-status-links" aria-label="Externe Tools">
+          {LAUNCH_LINKS.map((l) => (
+            <a
+              key={l.label}
+              className="ck-status-link"
+              href={l.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${l.label} in neuem Tab öffnen`}
+              aria-label={l.label}
+            >
+              {l.mark}
+            </a>
+          ))}
+        </span>
         <select
           className="ck-select"
           value={activeSlug}

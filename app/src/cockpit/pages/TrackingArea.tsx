@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { ConversionPanel } from '../components/ConversionPanel'
 import { MonthCurve } from '../components/MonthCurve'
 import { VitalsPanel } from '../components/VitalsPanel'
-import { channelRates, termineAttribution, weekVitals } from '../lib/metricsAggregate'
+import { channelRates, funnelKpis, sumField, termineAttribution, weekVitals } from '../lib/metricsAggregate'
 import type { MetricField } from '../lib/useDailyMetrics'
 import { toIsoDate, useDailyMetrics } from '../lib/useDailyMetrics'
 import { formatEuro } from '../lib/goals'
@@ -195,6 +196,11 @@ export function TrackingArea() {
   )
   const rates = useMemo(() => channelRates(metrics.monthRows), [metrics.monthRows])
   const termine = useMemo(() => termineAttribution(metrics.monthRows), [metrics.monthRows])
+  const monthRevenue = useMemo(() => sumField(metrics.monthRows, 'umsatz'), [metrics.monthRows])
+  const funnel = useMemo(
+    () => funnelKpis(metrics.monthRows, monthRevenue),
+    [metrics.monthRows, monthRevenue],
+  )
   // Ausgewählter Tag fürs (rückwirkende) Eintragen — Default heute.
   const [selectedDate, setSelectedDate] = useState(toIsoDate(new Date()))
 
@@ -347,9 +353,13 @@ export function TrackingArea() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>{formatEuro(weekUmsatz)}</div>
           </section>
         </div>
-        <section className="ck-panel" style={{ padding: '10px 12px' }} aria-label="Monatskurve">
-          <MonthCurve monthRows={metrics.monthRows} />
-        </section>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <section className="ck-panel" style={{ padding: '10px 12px' }} aria-label="Monatskurve">
+            <MonthCurve monthRows={metrics.monthRows} />
+          </section>
+          {/* Funnel-Conversions (von der Home hierher gezogen — Monats-Analyse, kein Tagessteuerungs-Instrument) */}
+          <ConversionPanel kpis={funnel} />
+        </div>
       </div>
 
       {/* Kanal-Antwortraten */}
