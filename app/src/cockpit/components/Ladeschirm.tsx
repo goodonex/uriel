@@ -114,6 +114,16 @@ export function Ladeschirm({
   const [gestartet, setGestartet] = useState(false)
 
   /**
+   * Hat der fertige Lauf Lücken? Dann bleibt die Zahl neutral statt grün
+   * (07.09.). Grüne 100 % über der Zeile „4 Etappen ohne Sync-Chrome" waren
+   * genau das Signal, das Kevin am Handy in die Irre führte — die Farbe sagte
+   * „alles gut", während die Liste vier Striche zeigte.
+   */
+  const luecken = (stand.runde?.etappen ?? []).filter(
+    (e) => e.status === 'uebersprungen' || e.status === 'fehler',
+  ).length
+
+  /**
    * Nach dem Lauf das ERGEBNIS zeigen, nicht wieder die Frage (31.08., beim
    * Durchklicken der Zustände gefunden).
    *
@@ -231,7 +241,7 @@ export function Ladeschirm({
                 style={{
                   fontFamily: 'var(--ck-mono, ui-monospace, monospace)',
                   fontSize: '1.35rem',
-                  color: 'var(--ck-accent)',
+                  color: !laeuft && luecken ? 'var(--ck-text-1)' : 'var(--ck-accent)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >

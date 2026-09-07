@@ -122,7 +122,8 @@ const OHNE_CHROME: RundeStand = {
     }),
   },
   prozent: 100,
-  kopf: 'Alles auf dem neuesten Stand',
+  // Genau der Zustand, der am 07.09. falsch beschriftet war: voll, aber mit Lücke.
+  kopf: 'Fertig — 4 Etappen ohne Sync-Chrome',
   rest: '',
   laeuft: false,
   letzterStand: new Date().toISOString(),

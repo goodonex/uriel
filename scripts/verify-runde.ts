@@ -120,6 +120,39 @@ console.log('\n3) Ein Fehler kippt nicht die Runde')
   for (const e of ETAPPEN) leer = setzeEtappe(leer, e.schluessel, { status: 'uebersprungen' })
   check('ein komplett übersprungener Lauf ist kein Fehler', schliesseRunde(leer, { jetzt: T0 }).status === 'fertig')
 
+  /**
+   * Kevins Screenshot vom 07.09.: vier übersprungene Chrome-Etappen, fünf
+   * fertige — und darüber stand „Alles auf dem neuesten Stand", 100 %. Der
+   * Balken darf voll sein, die Zeile darüber nicht lügen.
+   */
+  let ohneChrome = neueRunde({ jetzt: T0 })
+  for (const s of ['postfach', 'verlauf', 'einladungen', 'kontakte'])
+    ohneChrome = setzeEtappe(ohneChrome, s, { status: 'uebersprungen', text: 'Sync-Chrome läuft nicht' })
+  for (const s of ['leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten'])
+    ohneChrome = setzeEtappe(ohneChrome, s, { status: 'fertig' })
+  const ohneChromeFertig = schliesseRunde(ohneChrome, { jetzt: T0 + 600_000 })
+  check(
+    'ein Lauf ohne Sync-Chrome heißt NICHT „Alles auf dem neuesten Stand"',
+    kopfText(ohneChromeFertig) !== 'Alles auf dem neuesten Stand',
+    kopfText(ohneChromeFertig),
+  )
+  check(
+    'die Kopfzeile nennt Zahl und Grund der Lücke',
+    kopfText(ohneChromeFertig) === 'Fertig — 4 Etappen ohne Sync-Chrome',
+    kopfText(ohneChromeFertig),
+  )
+  check('der Balken ist trotzdem voll — der Lauf ist zu Ende', prozent(ohneChromeFertig) === 100, String(prozent(ohneChromeFertig)))
+
+  // Gemischt (ein echter Fehler dabei) bleibt beim allgemeinen Wort.
+  const gemischt = schliesseRunde(setzeEtappe(ohneChrome, 'leads', { status: 'fehler' }), { jetzt: T0 })
+  check('Fehler und Übersprungene zusammen heißen „mit Lücke"', kopfText(gemischt) === 'Fertig — 5 Etappen mit Lücke', kopfText(gemischt))
+
+  // Eine einzelne Lücke wird nicht in den Plural gedrückt.
+  let eine = neueRunde({ jetzt: T0 })
+  for (const e of ETAPPEN) eine = setzeEtappe(eine, e.schluessel, { status: 'fertig' })
+  eine = setzeEtappe(eine, 'postfach', { status: 'uebersprungen' })
+  check('eine einzelne Lücke bleibt Einzahl', kopfText(schliesseRunde(eine, { jetzt: T0 })) === 'Fertig — 1 Etappe ohne Sync-Chrome', kopfText(schliesseRunde(eine, { jetzt: T0 })))
+
   const abgebrochen = schliesseRunde(neueRunde({ jetzt: T0 }), { jetzt: T0, abgebrochen: true })
   check('Abbruch heißt abgebrochen, nicht fertig', abgebrochen.status === 'abgebrochen')
   check('nach dem Abbruch läuft keine Etappe mehr', !abgebrochen.etappen.some((e: any) => e.status === 'laeuft'))

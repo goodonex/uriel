@@ -61,6 +61,9 @@ export const ETAPPEN = [
 
 const GEWICHT_SUMME = ETAPPEN.reduce((s, e) => s + e.gewicht, 0)
 
+/** Welche Etappen ohne das Sync-Chrome nichts tun können — nachschlagbar für den Kopftext. */
+const CHROME_ETAPPEN = new Set(ETAPPEN.filter((e) => e.brauchtChrome).map((e) => e.schluessel))
+
 /** Kein Zustand, kein Lauf — der Ausgangspunkt und zugleich die Antwort nach einem Neustart. */
 export function leereRunde() {
   return null
@@ -188,9 +191,29 @@ export function kopfText(runde) {
     return e ? e.titel : 'Wird vorbereitet'
   }
   if (runde.status === 'abgebrochen') return 'Abgebrochen'
-  const fehler = runde.etappen.filter((e) => e.status === 'fehler')
   if (runde.status === 'fehler') return 'Nichts geladen'
-  return fehler.length ? `Fertig — ${fehler.length} Etappe${fehler.length > 1 ? 'n' : ''} mit Lücke` : 'Alles auf dem neuesten Stand'
+
+  /**
+   * **Übersprungen ist auch eine Lücke** (07.09.). Bis heute zählte hier nur
+   * `fehler`, und ein Lauf ohne Sync-Chrome meldete „Alles auf dem neuesten
+   * Stand", obwohl Postfach, Verläufe und beide Listen gar nicht liefen. Kevin
+   * am Handy: *„zudem wird mir hier angezeigt er ist auf dem neuesten Stand,
+   * aber die ersten 4 sind gar nicht gelaufen."* Der Balken darf voll sein —
+   * der Lauf IST zu Ende —, aber die Zeile darüber muss sagen, was fehlt.
+   */
+  const fehler = runde.etappen.filter((e) => e.status === 'fehler')
+  const uebersprungen = runde.etappen.filter((e) => e.status === 'uebersprungen')
+  const luecken = fehler.length + uebersprungen.length
+  if (!luecken) return 'Alles auf dem neuesten Stand'
+  const wieViele = `${luecken} Etappe${luecken > 1 ? 'n' : ''}`
+  /**
+   * Der häufigste Fall hat einen Namen. Bleiben genau die Chrome-Etappen
+   * liegen und ist sonst nichts schiefgegangen, ist „mit Lücke" eine
+   * Ratefrage — der Grund steht ohnehin schon an jeder einzelnen Zeile.
+   */
+  if (!fehler.length && uebersprungen.every((e) => CHROME_ETAPPEN.has(e.schluessel)))
+    return `Fertig — ${wieViele} ohne Sync-Chrome`
+  return `Fertig — ${wieViele} mit Lücke`
 }
 
 /**
