@@ -183,6 +183,14 @@ export function schliesseRunde(runde, { jetzt, abgebrochen = false } = {}) {
 
 /**
  * Der Satz, der über allem steht — die eine Zeile, die Kevin im Vorbeigehen liest.
+ *
+ * **Eine ausgelassene Etappe ist kein „neuester Stand"** (07.09.2026). Bis
+ * heute zählte hier nur `fehler`; ein Lauf ohne Sync-Chrome sprang damit über
+ * vier übersprungene LinkedIn-Etappen hinweg und meldete „Alles auf dem
+ * neuesten Stand" bei 100 % — während das Postfach fünf Tage alt war. Der
+ * Balken darf voll sein (der Lauf IST durch, siehe `prozent`), die Überschrift
+ * nicht: Sie ist die einzige Zeile, die Kevin am Handy im Vorbeigehen liest,
+ * und sie muss den Grund nennen, nicht die vier Zeilen darunter.
  */
 export function kopfText(runde) {
   if (!runde) return 'Noch nicht geladen'
@@ -192,7 +200,6 @@ export function kopfText(runde) {
   }
   if (runde.status === 'abgebrochen') return 'Abgebrochen'
   if (runde.status === 'fehler') return 'Nichts geladen'
-
   /**
    * **Übersprungen ist auch eine Lücke** (07.09.). Bis heute zählte hier nur
    * `fehler`, und ein Lauf ohne Sync-Chrome meldete „Alles auf dem neuesten
@@ -200,20 +207,22 @@ export function kopfText(runde) {
    * am Handy: *„zudem wird mir hier angezeigt er ist auf dem neuesten Stand,
    * aber die ersten 4 sind gar nicht gelaufen."* Der Balken darf voll sein —
    * der Lauf IST zu Ende —, aber die Zeile darüber muss sagen, was fehlt.
+   *
+   * **Zusammengeführt am 09.09.** Derselbe Fehler wurde an zwei Rechnern
+   * getrennt gefixt. Von hier stammt, dass Fehler und Übersprungene zusammen
+   * gezählt werden — sonst verschwiegen die Meldungen bei einem Fehler
+   * *und* fehlendem Chrome die zweite Hälfte. Vom Mac mini stammt der Satz
+   * für den häufigsten Fall: „LinkedIn fehlt" nennt die Ursache, während
+   * „N Etappen ohne Sync-Chrome" sie nur umschreibt.
    */
   const fehler = runde.etappen.filter((e) => e.status === 'fehler')
   const uebersprungen = runde.etappen.filter((e) => e.status === 'uebersprungen')
   const luecken = fehler.length + uebersprungen.length
   if (!luecken) return 'Alles auf dem neuesten Stand'
-  const wieViele = `${luecken} Etappe${luecken > 1 ? 'n' : ''}`
-  /**
-   * Der häufigste Fall hat einen Namen. Bleiben genau die Chrome-Etappen
-   * liegen und ist sonst nichts schiefgegangen, ist „mit Lücke" eine
-   * Ratefrage — der Grund steht ohnehin schon an jeder einzelnen Zeile.
-   */
+  // Der häufigste Fall hat einen Namen und eine Handlung — die verdient er auch.
   if (!fehler.length && uebersprungen.every((e) => CHROME_ETAPPEN.has(e.schluessel)))
-    return `Fertig — ${wieViele} ohne Sync-Chrome`
-  return `Fertig — ${wieViele} mit Lücke`
+    return 'LinkedIn fehlt — Sync-Chrome lief nicht'
+  return `Fertig — ${luecken} Etappe${luecken > 1 ? 'n' : ''} mit Lücke`
 }
 
 /**

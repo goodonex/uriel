@@ -136,9 +136,16 @@ console.log('\n3) Ein Fehler kippt nicht die Runde')
     kopfText(ohneChromeFertig) !== 'Alles auf dem neuesten Stand',
     kopfText(ohneChromeFertig),
   )
+  /*
+   * Zusammenführung 09.09.: Derselbe Fix entstand an zwei Rechnern. Die
+   * Formulierung des Mac mini hat sich durchgesetzt — sie nennt die Ursache
+   * („LinkedIn fehlt") statt sie zu umschreiben („4 Etappen ohne
+   * Sync-Chrome"). Am Handy liest Kevin eine Zeile im Vorbeigehen; welche
+   * vier Etappen gemeint sind, weiss er dabei nicht auswendig.
+   */
   check(
-    'die Kopfzeile nennt Zahl und Grund der Lücke',
-    kopfText(ohneChromeFertig) === 'Fertig — 4 Etappen ohne Sync-Chrome',
+    'die Kopfzeile nennt die Ursache beim Namen',
+    kopfText(ohneChromeFertig) === 'LinkedIn fehlt — Sync-Chrome lief nicht',
     kopfText(ohneChromeFertig),
   )
   check('der Balken ist trotzdem voll — der Lauf ist zu Ende', prozent(ohneChromeFertig) === 100, String(prozent(ohneChromeFertig)))
@@ -147,11 +154,30 @@ console.log('\n3) Ein Fehler kippt nicht die Runde')
   const gemischt = schliesseRunde(setzeEtappe(ohneChrome, 'leads', { status: 'fehler' }), { jetzt: T0 })
   check('Fehler und Übersprungene zusammen heißen „mit Lücke"', kopfText(gemischt) === 'Fertig — 5 Etappen mit Lücke', kopfText(gemischt))
 
-  // Eine einzelne Lücke wird nicht in den Plural gedrückt.
+  /*
+   * Eine einzelne Lücke wird nicht in den Plural gedrückt. Geprüft an einer
+   * Etappe OHNE Chrome-Bezug — sonst greift der benannte Fall oben, und die
+   * Zahl käme im Text gar nicht vor.
+   */
   let eine = neueRunde({ jetzt: T0 })
   for (const e of ETAPPEN) eine = setzeEtappe(eine, e.schluessel, { status: 'fertig' })
-  eine = setzeEtappe(eine, 'postfach', { status: 'uebersprungen' })
-  check('eine einzelne Lücke bleibt Einzahl', kopfText(schliesseRunde(eine, { jetzt: T0 })) === 'Fertig — 1 Etappe ohne Sync-Chrome', kopfText(schliesseRunde(eine, { jetzt: T0 })))
+  eine = setzeEtappe(eine, 'sortierer', { status: 'uebersprungen' })
+  check('eine einzelne Lücke bleibt Einzahl', kopfText(schliesseRunde(eine, { jetzt: T0 })) === 'Fertig — 1 Etappe mit Lücke', kopfText(schliesseRunde(eine, { jetzt: T0 })))
+
+  /*
+   * Und der benannte Fall darf NICHT greifen, wenn neben dem fehlenden Chrome
+   * etwas anderes liegen blieb — sonst verschwiegt die Zeile die zweite
+   * Hälfte. Das ist der Teil, der aus der Fassung des MacBook Air stammt.
+   */
+  let gemischtOhneFehler = neueRunde({ jetzt: T0 })
+  for (const e of ETAPPEN) gemischtOhneFehler = setzeEtappe(gemischtOhneFehler, e.schluessel, { status: 'fertig' })
+  for (const sch of ['postfach', 'sortierer'])
+    gemischtOhneFehler = setzeEtappe(gemischtOhneFehler, sch, { status: 'uebersprungen' })
+  check(
+    'Chrome-Lücke plus andere Lücke nennt die Zahl, nicht nur LinkedIn',
+    kopfText(schliesseRunde(gemischtOhneFehler, { jetzt: T0 })) === 'Fertig — 2 Etappen mit Lücke',
+    kopfText(schliesseRunde(gemischtOhneFehler, { jetzt: T0 })),
+  )
 
   const abgebrochen = schliesseRunde(neueRunde({ jetzt: T0 }), { jetzt: T0, abgebrochen: true })
   check('Abbruch heißt abgebrochen, nicht fertig', abgebrochen.status === 'abgebrochen')
@@ -206,6 +232,52 @@ console.log('\n5) Die Sätze, die Kevin liest')
   check('eine kleine Teil-Runde sagt keine 22 Minuten an', /ein bis zwei/.test(restText(nurWaechter)), restText(nurWaechter))
   check('die volle Runde sagt rund zwanzig Minuten an', /2[0-4] Minuten/.test(restText(neueRunde({ jetzt: T0 }))), restText(neueRunde({ jetzt: T0 })))
   check('alles durch heißt „Alles auf dem neuesten Stand"', kopfText(schliesseRunde((() => { let x = neueRunde({ jetzt: T0 }); for (const e of ETAPPEN) x = setzeEtappe(x, e.schluessel, { status: 'fertig' }); return x })(), { jetzt: T0 })) === 'Alles auf dem neuesten Stand')
+
+  /**
+   * 5. Fehler, am 07.09.2026 dazugekommen: **Der Kopf lügt bei ausgelassenen
+   * Etappen.** Kevin sah am Handy „Alles auf dem neuesten Stand · 100 %",
+   * während vier LinkedIn-Etappen mit „Sync-Chrome läuft nicht" darunter
+   * standen und das Postfach fünf Tage alt war. Der Balken darf voll sein,
+   * die Überschrift nicht — sie ist die Zeile, die er im Vorbeigehen liest.
+   */
+  const ohneChrome = schliesseRunde(
+    (() => {
+      let x = neueRunde({ jetzt: T0 })
+      for (const e of ETAPPEN) {
+        x = setzeEtappe(x, e.schluessel, e.brauchtChrome ? { status: 'uebersprungen', text: 'Sync-Chrome läuft nicht' } : { status: 'fertig' })
+      }
+      return x
+    })(),
+    { jetzt: T0 },
+  )
+  check('ein Lauf ohne Chrome behauptet NICHT, alles sei aktuell', kopfText(ohneChrome) !== 'Alles auf dem neuesten Stand', kopfText(ohneChrome))
+  check('und nennt den Grund beim Namen', /Sync-Chrome/.test(kopfText(ohneChrome)), kopfText(ohneChrome))
+  check('der Balken bleibt trotzdem voll — der Lauf IST durch', prozent(ohneChrome) === 100, String(prozent(ohneChrome)))
+}
+
+console.log('\n5b) Erstnachrichten: Recherche getrennt, Kosten gedeckelt')
+{
+  const quelle = readFileSync(join(wurzel, 'runner/index.mjs'), 'utf8')
+  /**
+   * Der Umbau vom 07.09.2026 in vier Nägeln. Was hier zurückrutscht, kostet
+   * kein kaputtes Feature, sondern Geld — und zwar unbemerkt, genau wie beim
+   * Anlass: vier Läufe, $20,33, ohne dass irgendwo eine Zahl davon erschien.
+   */
+  check(
+    'der Schreib-Agent hat KEINE Web-Werkzeuge mehr',
+    !/id: 'linkedin-erstnachrichten'[\s\S]{0,1200}?tools: '[^']*Web/.test(quelle),
+  )
+  check('die Recherche laeuft vorgelagert je Lead', /rechercheLeads\(gebaut\.leads/.test(quelle))
+  check('jeder Agentenlauf traegt einen Geld-Deckel', /'--max-budget-usd'/.test(quelle))
+  check('die Etappe meldet, was die Recherche gekostet hat', /Recherche \$\$\{kostenRecherche/.test(quelle))
+
+  const rech = readFileSync(join(wurzel, 'runner/linkedin/leadRecherche.mjs'), 'utf8')
+  check('die Recherche laeuft auf dem billigen Modell', /RECHERCHE_MODELL \?\? 'claude-haiku/.test(rech))
+  check('sie traegt einen eigenen Deckel je Lead', /'--max-budget-usd'/.test(rech))
+  // Der Deckel darf nicht dort stehen, wo der Normalfall landet (~$0,08):
+  // Beim ersten Messlauf schnitt er auf $0,08 prompt einen von zwei Leads ab.
+  check('der Deckel je Lead liegt ueber dem gemessenen Normalfall', /RECHERCHE_BUDGET_USD \?\? 0\.1[5-9]|RECHERCHE_BUDGET_USD \?\? 0\.[2-9]/.test(rech))
+  check('die User-Hooks bleiben bei Agentenlaeufen draussen', /'--setting-sources',\s*\n?\s*'project'/.test(rech))
 }
 
 console.log('\n6) Der Zeitplan bleibt aus')

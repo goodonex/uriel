@@ -67,7 +67,7 @@ function EtappenZeile({ e }: { e: Etappe }) {
   )
 }
 
-function Balken({ prozent }: { prozent: number }) {
+function Balken({ prozent, gedeckt = false }: { prozent: number; gedeckt?: boolean }) {
   return (
     <div
       role="progressbar"
@@ -87,7 +87,12 @@ function Balken({ prozent }: { prozent: number }) {
         style={{
           width: `${Math.min(100, Math.max(0, prozent))}%`,
           height: '100%',
-          background: 'var(--ck-accent)',
+          /**
+           * Voll, aber nicht grün (07.09.2026): Ein Lauf ohne Sync-Chrome ist
+           * durch — er hat nur die Hälfte geholt. Grün heißt hier „damit kannst
+           * du arbeiten", und das stimmt dann nicht.
+           */
+          background: gedeckt ? 'var(--ck-text-3)' : 'var(--ck-accent)',
           // Ruhig, nicht federnd: Der Balken zeigt Fortschritt, er feiert ihn nicht.
           transition: 'width 600ms linear',
         }}
@@ -111,17 +116,18 @@ export function Ladeschirm({
 }) {
   const laeuft = stand.laeuft
   const fertig = !laeuft && !!stand.runde?.status && stand.runde.status !== 'laeuft'
-  const [gestartet, setGestartet] = useState(false)
-
   /**
-   * Hat der fertige Lauf Lücken? Dann bleibt die Zahl neutral statt grün
-   * (07.09.). Grüne 100 % über der Zeile „4 Etappen ohne Sync-Chrome" waren
-   * genau das Signal, das Kevin am Handy in die Irre führte — die Farbe sagte
-   * „alles gut", während die Liste vier Striche zeigte.
+   * Etappen, die dieser Lauf nicht geholt hat — ausgelassen oder abgebrochen.
+   *
+   * Hat der fertige Lauf Lücken, bleibt die Zahl neutral statt grün (07.09.).
+   * Grüne 100 % über der Zeile „LinkedIn fehlt" waren genau das Signal, das
+   * Kevin am Handy in die Irre führte — die Farbe sagte „alles gut", während
+   * die Liste vier Striche zeigte. Neutral heisst `--ck-text-1`, nicht
+   * `--ck-text-3`: Die Zahl soll gelesen werden, sie soll nur nicht feiern.
    */
-  const luecken = (stand.runde?.etappen ?? []).filter(
-    (e) => e.status === 'uebersprungen' || e.status === 'fehler',
-  ).length
+  const luecke =
+    fertig && (stand.runde?.etappen ?? []).some((e) => e.status === 'uebersprungen' || e.status === 'fehler')
+  const [gestartet, setGestartet] = useState(false)
 
   /**
    * Nach dem Lauf das ERGEBNIS zeigen, nicht wieder die Frage (31.08., beim
@@ -241,7 +247,7 @@ export function Ladeschirm({
                 style={{
                   fontFamily: 'var(--ck-mono, ui-monospace, monospace)',
                   fontSize: '1.35rem',
-                  color: !laeuft && luecken ? 'var(--ck-text-1)' : 'var(--ck-accent)',
+                  color: luecke ? 'var(--ck-text-1)' : 'var(--ck-accent)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
@@ -249,7 +255,7 @@ export function Ladeschirm({
               </span>
             </div>
             <div style={{ marginTop: '0.85rem' }}>
-              <Balken prozent={stand.prozent} />
+              <Balken prozent={stand.prozent} gedeckt={luecke} />
             </div>
             {stand.rest ? (
               <p style={{ margin: '0.55rem 0 0', fontSize: '0.85rem', color: 'var(--ck-text-3)' }}>{stand.rest}</p>
