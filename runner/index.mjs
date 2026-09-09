@@ -21,6 +21,7 @@ import { baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
 import { parseErstnachrichtenRoh, schreibeErstnachrichten } from './linkedin/erstnachrichtenEntwuerfe.mjs'
+import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
 import { laufGrund } from './laufGrund.mjs'
@@ -103,6 +104,20 @@ const QUEUE_DIR = join(VAULT, 'System', 'Queue')
  * Ueberschreibbar nur fuer Tests.
  */
 const TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 10 * 60 * 1000)
+/**
+ * Was ein einzelner Agentenlauf höchstens kosten darf, in Dollar (07.09.2026).
+ *
+ * **Der Anlass.** Kevin sah an einem Morgen 22 % seines Fünf-Stunden-Limits
+ * weg, nach fünf eigenen Prompts. Vier Erstnachrichten-Läufe hatten $20,33
+ * gezogen — unbemerkt, weil nirgends eine Zahl davon auftauchte. Es gab
+ * ein Zeitlimit (zehn Minuten), aber keins für Geld.
+ *
+ * Der Deckel ist bewusst großzügig: Er soll den Ausreißer fangen, der sich
+ * festgebissen hat, nicht den normalen Lauf abschneiden — ein abgeschnittener
+ * Lauf ist der teuerste Fall überhaupt, weil das Geld weg und das Ergebnis
+ * auch weg ist. Je Agent überschreibbar über `budget` in der Agentenliste.
+ */
+const RUN_BUDGET_USD = Number(process.env.RUN_BUDGET_USD ?? 3)
 /**
  * O17: Wie oft die Mitschrift eines laufenden Agenten auf Platte geht.
  * Gedrosselt, weil ein Lauf hunderte Ereignisse erzeugt und die Run-Dateien im
@@ -298,12 +313,24 @@ const AGENT_CATALOG = [
     description:
       'Schreibt Erstnachrichten für Angenommene, die noch keine bekommen haben. Sortiert dabei aus, wer kein Makler ist.',
     kind: 'readonly',
-    // Gleiche Einstellung wie die Antwort-Entwürfe: Der Agent sieht sich je
-    // Lead die Website an, und ein schlechter Erstkontakt ist teurer als der
-    // Lauf. `tools` am Aufruf, weil die Vault-settings.json headless nicht greift.
+    // Opus bleibt: Ein schlechter Erstkontakt ist teurer als der Lauf, und das
+    // Urteil „schreiben oder aussortieren" trifft eine Person, die Kevin nie
+    // wieder vorgelegt bekommt.
+    //
+    // **Ohne WebFetch/WebSearch seit dem 07.09.2026.** Die Website-Recherche
+    // läuft vorgelagert je Lead in einem eigenen, kurzlebigen Haiku-Lauf
+    // (`runner/linkedin/leadRecherche.mjs`); hier kommt sie als Destillat im
+    // Input an. Vorher trug dieser Agent jede gelesene Seite bis zum letzten
+    // Lead mit: 51 Aufrufe, Kontext 47k → 102k, 4,09 Mio. Token für 13
+    // Nachrichten. Wer hier die Web-Werkzeuge zurückgibt, holt genau das
+    // zurück — dann bitte mit einer Messung daneben.
     modell: 'claude-opus-5',
     effort: 'high',
-    tools: 'Read,Glob,Grep,WebFetch,WebSearch',
+    tools: 'Read,Glob,Grep',
+    // Gemessen am 07.09.: $0,82 für drei Leads, der Sockel verteilt sich bei
+    // dreizehn besser. Vier Dollar lassen den vollen Batch durch und fangen
+    // trotzdem den Lauf, der sich verrannt hat.
+    budget: 4,
   },
   {
     id: 'linkedin-sortierer',
@@ -454,6 +481,8 @@ function agentConfig(agent) {
       // nicht laden durfte. Die Werkzeugliste steht deshalb explizit am Aufruf.
       // Bewusst ohne Bash-Wildcard: die Build-Befehle bleiben in settings.json.
       extraArgs: [
+        '--max-budget-usd',
+        String(a.budget ?? RUN_BUDGET_USD),
         '--permission-mode',
         'acceptEdits',
         '--allowedTools',
@@ -470,6 +499,8 @@ function agentConfig(agent) {
       ...(a.modell ? ['--model', a.modell] : []),
       ...(a.effort ? ['--effort', a.effort] : []),
       ...(a.tools ? ['--allowedTools', a.tools] : []),
+      '--max-budget-usd',
+      String(a.budget ?? RUN_BUDGET_USD),
     ],
   }
 }
@@ -2354,8 +2385,16 @@ const server = createServer(async (req, res) => {
     // geantwortet. Wer wissen will, ob er durch ist, fragt GET /linkedin/netzwerk.
     if (req.method === 'POST' && url.pathname === '/linkedin/netzwerk-sync') {
       if (netzwerkSync.laeuft) return json(res, 409, { error: 'Netzwerk-Sync läuft bereits', ...netzwerkStand() })
-      void starteNetzwerkSync()
-      return json(res, 202, { gestartet: true, ...netzwerkStand() })
+      /**
+       * Von Hand angestoßen heißt kurz (07.09.2026). Vorher startete jeder
+       * Aufruf den vollen Durchlauf: sieben Minuten durch 1.600 Einträge, auch
+       * wenn der Aufrufer ausdrücklich `{"kurz": true}` mitschickte — der Body
+       * wurde nie gelesen. `{"kurz": false}` erzwingt den vollen Lauf weiterhin.
+       */
+      const nzBody = await readBody(req).catch(() => ({}))
+      const nzKurz = nzBody?.kurz !== false
+      void starteNetzwerkSync({ kurz: nzKurz })
+      return json(res, 202, { gestartet: true, kurz: nzKurz, ...netzwerkStand() })
     }
 
     if (req.method === 'GET' && url.pathname === '/linkedin/netzwerk') {
@@ -2949,10 +2988,20 @@ async function starteSyncChrome() {
     const p = spawn(
       '/usr/bin/open',
       [
+        // Einzeln, NICHT als `-nag` (08.09.2026, Mac mini, macOS 26.5.2):
+        // In der zusammengezogenen Form liest `open` den Namen nicht mehr als
+        // Anwendung, sondern als Datei — `The file /Users/…/Google Chrome does
+        // not exist`, Rückgabewert 1. Der Runner sah davon nichts: `spawn`
+        // meldete Erfolg, also stand im Log „selbst gestartet", und erst der
+        // Nachfass-Versuch 30 Sekunden später fiel auf die Nase. Ergebnis am
+        // 08.09.: von 06:00 bis 12:55 kein Sync-Chrome und damit kein
+        // Postfach- und kein Netzwerk-Sync.
+        '-n',
         // `-g` haelt das Fenster im Hintergrund: Der Sync braucht keinen Fokus
         // (dafuer gibt es die Fokus-Emulation in netzwerk.mjs), aber ohne `-g`
         // reisst jeder Start Chrome vor Kevins laufende Arbeit.
-        '-nag',
+        '-g',
+        '-a',
         'Google Chrome',
         '--args',
         `--user-data-dir=${join(homedir(), '.uriel-chrome')}`,
@@ -3512,9 +3561,19 @@ async function starteNetzwerkSync({ kurz = false } = {}) {
     // machen (am 12.08. gemessen: beide Läufe endeten unvollständig).
     const ergebnis = await mitNetzwerkLock(async () => {
       for (const welche of ['einladungen', 'kontakte']) {
+        /**
+         * Wie in `tueNetzwerkListe`: Der kurze Lauf bekommt die schon bekannten
+         * Schlüssel und hört auf, sobald zwei Runden nichts Neues mehr bringen.
+         * Ohne `bekannt` blätterte er stur zehn Runden weit und las jedes Mal
+         * dieselben hundert Kontakte wie am Vortag (07.09.2026).
+         */
+        const bekannt = kurz
+          ? await bekannteProfilKeys(welche === 'einladungen' ? 'offen' : 'angenommen')
+          : null
         const gelesen = await leseListe(welche, {
           log: (...a) => console.log(...a),
           ...(kurz ? { maxRunden: NETZWERK_RUNDEN_KURZ } : {}),
+          ...(bekannt ? { bekannt } : {}),
         })
         if (gelesen.loginWall) {
           teile.push({ seite: welche, fehler: 'Login-Wall — im Sync-Chrome bei LinkedIn anmelden' })
@@ -4020,20 +4079,40 @@ const ETAPPEN_ARBEIT = {
     const BATCH = 13
     let vorbereitet = 0
     let zuletztGesamt = 0
+    let kostenRecherche = 0
     for (let runde = 0; vorbereitet < TAGESZIEL; runde++) {
       if (rundeAbbruch) break
       const gebaut = await erstnachrichtenInput(Math.min(BATCH, TAGESZIEL - vorbereitet))
       if (!gebaut) break
       zuletztGesamt = gebaut.gesamt
       melde(`${vorbereitet + gebaut.leads.length} von ${Math.min(TAGESZIEL, gebaut.gesamt + vorbereitet)} werden vorbereitet (Batch ${runde + 1})`, Math.min(1, vorbereitet / TAGESZIEL))
-      await startRun('linkedin-erstnachrichten', gebaut)
+      /**
+       * Erst recherchieren, dann schreiben (07.09.2026) — je Lead ein eigener,
+       * kurzlebiger Lauf, dessen Kontext mit ihm stirbt. Der Schreib-Agent
+       * bekommt zehn Zeilen Destillat statt einer ganzen Website und braucht
+       * deshalb keine Web-Werkzeuge mehr.
+       */
+      const recherchiert = await rechercheLeads(gebaut.leads, {
+        melde: (t, a) => melde(`Batch ${runde + 1}: ${t}`, a == null ? null : Math.min(1, (vorbereitet + a * gebaut.leads.length) / TAGESZIEL)),
+        cliPath: CLI_PATH,
+        cwd: VAULT,
+      })
+      kostenRecherche += recherchiert.kosten
+      if (recherchiert.ohneErgebnis) {
+        console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${recherchiert.ohneErgebnis} ohne Recherche-Ergebnis (schreiben trotzdem)`)
+      }
+      await startRun('linkedin-erstnachrichten', { ...gebaut, leads: recherchiert.leads })
       vorbereitet += gebaut.leads.length
     }
     if (vorbereitet === 0) return { text: 'niemand wartet auf eine Erstnachricht' }
     return {
       text:
         `${vorbereitet} vorbereitet` +
-        (zuletztGesamt > vorbereitet ? ` · ~${zuletztGesamt - vorbereitet} bleiben für den nächsten Lauf` : ''),
+        (zuletztGesamt > vorbereitet ? ` · ~${zuletztGesamt - vorbereitet} bleiben für den nächsten Lauf` : '') +
+        // Die Kosten stehen in der Etappe, weil sie sonst niemand sieht: Der
+        // Anlass des ganzen Umbaus war ein Lauf, der 16 Mio. Token zog, ohne
+        // dass irgendwo eine Zahl davon erschien.
+        ` · Recherche $${kostenRecherche.toFixed(2)}`,
       von: vorbereitet,
       bis: Math.max(zuletztGesamt, vorbereitet),
     }

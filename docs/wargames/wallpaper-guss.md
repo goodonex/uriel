@@ -10,6 +10,9 @@
 | MacBook | `~/Kevin OS/03 Bereiche/Privat/Bilder/uriel-wallpaper-macbook.png` | 3456×2234, gesetzt |
 | Uriel mobil (Hero) | `app/public/ambient/horizont-hero.jpg` | 1400×1687 (hoch), 267 KB |
 | Uriel Desktop (Schleier) | `app/public/ambient/horizont-desktop.jpg` | 2560×1600, 335 KB |
+| iPad (gesetzt) | `…/Uriel Wallpaper/uriel-wallpaper-ipad-2732x2732.png` | 2732×2732 |
+| iPad quer | `…/Uriel Wallpaper/uriel-wallpaper-ipad-quer-2732x2048.png` | 2732×2048 |
+| iPad hoch | `…/Uriel Wallpaper/uriel-wallpaper-ipad-hoch-2048x2732.png` | 2048×2732 |
 | Master | `~/Kevin OS/03 Bereiche/Privat/Bilder/uriel-wallpaper-master-5056.png` | 5056×3392 |
 
 Alle zeigen dieselbe Szene: den Quiraing-Grat (Isle of Skye) im Sonnenaufgang —
@@ -87,3 +90,29 @@ außer Acht, den Zug D8 genau für diese Zeile eingeführt hat (zweilagig, siehe
 
 Nichts committet, nichts deployt — Livegang schaltet Kevin.
 `horizont.jpg` (780×465) liegt noch da und wird von nichts mehr referenziert.
+
+
+## Nachtrag 04.09.2026 — iPad Air 13"
+
+Die MacBook-Fassung lässt sich **nicht** aufs iPad übernehmen, obwohl beide Geräte „13 Zoll"
+heißen: Zoll misst die Diagonale, nicht die Form. MacBook Air 13" ist 2560×1664 (1,54),
+iPad Air 13" ist 2732×2048 (1,33) — iPadOS würde links und rechts wegschneiden. Dazu trägt
+die MacBook-Datei die Verläufe für Menüleiste und Dock, die am iPad an den falschen Stellen sitzen.
+
+Beide Zuschnitte kommen daher direkt aus dem Master:
+
+- **quer** (2732×2048): Höhe voll, Breite 4525 zentriert — nur ~265 px je Seite fallen weg.
+- **hoch** (2048×2732): Breite 2544, Offset 2000 von links. Zentral geschnitten wäre der
+  Sonnendurchbruch rausgefallen; mit dem Versatz bleiben Sonne, Nebelwalze und Straße drin,
+  die Felskante links geht dafür verloren. Ins Hochformat passt beides nicht zugleich.
+
+Keine künstlichen Verläufe eingebaut — dieselbe Entscheidung wie beim MacBook-Desktop:
+die Fläche soll die Szene zeigen, den Schleier hinter den Icons legt iPadOS selbst an.
+
+**Korrektur am selben Tag:** iPadOS hinterlegt nur *ein* Wallpaper, nicht eines je Ausrichtung —
+zwei Bilder gehen allein für Sperr- und Home-Bildschirm. Ein 4:3-Zuschnitt verliert beim Drehen
+44 % der Fläche. Deshalb ist die gesetzte Fassung **quadratisch (2732×2732)**: die kurze Kante
+entspricht der langen Display-Kante, also füllt sie beide Drehungen ohne Hochskalierung.
+Offset 1300 von links — dieser Ausschnitt trägt als einziger alle vier Merkmale der Szene
+(Felskante, Nebelwalze, Sonnendurchbruch, Straße). Die beiden 4:3-Fassungen bleiben liegen
+für den Fall, dass das iPad dauerhaft in einer Ausrichtung im Ständer steht.

@@ -60,6 +60,7 @@ export const ETAPPEN = [
 ]
 
 const GEWICHT_SUMME = ETAPPEN.reduce((s, e) => s + e.gewicht, 0)
+const BRAUCHT_CHROME = new Set(ETAPPEN.filter((e) => e.brauchtChrome).map((e) => e.schluessel))
 
 /** Kein Zustand, kein Lauf — der Ausgangspunkt und zugleich die Antwort nach einem Neustart. */
 export function leereRunde() {
@@ -180,6 +181,14 @@ export function schliesseRunde(runde, { jetzt, abgebrochen = false } = {}) {
 
 /**
  * Der Satz, der über allem steht — die eine Zeile, die Kevin im Vorbeigehen liest.
+ *
+ * **Eine ausgelassene Etappe ist kein „neuester Stand"** (07.09.2026). Bis
+ * heute zählte hier nur `fehler`; ein Lauf ohne Sync-Chrome sprang damit über
+ * vier übersprungene LinkedIn-Etappen hinweg und meldete „Alles auf dem
+ * neuesten Stand" bei 100 % — während das Postfach fünf Tage alt war. Der
+ * Balken darf voll sein (der Lauf IST durch, siehe `prozent`), die Überschrift
+ * nicht: Sie ist die einzige Zeile, die Kevin am Handy im Vorbeigehen liest,
+ * und sie muss den Grund nennen, nicht die vier Zeilen darunter.
  */
 export function kopfText(runde) {
   if (!runde) return 'Noch nicht geladen'
@@ -188,9 +197,14 @@ export function kopfText(runde) {
     return e ? e.titel : 'Wird vorbereitet'
   }
   if (runde.status === 'abgebrochen') return 'Abgebrochen'
-  const fehler = runde.etappen.filter((e) => e.status === 'fehler')
   if (runde.status === 'fehler') return 'Nichts geladen'
-  return fehler.length ? `Fertig — ${fehler.length} Etappe${fehler.length > 1 ? 'n' : ''} mit Lücke` : 'Alles auf dem neuesten Stand'
+  const fehler = runde.etappen.filter((e) => e.status === 'fehler')
+  if (fehler.length) return `Fertig — ${fehler.length} Etappe${fehler.length > 1 ? 'n' : ''} mit Lücke`
+  const ausgelassen = runde.etappen.filter((e) => e.status === 'uebersprungen')
+  if (!ausgelassen.length) return 'Alles auf dem neuesten Stand'
+  // Der häufigste Fall hat einen Namen und eine Handlung — die verdient er auch.
+  if (ausgelassen.every((e) => BRAUCHT_CHROME.has(e.schluessel))) return 'LinkedIn fehlt — Sync-Chrome lief nicht'
+  return `Fertig — ${ausgelassen.length} Etappe${ausgelassen.length > 1 ? 'n' : ''} ausgelassen`
 }
 
 /**
