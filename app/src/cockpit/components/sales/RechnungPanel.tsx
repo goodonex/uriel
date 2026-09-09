@@ -134,7 +134,11 @@ export function RechnungPanel({
     }
   }
 
-  if (bereit === false) return null // Kein Runner auf diesem Rechner — kein toter Knopf.
+  /* `null` heisst: die Antwort steht noch aus. Lokal ist das ein Wimpernschlag,
+     ueber den Auftragsweg bis zu 25 Sekunden — in der Zeit ein leeres Panel mit
+     gesperrtem Knopf zu zeigen waere unruhiger als gar keins. Es erscheint,
+     sobald die Pakete da sind. `false` heisst: kein Runner erreichbar. */
+  if (bereit !== true) return null
 
   const feldStil: React.CSSProperties = {
     width: '100%',

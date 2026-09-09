@@ -34,7 +34,13 @@ export async function leseSpiegel<T>(key: string): Promise<{ data: T; updatedAt:
   return { data: data.data as T, updatedAt: data.updated_at as string }
 }
 
-export type JobKind = 'linkedin_sync' | 'agent_run' | 'runde' | 'runde_abbrechen' | 'rechnung_erstellen'
+export type JobKind =
+  | 'linkedin_sync'
+  | 'agent_run'
+  | 'runde'
+  | 'runde_abbrechen'
+  | 'rechnung_erstellen'
+  | 'rechnung_pakete'
 
 /**
  * Auftrag ablegen und NICHT auf das Ergebnis warten (31.08.2026).
@@ -63,6 +69,13 @@ const POLL_MS = 1500
 const TIMEOUT_MS = 5 * 60 * 1000
 
 /**
+ * Kurze Frist fuer blosse Abfragen (Paketliste). Fuenf Minuten sind fuer einen
+ * Rechnungslauf richtig — fuer eine Liste waere es ein haengender Bildschirm,
+ * wenn der Mac zugeklappt ist und niemand den Auftrag abholt.
+ */
+export const ABFRAGE_TIMEOUT_MS = 25_000
+
+/**
  * Legt einen Auftrag ab und wartet, bis der Runner ihn erledigt hat.
  * Wirft, wenn kein Supabase da ist oder die Wartezeit überschritten wird —
  * ein hängender Auftrag ist besser sichtbar als ein stiller.
@@ -71,6 +84,7 @@ export async function beauftrageRunner<T = unknown>(
   kind: JobKind,
   payload: Record<string, unknown> = {},
   brandId?: string | null,
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<JobErgebnis<T>> {
   if (!supabase) throw new Error('Keine Supabase-Verbindung')
 
@@ -82,7 +96,7 @@ export async function beauftrageRunner<T = unknown>(
   if (error || !data) throw new Error(error?.message ?? 'Auftrag konnte nicht angelegt werden')
 
   const id = data.id as string
-  const bis = Date.now() + TIMEOUT_MS
+  const bis = Date.now() + timeoutMs
 
   while (Date.now() < bis) {
     await new Promise((r) => setTimeout(r, POLL_MS))

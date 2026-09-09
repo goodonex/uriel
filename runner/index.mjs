@@ -1870,6 +1870,19 @@ async function fuehreJobAus(job) {
     return await erstelleRechnung(job.payload ?? {})
   }
 
+  if (job.kind === 'rechnung_pakete') {
+    /*
+     * Reine Abfrage, verbraucht nichts (09.09.).
+     *
+     * Warum es sie ueberhaupt gibt: Auf der Live-Domain ist der lokale
+     * Runner-Port per Mixed Content geblockt, also konnte das Rechnungs-Panel
+     * die Paketliste nicht laden — und blendete sich aus. Der Versandweg lief
+     * schon ueber Auftraege, die Liste nicht. Damit war das Panel nur auf
+     * localhost sichtbar, obwohl der Abschluss am Live-Cockpit passiert.
+     */
+    return { bereit: rechnungBereit(), pakete: await ladePakete() }
+  }
+
   if (job.kind === 'agent_run') {
     const agent = String(job.payload?.agent ?? '')
     if (!AGENT_BY_ID.has(agent)) throw new Error(`Unbekannter Agent: ${agent}`)

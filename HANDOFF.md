@@ -124,6 +124,9 @@ Skill-Änderungen brauchen das nicht (`claude -p` liest `SKILL.md` frisch).
   `scripts/verify-rechnung.ts` (32 Prüfungen). **Getestet wird gegen eine Kopie**
   (`RECHNUNG_ROOT=<pfad> node ...`), nie gegen `~/rechnungen` — jeder echte Lauf
   zieht eine fortlaufende Nummer. Panel ohne Login: `/dev/rechnung-vorschau`.
+  Die Paketliste laeuft lokal direkt, auf der Live-Domain ueber die Auftragsart
+  `rechnung_pakete` (Mixed Content blockt dort den lokalen Port) — ohne sie war
+  das Panel auf frameworkos.de unsichtbar.
 - **Endpoints:** `/status` `/run` `/runs` `/runs/:id` `/agents` `/vault/recent`
   `/vault/graph` `/os/map` `/os/file` `/calendar` `/ads/{overview,manifest,customers}`
   `/content/manifest` `/social/weeks` `/sales/library` `/linkedin/sync`

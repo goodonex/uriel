@@ -138,7 +138,33 @@ console.log('\n6 — Die Stellen, an denen ein Rueckfall teuer waere')
   check('die Mail zaehlt nicht zur Vollstaendigkeit', !/rechnung_email\.trim\(\) !== ''/.test(panel))
   check('das Panel schickt die Mail mit', /email: entwurf\.rechnung_email\.trim\(\) \|\| undefined/.test(panel))
   check('der Zeitraum steht nur beim Retainer', /paket\?\.wiederkehrend \? \(/.test(panel))
-  check('ohne Runner verschwindet das Panel, statt tot dazustehen', /if \(bereit === false\) return null/.test(panel))
+  check('ohne Runner verschwindet das Panel, statt tot dazustehen', /if \(bereit !== true\) return null/.test(panel))
+}
+
+console.log('\n7 — Das Panel muss auch auf der Live-Domain erscheinen')
+{
+  const bridge = readFileSync(join(wurzel, 'app/src/cockpit/lib/runnerBridge.ts'), 'utf8')
+  const api = readFileSync(join(wurzel, 'app/src/cockpit/lib/rechnungApi.ts'), 'utf8')
+  const runner = readFileSync(join(wurzel, 'runner/index.mjs'), 'utf8')
+  const panel = readFileSync(join(wurzel, 'app/src/cockpit/components/sales/RechnungPanel.tsx'), 'utf8')
+
+  check("die Auftragsart 'rechnung_pakete' ist bekannt", /'rechnung_pakete'/.test(bridge))
+  check('der Runner beantwortet sie', /job\.kind === 'rechnung_pakete'/.test(runner))
+  check('die Abfrage verbraucht nichts', /return \{ bereit: rechnungBereit\(\), pakete: await ladePakete\(\) \}/.test(runner))
+  check(
+    'ladePakete gibt remote nicht mehr blind `bereit: false` zurueck',
+    !/if \(!runnerDirekt\(\)\) return \{ bereit: false, pakete: \[\] \}/.test(api),
+    'genau diese Zeile hat das Panel auf frameworkos.de unsichtbar gemacht',
+  )
+  check('remote laeuft die Liste ueber einen Auftrag', /beauftrageRunner<\{ bereit: boolean; pakete: RechnungsPaket\[\] \}>\(/.test(api))
+  check('mit kurzer Frist statt der Fuenf-Minuten-Frist', /ABFRAGE_TIMEOUT_MS/.test(api))
+  check('die kurze Frist liegt unter einer Minute', /export const ABFRAGE_TIMEOUT_MS = 25_000/.test(bridge))
+  check('die Wartezeit ist je Auftrag einstellbar', /timeoutMs: number = TIMEOUT_MS/.test(bridge))
+  check(
+    'ein stummer Runner blendet das Panel aus, statt zu werfen',
+    /\} catch \{\s*return \{ bereit: false, pakete: \[\] \}/.test(api),
+  )
+  check('waehrend die Antwort aussteht, bleibt das Panel weg', /if \(bereit !== true\) return null/.test(panel))
 }
 
 console.log(`\nverify-rechnung: ${pass} ok, ${fail} fehlgeschlagen`)

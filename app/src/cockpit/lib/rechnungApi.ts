@@ -1,5 +1,5 @@
 import { RUNNER_BASE_URL } from './useRunnerStatus'
-import { beauftrageRunner, runnerDirekt } from './runnerBridge'
+import { ABFRAGE_TIMEOUT_MS, beauftrageRunner, runnerDirekt } from './runnerBridge'
 
 /**
  * Rechnungen aus dem Cockpit (02.09.2026).
@@ -52,11 +52,39 @@ export class DublettenFehler extends Error {
   }
 }
 
+/**
+ * Die hinterlegten Pakete — lokal direkt, sonst über einen Auftrag.
+ *
+ * **Warum der Umweg (09.09.):** Auf der Live-Domain ist der lokale Runner-Port
+ * per Mixed Content geblockt. Vorher gab diese Funktion dort einfach
+ * `bereit: false` zurück, und das Panel blendete sich aus — obwohl der
+ * *Versand* längst über Aufträge lief. Das Rechnungs-Panel war damit nur auf
+ * `localhost` zu sehen, während der Abschluss am Live-Cockpit passiert.
+ *
+ * Antwortet niemand (Mac zugeklappt, Runner aus), gilt `bereit: false`. Das
+ * Panel verschwindet dann wie bisher, statt mit einem toten Knopf dazustehen —
+ * ein Fehler wäre hier die falsche Antwort, denn „kein Runner" ist ein
+ * normaler Zustand, kein Defekt.
+ */
 export async function ladePakete(): Promise<{ bereit: boolean; pakete: RechnungsPaket[] }> {
-  if (!runnerDirekt()) return { bereit: false, pakete: [] }
-  const res = await fetch(`${RUNNER_BASE_URL}/rechnung/pakete`)
-  if (!res.ok) throw new Error(`Runner-Fehler ${res.status}`)
-  return (await res.json()) as { bereit: boolean; pakete: RechnungsPaket[] }
+  if (runnerDirekt()) {
+    const res = await fetch(`${RUNNER_BASE_URL}/rechnung/pakete`)
+    if (!res.ok) throw new Error(`Runner-Fehler ${res.status}`)
+    return (await res.json()) as { bereit: boolean; pakete: RechnungsPaket[] }
+  }
+
+  try {
+    const ergebnis = await beauftrageRunner<{ bereit: boolean; pakete: RechnungsPaket[] }>(
+      'rechnung_pakete',
+      {},
+      null,
+      ABFRAGE_TIMEOUT_MS,
+    )
+    if (ergebnis.status !== 'done' || !ergebnis.result) return { bereit: false, pakete: [] }
+    return ergebnis.result
+  } catch {
+    return { bereit: false, pakete: [] }
+  }
 }
 
 export async function erstelleRechnung(auftrag: RechnungsAuftrag): Promise<ErstellteRechnung> {

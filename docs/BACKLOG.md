@@ -11,6 +11,37 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **NACHTRAG 09.09.2026 — Das Panel war live, aber nur auf localhost sichtbar**
+
+Direkt nach dem Livegang aufgefallen: `ladePakete()` stieg remote mit
+`if (!runnerDirekt()) return { bereit: false, pakete: [] }` aus, und das Panel
+blendet sich ohne Pakete aus. Auf **frameworkos.de** — also dort, wo Kevin im Call
+tatsächlich arbeitet — war das Rechnungs-Panel damit unsichtbar. Nur der lokale
+Dev-Server zeigte es.
+
+Der Grund fuer die Zeile ist richtig (HTTPS blockt den lokalen Runner-Port per Mixed
+Content), die Schlussfolgerung war zu kurz: **Der Versandweg lief längst über
+Aufträge**, nur die Liste nicht. Ein halber Weg ist hier schlimmer als keiner — das
+Feature galt als fertig und war am Hauptzugang nicht da.
+
+| Baustein | Wo |
+|---|---|
+| Auftragsart `rechnung_pakete` — reine Abfrage, verbraucht keine Nummer | `runner/index.mjs`, `runnerBridge.ts` |
+| `ladePakete()` nimmt remote den Auftragsweg | `cockpit/lib/rechnungApi.ts` |
+| Wartezeit je Auftrag einstellbar, `ABFRAGE_TIMEOUT_MS = 25 s` | `runnerBridge.ts` |
+| Panel erscheint erst mit Paketen (`bereit !== true` → weg) | `RechnungPanel.tsx` |
+
+**Warum eine eigene Frist:** `beauftrageRunner` wartet fünf Minuten. Für einen
+Rechnungslauf ist das richtig, für eine Liste wäre es ein hängender Bildschirm,
+sobald der Mac zugeklappt ist. Nach 25 s gilt „kein Runner" — und das ist ein
+normaler Zustand, kein Defekt, deshalb verschwindet das Panel still statt zu werfen.
+
+**Gemessen am laufenden System:** Auftrag `rechnung_pakete` in `runner_jobs`
+abgelegt, der Runner beantwortete ihn in unter zwei Sekunden mit `bereit: true` und
+allen fünf Paketen. `verify-rechnung.ts` steht jetzt bei 42 Prüfungen.
+
+---
+
 ## **FERTIG 09.09.2026 — Die Rechnung am Lead, und der Zeitraum, der nie ankam**
 
 Das Feature lag seit dem 03.09. als `wip(rechnung)` auf einem eigenen Zweig, weil
