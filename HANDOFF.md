@@ -118,7 +118,12 @@ Skill-Änderungen brauchen das nicht (`claude -p` liest `SKILL.md` frisch).
   fortlaufende Rechnungsnummer**, deshalb eine Dublettensperre (gleicher Kunde,
   gleicher Betrag, gleicher Tag) und bewusst kein automatischer zweiter Versuch.
   Auftragsart `rechnung_erstellen`, Endpunkte `/rechnung/{pakete,liste,erstellen}`
-  und `/files/rechnungen/<datei>.pdf`.
+  und `/files/rechnungen/<datei>.pdf`. **Seit 09.09. fertig** (Backlog ganz oben):
+  der Leistungszeitraum heisst zum Generator hin `leistungsdatum` — unter dem alten
+  Namen kam er nie an; `rechnung_email` wird durchgereicht; Drift-Wache
+  `scripts/verify-rechnung.ts` (32 Prüfungen). **Getestet wird gegen eine Kopie**
+  (`RECHNUNG_ROOT=<pfad> node ...`), nie gegen `~/rechnungen` — jeder echte Lauf
+  zieht eine fortlaufende Nummer. Panel ohne Login: `/dev/rechnung-vorschau`.
 - **Endpoints:** `/status` `/run` `/runs` `/runs/:id` `/agents` `/vault/recent`
   `/vault/graph` `/os/map` `/os/file` `/calendar` `/ads/{overview,manifest,customers}`
   `/content/manifest` `/social/weeks` `/sales/library` `/linkedin/sync`

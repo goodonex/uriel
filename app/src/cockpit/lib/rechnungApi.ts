@@ -33,9 +33,11 @@ export interface ErstellteRechnung {
 }
 
 export interface RechnungsAuftrag {
-  kunde: { firma: string; strasse: string; plz: string; ort: string }
+  /** `email` steht nicht auf dem PDF — der Generator merkt sie sich für das nächste Mal. */
+  kunde: { firma: string; strasse: string; plz: string; ort: string; email?: string }
   paket: string
   betrag?: number
+  /** Freitext wie „September 2026". Landet als Leistungsdatum auf der Rechnung. */
   leistungszeitraum?: string
   erzwingen?: boolean
 }

@@ -1,6 +1,6 @@
 # Uriel — Backlog (die eine Quelle der Wahrheit)
 
-**Stand:** 2026-08-31 · Branch `main` · Repo `~/Kevin OS/02 Projekte/uriel`
+**Stand:** 2026-09-09 · Branch `wip/rechnung-vor-umzug` (zwei Commits vor `main`) · Repo `~/Kevin OS/02 Projekte/uriel`
 
 > **Am 27.08. eingesammelt, was auseinandergelaufen war.** Drei Behauptungen in
 > diesem Dokument waren überholt und sind unten korrigiert: Die Migrationen
@@ -10,6 +10,77 @@
 > (`0079` + `supabase/functions/loom-ping/`) liegt nicht mehr uncommittet im
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
+
+## **FERTIG 09.09.2026 — Die Rechnung am Lead, und der Zeitraum, der nie ankam**
+
+Das Feature lag seit dem 03.09. als `wip(rechnung)` auf einem eigenen Zweig, weil
+Netlify `main` automatisch baut. Die Commit-Notiz sagte „Panel, Runner-Bruecke und
+Migration 0082 sind noch nicht fertig" — **beim Nachmessen war das zu pessimistisch:**
+Migration 0082 ist längst angewendet (die Spalten `rechnung_*` stehen in der
+Prod-`contacts`), und `/rechnung/pakete` antwortete mit `bereit: true` und allen fünf
+Paketen. Fertig waren aber tatsächlich drei Dinge nicht.
+
+### Fund 1 — der Zeitraum fiel still unter den Tisch (der eigentliche Fehler)
+
+`rechnung.mjs` übergab `leistungszeitraum`. Der Generator liest
+`rechnung_daten.get("leistungsdatum", rechnungsdatum)` — **ein anderer Name**. Das
+Feld wurde also ignoriert, ohne Fehler, ohne Warnung: Die Rechnung trug dann das
+Rechnungsdatum als Leistungsdatum. Beim Festpreis fällt das nicht auf (es *ist* der
+Tag). **Beim Retainer ist es der falsche Monat auf einem Buchhaltungsbeleg** — und
+genau dort ist der Zeitraum die Angabe, auf die es ankommt.
+
+Gefixt und am PDF nachgewiesen: Rechnung mit `leistungszeitraum: "September 2026"`
+trägt jetzt „Leistungsdatum · September 2026", ohne Angabe steht dort weiterhin das
+Rechnungsdatum.
+
+### Fund 2 — `rechnung_email` war eine tote Spalte
+
+Migration 0082 legt sie an und begründet sie ausdrücklich („die Rechnungsmail geht
+häufig an die Buchhaltung"); `useContacts` und `types/db.ts` führten sie mit. **Nur
+das Panel hatte kein Feld dafür**, und die Brücke reichte sie nicht durch. Jetzt
+beides: Eingabefeld (vorbelegt aus `contact.email`) und Übergabe an den Generator,
+der sie in seiner Kundendatei ablegt — beim nächsten Mal steht sie schon da.
+
+**Bewusst keine Pflicht.** §14 UStG verlangt die Anschrift, nicht die Mail; sie zur
+Bedingung zu machen hätte den Knopf im Call gesperrt.
+
+### Fund 3 — das Feature hatte als einziges keine Drift-Wache
+
+`scripts/verify-rechnung.ts`, 32 Prüfungen. Es prüft die **reine** Vorstufe
+`baueRechnungsDaten` — dafür aus `erstelleRechnung` herausgezogen, dasselbe Muster
+wie `chromeWache.mjs`.
+
+**Warum das hier keine Stilfrage ist:** Jeder Lauf verbraucht eine fortlaufende
+Rechnungsnummer, und die ist nicht zurückzunehmen. Ein Prüfskript, das die echte
+Maschine anfasst, hinterlässt eine Lücke in der Buchhaltung. Die Wache nagelt
+deshalb genau die Falle fest, die Fund 1 war: `leistungsdatum` muss im Auftrag
+stehen, `leistungszeitraum` darf es nicht.
+
+### Nebenbei: der Betreff sagt jetzt, wofür gezahlt wird
+
+Ohne `betreff` setzt der Generator „Rechnung". Jetzt steht dort der Pakettitel —
+„Rechnung — Eigentümer-Funnel", „Rechnung — Retainer Kampagne + Nachfassen".
+
+### Wie geprüft wurde, ohne eine Nummer zu ziehen
+
+`RECHNUNG_ROOT` zeigt in `rechnung.mjs` auf `~/rechnungen`, ist aber überschreibbar.
+Der Durchlauf lief gegen eine **Kopie** der Maschine (venv als Symlink): vier Fälle
+— Festpreis, Retainer mit Zeitraum, Dublette am selben Tag, unvollständige Anschrift
+— alle mit dem erwarteten Ergebnis, PDFs mit `pdftotext` gegengelesen. Danach
+kontrolliert: `~/rechnungen/firma_daten.json` steht weiterhin auf
+`naechste_nummer: 1`, Log und `output/` sind leer. **Die echte Maschine ist
+unangetastet — die erste echte Rechnung trägt RE-2026-00001.**
+
+### Neu: `/dev/rechnung-vorschau`
+
+Das Panel in beiden Zuständen ohne Login (leer/gesperrt und ausgefüllt/aktiv), Muster
+wie `SalesVorschau`. Sie erstellt bewusst nichts — der Knopf ruft den echten Runner.
+
+**Offen für Kevin:** Der Zweig heißt weiterhin `wip/rechnung-vor-umzug` und ist
+zwei Commits vor `main`. **Live schaltet Kevin** — bis dahin baut Netlify den
+Stand von `main` ohne das Panel.
+
+---
 
 ## **NACHTRAG 31.08.2026 — Der kurze Lauf und der Weg aufs Handy**
 

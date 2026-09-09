@@ -43,6 +43,7 @@ import { ShellVorschau } from './dev/ShellVorschau'
 import { RundeVorschau } from './dev/RundeVorschau'
 import { IdentitaetVorschau } from './dev/IdentitaetVorschau'
 import { PosteingangVorschau } from './dev/PosteingangVorschau'
+import { RechnungVorschau } from './dev/RechnungVorschau'
 
 
 /** CRM → Sales (Juli 2026): alte /crm-Links/Bookmarks/Deep-Links auf /sales umleiten. */
@@ -222,6 +223,7 @@ function App() {
             <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />
             {/* Dev-only: Sales-Bausteine mit Fixtures, ohne Login prüfbar */}
             {import.meta.env.DEV ? <Route path="/dev/sales-vorschau" element={<SalesVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/rechnung-vorschau" element={<RechnungVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/ziel-vorschau" element={<ZielVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/nav-vorschau" element={<NavVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/shell-vorschau" element={<ShellVorschau />} /> : null}

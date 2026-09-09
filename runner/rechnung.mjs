@@ -86,19 +86,20 @@ async function findeDublette(kundeName, brutto) {
 }
 
 /**
- * Erstellt eine Rechnung und gibt Nummer, Datei und Betraege zurueck.
+ * Prueft den Auftrag und baut daraus die Eingabe fuer den Generator.
  *
- * @param {object} auftrag
- * @param {object} auftrag.kunde        { firma, strasse, plz, ort }
- * @param {string} auftrag.paket        Schluessel aus pakete.json
- * @param {number} [auftrag.betrag]     ueberschreibt den Paketpreis
- * @param {string} [auftrag.leistungszeitraum]
- * @param {boolean} [auftrag.erzwingen] Dublettensperre uebergehen
+ * Bewusst ohne Seiteneffekte und ohne Dateizugriff — dasselbe Muster wie
+ * `chromeWache.mjs`: So kann `scripts/verify-rechnung.ts` die Regeln gegen
+ * Fixtures pruefen, ohne dass ein Testlauf eine fortlaufende Rechnungsnummer
+ * verbraucht. Eine Nummer ist nicht zurueckzunehmen; ein Test, der eine zieht,
+ * hinterlaesst eine Luecke in der Buchhaltung.
+ *
+ * @param {object} auftrag  siehe erstelleRechnung
+ * @param {object} paket    Zeile aus ladePakete()
+ * @returns {{ daten: object, firma: string, betrag: number }}
  */
-export async function erstelleRechnung(auftrag = {}) {
-  if (!rechnungBereit()) {
-    throw new Error(`Rechnungsmaschine fehlt unter ${RECHNUNG_ROOT} — Skill "rechnung" eingerichtet?`)
-  }
+export function baueRechnungsDaten(auftrag = {}, paket) {
+  if (!paket) throw new Error(`Unbekanntes Paket: ${auftrag.paket}`)
 
   const kunde = auftrag.kunde ?? {}
   const firma = text(kunde.firma)
@@ -109,13 +110,55 @@ export async function erstelleRechnung(auftrag = {}) {
   if (!strasse || !plz || !ort) {
     throw new Error('Rechnungsanschrift unvollständig — Straße, PLZ und Ort werden gebraucht')
   }
-
-  const pakete = await ladePakete()
-  const paket = pakete.find((p) => p.schluessel === auftrag.paket)
-  if (!paket) throw new Error(`Unbekanntes Paket: ${auftrag.paket}`)
+  // Die Mailadresse steht nicht auf dem PDF, aber der Generator legt sie in
+  // seiner Kundendatei ab — beim naechsten Mal ist sie damit schon da.
+  const email = text(kunde.email, 120)
 
   const betrag = Number(auftrag.betrag ?? paket.einzelpreis)
   if (!Number.isFinite(betrag) || betrag <= 0) throw new Error('Ungültiger Betrag')
+
+  /*
+   * `leistungsdatum`, nicht `leistungszeitraum`: So heisst das Feld im
+   * Generator (`rechnung_daten.get("leistungsdatum", rechnungsdatum)`). Unter
+   * dem alten Namen kam der Zeitraum nie an — die Rechnung trug dann still das
+   * Rechnungsdatum als Leistungsdatum. Genau diese Falle sichert das
+   * Pruefskript ab.
+   *
+   * Der Betreff traegt den Pakettitel. Ohne ihn steht auf jeder Rechnung nur
+   * "Rechnung" (Default im Generator), und der Makler sieht im Betreff nicht,
+   * wofuer er zahlt.
+   */
+  const zeitraum = text(auftrag.leistungszeitraum)
+  return {
+    firma,
+    betrag,
+    daten: {
+      kunde: { firma, strasse, plz, ort, ...(email ? { email } : {}) },
+      positionen: [{ beschreibung: paket.beschreibung, menge: 1, einzelpreis: betrag }],
+      betreff: `Rechnung — ${paket.titel}`,
+      ...(zeitraum ? { leistungsdatum: zeitraum } : {}),
+    },
+  }
+}
+
+/**
+ * Erstellt eine Rechnung und gibt Nummer, Datei und Betraege zurueck.
+ *
+ * @param {object} auftrag
+ * @param {object} auftrag.kunde        { firma, strasse, plz, ort }
+ * @param {string} auftrag.paket        Schluessel aus pakete.json
+ * @param {number} [auftrag.betrag]     ueberschreibt den Paketpreis
+ * @param {string} [auftrag.leistungszeitraum] z. B. "September 2026"
+ * @param {boolean} [auftrag.erzwingen] Dublettensperre uebergehen
+ */
+export async function erstelleRechnung(auftrag = {}) {
+  if (!rechnungBereit()) {
+    throw new Error(`Rechnungsmaschine fehlt unter ${RECHNUNG_ROOT} — Skill "rechnung" eingerichtet?`)
+  }
+
+  const pakete = await ladePakete()
+  const paket = pakete.find((p) => p.schluessel === auftrag.paket)
+  const { daten, firma, betrag } = baueRechnungsDaten(auftrag, paket)
 
   if (!auftrag.erzwingen) {
     const dublette = await findeDublette(firma, betrag)
@@ -127,12 +170,6 @@ export async function erstelleRechnung(auftrag = {}) {
       fehler.vorhandene = dublette
       throw fehler
     }
-  }
-
-  const daten = {
-    kunde: { firma, strasse, plz, ort },
-    positionen: [{ beschreibung: paket.beschreibung, menge: 1, einzelpreis: betrag }],
-    leistungszeitraum: text(auftrag.leistungszeitraum) || undefined,
   }
 
   // Der Generator wird als Bibliothek aufgerufen, nicht als Skript: So bleibt

@@ -30,7 +30,10 @@ import {
  *    verdächtig, und dann entscheidet Kevin.
  */
 
-type Felder = Pick<Contact, 'rechnung_firma' | 'rechnung_strasse' | 'rechnung_plz' | 'rechnung_ort'>
+type Felder = Pick<
+  Contact,
+  'rechnung_firma' | 'rechnung_strasse' | 'rechnung_plz' | 'rechnung_ort' | 'rechnung_email'
+>
 
 export function RechnungPanel({
   contact,
@@ -46,6 +49,9 @@ export function RechnungPanel({
   const [fehler, setFehler] = useState<string | null>(null)
   const [nachfrage, setNachfrage] = useState<string | null>(null)
   const [fertig, setFertig] = useState<ErstellteRechnung | null>(null)
+  /* Leer heisst: der Generator setzt das Rechnungsdatum ein. Das ist bei einem
+     Festpreis richtig; nur bei Retainern will Kevin den Monat sehen. */
+  const [zeitraum, setZeitraum] = useState('')
 
   // Der Entwurf lebt lokal, damit Tippen nicht bei jedem Zeichen speichert;
   // geschrieben wird beim Verlassen des Feldes.
@@ -54,6 +60,7 @@ export function RechnungPanel({
     rechnung_strasse: contact.rechnung_strasse || '',
     rechnung_plz: contact.rechnung_plz || '',
     rechnung_ort: contact.rechnung_ort || '',
+    rechnung_email: contact.rechnung_email || contact.email || '',
   })
 
   useEffect(() => {
@@ -62,6 +69,7 @@ export function RechnungPanel({
       rechnung_strasse: contact.rechnung_strasse || '',
       rechnung_plz: contact.rechnung_plz || '',
       rechnung_ort: contact.rechnung_ort || '',
+      rechnung_email: contact.rechnung_email || contact.email || '',
     })
     setFertig(null)
     setFehler(null)
@@ -86,6 +94,8 @@ export function RechnungPanel({
   }, [])
 
   const paket = useMemo(() => pakete.find((p) => p.schluessel === gewaehlt) ?? null, [pakete, gewaehlt])
+  /* Die Mailadresse fehlt hier bewusst: §14 UStG verlangt die Anschrift, nicht
+     die Mail. Sie zur Pflicht zu machen wuerde den Knopf im Call sperren. */
   const vollstaendig =
     entwurf.rechnung_firma.trim() !== '' &&
     entwurf.rechnung_strasse.trim() !== '' &&
@@ -109,8 +119,10 @@ export function RechnungPanel({
           strasse: entwurf.rechnung_strasse.trim(),
           plz: entwurf.rechnung_plz.trim(),
           ort: entwurf.rechnung_ort.trim(),
+          email: entwurf.rechnung_email.trim() || undefined,
         },
         paket: paket.schluessel,
+        leistungszeitraum: zeitraum.trim() || undefined,
         erzwingen,
       })
       setFertig(r)
@@ -176,6 +188,14 @@ export function RechnungPanel({
             onBlur={() => feldFertig('rechnung_ort')}
           />
         </div>
+        <input
+          style={feldStil}
+          type="email"
+          placeholder="Rechnungs-E-Mail (optional, oft die Buchhaltung)"
+          value={entwurf.rechnung_email}
+          onChange={(e) => setEntwurf((v) => ({ ...v, rechnung_email: e.target.value }))}
+          onBlur={() => feldFertig('rechnung_email')}
+        />
         <select style={feldStil} value={gewaehlt} onChange={(e) => setGewaehlt(e.target.value)}>
           {pakete.map((p) => (
             <option key={p.schluessel} value={p.schluessel}>
@@ -183,6 +203,17 @@ export function RechnungPanel({
             </option>
           ))}
         </select>
+        {/* Nur beim Retainer: dort steht die Leistung fuer einen Monat, und ohne
+            Angabe traegt die Rechnung das Rechnungsdatum. Beim Festpreis ist
+            genau das richtig — deshalb kein Feld, das leer bleiben will. */}
+        {paket?.wiederkehrend ? (
+          <input
+            style={feldStil}
+            placeholder="Leistungszeitraum, z. B. September 2026"
+            value={zeitraum}
+            onChange={(e) => setZeitraum(e.target.value)}
+          />
+        ) : null}
       </div>
 
       <button
