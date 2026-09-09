@@ -11,12 +11,16 @@
  *
  * Start: npx tsx scripts/verify-jophiel-projekte.ts
  */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   mitVorschau,
   verknuepfeProjekte,
   type JophielProjekt,
 } from '../app/src/cockpit/lib/jophielProjekte'
 
+const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 let pass = 0
 let fail = 0
 function check(label: string, ok: boolean, hinweis = '') {
@@ -150,6 +154,43 @@ for (const [beschreibung, geschrieben] of [
   const v = verknuepfeProjekte([projekt({ hatShot: false })], [{ id: 'l1', name: 'Hartmut Schneider' }])
   check('die Verknüpfung besteht auch ohne Bild', v[0].leadId === 'l1')
   check('sie taucht nur nicht im Vorschau-Streifen auf', mitVorschau(v).length === 0)
+}
+
+{
+  /*
+   * Die Vorschaubilder verschwanden nach einer Stunde (09.09.2026).
+   *
+   * Signiert wurde nur beim Betreten der Seite, gueltig ist eine Signatur aber
+   * nur eine Stunde. Nach zwei Stunden am offenen Cockpit stand auf jeder Karte
+   * "Noch nicht gespiegelt" — und beschuldigte damit Runner und Jophiel, die
+   * beide tadellos liefen. Der Fehler war unsichtbar, weil er nur mit der Zeit
+   * auftritt und jedes Neuladen ihn wegputzt.
+   */
+  const api = readFileSync(join(wurzel, 'app/src/cockpit/lib/jophielApi.ts'), 'utf8')
+  const dash = readFileSync(join(wurzel, 'app/src/cockpit/pages/SalesDashboard.tsx'), 'utf8')
+
+  check('es gibt eine Frist zum Nachsignieren', /export const NACHSIGNIEREN_MS/.test(api))
+  check(
+    'sie liegt VOR dem Ablauf der Signatur',
+    /NACHSIGNIEREN_MS = SIGNIERT_MS - \d+ \* 60 \* 1000/.test(api),
+    'gleich lang oder laenger hiesse: das Bild ist tot, bevor nachsigniert wird',
+  )
+  check('das Dashboard signiert wiederkehrend nach', /window\.setInterval\(nachsignieren, NACHSIGNIEREN_MS\)/.test(dash))
+  check(
+    'und ausserdem beim Zurueckkommen in den Tab',
+    /addEventListener\('visibilitychange'/.test(dash),
+    'Hintergrund-Tabs werden gedrosselt, ein zugeklappter Laptop haelt Timer ganz an',
+  )
+  check(
+    'das Nachsignieren stoesst ein Neuzeichnen an',
+    /setSignaturRunde\(\(n\) => n \+ 1\)/.test(dash),
+    'der Signatur-Speicher liegt ausserhalb von React — ohne Anstoss bewegt sich nichts',
+  )
+  check(
+    'die Projektliste bleibt dabei ein Standbild',
+    !/setInterval\([^)]*fetchJophielProjekte/.test(dash),
+    'eine Website entsteht in zwanzig Minuten — ein Intervall darauf waere Verkehr ohne Erkenntnis',
+  )
 }
 
 console.log(`\nverify-jophiel-projekte: ${pass} ok, ${fail} fehlgeschlagen`)

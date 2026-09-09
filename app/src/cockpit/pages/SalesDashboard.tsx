@@ -23,7 +23,7 @@ import { erledigePosten } from '../lib/arbeitsmodusTracking'
 import { funnelZuordnung, type FunnelKartenId, type FunnelLead } from '../lib/funnelKarten'
 import { funnelRaten } from '../lib/funnelRaten'
 import { KADENZ_SCHLUESSEL, gueltigeKadenz, setzeAktiveKadenz, type Kadenz } from '../lib/kadenz'
-import { bereiteJophielVorschauVor, fetchJophielProjekte } from '../lib/jophielApi'
+import { NACHSIGNIEREN_MS, bereiteJophielVorschauVor, fetchJophielProjekte } from '../lib/jophielApi'
 import { mitVorschau, verknuepfeProjekte, type JophielStand } from '../lib/jophielProjekte'
 import { ausAltemWert, poolAbleitung, type InmailStand } from '../lib/inmailStand'
 import { heutigesMetrikDatum } from '../lib/metricsDates'
@@ -1313,6 +1313,44 @@ export function SalesDashboard() {
       lebt = false
     }
   }, [])
+
+  /**
+   * Die Signaturen frisch halten (09.09.2026).
+   *
+   * Die Projektliste bleibt bewusst ein Standbild — eine Website entsteht in
+   * zwanzig Minuten, ein Intervall darauf waere Verkehr ohne Erkenntnis. Die
+   * **Signaturen** der Vorschaubilder sind aber nur eine Stunde gueltig, und
+   * die liefen bisher still ab: Nach zwei Stunden am offenen Cockpit stand auf
+   * jeder Karte „Noch nicht gespiegelt", obwohl Runner, Jophiel und Storage
+   * einwandfrei liefen — der Ersatztext beschuldigte die falschen Dienste.
+   *
+   * Nur nachsignieren, nicht neu laden. `signaturRunde` ist der Anstoss zum
+   * Neuzeichnen: Der Signatur-Zwischenspeicher liegt ausserhalb von React,
+   * eine Aenderung darin allein bewegt kein Bild auf den Schirm.
+   */
+  const [, setSignaturRunde] = useState(0)
+  useEffect(() => {
+    if (!jophiel.projekte.length) return
+    const nachsignieren = () =>
+      void bereiteJophielVorschauVor(jophiel.projekte).then(() => setSignaturRunde((n) => n + 1))
+
+    const id = window.setInterval(nachsignieren, NACHSIGNIEREN_MS)
+    /*
+     * Ein Intervall allein reicht nicht: Browser drosseln Timer in
+     * Hintergrund-Tabs bis auf einmal pro Minute und darunter, und ein
+     * zugeklappter Laptop haelt sie ganz an. Genau so entsteht der Fall, um
+     * den es hier geht — Cockpit stundenlang offen, Tab im Hintergrund. Beim
+     * Zurueckkommen wird deshalb sofort nachgesehen.
+     */
+    const beiRueckkehr = () => {
+      if (document.visibilityState === 'visible') nachsignieren()
+    }
+    document.addEventListener('visibilitychange', beiRueckkehr)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', beiRueckkehr)
+    }
+  }, [jophiel.projekte])
 
   const gebauteSeiten = useMemo(
     () => mitVorschau(verknuepfeProjekte(jophiel.projekte, leadsQuery.leads)),

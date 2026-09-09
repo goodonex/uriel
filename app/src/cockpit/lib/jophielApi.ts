@@ -69,6 +69,21 @@ const SIGNIERT_MS = 3600 * 1000
 const signierteShots = new Map<string, { url: string; at: number }>()
 
 /**
+ * Wie oft die Oberflaeche nachsignieren muss, damit kein Bild verschwindet.
+ *
+ * **Der Fehler, den das abstellt (09.09.2026):** Signiert wurde nur beim
+ * Betreten der Seite (`useEffect` mit leerer Abhaengigkeit), gueltig ist eine
+ * Signatur aber nur eine Stunde. Wer das Cockpit laenger offen liess — also
+ * jeder normale Arbeitstag —, sah ab der zweiten Stunde ueberall
+ * „Noch nicht gespiegelt", obwohl Runner, Jophiel, Spiegel und Storage
+ * tadellos waren. Der Ersatztext beschuldigte damit genau die Dienste, die
+ * liefen.
+ *
+ * Zehn Minuten vor Ablauf, damit ein gerade angesehenes Bild nicht tot umfaellt.
+ */
+export const NACHSIGNIEREN_MS = SIGNIERT_MS - 10 * 60 * 1000
+
+/**
  * Signiert die Vorschau-URLs einer Projektliste im Voraus — ein Aufruf für
  * alle. Danach liefert `jophielShotUrl` sie synchron.
  *
