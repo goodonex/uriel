@@ -3955,6 +3955,69 @@ let laufendeRunde = null
 /** Wird auf true gesetzt, wenn Kevin abbricht — die Etappen sehen zwischen den Schritten nach. */
 let rundeAbbruch = false
 /** Überlebt den Runner-Neustart, damit die Frage beim Öffnen nicht jedes Mal kommt. */
+/**
+ * ---- Neuen Code selbst holen und neu starten (10.09.2026) ----
+ *
+ * **Der Anlass.** Kevin hat auf dem Mini `git pull` ausgeführt, und der Auftrag
+ * scheiterte trotzdem mit „Unbekannter Agent: auftrag" — der laufende Prozess
+ * hatte den alten Code längst im Speicher. Für einen Rechner, an den man nicht
+ * hingeht, ist das die falsche Reihenfolge: Erst muss jemand pullen, dann muss
+ * jemand neu starten, und beides kann nur, wer davorsitzt.
+ *
+ * Deshalb sieht der Runner selbst nach. Findet er auf `origin` neuen Code, holt
+ * er ihn und beendet sich — `KeepAlive` im launchd-Agenten startet ihn sofort
+ * wieder, dann mit dem neuen Stand. Ein Neustart dauert Sekunden und
+ * unterbricht nichts, was nicht ohnehin gerade pausiert.
+ *
+ * **Zwei Bedingungen, beide notwendig.** Kein Lauf darf aktiv sein, sonst
+ * stirbt ein Agent mitten in der Arbeit — das Geld wäre weg und das Ergebnis
+ * auch. Und das Arbeitsverzeichnis muss sauber sein: Wer auf dem Mini von Hand
+ * etwas geändert hat, verliert es nicht durch einen automatischen Pull, der
+ * Runner lässt dann die Finger davon und sagt es im Log.
+ */
+const CODE_CHECK_MS = Number(process.env.CODE_CHECK_MS ?? 10 * 60 * 1000)
+const CODE_AUTOUPDATE = process.env.CODE_AUTOUPDATE !== '0'
+
+/** Ein Git-Kommando im Repo ausführen. Gibt `null` zurück, wenn es scheitert. */
+function git(...args) {
+  return new Promise((fertig) => {
+    const p = spawn('git', args, { cwd: REPO_WURZEL, stdio: ['ignore', 'pipe', 'pipe'] })
+    let aus = ''
+    p.stdout.on('data', (d) => (aus += d))
+    p.on('error', () => fertig(null))
+    p.on('close', (code) => fertig(code === 0 ? aus.trim() : null))
+  })
+}
+
+let codeCheckLaeuft = false
+async function codeCheckTick() {
+  if (codeCheckLaeuft || running.size > 0) return
+  codeCheckLaeuft = true
+  try {
+    const schmutzig = await git('status', '--porcelain')
+    if (schmutzig === null) return
+    if (schmutzig) {
+      console.log('[runner] neuer Code wird nicht geholt: im Arbeitsverzeichnis liegen eigene Änderungen')
+      return
+    }
+    if ((await git('fetch', '--quiet', 'origin')) === null) return
+    const [hier, dort] = [await git('rev-parse', 'HEAD'), await git('rev-parse', '@{u}')]
+    if (!hier || !dort || hier === dort) return
+
+    // Zwischen fetch und pull kann ein Lauf gestartet sein — dann lieber beim
+    // nächsten Tick, der Code läuft ja nicht weg.
+    if (running.size > 0) return
+    if ((await git('pull', '--ff-only', '--quiet')) === null) {
+      console.error('[runner] neuer Code liegt bereit, aber der Pull ging nicht durch (kein Fast-Forward?)')
+      return
+    }
+    console.log(`[runner] neuer Code geholt (${hier.slice(0, 7)} → ${dort.slice(0, 7)}) — Neustart, launchd fängt ihn auf`)
+    process.exit(0)
+  } finally {
+    codeCheckLaeuft = false
+  }
+}
+
 const RUNDE_MARKE = 'letzte-runde'
 /** Wie oft die Netzwerk-Listen ganz durchgeblättert werden. Begründung in `starteRunde`. */
 const NETZWERK_VOLL_ABSTAND_MS = Number(process.env.NETZWERK_VOLL_ABSTAND_MS ?? 7 * 24 * 60 * 60 * 1000)
@@ -4362,6 +4425,17 @@ server.listen(PORT, '127.0.0.1', () => {
   wachTick()
   const wt = setInterval(wachTick, WACH_TICK_MS)
   wt.unref?.()
+
+  /**
+   * Neuen Code holen — bewusst NICHT sofort beim Start: Ein Neustart direkt
+   * nach dem Start wäre eine Schleife, wenn der Pull den Code nicht wirklich
+   * ändert. Der erste Blick kommt nach einer Minute, danach im Takt.
+   */
+  if (CODE_AUTOUPDATE) {
+    setTimeout(() => void codeCheckTick(), 60_000)
+    const cc = setInterval(() => void codeCheckTick(), CODE_CHECK_MS)
+    cc.unref?.()
+  }
 
   /**
    * ---- Die Zeitplan-Routinen: seit dem 31.08.2026 standardmäßig AUS ----

@@ -102,5 +102,40 @@ const skript = readFileSync(join(wurzel, 'scripts/an-den-mini.mjs'), 'utf8')
   check('es schreibt einen agent_run-Auftrag', /kind: 'agent_run'/.test(skript) && /agent: 'auftrag'/.test(skript))
 }
 
+/* ── Neuen Code selbst holen ───────────────────────────────────────────── */
+{
+  /**
+   * Der Anlass: Kevin hatte auf dem Mini gepullt, und der Auftrag scheiterte
+   * trotzdem mit „Unbekannter Agent" — der laufende Prozess hatte den alten
+   * Code im Speicher. Was hier zurückrutscht, kostet keinen Fehler, sondern
+   * einen Gang zum Mini.
+   */
+  const block = runner.match(/const CODE_CHECK_MS[\s\S]{0,3000}/)?.[0] ?? ''
+  check('es gibt einen Code-Check', /async function codeCheckTick/.test(runner))
+  check('er ist abschaltbar', /CODE_AUTOUPDATE/.test(runner))
+  check('er läuft im Intervall', /setInterval\(\(\) => void codeCheckTick/.test(runner))
+  check(
+    'aber nicht sofort beim Start — das wäre eine Neustart-Schleife',
+    /setTimeout\(\(\) => void codeCheckTick\(\), 60_000\)/.test(runner),
+  )
+
+  check(
+    'kein Update, solange ein Agent läuft — sonst stirbt er mitten in der Arbeit',
+    /codeCheckLaeuft \|\| running\.size > 0/.test(block),
+  )
+  check(
+    'nach dem fetch wird erneut auf laufende Agenten geprüft',
+    (block.match(/running\.size > 0/g) ?? []).length >= 2,
+    'Zwischen fetch und pull kann ein Lauf gestartet sein.',
+  )
+  check(
+    'eigene Änderungen auf dem Mini werden nicht überfahren',
+    /status', '--porcelain/.test(block) && /eigene Änderungen/.test(block),
+  )
+  check('gepullt wird nur als Fast-Forward', /'pull', '--ff-only'/.test(block))
+  check('nach dem Pull beendet sich der Prozess — launchd startet ihn neu', /process\.exit\(0\)/.test(block))
+  check('der launchd-Agent hält ihn am Leben', /KeepAlive/.test(readFileSync(join(wurzel, 'scripts/install-runner-autostart.sh'), 'utf8')))
+}
+
 console.log(`\nverify-auftrag-agent: ${pass} ok, ${fail} fehlgeschlagen`)
 process.exit(fail === 0 ? 0 : 1)
