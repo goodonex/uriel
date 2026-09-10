@@ -56,6 +56,26 @@ const skript = readFileSync(join(wurzel, 'scripts/an-den-mini.mjs'), 'utf8')
   // gar nicht erst als Auftrag in der Tabelle landet.
   check('das Absende-Skript prüft dieselben Wurzeln', /startsWith\(w \+ sep\)/.test(skript))
 
+  /**
+   * Symbolische Orte. Der erste echte Auftrag scheiterte an
+   * `/Users/kevin/Second Brain`: Der Pfad kam vom Laptop, und was dort gilt,
+   * muss auf dem Mini nicht gelten. Ein Auftrag soll den Ort meinen, nicht
+   * buchstabieren.
+   */
+  check('der Runner kennt Kurzworte für Orte', /const ORTE = \{ vault:/.test(runner))
+  check('`vault` löst auf den Vault DIESES Rechners auf', /vault: VAULT/.test(runner))
+  check('`uriel` löst auf das Repo auf', /uriel: REPO_WURZEL/.test(runner))
+  check('ein Kurzwort geht dem Pfad vor', /ORTE\[roh\] \?\? resolve\(roh\)/.test(runner))
+  check('der Standard ist der Vault, nicht ein fremder Pfad', /input\?\.cwd \?\? 'vault'/.test(runner))
+  check(
+    'die Fehlermeldung nennt, was auf DIESEM Rechner erlaubt ist',
+    /Erlaubt auf DIESEM Rechner/.test(runner),
+    'Sonst rät man vom Laptop aus.',
+  )
+  check('das Absende-Skript kennt dieselben Kurzworte', /const ORTE = \['vault', 'uriel', 'projekte'\]/.test(skript))
+  check('ohne Angabe reist „vault" mit', /\(ort \?\? 'vault'\)/.test(skript))
+  check('ein absoluter Pfad wird weiterhin hier schon geprüft', /pfad && !WURZELN\.some/.test(skript))
+
   // Die Logik selbst, an den Fällen die zählen.
   const WURZELN = [resolve(join(homedir(), 'Second Brain')), resolve(join(homedir(), 'Kevin OS'))]
   const erlaubt = (p: string) => {

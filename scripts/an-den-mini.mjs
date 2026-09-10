@@ -21,9 +21,12 @@
  *
  * Optionen:
  *   --titel <text>   Kurzname für die Rückmeldung (Pflicht)
- *   --cwd <pfad>     Arbeitsordner auf dem Mini (Standard: der Vault).
- *                    Muss unter ~/Second Brain oder ~/Kevin OS liegen — der
- *                    Runner lehnt alles andere ab, bevor der Agent startet.
+ *   --ort <ort>      Wo der Mini arbeitet: `vault`, `uriel` oder `projekte`
+ *                    (Standard: vault). Der Mini löst das Kurzwort selbst auf.
+ *   --cwd <pfad>     Absoluter Pfad statt Kurzwort. Nur nehmen, wenn es keinen
+ *                    passenden Ort gibt — ein Pfad vom Laptop muss auf dem Mini
+ *                    nicht gelten (anderer Benutzername, anderer Vault-Pfad).
+ *                    Genau daran scheiterte der erste echte Auftrag.
  *   --pruefen        Nur zeigen, was gesendet würde, und nichts schreiben.
  */
 import { readFileSync } from 'node:fs'
@@ -43,16 +46,34 @@ function argWert(name, standard = null) {
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : standard
 }
 
+/** Kurzworte, die der ausführende Rechner selbst auflöst. */
+const ORTE = ['vault', 'uriel', 'projekte']
+
 const titel = argWert('titel')
-const cwd = resolve(argWert('cwd', VAULT))
 const nurPruefen = process.argv.includes('--pruefen')
+const ort = argWert('ort')
+const pfad = argWert('cwd')
 
 if (!titel) {
   console.error('FEHLT: --titel "Kurzname des Auftrags"')
   process.exit(1)
 }
-if (!WURZELN.some((w) => cwd === w || cwd.startsWith(w + sep))) {
-  console.error(`Arbeitsordner liegt außerhalb der erlaubten Wurzeln:\n  ${cwd}\nErlaubt: ${WURZELN.join(' · ')}`)
+if (ort && !ORTE.includes(ort)) {
+  console.error(`Unbekannter Ort "${ort}". Möglich: ${ORTE.join(', ')} — oder --cwd <absoluter Pfad>.`)
+  process.exit(1)
+}
+
+/**
+ * Ein Kurzwort reist als Kurzwort mit; nur ein ausdrücklicher Pfad wird hier
+ * schon geprüft. Was auf diesem Laptop existiert, muss auf dem Mini nicht
+ * existieren — deshalb ist das Kurzwort der Normalfall.
+ */
+const cwd = pfad ? resolve(pfad) : (ort ?? 'vault')
+if (pfad && !WURZELN.some((w) => cwd === w || cwd.startsWith(w + sep))) {
+  console.error(
+    `Arbeitsordner liegt außerhalb der erlaubten Wurzeln:\n  ${cwd}\nErlaubt: ${WURZELN.join(' · ')}\n` +
+      `Meist besser: --ort ${ORTE.join('|')} — das löst der Mini selbst auf.`,
+  )
   process.exit(1)
 }
 

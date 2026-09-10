@@ -502,16 +502,32 @@ function agentConfig(agent, input = null) {
     if (!text) throw Object.assign(new Error('Auftrag ohne Text — nichts zu tun.'), { code: 'EAUFTRAG' })
 
     /**
+     * **Symbolische Orte statt absoluter Pfade (10.09.2026).** Der erste echte
+     * Auftrag scheiterte an `/Users/kevin/Second Brain` — der Pfad stammte vom
+     * Laptop, und was dort gilt, muss auf dem Mini nicht gelten (anderer
+     * Benutzername, anderer Vault-Pfad, andere Platte). Ein Auftrag soll den
+     * Ort MEINEN, nicht buchstabieren: `vault` und `uriel` löst der Rechner
+     * auf, der ihn ausführt.
+     */
+    const ORTE = { vault: VAULT, uriel: REPO_WURZEL, projekte: resolve(join(homedir(), 'Kevin OS', '02 Projekte')) }
+    const roh = String(input?.cwd ?? 'vault')
+    const gewuenscht = ORTE[roh] ?? resolve(roh)
+
+    /**
      * Der Arbeitsordner muss in einer erlaubten Wurzel liegen. Geprüft wird der
      * aufgelöste Pfad mit angehängtem Trenner: Ohne den ginge
      * `~/Kevin OS-geheim` als Treffer für `~/Kevin OS` durch.
      */
-    const gewuenscht = resolve(String(input?.cwd ?? VAULT))
     const erlaubt = AUFTRAG_WURZELN.some((w) => gewuenscht === w || gewuenscht.startsWith(w + sep))
     if (!erlaubt) {
-      throw Object.assign(new Error(`Arbeitsordner liegt außerhalb der erlaubten Wurzeln: ${gewuenscht}`), {
-        code: 'ECWD',
-      })
+      throw Object.assign(
+        new Error(
+          `Arbeitsordner liegt außerhalb der erlaubten Wurzeln: ${gewuenscht}\n` +
+            `Erlaubt auf DIESEM Rechner: ${AUFTRAG_WURZELN.join(' · ')}\n` +
+            `Besser als ein Pfad vom Laptop: die Kurzworte ${Object.keys(ORTE).join(', ')}.`,
+        ),
+        { code: 'ECWD' },
+      )
     }
     if (!existsSync(gewuenscht)) {
       throw Object.assign(new Error(`Arbeitsordner gibt es nicht: ${gewuenscht}`), { code: 'ECWD' })
