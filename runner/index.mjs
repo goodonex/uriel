@@ -447,14 +447,96 @@ const AGENT_CATALOG = [
       '--print-to-pdf="Follow-up-Analyse <Name>.pdf" "Follow-up-Analyse <Name>.html"`; 3 Seiten via ' +
       '.page.mt-Umbrüche. Keine Preise nennen, CTA nur Quali-Call.',
   },
+  {
+    /**
+     * **Der Auftrag vom Laptop (10.09.2026).**
+     *
+     * Kevins Anlass, wörtlich: *„Ich hab eben im Café gesessen, da hat auf
+     * einmal jemand mit Lautsprecher telefoniert und da wollt ich einfach
+     * gehen."* Große Arbeit soll in Sekunden auf den Mini wandern, damit der
+     * Laptop zuklappen kann — mit dem Kontext aus dem Chat, sonst fängt der
+     * Mini bei null an.
+     *
+     * Anders als alle anderen Agenten hat dieser keinen eigenen Prompt: Er
+     * bekommt ihn je Auftrag mitgeliefert. Deshalb steht hier auch kein
+     * `cwd` — es kommt aus dem Payload und wird gegen `AUFTRAG_WURZELN`
+     * geprüft, damit ein Auftrag nicht irgendwohin schreibt.
+     */
+    id: 'auftrag',
+    label: 'Auftrag vom Laptop',
+    description:
+      'Führt einen Auftrag aus, den Kevin samt Chat-Kontext vom Laptop rübergeschoben hat. Prompt und Arbeitsordner kommen mit dem Auftrag.',
+    kind: 'write',
+    // Opus, weil der Auftrag unbekannt ist: Der Mini bekommt die Arbeit, die
+    // Kevin gerade NICHT selbst begleiten kann — dort ist ein zu kleines
+    // Modell die teuerste Ersparnis. Der Deckel liegt höher als sonst, weil
+    // hier ganze Bau-Aufträge landen und ein abgeschnittener Lauf beides
+    // kostet: das Geld und das Ergebnis.
+    modell: 'claude-opus-5',
+    effort: 'high',
+    budget: 12,
+  },
 ]
+
+/**
+ * Wohin ein Auftrag vom Laptop schreiben darf. Alles andere wird abgelehnt,
+ * bevor der Agent startet — ein Auftrag kommt aus einem Chat, und ein Tippfehler
+ * im Pfad soll keine Datei außerhalb von Kevins Arbeitsordnern anfassen.
+ */
+const AUFTRAG_WURZELN = [VAULT, resolve(join(homedir(), 'Kevin OS'))]
 
 const AGENT_BY_ID = new Map(AGENT_CATALOG.map((a) => [a.id, a]))
 
-/** Ausführungs-Konfig je Agent: cwd, Prompt-Builder, zusätzliche CLI-Flags. */
-function agentConfig(agent) {
+/**
+ * Ausführungs-Konfig je Agent: cwd, Prompt-Builder, zusätzliche CLI-Flags.
+ *
+ * `input` braucht nur der Agent `auftrag` — er ist der einzige, dessen Prompt
+ * und Arbeitsordner erst mit dem Auftrag ankommen.
+ */
+function agentConfig(agent, input = null) {
   const a = AGENT_BY_ID.get(agent)
   if (!a) return null
+
+  if (a.id === 'auftrag') {
+    const text = String(input?.auftrag ?? '').trim()
+    if (!text) throw Object.assign(new Error('Auftrag ohne Text — nichts zu tun.'), { code: 'EAUFTRAG' })
+
+    /**
+     * Der Arbeitsordner muss in einer erlaubten Wurzel liegen. Geprüft wird der
+     * aufgelöste Pfad mit angehängtem Trenner: Ohne den ginge
+     * `~/Kevin OS-geheim` als Treffer für `~/Kevin OS` durch.
+     */
+    const gewuenscht = resolve(String(input?.cwd ?? VAULT))
+    const erlaubt = AUFTRAG_WURZELN.some((w) => gewuenscht === w || gewuenscht.startsWith(w + sep))
+    if (!erlaubt) {
+      throw Object.assign(new Error(`Arbeitsordner liegt außerhalb der erlaubten Wurzeln: ${gewuenscht}`), {
+        code: 'ECWD',
+      })
+    }
+    if (!existsSync(gewuenscht)) {
+      throw Object.assign(new Error(`Arbeitsordner gibt es nicht: ${gewuenscht}`), { code: 'ECWD' })
+    }
+
+    return {
+      cwd: gewuenscht,
+      // Der Auftragstext IST der Prompt. Der Kontext aus dem Chat hängt als
+      // JSON-Block darunter — dieselbe Form, die jeder andere Agent bekommt.
+      buildPrompt: (inputBlock) => `${text}${inputBlock}`,
+      extraArgs: [
+        ...(a.modell ? ['--model', a.modell] : []),
+        ...(a.effort ? ['--effort', a.effort] : []),
+        '--max-budget-usd',
+        String(a.budget ?? RUN_BUDGET_USD),
+        // Scoped wie bei den anderen Schreib-Agenten: Datei-Writes im cwd,
+        // Bash nur mit den Befehlen, die ein Bau-Auftrag wirklich braucht.
+        '--permission-mode',
+        'acceptEdits',
+        '--allowedTools',
+        'Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Bash(node:*),Bash(npx:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*),Bash(date:*),Bash(grep:*),Bash(sed:*)',
+      ],
+    }
+  }
+
   if (a.kind === 'write') {
     // Kontext-Datei (z. B. die Sprechfassung im Vault) direkt in den Prompt
     // legen. Fehlt sie, läuft der Agent trotzdem — mit ehrlichem Hinweis, statt
@@ -943,7 +1025,7 @@ async function startRun(agent, input) {
     'utf8',
   )
 
-  const cfg = agentConfig(agent)
+  const cfg = agentConfig(agent, input)
   if (!cfg) throw Object.assign(new Error(`Unbekannter Agent: ${agent}`), { code: 'EAGENT' })
 
   const inputBlock = input && Object.keys(input).length
