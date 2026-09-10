@@ -66,14 +66,31 @@ const skript = readFileSync(join(wurzel, 'scripts/an-den-mini.mjs'), 'utf8')
   check('`vault` löst auf den Vault DIESES Rechners auf', /vault: VAULT/.test(runner))
   check('`uriel` löst auf das Repo auf', /uriel: REPO_WURZEL/.test(runner))
   check('ein Kurzwort geht dem Pfad vor', /ORTE\[roh\] \?\? resolve\(roh\)/.test(runner))
-  check('der Standard ist der Vault, nicht ein fremder Pfad', /input\?\.cwd \?\? 'vault'/.test(runner))
+  /**
+   * Der Standard darf nicht der Vault sein: Dort steht `deny: [Bash, Write,
+   * Edit]` in der settings.json, und das mit Absicht — Kevins Notizen gehören
+   * ihm. Die erste echte Probe lief genau dort und konnte nichts schreiben.
+   */
+  check('der Standard-Ort ist `projekte`, nicht der Vault', /input\?\.cwd \?\? 'projekte'/.test(runner))
+  check('das Absende-Skript hat denselben Standard', /\(ort \?\? 'projekte'\)/.test(skript))
+  check('und warnt, wenn jemand den Vault zum Schreiben wählt', /nur LESEN/.test(skript))
+  check(
+    'die Vault-Sperre ist noch da (sie soll bleiben)',
+    (() => {
+      try {
+        const j = JSON.parse(readFileSync(join(process.env.HOME!, 'Second Brain/.claude/settings.json'), 'utf8'))
+        return ['Bash', 'Write', 'Edit'].every((t) => j?.permissions?.deny?.includes(t))
+      } catch {
+        return false
+      }
+    })(),
+  )
   check(
     'die Fehlermeldung nennt, was auf DIESEM Rechner erlaubt ist',
     /Erlaubt auf DIESEM Rechner/.test(runner),
     'Sonst rät man vom Laptop aus.',
   )
   check('das Absende-Skript kennt dieselben Kurzworte', /const ORTE = \['vault', 'uriel', 'projekte'\]/.test(skript))
-  check('ohne Angabe reist „vault" mit', /\(ort \?\? 'vault'\)/.test(skript))
   check('ein absoluter Pfad wird weiterhin hier schon geprüft', /pfad && !WURZELN\.some/.test(skript))
 
   // Die Logik selbst, an den Fällen die zählen.
@@ -99,7 +116,10 @@ const skript = readFileSync(join(wurzel, 'scripts/an-den-mini.mjs'), 'utf8')
 
 /* ── Der Agent darf schreiben, aber nicht alles ────────────────────────── */
 {
-  const block = runner.match(/if \(a\.id === 'auftrag'\)[\s\S]{0,2600}/)?.[0] ?? ''
+  // Bis zum Ende des Auftrag-Zweigs, nicht auf Zeichen gezählt: Ein neuer
+  // Kommentar im Block hat diese Prüfung schon einmal blind gemacht.
+  const block = runner.match(/if \(a\.id === 'auftrag'\) \{[\s\S]*?\n  \}\n/)?.[0] ?? ''
+  check('der Auftrag-Zweig ist auffindbar', block.length > 500, `${block.length} Zeichen`)
   check('die Werkzeuge stehen explizit am Aufruf', /--allowedTools/.test(block))
   check('kein Blanket-Bypass der Rechte', !/bypassPermissions|--dangerously/.test(block), block.slice(0, 200))
   check('Bash nur mit benannten Befehlen, keine Wildcard', !/'Bash'|Bash\(\*\)|Bash:\*/.test(block))

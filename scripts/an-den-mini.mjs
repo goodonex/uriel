@@ -21,8 +21,12 @@
  *
  * Optionen:
  *   --titel <text>   Kurzname für die Rückmeldung (Pflicht)
- *   --ort <ort>      Wo der Mini arbeitet: `vault`, `uriel` oder `projekte`
- *                    (Standard: vault). Der Mini löst das Kurzwort selbst auf.
+ *   --ort <ort>      Wo der Mini arbeitet: `projekte` (Standard), `uriel` oder
+ *                    `vault`. Der Mini löst das Kurzwort selbst auf.
+ *                    ACHTUNG `vault`: Dort darf ein Agent nur LESEN
+ *                    (`deny: [Bash, Write, Edit]` in der settings.json des
+ *                    Vaults, mit Absicht). Ein Auftrag, der dort schreiben
+ *                    soll, scheitert - genau daran starb die erste Probe.
  *   --cwd <pfad>     Absoluter Pfad statt Kurzwort. Nur nehmen, wenn es keinen
  *                    passenden Ort gibt — ein Pfad vom Laptop muss auf dem Mini
  *                    nicht gelten (anderer Benutzername, anderer Vault-Pfad).
@@ -68,13 +72,20 @@ if (ort && !ORTE.includes(ort)) {
  * schon geprüft. Was auf diesem Laptop existiert, muss auf dem Mini nicht
  * existieren — deshalb ist das Kurzwort der Normalfall.
  */
-const cwd = pfad ? resolve(pfad) : (ort ?? 'vault')
+const cwd = pfad ? resolve(pfad) : (ort ?? 'projekte')
 if (pfad && !WURZELN.some((w) => cwd === w || cwd.startsWith(w + sep))) {
   console.error(
     `Arbeitsordner liegt außerhalb der erlaubten Wurzeln:\n  ${cwd}\nErlaubt: ${WURZELN.join(' · ')}\n` +
       `Meist besser: --ort ${ORTE.join('|')} — das löst der Mini selbst auf.`,
   )
   process.exit(1)
+}
+
+if (cwd === 'vault' || cwd === resolve(VAULT)) {
+  console.error(
+    'Hinweis: Im Vault darf ein Agent nur LESEN — Bash, Write und Edit sind dort gesperrt (Absicht).\n' +
+      'Soll der Auftrag etwas schreiben, nimm --ort projekte oder --ort uriel.',
+  )
 }
 
 const auftrag = readFileSync(0, 'utf8').trim()

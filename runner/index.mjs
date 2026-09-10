@@ -510,7 +510,15 @@ function agentConfig(agent, input = null) {
      * auf, der ihn ausführt.
      */
     const ORTE = { vault: VAULT, uriel: REPO_WURZEL, projekte: resolve(join(homedir(), 'Kevin OS', '02 Projekte')) }
-    const roh = String(input?.cwd ?? 'vault')
+    /**
+     * **Standard ist `projekte`, nicht der Vault (10.09.2026).** Die erste
+     * echte Probe lief im Vault und konnte nichts schreiben: Dort steht
+     * `deny: [Bash, Write, Edit]` in der `.claude/settings.json`, und das ist
+     * Absicht — Kevins Notizen gehören ihm, kein Agent überschreibt sie. Ein
+     * Auftrag, der im Vault landet, kann dort also nur lesen und berichten.
+     * Gearbeitet wird unter `02 Projekte`.
+     */
+    const roh = String(input?.cwd ?? 'projekte')
     const gewuenscht = ORTE[roh] ?? resolve(roh)
 
     /**
