@@ -38,6 +38,24 @@ import type { PostenEntwurf } from './prioritaet'
  * Der Aufbau folgt Kevins Kaskade: erst der harmlose Anstupser, dann ein
  * echter Befund, dann eine Frage.
  */
+/**
+ * Der eine Satz, mit dem die Analyse angeboten wird — wortgleich in jeder
+ * Nachricht, über alle Kanäle (Erstnachricht, Follow-up, InMail).
+ *
+ * Zwei Gründe, und beide sind Kevins (10.09.2026):
+ *
+ * 1. Frame. „Darf ich sie dir schicken?" bittet um Erlaubnis und macht Kevin
+ *    zum Bittsteller — dieselbe Position, die der Skill `herrmann-outreach`
+ *    an anderer Stelle schon verbietet. Diese Frage setzt umgekehrt voraus,
+ *    dass die Analyse kommt; der Lead müsste aktiv widersprechen.
+ * 2. Messbarkeit. Solange jede Nachricht anders fragt, sagt eine Antwortquote
+ *    nichts über den Befund davor aus, weil der CTA mitvariiert. Fixiert man
+ *    ihn, ist er als Variable raus und alles andere wird vergleichbar.
+ *
+ * Der Satz davor muss die Analyse benennen, sonst hat „sie" keinen Bezug.
+ */
+export const ANALYSE_CTA = 'Hast du was dagegen, wenn ich sie dir einmal rüberschicke?'
+
 export const FOLLOWUP_VORLAGEN: readonly string[] = [
   // Stufe 0 — drei Tage nach der Erstnachricht. Bewusst harmlos: Der
   // wahrscheinlichste Grund für das Schweigen ist nicht Ablehnung, sondern
@@ -47,7 +65,7 @@ export const FOLLOWUP_VORLAGEN: readonly string[] = [
 
 falls das untergegangen ist, hol ich es kurz hoch.
 
-Ich nehme dir eine Analyse zu eurer Website auf, dreieinhalb Minuten, konkret auf die Eigentümer-Ansprache. Soll ich sie dir schicken?`,
+Ich nehme dir eine Analyse zu eurer Website auf, dreieinhalb Minuten, konkret auf die Eigentümer-Ansprache. ${ANALYSE_CTA}`,
 
   // Stufe 1 — eine Woche später. Hier steht ein Befund, der für praktisch jede
   // Maklerseite stimmt. Das ist der Trick dieser Stufe: Sie fühlt sich
@@ -57,7 +75,7 @@ Ich nehme dir eine Analyse zu eurer Website auf, dreieinhalb Minuten, konkret au
 
 eine Sache, die mir bei fast jeder Maklerseite auffällt: Sie ist für Käufer gebaut. Der Eigentümer, der überlegt zu verkaufen, findet darauf keinen einzigen Grund, genau euch anzurufen.
 
-Darum geht es in der Analyse. Willst du sie sehen?`,
+Darum geht es in der Analyse. ${ANALYSE_CTA}`,
 
   // Stufe 2 — die letzte Nachricht auf LinkedIn, aber ausdrücklich KEIN
   // Break-up: Danach geht es auf Instagram weiter (`leadStation.lauteKette`).

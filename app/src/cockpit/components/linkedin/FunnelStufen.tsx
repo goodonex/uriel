@@ -148,13 +148,32 @@ export function FunnelStufen({
 
   /** Ohne Netzwerk-Daten sind zwei der fünf Kacheln blind — das wird gesagt, nicht mit 0 kaschiert. */
   const netzwerkDa = netzwerk.length > 0
+  /**
+   * Wie viele Erstnachrichten fertig geschrieben und noch nicht raus sind —
+   * also das, was Kevin ohne jede Vorarbeit abschicken kann. Das ist eine
+   * andere Zahl als „wie viele warten", und die Verwechslung war teuer.
+   */
+  const versandfertig = erstnachrichten.filter((e) => e.status === 'offen').length
   const frische = frischeText(letzterVollerEinladungsLauf, jetzt)
 
   const kacheln: Kachel[] = [
     {
       id: 'angenommen',
       titel: 'Angenommen · ohne Nachricht',
-      hinweis: 'Haben Ja gesagt und warten auf den ersten Satz.',
+      /**
+       * **Die versandfertigen zuerst nennen (10.09.2026).** Diese Kachel zählt
+       * Menschen, die warten — nicht Arbeit, die anliegt. Für die allermeisten
+       * existiert noch gar kein Text; den schreibt der Agent. Kevin las die
+       * dreistellige Zahl trotzdem als To-do-Liste und stand eine Woche
+       * still: „ich dachte, ich habe über 200 Erstnachrichten offen, die raus
+       * müssen — die 67 hätte ich direkt weggearbeitet."
+       *
+       * Also steht jetzt vorn, was er heute tun kann, und dahinter erst, was
+       * Uriel noch zu tun hat.
+       */
+      hinweis: versandfertig
+        ? `${versandfertig} ${versandfertig === 1 ? 'Text ist' : 'Texte sind'} fertig — die kannst du sofort rausschicken. ${stufen.angenommenOffen.length} warten noch auf einen Text (schreibt Uriel).`
+        : `${stufen.angenommenOffen.length} warten auf einen Text — fertig geschrieben ist gerade keiner.`,
       personen: stufen.angenommenOffen,
     },
     {

@@ -8,7 +8,7 @@
  *
  * Start: npx tsx scripts/verify-followup-vorlagen.ts
  */
-import { FOLLOWUP_VORLAGEN, followupVorlage, vornameAus } from '../app/src/cockpit/lib/followupVorlagen'
+import { ANALYSE_CTA, FOLLOWUP_VORLAGEN, followupVorlage, vornameAus } from '../app/src/cockpit/lib/followupVorlagen'
 import { FOLLOWUP_THRESHOLDS_DAYS } from '../app/src/cockpit/lib/linkedinFollowups'
 
 let pass = 0
@@ -39,6 +39,12 @@ check(
     ['Corporate-Weichspüler „gerne würde ich"', /gerne würde ich/i],
     ['Weichspüler „wollte mal nachfragen"', /wollte (mal )?nachfragen/i],
     ['Bittsteller „hätte ich Interesse"', /hätte ich/i],
+    // Kevin, 10.09.2026: „Darf ich sie dir schicken — wie so ein Wicht."
+    // Um Erlaubnis wird nicht gebeten; siehe ANALYSE_CTA.
+    ['Erlaubnis-CTA „darf ich …"', /darf ich/i],
+    ['Erlaubnis-CTA „soll ich …"', /soll ich/i],
+    ['Erlaubnis-CTA „willst du … sehen"', /willst du .{0,20}sehen/i],
+    ['Weichspüler „unverbindlich"', /unverbindlich/i],
   ]
 
   FOLLOWUP_VORLAGEN.forEach((text, stufe) => {
@@ -65,6 +71,17 @@ check(
   FOLLOWUP_VORLAGEN.forEach((text, stufe) => {
     check(`Stufe ${stufe}: endet auf eine Frage`, text.trimEnd().endsWith('?'), text.slice(-40))
   })
+
+  // Der CTA ist eine Konstante, keine Formulierungsfrage. Variiert er, misst
+  // eine Antwortquote den CTA mit und sagt nichts mehr über den Befund davor.
+  // Stufe 2 bietet keine Analyse an und hat deshalb ihre eigene Frage.
+  for (const stufe of [0, 1]) {
+    check(
+      `Stufe ${stufe}: endet auf den kanonischen Analyse-CTA`,
+      FOLLOWUP_VORLAGEN[stufe].trimEnd().endsWith(ANALYSE_CTA),
+      `erwartet: „${ANALYSE_CTA}" — gefunden: „${FOLLOWUP_VORLAGEN[stufe].trimEnd().slice(-60)}"`,
+    )
+  }
 }
 
 /* ── Kein Text ist wie der andere ──────────────────────────────────────── */
