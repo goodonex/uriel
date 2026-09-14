@@ -171,6 +171,9 @@ export function normalizeDeliverProject(
     ),
     booking_url: input.booking_url ?? '',
     stage_durations: parseStageDurations(input.stage_durations),
+    // 0084 — beide aus: ein Projekt bekommt CMS-Rechte nur ausdrücklich.
+    cms_public: input.cms_public === true,
+    cms_autopublish: input.cms_autopublish === true,
     deleted_at:
       typeof input.deleted_at === 'string' && input.deleted_at ? input.deleted_at : null,
     created_at:
@@ -326,6 +329,9 @@ export function rowRecordToDeliverProject(
       deliverables: parseDeliverables(row.deliverables),
       booking_url: (row.booking_url as string) ?? '',
       stage_durations: parseStageDurations(row.stage_durations),
+      // 0084 — fehlen die Spalten (Migration noch nicht gepusht), ist beides false.
+      cms_public: row.cms_public === true,
+      cms_autopublish: row.cms_autopublish === true,
       deleted_at:
         typeof row.deleted_at === 'string' && row.deleted_at ? row.deleted_at : null,
       created_at:

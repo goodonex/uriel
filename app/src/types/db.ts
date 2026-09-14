@@ -682,6 +682,10 @@ export interface DeliverProject {
   deliverables: DeliverableItem[]
   booking_url: string
   stage_durations: DeliverStageDurations
+  /** 0084: Website darf die freigegebenen CMS-Werte lesen. */
+  cms_public: boolean
+  /** 0084: Kunden-Änderungen gehen ohne Freigabe live. */
+  cms_autopublish: boolean
   deleted_at: string | null
   /**
    * Anlagedatum — letzter Anker für `liegtSeitTagen` (kundenarbeit.ts, D1).

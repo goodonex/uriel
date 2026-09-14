@@ -1,16 +1,28 @@
 import { useRef, useState } from 'react'
-import { useSiteContent } from '../../hooks/useSiteContent'
+import { alsSchalter, istAn, useSiteContent } from '../../hooks/useSiteContent'
 import type { SiteContentField } from '../../hooks/useSiteContent'
 import { supabase } from '../../lib/supabase'
 
 /**
- * Website-CMS im Kundenportal: feste Text-/Bild-Felder (von Kevin definiert),
- * Kunde speichert Entwürfe → Status „Wartet auf Freigabe" → Kevin gibt frei.
+ * Website-CMS im Kundenportal: feste Text-/Bild-/Schalter-Felder (von Kevin
+ * definiert), der Kunde füllt sie.
+ *
+ * Zwei Betriebsarten, die das Projekt vorgibt (0084):
+ *   autopublish = false → Entwurf, Status „Wartet auf Freigabe", Kevin gibt frei.
+ *   autopublish = true  → gespeichert ist live, Kevin kommt nicht vor.
+ *
  * Bilder gehen in den öffentlichen Bucket `site-assets` (Wert = URL).
  */
 
-function StatusChip({ status }: { status: SiteContentField['status'] }) {
-  const pending = status === 'pending'
+function StatusChip({
+  status,
+  autopublish,
+}: {
+  status: SiteContentField['status']
+  autopublish: boolean
+}) {
+  // Bei Autopublish gibt es kein Wartezimmer: gespeichert ist live.
+  const pending = !autopublish && status === 'pending'
   return (
     <span
       style={{
@@ -24,6 +36,33 @@ function StatusChip({ status }: { status: SiteContentField['status'] }) {
     >
       {pending ? 'Wartet auf Freigabe' : 'Live'}
     </span>
+  )
+}
+
+/** Schalter-Feld: kein „Speichern"-Knopf, das Umlegen IST das Speichern. */
+function SchalterField({
+  field,
+  value,
+  onSave,
+}: {
+  field: SiteContentField
+  value: string
+  onSave: (value: string) => void
+}) {
+  const an = istAn(value)
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={an}
+        onChange={(e) => onSave(alsSchalter(e.target.checked))}
+        style={{ width: 17, height: 17, accentColor: 'var(--portal-accent)', cursor: 'pointer' }}
+      />
+      <span style={{ fontSize: 13, color: an ? 'var(--portal-text)' : 'var(--portal-text-tertiary)' }}>
+        {an ? 'Eingeschaltet — auf der Website sichtbar' : 'Ausgeschaltet — nicht auf der Website'}
+      </span>
+      <span className="sr-only">{field.label}</span>
+    </label>
   )
 }
 
@@ -102,7 +141,17 @@ function ImageField({
   )
 }
 
-export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
+export function PortalWebsiteEditor({
+  projectId,
+  autopublish = false,
+  liveUrl,
+}: {
+  projectId: string
+  /** deliver_projects.cms_autopublish — Speichern ist live, keine Freigabe. */
+  autopublish?: boolean
+  /** Für den „ansehen"-Link direkt neben der Überschrift. */
+  liveUrl?: string
+}) {
   const { sections, loading, error, saveDraft } = useSiteContent(projectId)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savedAt, setSavedAt] = useState<Record<string, number>>({})
@@ -134,9 +183,23 @@ export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
 
   return (
     <div className="portal-card" style={{ marginTop: 16 }}>
-      <h3 className="portal-section-title">Deine Website-Inhalte</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+        <h3 className="portal-section-title">Deine Website-Inhalte</h3>
+        {liveUrl ? (
+          <a
+            href={liveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}
+          >
+            Website ansehen ↗
+          </a>
+        ) : null}
+      </div>
       <p className="portal-section-meta">
-        Texte und Bilder hier anpassen — Änderungen gehen nach kurzer Prüfung durch uns live.
+        {autopublish
+          ? 'Texte, Bilder und Schalter hier anpassen. Gespeichert heißt live — nach dem Neuladen der Website steht der neue Stand da.'
+          : 'Texte und Bilder hier anpassen — Änderungen gehen nach kurzer Prüfung durch uns live.'}
       </p>
 
       {error ? <p style={{ fontSize: 12, color: 'var(--status-danger)' }}>{error}</p> : null}
@@ -168,11 +231,21 @@ export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
                   }}
                 >
                   <label style={{ fontSize: 12.5, fontWeight: 500 }}>{f.label}</label>
-                  <StatusChip status={f.status} />
+                  <StatusChip status={f.status} autopublish={autopublish} />
                 </div>
 
                 {f.field_type === 'image' ? (
                   <ImageField field={f} projectId={projectId} onSave={(url) => void saveDraft(f.id, url)} />
+                ) : f.field_type === 'boolean' ? (
+                  <SchalterField
+                    field={f}
+                    value={valueOf(f)}
+                    onSave={(v) => {
+                      setDrafts((c) => ({ ...c, [f.id]: v }))
+                      void saveDraft(f.id, v)
+                      setSavedAt((cur) => ({ ...cur, [f.id]: Date.now() }))
+                    }}
+                  />
                 ) : (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     {f.field_type === 'textarea' ? (
@@ -184,7 +257,9 @@ export function PortalWebsiteEditor({ projectId }: { projectId: string }) {
                       />
                     ) : (
                       <input
-                        type="text"
+                        type={f.field_type === 'url' ? 'url' : 'text'}
+                        inputMode={f.field_type === 'url' ? 'url' : undefined}
+                        placeholder={f.field_type === 'url' ? 'https://…' : undefined}
                         value={valueOf(f)}
                         onChange={(e) => setDrafts((c) => ({ ...c, [f.id]: e.target.value }))}
                         style={inputStyle}

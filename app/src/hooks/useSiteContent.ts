@@ -6,7 +6,16 @@ import { gibSiteContentFrei, verwirfSiteContentEntwurf } from '../lib/siteConten
  * Website-CMS (Migration 0052): feste Text-/Bild-Felder je Projekt.
  * Kunde speichert Entwürfe (value_draft, Trigger setzt status=pending),
  * Owner gibt frei (draft → published). RLS regelt beide Seiten.
+ *
+ * Seit 0084 kann ein Projekt auf `cms_autopublish` stehen — dann setzt der
+ * Trigger value_published gleich mit und es gibt nichts freizugeben. Die
+ * Oberflächen müssen das nur noch richtig beschriften; am Schreibweg hier
+ * ändert sich nichts.
  */
+
+/** Schalter-Felder liegen als '1'/'0' in derselben Textspalte wie alles andere. */
+export const istAn = (value: string | null | undefined): boolean => value === '1'
+export const alsSchalter = (an: boolean): string => (an ? '1' : '0')
 
 export interface SiteContentField {
   id: string
@@ -14,7 +23,7 @@ export interface SiteContentField {
   field_key: string
   section: string
   label: string
-  field_type: 'text' | 'textarea' | 'image'
+  field_type: 'text' | 'textarea' | 'image' | 'boolean' | 'url'
   value_published: string | null
   value_draft: string | null
   status: 'published' | 'pending'

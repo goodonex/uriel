@@ -1,12 +1,85 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSiteContent } from '../../hooks/useSiteContent'
 import type { SiteContentField, SiteContentFieldDef } from '../../hooks/useSiteContent'
+import { supabase } from '../../lib/supabase'
 
 /**
  * Owner-Seite des Website-CMS (in ProjectPage): freigeben was der Kunde als
  * Entwurf gespeichert hat (Alt→Neu-Diff), plus Feld-Definitionen anlegen
  * (key/label/typ/section). Nur additive DB-Operationen.
+ *
+ * Dazu die beiden Projekt-Schalter aus 0084 — sie entscheiden, ob es diesen
+ * Freigabe-Block überhaupt noch gibt:
+ *   cms_public      = die Website darf lesen (ohne das bleibt sie auf dem
+ *                     einbetonierten HTML-Text stehen),
+ *   cms_autopublish = der Kunde schaltet selbst live, hier landet nichts mehr.
  */
+
+interface CmsSchalter {
+  cms_public: boolean
+  cms_autopublish: boolean
+}
+
+function useCmsSchalter(projectId: string) {
+  const [schalter, setSchalter] = useState<CmsSchalter | null>(null)
+
+  const laden = useCallback(async () => {
+    if (!supabase) return
+    const { data, error } = await supabase
+      .from('deliver_projects')
+      .select('cms_public, cms_autopublish')
+      .eq('id', projectId)
+      .maybeSingle()
+    // Spalten fehlen (0084 nicht gepusht) → Schalter bleiben unsichtbar statt zu krachen.
+    if (error || !data) return
+    setSchalter(data as CmsSchalter)
+  }, [projectId])
+
+  useEffect(() => {
+    void laden()
+  }, [laden])
+
+  const setzen = useCallback(
+    async (patch: Partial<CmsSchalter>) => {
+      if (!supabase || !schalter) return
+      setSchalter({ ...schalter, ...patch })
+      const { error } = await supabase.from('deliver_projects').update(patch).eq('id', projectId)
+      if (error) await laden()
+    },
+    [laden, projectId, schalter],
+  )
+
+  return { schalter, setzen }
+}
+
+function SchalterZeile({
+  an,
+  titel,
+  erklaerung,
+  onChange,
+}: {
+  an: boolean
+  titel: string
+  erklaerung: string
+  onChange: (an: boolean) => void
+}) {
+  return (
+    <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={an}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ width: 15, height: 15, marginTop: 2, accentColor: 'var(--ck-accent)', cursor: 'pointer' }}
+      />
+      <span>
+        <span style={{ fontSize: 12.5, color: 'var(--ck-text-1)' }}>{titel}</span>
+        <span className="font-mono" style={{ display: 'block', fontSize: 11, color: 'var(--ck-text-3)', lineHeight: 1.45 }}>
+          {erklaerung}
+        </span>
+      </span>
+    </label>
+  )
+}
 
 const FIELD = {
   width: '100%',
@@ -28,6 +101,9 @@ function DiffRow({
   onDiscard: () => void
 }) {
   const isImg = field.field_type === 'image'
+  // Schalter liegen als '1'/'0' in der Textspalte — im Diff wäre das unlesbar.
+  const zeige = (v: string | null) =>
+    field.field_type === 'boolean' ? (v === '1' ? 'an' : 'aus') : v || '—'
   return (
     <div
       className="ck-panel"
@@ -52,7 +128,7 @@ function DiffRow({
             )
           ) : (
             <div style={{ fontSize: 12.5, color: 'var(--ck-text-2)', whiteSpace: 'pre-wrap' }}>
-              {field.value_published || '—'}
+              {zeige(field.value_published)}
             </div>
           )}
         </div>
@@ -68,7 +144,7 @@ function DiffRow({
             )
           ) : (
             <div style={{ fontSize: 12.5, color: 'var(--ck-text-1)', whiteSpace: 'pre-wrap' }}>
-              {field.value_draft || '—'}
+              {zeige(field.value_draft)}
             </div>
           )}
         </div>
@@ -98,6 +174,7 @@ function DiffRow({
 export function SiteContentAdmin({ projectId }: { projectId: string }) {
   const { fields, pending, loading, error, approve, discardDraft, seedFields, removeField } =
     useSiteContent(projectId)
+  const { schalter, setzen } = useCmsSchalter(projectId)
   const [showDefs, setShowDefs] = useState(false)
   const [def, setDef] = useState<SiteContentFieldDef>({
     field_key: '',
@@ -129,9 +206,37 @@ export function SiteContentAdmin({ projectId }: { projectId: string }) {
         </button>
       </div>
       <p className="font-mono" style={{ fontSize: 11.5, color: 'var(--ck-text-3)', margin: '0 0 14px', lineHeight: 1.5 }}>
-        Der Kunde bearbeitet diese Felder im Portal. Änderungen erscheinen hier zur Freigabe und
-        gehen erst danach live (die Website liest nur freigegebene Werte).
+        {schalter?.cms_autopublish
+          ? 'Der Kunde bearbeitet diese Felder im Portal und schaltet selbst live. Hier landet nichts mehr zur Freigabe.'
+          : 'Der Kunde bearbeitet diese Felder im Portal. Änderungen erscheinen hier zur Freigabe und gehen erst danach live (die Website liest nur freigegebene Werte).'}
       </p>
+
+      {schalter ? (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            marginBottom: 14,
+            padding: 12,
+            borderRadius: 10,
+            border: '1px solid var(--ck-border)',
+          }}
+        >
+          <SchalterZeile
+            an={schalter.cms_public}
+            titel="Website darf lesen"
+            erklaerung="Ohne das zeigt die Seite weiter den einbetonierten Text — egal was hier steht."
+            onChange={(an) => void setzen({ cms_public: an })}
+          />
+          <SchalterZeile
+            an={schalter.cms_autopublish}
+            titel="Kunde schaltet selbst live"
+            erklaerung="Keine Freigabe mehr. Für Kunden, die sich selbst versorgen sollen."
+            onChange={(an) => void setzen({ cms_autopublish: an })}
+          />
+        </div>
+      ) : null}
 
       {error ? <p style={{ fontSize: 12, color: 'var(--ck-warn)' }}>{error}</p> : null}
 
@@ -197,9 +302,20 @@ export function SiteContentAdmin({ projectId }: { projectId: string }) {
               <option value="text">Text (kurz)</option>
               <option value="textarea">Text (lang)</option>
               <option value="image">Bild</option>
+              <option value="boolean">Schalter (an/aus)</option>
+              <option value="url">Link</option>
             </select>
           </div>
-          {def.field_type !== 'image' ? (
+          {def.field_type === 'boolean' ? (
+            <select
+              value={def.value_published || '0'}
+              onChange={(e) => setDef((d) => ({ ...d, value_published: e.target.value }))}
+              style={{ ...FIELD, marginBottom: 8 }}
+            >
+              <option value="0">Startwert: aus</option>
+              <option value="1">Startwert: an</option>
+            </select>
+          ) : def.field_type !== 'image' ? (
             <input
               placeholder="Aktueller Wert (optional, geht direkt live)"
               value={def.value_published}

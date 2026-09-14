@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { getPhaseState, type PhaseKey } from '../../lib/phaseMapping'
 import { isPitchProject } from '../../lib/projectAreas'
+import { getDeliverableUrl } from '../../lib/portalNavigation'
 import { usePortalLeads } from '../../hooks/useProjectLeads'
 import { useProjectOutcomes } from '../../hooks/useProjectOutcomes'
 import type { DeliverProject } from '../../types/db'
@@ -135,7 +136,11 @@ export function PortalShell({
           renderPhaseFooter={renderPhaseFooter}
         />
 
-        <PortalWebsiteEditor projectId={project.id} />
+        <PortalWebsiteEditor
+          projectId={project.id}
+          autopublish={project.cms_autopublish}
+          liveUrl={getDeliverableUrl(project, 'website_live_url') ?? undefined}
+        />
 
         <div className="portal-card mt-6">
           <PortalFilesSection projectId={project.id} documents={project.client_documents} />
