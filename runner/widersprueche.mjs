@@ -83,6 +83,28 @@ function juengste(liste, feld) {
  * hilft morgens um sieben niemandem. `schwere: 'hoch'` heißt: hier arbeitet
  * jemand mit falschen Zahlen oder es läuft etwas gar nicht.
  *
+ * **Was ein Handgriff ist** (14.09.2026). Kevin, nachdem er auf einen Befund
+ * geklickt und im Erstnachrichten-Fenster gelandet war: *„Was ist jetzt meine
+ * Aufgabe? Auch das steht nicht dabei. Wenn es da nichts zu tun gibt, dann nimm
+ * das Todo raus oder sag mir, was ich zu tun hab."*
+ *
+ * Der `tun`-Text beantwortet deshalb genau eine Frage — „was mache ich jetzt?" —
+ * und zwar in Kevins Welt: ein Klick im Cockpit, ein Handgriff am Mini, ein Satz
+ * an Claude. Drei Dinge gehören NICHT hinein, weil sie die Frage offenlassen:
+ *
+ * - **Dateinamen und Befehle** (`node runner/…`, „Migration 0071 anwenden").
+ *   Das ist die Antwort für den, der den Code schreibt, nicht für den, der davor
+ *   sitzt. Wenn es wirklich Entwicklerarbeit ist, lautet der Handgriff „Claude
+ *   sagen: …" — dann weiß Kevin, dass er nichts weiter tun muss.
+ * - **Beschreibungen dessen, was ohnehin passiert** („Sync wiederholen", während
+ *   der Zeitplan ihn stündlich wiederholt). Dann heißt der Handgriff „Nichts zu
+ *   tun" — mit der Bedingung, ab wann es doch eine Aufgabe wird.
+ * - **Zustände, die der Runner selbst auflösen kann.** Die gehören überhaupt
+ *   nicht hierher, sondern in den Code, der sie bucht: siehe die verfallenen
+ *   Einladungen in `netzwerkUpsert.mjs` (Migration 0085) — der Befund dazu ist
+ *   seit dem 14.09. nur noch ein Netz für den Fall, dass die Buchung ausbleibt.
+ *
+
  * @param {{netzwerk?: any[], threads?: any[], erstnachrichten?: any[], netzMeta?: object, runs?: any[]}} daten
  * @param {Date} jetzt
  */
@@ -205,7 +227,13 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
       'mittel',
       `${offenTrotzThread.length} Kontakte gelten als „Einladung offen", obwohl mit ihnen geschrieben wird und sie beim letzten vollständigen Lauf nicht mehr auf der Liste standen`,
       offenTrotzThread.length,
-      'Netzwerk-Sync nachziehen (chrome-sync, dann netzwerkUpsert)',
+      /**
+       * Seit dem 14.09. ein NETZ, keine Aufgabe: Ein vollständiger Lauf bucht
+       * diese Einträge selbst auf 'verfallen' (Migration 0085). Steht die Zeile
+       * trotzdem da, hat seit über einer Woche kein vollständiger Lauf
+       * stattgefunden — und genau das ist dann die Nachricht.
+       */
+      'Nichts zu tun — der nächste vollständige Lauf (sonntags) bucht sie als verfallen. Steht die Zeile in einer Woche noch da, Claude sagen',
     )
   }
 
@@ -266,7 +294,10 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
         ? `${abbrueche[0].seite}: Der letzte Lauf brach bei ${abbrueche[0].geerntet}${abbrueche[0].gesamt > 0 ? ` von ${abbrueche[0].gesamt}` : ''} ab`
         : `Der letzte Lauf brach ab: ${abbrueche.map(teil).join(', ')}`,
       fehlend,
-      'Sync wiederholen; bleibt es dabei, steht das Sync-Chrome-Fenster still (Fokus-Emulation prüfen)',
+      // Seit dem 14.09. wiederholt der Zeitplan den Sync von selbst (03:00 voll,
+      // tagsüber alle paar Stunden). „Sync wiederholen" war damit keine Aufgabe
+      // mehr, sondern eine Beschreibung dessen, was ohnehin passiert.
+      'Nichts zu tun — der Zeitplan wiederholt den Sync in wenigen Stunden. Steht es morgen früh noch da: im Sync-Chrome auf dem Mini bei LinkedIn anmelden',
     )
   }
 
@@ -302,7 +333,7 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
       'hoch',
       `${ausDatei.length} Erstnachrichten aus der Datei in der Tabelle, aber nur ${versandfertig} in der Quelldatei — der Spiegel hat gedoppelt`,
       ausDatei.length - versandfertig,
-      'Migration 0071 anwenden; bis dahin Gruppen-Überschriften im Vault nicht umformulieren',
+      'Claude sagen: „Erstnachrichten-Spiegel hat gedoppelt" — bis dahin die Gruppen-Überschriften im Vault nicht umformulieren',
     )
   }
 
@@ -314,7 +345,9 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
       'hoch',
       `LinkedIn-Postfach seit ${alterText(postfachAlter)} nicht gesynct — alle Antwort- und Follow-up-Zahlen sind so alt`,
       Math.round(postfachAlter),
-      '`chrome-sync` starten und offen lassen',
+      // Das Fenster startet der Runner auf dem Mini selbst (CHROME_AUTOSTART=1).
+      // Was er nicht kann, ist sich anmelden — nur das bleibt für Kevin übrig.
+      'Im Sync-Chrome auf dem Mini bei LinkedIn anmelden — öffnen tut der Runner das Fenster selbst',
     )
   }
 
@@ -326,7 +359,7 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
       'mittel',
       `Kontakte/Einladungen seit ${Math.floor(netzAlter / 24)} Tagen nicht gesynct`,
       Math.round(netzAlter / 24),
-      '`chrome-sync` starten, dann `node runner/linkedin/netzwerkUpsert.mjs`',
+      'Im Sync-Chrome auf dem Mini bei LinkedIn anmelden, dann im Cockpit „Jetzt aktualisieren" drücken',
     )
   }
 
@@ -344,7 +377,9 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
         ? 'Kein einziger erfolgreicher Agenten-Lauf im Fenster'
         : `Seit ${Math.floor(erfolgAlter / 24)} Tagen ist kein Agent mehr durchgelaufen`,
       erfolgAlter == null ? -1 : Math.round(erfolgAlter),
-      'Agenten-Seite öffnen; bei „Anmeldung abgelaufen" im Terminal `claude` neu anmelden',
+      // Die Agenten laufen auf dem Mini, also muss auch dort die Anmeldung
+      // stehen — am Laptop neu anzumelden hilft ihnen nicht.
+      'Auf dem Mini im Terminal `claude` neu anmelden — dort laufen die Agenten',
     )
   }
 

@@ -10,7 +10,12 @@
  *
  * Start: npx tsx scripts/verify-widersprueche.ts
  */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { pruefeWidersprueche } from '../runner/widersprueche.mjs'
+
+const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 let pass = 0
 let fail = 0
@@ -212,6 +217,36 @@ check('mehrere Befunde werden gezählt', mehrere.anzahl >= 2)
 check('die dringenden werden getrennt gezählt', mehrere.hoch >= 2)
 check('jeder Befund nennt einen Handgriff', mehrere.befunde.every((b: any) => typeof b.tun === 'string' && b.tun.length > 0))
 check('jeder Befund trägt eine Zahl', mehrere.befunde.every((b: any) => typeof b.zahl === 'number'))
+
+/**
+ * Der Handgriff muss für KEVIN ausführbar sein (14.09.2026).
+ *
+ * Er klickte auf einen Befund, landete im Erstnachrichten-Fenster und konnte
+ * nichts damit anfangen: *„Entweder sag mir, was ich da machen soll, oder nimm
+ * das raus."* Drei der sechs Handgriffe nannten damals Dateinamen, Befehle oder
+ * Migrationsnummern — die Antwort für den, der den Code schreibt, nicht für den,
+ * der davor sitzt. Ist es wirklich Entwicklerarbeit, lautet der Handgriff
+ * „Claude sagen: …"; erledigt es sich von selbst, „Nichts zu tun — …".
+ *
+ * Geprüft wird der gesamte Quelltext, nicht nur die Befunde dieses Fixtures:
+ * Der nächste Satz, den jemand hinzufügt, soll an derselben Regel scheitern.
+ */
+const quelle = readFileSync(join(wurzel, 'runner/widersprueche.mjs'), 'utf8')
+const handgriffe = [...quelle.matchAll(/^ {6}(?:'([^']{25,})'|`([^`]{25,})`),\n {4}\)/gm)].map((m) => m[1] ?? m[2])
+// Sechs Sätze schreiben ihren Handgriff als feste Zeichenkette; der siebte
+// (`erstnachricht_trotz_thread`) baut ihn aus einer Bedingung und wird hier
+// nicht erfasst — er nennt seit jeher einen Klick im Cockpit.
+check('die Handgriffe sind auffindbar', handgriffe.length >= 6, `gefunden: ${handgriffe.length}`)
+const entwicklersprech = handgriffe.filter((t) => /node |\.mjs|\.ts\b|Migration \d|netzwerkUpsert|chrome-sync`/.test(t))
+check(
+  'kein Handgriff verlangt einen Befehl oder eine Datei',
+  entwicklersprech.length === 0,
+  entwicklersprech.join(' | '),
+)
+// „Nichts zu tun" ist eine gültige Antwort — aber nur mit der Bedingung, ab
+// wann es doch eine wird. Sonst ist es kein Handgriff, sondern ein Schulterzucken.
+const ohneBedingung = handgriffe.filter((t) => /^Nichts zu tun/.test(t) && !/(Steht|Bleibt|sagen)/.test(t))
+check('„Nichts zu tun" nennt, ab wann es doch eine Aufgabe wird', ohneBedingung.length === 0, ohneBedingung.join(' | '))
 
 console.log(`\n${pass} ok, ${fail} fehlen`)
 process.exit(fail === 0 ? 0 : 1)
