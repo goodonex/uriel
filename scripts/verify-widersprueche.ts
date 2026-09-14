@@ -134,6 +134,31 @@ check('ein knapper Abbruch ist mittel',
 check('die Meldung nennt beide Zahlen',
   /40 von 957/.test(pruefeWidersprueche({ ...sauber, netzMeta: { einladungen: { vollAt: vorStunden(30), letzterAbbruch: { at: vorStunden(2), gesamt: 957, geerntet: 40 } } } }, JETZT)
     .befunde.find((b: any) => b.schluessel === 'sync_abgebrochen')?.text ?? ''))
+/**
+ * Umbau 11.09.: Zwei abgebrochene Seiten sind EIN Befund.
+ *
+ * Auf dem Schreibtisch standen sonst zwei von fünf Zeilen für denselben
+ * Vorfall — gleiche Ursache, gleicher Handgriff. Geprüft wird beides: dass es
+ * nur eine Zeile ist und dass beide Seiten darin vorkommen (eine
+ * Zusammenfassung, die eine Seite verschweigt, wäre schlimmer als zwei Zeilen).
+ */
+const zweiAbbrueche = {
+  ...sauber,
+  netzMeta: {
+    kontakte: { vollAt: vorStunden(30), letzterAbbruch: { at: vorStunden(2), gesamt: 730, geerntet: 40 } },
+    einladungen: { vollAt: vorStunden(30), letzterAbbruch: { at: vorStunden(2), gesamt: 1094, geerntet: 30 } },
+  },
+}
+check('zwei abgebrochene Seiten ergeben EINE Zeile',
+  pruefeWidersprueche(zweiAbbrueche, JETZT).befunde.filter((b: any) => b.schluessel === 'sync_abgebrochen').length === 1)
+check('die zusammengefasste Zeile nennt beide Seiten',
+  (() => {
+    const t = pruefeWidersprueche(zweiAbbrueche, JETZT).befunde.find((b: any) => b.schluessel === 'sync_abgebrochen')?.text ?? ''
+    return /kontakte bei 40 von 730/.test(t) && /einladungen bei 30 von 1094/.test(t)
+  })())
+check('die zusammengefasste Zeile trägt die schlimmste Schwere',
+  pruefeWidersprueche(zweiAbbrueche, JETZT).befunde.find((b: any) => b.schluessel === 'sync_abgebrochen')?.schwere === 'hoch')
+
 check('DER FALL 18.08.: 648 von 660 nach vollständigem Lauf ist KEIN Befund mehr',
   schluessel({ ...sauber, netzMeta: { ...sauber.netzMeta, kontakte: { vollAt: vorStunden(2), gesamt: 660, geerntet: 648 } } }).length === 0,
   'Am DOM nachgezählt: 648 Karten auf der Seite, „660 Kontakte" im Kopf. Der Scraper hatte alles.')

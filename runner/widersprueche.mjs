@@ -231,18 +231,41 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
    * eigenen Vermerk (`letzterAbbruch`, siehe `netzwerkUpsert.mjs`), den der
    * nächste vollständige Lauf wieder abräumt.
    */
-  for (const [seite, m] of Object.entries(netzMeta)) {
-    const ab = m?.letzterAbbruch
-    if (!ab) continue
-    const geerntet = Number(ab.geerntet ?? 0)
-    const gesamt = Number(ab.gesamt ?? 0)
+  /**
+   * **Eine Zeile für alle abgebrochenen Seiten** (11.09.2026).
+   *
+   * Vorher gab es je Seite einen eigenen Befund. Auf Kevins Schreibtisch
+   * standen damit zwei von fünf Zeilen für denselben Vorfall — „kontakte brach
+   * ab" und „einladungen brach ab", gleiche Ursache, gleicher Handgriff, und
+   * genau ein Klick behebt beide. Zwei Zeilen für einen Handgriff sind keine
+   * doppelte Information, sondern halbe Aufmerksamkeit.
+   */
+  const abbrueche = Object.entries(netzMeta)
+    .map(([seite, m]) => ({ seite, ab: m?.letzterAbbruch }))
+    .filter((e) => e.ab)
+    .map(({ seite, ab }) => ({
+      seite,
+      geerntet: Number(ab.geerntet ?? 0),
+      gesamt: Number(ab.gesamt ?? 0),
+    }))
+
+  if (abbrueche.length > 0) {
+    const teil = (a) => `${a.seite} bei ${a.geerntet}${a.gesamt > 0 ? ` von ${a.gesamt}` : ''}`
+    // Ein Lauf, der nicht mal ein Viertel schafft, ist kaputt und nicht bloß
+    // knapp: genau die Form, in der es am 18.08. auftrat. Bei mehreren Seiten
+    // zählt die schlimmste — eine gemeinsame Zeile darf die nicht verstecken.
+    const schwere = abbrueche.some((a) => a.gesamt > 0 && a.geerntet < a.gesamt / 4) ? 'hoch' : 'mittel'
+    const fehlend = abbrueche.reduce(
+      (n, a) => n + (a.gesamt > 0 ? a.gesamt - a.geerntet : a.geerntet),
+      0,
+    )
     melde(
       'sync_abgebrochen',
-      // Ein Lauf, der nicht mal ein Viertel schafft, ist kaputt und nicht bloß
-      // knapp: genau die Form, in der es am 18.08. auftrat.
-      gesamt > 0 && geerntet < gesamt / 4 ? 'hoch' : 'mittel',
-      `${seite}: Der letzte Lauf brach bei ${geerntet}${gesamt > 0 ? ` von ${gesamt}` : ''} ab`,
-      gesamt > 0 ? gesamt - geerntet : geerntet,
+      schwere,
+      abbrueche.length === 1
+        ? `${abbrueche[0].seite}: Der letzte Lauf brach bei ${abbrueche[0].geerntet}${abbrueche[0].gesamt > 0 ? ` von ${abbrueche[0].gesamt}` : ''} ab`
+        : `Der letzte Lauf brach ab: ${abbrueche.map(teil).join(', ')}`,
+      fehlend,
       'Sync wiederholen; bleibt es dabei, steht das Sync-Chrome-Fenster still (Fokus-Emulation prüfen)',
     )
   }
