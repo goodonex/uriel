@@ -167,6 +167,53 @@ export async function upsertNetzwerk(liste, { jetzt = new Date() } = {}) {
     if (res.ok) veraltet = (await res.json()).length
   }
 
+  /**
+   * Aus dem Schluss auch eine Buchung machen (14.09.2026, Migration 0085).
+   *
+   * **Der Anlass.** Kevin sah wochenlang denselben Widerspruch — „gilt als
+   * Einladung offen, obwohl mit ihm geschrieben wird" — mit einem Handgriff, der
+   * nichts behob: *„Was ist jetzt meine Aufgabe? Wenn es da nichts zu tun gibt,
+   * dann nimm das Todo raus."* Er hatte recht. Die Zeile oben zählt seit dem
+   * 18.08. genau die Leute, über die alles bekannt ist, und tut nichts mit
+   * ihnen; den Rest erledigte ein Filter in der Oberfläche, den nur kennt, wer
+   * ihn gelesen hat.
+   *
+   * Wer in einem VOLLSTÄNDIG gelesenen Einladungs-Lauf fehlt und noch immer als
+   * 'offen' geführt wird, hat auch der Kontakt-Lauf nicht gefunden — sonst
+   * stünde er längst auf 'angenommen' (eine Zeile je Person, `on_conflict` oben).
+   * Also ist die Einladung weg: abgelehnt oder von LinkedIn nach etwa sechs
+   * Monaten verjährt. Am 14.09. betraf das 79 Einträge.
+   *
+   * **Nur die Einladungsliste.** Für die Kontakte wäre derselbe Schluss ein
+   * anderer Sachverhalt (jemand hat Kevin entfernt oder sein Konto gelöscht) —
+   * der hat keinen Status und bleibt bewusst ungebucht.
+   *
+   * **Nur bei `vollstaendig`.** Das ist dieselbe Bedingung wie oben, aus
+   * demselben Grund: Nach einem Teil-Lauf wären das hunderte Fehlbuchungen —
+   * der Vorfall vom 12.08. in groß.
+   */
+  let verfallen = 0
+  if (liste.vollstaendig && liste.status === 'offen') {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/linkedin_netzwerk?brand_id=eq.${bid}&status=eq.offen` +
+        `&zuletzt_gesehen_at=lt.${encodeURIComponent(stempel)}&select=profil_key`,
+      {
+        method: 'PATCH',
+        headers: { ...authHeaders(), Prefer: 'return=representation' },
+        body: JSON.stringify({ status: 'verfallen', verfallen_at: stempel }),
+      },
+    )
+    if (res.ok) {
+      verfallen = (await res.json()).length
+      if (verfallen > 0) console.log(`[netzwerk] ${verfallen} Einladungen als verfallen gebucht (nicht mehr auf der Liste)`)
+    } else {
+      // Kein Grund, den Lauf scheitern zu lassen: Die Ernte steht schon in der
+      // Datenbank, und die Auswertung filtert diese Zeilen ohnehin über
+      // `zuletzt_gesehen_at`. Fehlt nur die Migration, sagt die Zeile das auch.
+      console.error(`[netzwerk] Verfallen-Buchung HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`)
+    }
+  }
+
   // Der Merker für die Oberfläche — siehe `schreibeMeta`.
   if (liste.vollstaendig) await schreibeMeta(liste.seite, stempel, liste.gesamt, zeilen.length)
   // 18.08.: Auch ein ABGEBROCHENER Lauf hinterlässt eine Spur — getrennt von den
@@ -185,6 +232,7 @@ export async function upsertNetzwerk(liste, { jetzt = new Date() } = {}) {
     vollstaendig: liste.vollstaendig,
     gesamtLautSeite: liste.gesamt,
     nichtMehrGesehen: veraltet,
+    verfallen,
   }
 }
 

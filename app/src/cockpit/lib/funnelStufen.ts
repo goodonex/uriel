@@ -25,7 +25,14 @@ export interface NetzwerkEintrag {
   name: string
   headline: string
   profile_url: string
-  status: 'offen' | 'angenommen'
+  /**
+   * 0085: `verfallen` ist die dritte Antwort — eingeladen, nie angenommen, von
+   * der Liste verschwunden (abgelehnt oder nach ~6 Monaten von LinkedIn
+   * verjährt). Für die Auswertung ändert sich nichts: `inmailKandidaten`
+   * verlangt ohnehin zusätzlich einen frischen `zuletzt_gesehen_at`, und diese
+   * Einträge tragen einen alten.
+   */
+  status: 'offen' | 'angenommen' | 'verfallen'
   eingeladen_at: string | null
   angenommen_at: string | null
   zuletzt_gesehen_at: string

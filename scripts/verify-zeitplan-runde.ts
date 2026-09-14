@@ -137,5 +137,36 @@ console.log('\n6) Der kurze Lauf ist kein Abbruch')
   check('er räumt den alten Abbruch ab', /data\[seite\] = \{ \.\.\.bestand, kurzAt: stempel/.test(upsert))
 }
 
+console.log('\n7) Verfallene Einladungen werden gebucht, nicht gemeldet')
+{
+  /**
+   * Kevin am 14.09.: *„Wenn das erkannt worden ist, dann nimm den dann einfach
+   * raus. Was ist jetzt meine Aufgabe?"* — Der Wächter meldete seit Wochen einen
+   * Zustand, den niemand beheben konnte, weil der Sync längst gelaufen war. Die
+   * Erkenntnis lag vor, nur die Buchung fehlte.
+   */
+  const migration = readFileSync(join(wurzel, 'supabase/migrations/0085_linkedin_einladung_verfallen.sql'), 'utf8')
+  check('die Migration erlaubt den dritten Zustand', /check \(status in \('offen', 'angenommen', 'verfallen'\)\)/.test(migration))
+  check('sie hält fest, wann es auffiel', /add column if not exists verfallen_at timestamptz/.test(migration))
+
+  check('gebucht wird per PATCH auf verfallen', /status: 'verfallen', verfallen_at: stempel/.test(upsert))
+  // Beide Bedingungen sind tragend: Nach einem Teil-Lauf waeren es hunderte
+  // Fehlbuchungen, und fuer die Kontaktliste hiesse dasselbe Verschwinden etwas
+  // anderes (jemand hat Kevin entfernt) — dafuer gibt es keinen Status.
+  check('nur nach einem vollständigen Lauf', /if \(liste\.vollstaendig && liste\.status === 'offen'\)/.test(upsert))
+  check('nur für die Einladungsliste, nicht für Kontakte', /liste\.status === 'offen'\) \{[\s\S]{0,400}status=eq\.offen/.test(upsert))
+  check('gebucht wird nur, wer beim vollen Lauf fehlte', /status=eq\.offen[\s\S]{0,120}zuletzt_gesehen_at=lt\.\$\{encodeURIComponent\(stempel\)\}/.test(upsert))
+  // Die Ernte steht zu diesem Zeitpunkt schon in der Datenbank — eine
+  // fehlgeschlagene Nachbuchung darf sie nicht mitreissen.
+  check('ein Fehler bei der Buchung kippt den Lauf nicht', /console\.error\(`\[netzwerk\] Verfallen-Buchung HTTP/.test(upsert))
+  check('die Zahl wandert nach oben durch', /nichtMehrGesehen: veraltet,\s*\n\s*verfallen,/.test(upsert))
+
+  const typen = readFileSync(join(wurzel, 'app/src/cockpit/lib/funnelStufen.ts'), 'utf8')
+  check('die Oberfläche kennt den Zustand', /status: 'offen' \| 'angenommen' \| 'verfallen'/.test(typen))
+  // Der Grund, warum der Statuswechsel keine Kachel verschiebt: Die
+  // InMail-Liste filtert ohnehin zusaetzlich ueber den Zeitstempel.
+  check('die InMail-Liste filtert weiterhin über den Zeitstempel', /\.filter\(\(e\) => e\.status === 'offen'\)\s*\n\s*\.filter\(\(e\) => \{/.test(typen))
+}
+
 console.log(`\nverify-zeitplan-runde: ${pass} ok, ${fail} fehlgeschlagen`)
 process.exit(fail === 0 ? 0 : 1)
