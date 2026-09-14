@@ -39,6 +39,20 @@ type Entwuerfe = Record<string, string>
 
 const NACHRICHT_QUELLE = 'uriel-cms'
 
+/**
+ * Die Aktion (Balken/Popup) ist keine gewöhnliche Feldgruppe, sondern ein
+ * Bauteil der CMS-Laufzeit: `cms.js` baut sie auf jeder Seite selbst. Deshalb
+ * darf die Oberfläche ihre drei Sonderfelder kennen — das ist kein Sonderfall
+ * je Kunde, sondern gilt überall gleich.
+ */
+const AKTION_FORM = 'aktion.form'
+const AKTION_DATUM = ['aktion.von', 'aktion.bis']
+const FORM_WAHL: Array<{ wert: string; text: string }> = [
+  { wert: 'balken', text: 'Balken oben' },
+  { wert: 'popup', text: 'Popup' },
+  { wert: 'beides', text: 'Beides' },
+]
+
 function originVon(url: string | undefined): string | null {
   if (!url) return null
   try {
@@ -89,7 +103,7 @@ function Feld({
   }
 
   return (
-    <div className="studio-feld" data-geaendert={geaendert ? '1' : undefined}>
+    <div className="studio-feld" data-feld={field.field_key} data-geaendert={geaendert ? '1' : undefined}>
       <div className="studio-feld__kopf">
         {/* Bildfelder haben kein Eingabefeld mit dieser id — ein htmlFor ins
             Leere wäre für Screenreader schlechter als gar keins. */}
@@ -108,7 +122,29 @@ function Feld({
         ) : null}
       </div>
 
-      {field.field_type === 'boolean' ? (
+      {field.field_key === AKTION_FORM ? (
+        <div className="studio-wahl" role="group" aria-label={field.label}>
+          {FORM_WAHL.map((o) => (
+            <button
+              key={o.wert}
+              type="button"
+              className={wert === o.wert ? 'studio-wahl__knopf is-an' : 'studio-wahl__knopf'}
+              onClick={() => { onFokus(); onChange(o.wert) }}
+            >
+              {o.text}
+            </button>
+          ))}
+        </div>
+      ) : AKTION_DATUM.includes(field.field_key) ? (
+        <input
+          id={`f-${field.id}`}
+          className="studio-eingabe"
+          type="date"
+          value={wert}
+          onFocus={onFokus}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : field.field_type === 'boolean' ? (
         <label className="studio-schalter">
           <input
             id={`f-${field.id}`}
@@ -173,6 +209,8 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
   const [entwuerfe, setEntwuerfe] = useState<Entwuerfe>({})
   const [seitenKeys, setSeitenKeys] = useState<string[] | null>(null)
   const [speichert, setSpeichert] = useState(false)
+  const [gewaehlt, setGewaehlt] = useState<string | null>(null)
+  const [popupOffen, setPopupOffen] = useState(false)
   const [gemeldet, setGemeldet] = useState<string | null>(null)
   const rahmenRef = useRef<HTMLIFrameElement | null>(null)
 
@@ -205,11 +243,16 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
     if (!zielOrigin) return
     const zuhoerer = (ereignis: MessageEvent) => {
       if (ereignis.origin !== zielOrigin) return
-      const n = ereignis.data as { quelle?: string; typ?: string; keys?: string[] }
+      const n = ereignis.data as { quelle?: string; typ?: string; keys?: string[]; key?: string }
       if (n?.quelle !== 'uriel-cms-seite') return
       if (n.typ === 'bereit') {
         setSeitenKeys(Array.isArray(n.keys) ? n.keys : [])
         senden({ typ: 'entwurf', werte: alleWerte })
+      } else if (n.typ === 'feldGewaehlt' && n.key) {
+        // Klick auf der Seite → links das passende Feld holen. Das ist die
+        // Richtung, die der Kunde zuerst probiert: er zeigt auf die Stelle,
+        // die er meint, statt eine Feldliste zu durchsuchen.
+        setGewaehlt(n.key)
       }
     }
     window.addEventListener('message', zuhoerer)
@@ -222,6 +265,18 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
     const t = window.setTimeout(() => senden({ typ: 'entwurf', werte: alleWerte }), 140)
     return () => window.clearTimeout(t)
   }, [alleWerte, seitenKeys, senden])
+
+  /* Ein von der Seite gemeldetes Feld in den Blick holen und den Cursor
+     hineinsetzen — sonst müsste der Kunde die Liste absuchen. */
+  useEffect(() => {
+    if (!gewaehlt) return
+    const el = document.querySelector<HTMLElement>(`[data-feld="${CSS.escape(gewaehlt)}"]`)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const ein = el.querySelector<HTMLElement>('input, textarea, button')
+    ein?.focus({ preventScroll: true })
+    setGewaehlt(null)
+  }, [gewaehlt])
 
   const offen = useMemo(
     () => fields.filter((f) => entwuerfe[f.field_key] != null && entwuerfe[f.field_key] !== (f.value_published ?? '')),
@@ -303,7 +358,24 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
           <div className="studio__vorschau">
             <div className="studio__vorschau-leiste">
               <span className="studio__punkt" />
-              {liveUrl?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              <span className="studio__adresse">
+                {liveUrl?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              </span>
+              {/* Ein Popup zeigt sich von allein nur einmal pro Besuch. Ohne
+                  diesen Schalter bekäme der Kunde seine eigene Aktion nie zu
+                  sehen, solange er sie baut. */}
+              <button
+                type="button"
+                className={popupOffen ? 'studio__popupknopf is-an' : 'studio__popupknopf'}
+                aria-pressed={popupOffen}
+                onClick={() => {
+                  const neu = !popupOffen
+                  setPopupOffen(neu)
+                  senden({ typ: 'popupZeigen', an: neu })
+                }}
+              >
+                Popup zeigen
+              </button>
             </div>
             <iframe
               ref={rahmenRef}
