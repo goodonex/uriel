@@ -202,7 +202,11 @@ export function Ladeschirm({
           <>
             <h2 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--ck-text-1)' }}>Neuesten Stand laden?</h2>
             <p style={{ margin: '0.6rem 0 0', color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
-              Letzter vollständiger Lauf: <strong style={{ color: 'var(--ck-text-1)' }}>{stand.letzterStandText}</strong>.
+              {/* „vollständig" wäre seit dem 14.09. gelogen: Die Tag-Slots der
+                  Zeitplan-Runde fahren Ernte und Verbuchung, aber nicht die
+                  Erstnachrichten. Der Stand ist frisch — vollständig war er
+                  zuletzt in der Nacht. */}
+              Zuletzt geladen: <strong style={{ color: 'var(--ck-text-1)' }}>{stand.letzterStandText}</strong>.
               {' '}Uriel holt Postfach, Verläufe, Einladungen und Kontakte, verbucht die Leads und schreibt die Entwürfe —
               rund zwanzig Minuten. Du kannst dabei weiterarbeiten.
             </p>

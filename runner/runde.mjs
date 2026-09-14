@@ -264,3 +264,42 @@ export function frageBeimOeffnen({ letzterStand, jetzt, laeuft = false }) {
   if (!Number.isFinite(alter)) return true
   return alter >= FRAGE_AB_MS
 }
+
+/**
+ * Welcher Zeitplan-Slot ist gerade dran? (14.09.2026)
+ *
+ * Die Runde läuft seit heute wieder nach Uhr — nicht mehr, weil der Laptop sie
+ * verkraftet, sondern weil der Mac mini sie trägt (Kevin: *„gerade dafür haben
+ * wir doch den Mini"*). Diese Funktion beantwortet die einzige Frage, die dabei
+ * schiefgehen kann: Ist jetzt ein Lauf fällig, und welcher?
+ *
+ * **Der späteste erreichte Slot, nicht der nächste.** Ein Runner, der um 05:00
+ * neu startet, holt den 03:00-Lauf nach, statt die Nacht auszulassen — und
+ * einer, der zwei Tage stand, fängt beim heutigen Stand an, statt rückwärts eine
+ * Warteschlange abzuarbeiten, die niemand mehr braucht.
+ *
+ * **Der Slot-Beginn ist absolut (heute, HH:00), nie „vor X Stunden".** Eine
+ * Zeitspanne hätte sich bei jedem der vielen launchd-Neustarts neu gemessen —
+ * genau der Fehler, an dem die Chrome-Sperre am 20.08. scheiterte (171 Starts
+ * im Log, jeder mit frischem Zähler).
+ *
+ * Rückgabe: `{ stunde, voll, start }` oder `null`, wenn heute noch kein Slot
+ * erreicht ist. `voll` unterscheidet den Nachtlauf (alle Etappen) vom Tag-Lauf.
+ */
+export function faelligerSlot({ jetzt = new Date(), nachtStunde, tagStunden = [] } = {}) {
+  const j = new Date(jetzt)
+  if (Number.isNaN(j.getTime())) return null
+  const stunden = [...new Set([nachtStunde, ...tagStunden])]
+    .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23)
+    .sort((a, b) => a - b)
+  let treffer = null
+  for (const h of stunden) {
+    if (j.getHours() < h) break
+    treffer = {
+      stunde: h,
+      voll: h === nachtStunde,
+      start: new Date(j.getFullYear(), j.getMonth(), j.getDate(), h, 0, 0, 0).getTime(),
+    }
+  }
+  return treffer
+}

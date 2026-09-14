@@ -61,6 +61,28 @@ async function brandId() {
 }
 
 /**
+ * Welche Enden eines KURZEN Laufs sind Erfolg und nicht Abbruch? (14.09.2026)
+ *
+ * **Der Anlass, wörtlich.** Kevin: *„Du sagst mir seit Wochen, dass der jedes
+ * Mal bei vierzig von siebenhundert abbricht. Aber ist das nicht genau das, was
+ * wir wollten?"* Ja, und genau deshalb war die Meldung falsch.
+ *
+ * Der kurze Lauf hört auf, sobald zwei Runden hintereinander nur noch Bekanntes
+ * bringen (`nichts-neues`, siehe `netzwerk.mjs`) — das ist sein Zweck, nicht
+ * sein Scheitern. Er erreicht `vollstaendig` nie, weil er die Liste bewusst
+ * nicht zu Ende liest. Bis heute fiel damit JEDER kurze Lauf in den
+ * `else`-Zweig unten und hinterließ einen Abbruch-Vermerk; der Wächter las ihn
+ * und meldete Kevin jeden Morgen „brach bei 40 von 737 ab". Vierzig von 737 war
+ * aber die richtige Zahl: 40 durchgesehen, kein Neuzugang mehr darunter.
+ *
+ * Es bleibt streng: Nur diese beiden Enden gelten als sauber. `kein-nachladen`
+ * (die Seite liefert nichts mehr) und ein erschöpfter Runden-Deckel sind
+ * weiterhin echte Abbrüche — das ist die Form, in der am 18.08. das eingefrorene
+ * Chrome auftrat, und die Meldung dafür muss scharf bleiben.
+ */
+const SAUBERE_ENDEN = new Set(['nichts-neues', 'liste-zuende'])
+
+/**
  * Schreibt eine geerntete Liste weg.
  *
  * `liste` ist das Ergebnis von `leseListe` — mit `status`, `eintraege` und
@@ -153,6 +175,7 @@ export async function upsertNetzwerk(liste, { jetzt = new Date() } = {}) {
   // Morgen des 18.08. brachen drei Läufe bei 10, 40 und 50 von 957 ab, und der
   // Widerspruchs-Wächter meldete unbeirrt „12 fehlen" — die Zahl von gestern.
   // Neunhundert fehlten, und niemand konnte es sehen.
+  else if (SAUBERE_ENDEN.has(liste.abbruchGrund)) await merkeKurzLauf(liste.seite, stempel, zeilen.length)
   else await merkeAbbruch(liste.seite, stempel, liste.gesamt, zeilen.length)
 
   return {
@@ -229,6 +252,44 @@ async function merkeAbbruch(seite, stempel, gesamt, geerntet) {
   })
   if (!res.ok) {
     console.error(`[netzwerk] Abbruch-Vermerk HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`)
+  }
+}
+
+/**
+ * Einen sauber beendeten KURZEN Lauf vermerken (14.09.2026).
+ *
+ * Zwei Aufgaben, beide notwendig:
+ *
+ * 1. **Den alten Abbruch abräumen.** Bisher konnte nur ein vollständiger Lauf
+ *    das (`schreibeMeta` lässt `letzterAbbruch` weg). Der kommt aber nur einmal
+ *    die Woche — ein echter Abbruch am Montag blieb bis Sonntag stehen und
+ *    meldete sich jeden Morgen, obwohl die Nacht danach längst alles Neue
+ *    geholt hatte. Ein sauberer kurzer Lauf ist der Beweis, dass die Liste
+ *    wieder erreichbar ist; damit ist der Vorfall erledigt.
+ * 2. **`vollAt`, `gesamt` und `geerntet` NICHT anfassen.** Das ist die Lehre aus
+ *    dem 12.08., als ein Teil-Lauf die InMail-Kachel von 876 auf 50 kippte.
+ *    Diese drei Zahlen gehören weiterhin ausschließlich dem vollständigen Lauf.
+ *    Der kurze hinterlässt nur seinen eigenen Zeitstempel — die Antwort auf
+ *    „wann wurde zuletzt nach Neuem gesehen?", die es vorher nirgends gab.
+ */
+async function merkeKurzLauf(seite, stempel, durchgesehen) {
+  const key = 'linkedin_netzwerk_meta'
+  let data = {}
+  try {
+    const rows = await hole(`runner_snapshots?key=eq.${key}&select=data&limit=1`)
+    data = rows[0]?.data ?? {}
+  } catch {
+    /* noch keine Zeile — dann eben eine neue */
+  }
+  const { letzterAbbruch: _erledigt, ...bestand } = data[seite] ?? {}
+  data[seite] = { ...bestand, kurzAt: stempel, kurzDurchgesehen: durchgesehen }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/runner_snapshots`, {
+    method: 'POST',
+    headers: { ...authHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ key, data, updated_at: stempel }),
+  })
+  if (!res.ok) {
+    console.error(`[netzwerk] Kurzlauf-Vermerk HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`)
   }
 }
 

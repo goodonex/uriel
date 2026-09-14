@@ -34,6 +34,7 @@ import { WACH_KARENZ_MS, bewerteWachheit, chromeErreichbar, netzErreichbar, star
 import { beurteileWache, meldungsText } from './chromeWache.mjs'
 import {
   ETAPPEN,
+  faelligerSlot,
   frageBeimOeffnen,
   kopfText,
   neueRunde,
@@ -1356,6 +1357,22 @@ async function buildOsMap() {
       description: 'Fällige Follow-ups, Akquise-Stand, ein Fokus-Satz — liegt fertig da',
       schedule: `werktags ab ${String(MORGENBRIEF_AB_STUNDE).padStart(2, '0')}:00`,
     },
+    // Nur zeigen, wenn sie wirklich läuft: Eine Routine, die in der Liste steht
+    // und nichts tut, ist schlimmer als keine Zeile — dann sucht Kevin den
+    // Fehler bei den Daten statt beim Schalter.
+    ...(RUNDE_AUTOMATIK
+      ? [
+          {
+            id: 'routine:zeitplan-runde',
+            name: 'Runde nach Zeitplan',
+            description: `Nachts alle Etappen, tagsüber Ernte und Verbuchung (${RUNDE_TAG_ETAPPEN.length} von ${ETAPPEN.length})`,
+            schedule: [...new Set([RUNDE_NACHT_STUNDE, ...RUNDE_TAG_STUNDEN])]
+              .sort((a, b) => a - b)
+              .map((h) => `${String(h).padStart(2, '0')}:00`)
+              .join(' · '),
+          },
+        ]
+      : []),
     ...(Array.isArray(appsConfig.routines) ? appsConfig.routines : []).map((r, i) => ({
       id: `routine:${r.id ?? i}`,
       name: r.name ?? String(r.id ?? i),
@@ -3026,6 +3043,51 @@ const CHROME_AUTOSTART = process.env.CHROME_AUTOSTART === '1'
  * (gedacht für den Mac Mini, der nicht schläft).
  */
 const ROUTINEN_AUTOMATIK = process.env.ROUTINEN_AUTOMATIK === '1'
+
+/**
+ * ---- Die RUNDE nach Zeitplan (14.09.2026) ----
+ *
+ * **Der Anlass, wörtlich.** Kevin: *„Wir haben ja die Mechanik rausgenommen,
+ * weil wir den Mini nicht hatten und der Laptop damit nicht klarkam. Jetzt haben
+ * wir 'n neuen Laptop und 'n neuen Mini. Also können und müssen und sollten wir
+ * diese Automation ja auch wieder da drinne haben."* Richtig: Der Grund vom
+ * 31.08. war das Gerät, nicht die Sache.
+ *
+ * **Warum die Runde und nicht die acht alten Uhren.** Die Einzel-Routinen
+ * (`maybePostfachSync` & Co.) machen dieselbe Arbeit in acht unabhängigen
+ * Takten, jeder mit eigener Bremse und eigenem Chrome-Zugriff. Die Runde macht
+ * sie EINMAL, in der richtigen Reihenfolge (Quellen → Verbuchung → Beurteilung →
+ * Text) und mit einem Fortschritt, den Kevin ansehen kann. Deshalb ersetzt sie
+ * die Routinen hier, statt neben ihnen zu laufen — zwei Automatiken für
+ * dieselbe Arbeit wären doppelte Chrome-Last und doppelte Modell-Kosten.
+ *
+ * **Nacht voll, Tag leicht.** Der Nacht-Slot fährt alle Etappen inklusive der
+ * Agenten, die Text schreiben. Die Tag-Slots fahren nur, was nichts kostet:
+ * Chrome-Ernte und Datenbank. Die einzige Etappe, die pro Lauf zweistellig Geld
+ * zieht (`erstnachrichten`, je Lead eine Website-Recherche), läuft deshalb genau
+ * einmal am Tag — und zusätzlich gegen ein Tagesbudget, siehe dort.
+ */
+const RUNDE_AUTOMATIK = process.env.RUNDE_AUTOMATIK === '1'
+const RUNDE_NACHT_STUNDE = Number(process.env.RUNDE_NACHT_STUNDE ?? 3)
+/** Leere Liste = keine Tag-Slots. Sonst Stunden als „8,11,14,17,20". */
+const RUNDE_TAG_STUNDEN = String(process.env.RUNDE_TAG_STUNDEN ?? '8,11,14,17,20')
+  .split(',')
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isInteger(n) && n >= 0 && n <= 23)
+/**
+ * Was der Tag-Slot fährt: Ernte und Verbuchung, kein Text.
+ *
+ * `sortierer` und `entwuerfe` stehen bewusst mit drin, obwohl sie ein Modell
+ * anfassen — sie tun es nur, wenn tatsächlich jemand wartet („nichts zu
+ * sortieren" / „niemand wartet auf eine Antwort" kosten null), und eine Antwort
+ * an einen Lead, der heute Vormittag geschrieben hat, ist genau das, wofür der
+ * Mini durchläuft. `erstnachrichten` fehlt: Die Etappe arbeitet einen Vorrat ab
+ * und hätte fünfmal am Tag den fünffachen Preis.
+ */
+const RUNDE_TAG_ETAPPEN = ['postfach', 'verlauf', 'einladungen', 'kontakte', 'leads', 'waechter', 'sortierer', 'entwuerfe']
+/** Überlebt den Runner-Neustart — sonst liefe nach jedem Neustart derselbe Slot erneut. */
+const RUNDE_SLOT_MARKE = 'letzte-zeitplan-runde'
+
 const CHROME_START_ABSTAND_MS = 60 * 60 * 1000
 /**
  * Wie lange die Sperre gilt, wenn der Start NICHT geklappt hat (25.08.).
@@ -4257,7 +4319,24 @@ const ETAPPEN_ARBEIT = {
      * was schon eine Topf-Zeile hat — Batch 2 sieht die Ergebnisse von
      * Batch 1 also nie doppelt.
      */
-    const TAGESZIEL = Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? 50)
+    /**
+     * **Das Tagesziel ist ein TAGES-Ziel, kein Lauf-Ziel** (14.09.2026).
+     *
+     * Bis heute stand die Zahl für einen Lauf: Wer zweimal auf „Jetzt
+     * aktualisieren" drückte, bekam hundert Erstnachrichten. Mit der
+     * Zeitplan-Runde wäre daraus ein Dauerschaden geworden — bei fünf Slots am
+     * Tag das Fünffache an Recherche-Kosten für eine Zahl, die Kevin ausdrücklich
+     * pro TAG gesetzt hat. Kevin am 14.09.: *„ich möchte nicht, dass jedes Mal
+     * mehr Tokens verbraucht werden als eigentlich nötig ist."*
+     *
+     * Zwei Marken statt einer, weil `markeLies` Zahlen liest: der Tag als
+     * `20260914`, die Stückzahl daneben. Fällt der Tag nicht auf heute, fängt
+     * das Budget bei null an — ohne Aufräum-Logik, die irgendwann vergessen wird.
+     */
+    const heuteZahl = Number(nowStamp().slice(0, 10).replace(/-/g, ''))
+    const schonHeute = markeLies('erstnachrichten-tag') === heuteZahl ? markeLies('erstnachrichten-heute') : 0
+    const TAGESZIEL = Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? 50) - schonHeute)
+    if (TAGESZIEL === 0) return { text: `Tagesbudget erreicht (${schonHeute} heute)` }
     const BATCH = 13
     let vorbereitet = 0
     let zuletztGesamt = 0
@@ -4285,6 +4364,11 @@ const ETAPPEN_ARBEIT = {
       }
       await startRun('linkedin-erstnachrichten', { ...gebaut, leads: recherchiert.leads })
       vorbereitet += gebaut.leads.length
+      // Nach JEDEM Batch, nicht erst am Ende: Bricht der Lauf in Batch 3 ab,
+      // sind die ersten beiden trotzdem bezahlt und geschrieben — das Budget
+      // muss sie kennen, sonst zahlt der nächste Slot sie ein zweites Mal.
+      markeSchreib('erstnachrichten-tag', heuteZahl)
+      markeSchreib('erstnachrichten-heute', schonHeute + vorbereitet)
     }
     if (vorbereitet === 0) return { text: 'niemand wartet auf eine Erstnachricht' }
     return {
@@ -4414,6 +4498,41 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null } = {}
   return rundeStand()
 }
 
+/**
+ * Die Runde nach Zeitplan starten — das Gegenstück zu Kevins Knopf.
+ *
+ * **Warum die Marke VOR dem Lauf fällt.** Eine Runde dauert bis zu zwanzig
+ * Minuten, der Tick kommt alle fünf. Ohne Marke stünden vier Läufe
+ * übereinander, sobald `laufendeRunde` nach einem Absturz weg ist.
+ *
+ * **Warum fehlendes Chrome den Slot NICHT verbraucht.** Vier der neun Etappen
+ * brauchen es. Ein Lauf ohne Chrome würde sie als „übersprungen" abhaken, die
+ * Marke setzen und die Nacht wäre vorbei — genau die Sorte stiller Ausfall, für
+ * die es hier keinen zweiten Versuch mehr gäbe. Fehlt Chrome, wartet der Slot;
+ * mit `CHROME_AUTOSTART=1` holt der Runner es sich in der Zwischenzeit selbst.
+ */
+async function maybeRunde() {
+  if (!RUNDE_AUTOMATIK) return
+  try {
+    if (laufendeRunde?.status === 'laeuft') return
+    const slot = faelligerSlot({
+      jetzt: new Date(),
+      nachtStunde: RUNDE_NACHT_STUNDE,
+      tagStunden: RUNDE_TAG_STUNDEN,
+    })
+    if (!slot) return
+    if (markeLies(RUNDE_SLOT_MARKE) >= slot.start) return
+    if (!(await warteAufRechner('runde', { brauchtChrome: true }))) return
+    markeSchreib(RUNDE_SLOT_MARKE, Date.now())
+    console.log(
+      `[runner] Zeitplan-Runde ${String(slot.stunde).padStart(2, '0')}:00 startet (${slot.voll ? 'alle Etappen' : 'ohne Erstnachrichten'})…`,
+    )
+    void starteRunde({ ausloeser: 'zeitplan', nur: slot.voll ? null : RUNDE_TAG_ETAPPEN })
+  } catch (e) {
+    console.error('[runner] Zeitplan-Runde fehlgeschlagen:', e?.message ?? e)
+  }
+}
+
 async function maybeDream() {
   try {
     const today = nowStamp().slice(0, 10)
@@ -4497,43 +4616,73 @@ server.listen(PORT, '127.0.0.1', () => {
     const mb = setInterval(() => void maybeMorgenbrief(), MORGENBRIEF_CHECK_MS)
     mb.unref?.()
 
-    // Das Postfach zuerst: Es ist die Quelle, aus der die Entwürfe gebaut werden.
-    setTimeout(() => void maybePostfachSync(), 15_000)
-    const pf = setInterval(() => void maybePostfachSync(), MORGENBRIEF_CHECK_MS)
-    pf.unref?.()
+    /**
+     * Die acht Einzel-Routinen laufen NUR, wenn die Runde den Zeitplan nicht
+     * schon übernimmt (14.09.2026). Beides gleichzeitig wäre dieselbe Arbeit
+     * zweimal: zwei Postfach-Syncs durch dasselbe Chrome, zwei Sortierer-Läufe
+     * auf denselben Threads, zwei Rechnungen für ein Ergebnis.
+     */
+    if (!RUNDE_AUTOMATIK) {
+      // Das Postfach zuerst: Es ist die Quelle, aus der die Entwürfe gebaut werden.
+      setTimeout(() => void maybePostfachSync(), 15_000)
+      const pf = setInterval(() => void maybePostfachSync(), MORGENBRIEF_CHECK_MS)
+      pf.unref?.()
 
-    // Antwort-Entwürfe im selben Takt, aber eine Stunde früher als der Morgenbrief:
-    // beim Aufklappen des Macs prüfen und dann alle 5 Minuten.
-    setTimeout(() => void maybeAntwortEntwuerfe(), 20_000)
-    const ae = setInterval(() => void maybeAntwortEntwuerfe(), MORGENBRIEF_CHECK_MS)
-    ae.unref?.()
+      // Antwort-Entwürfe im selben Takt, aber eine Stunde früher als der Morgenbrief:
+      // beim Aufklappen des Macs prüfen und dann alle 5 Minuten.
+      setTimeout(() => void maybeAntwortEntwuerfe(), 20_000)
+      const ae = setInterval(() => void maybeAntwortEntwuerfe(), MORGENBRIEF_CHECK_MS)
+      ae.unref?.()
 
-    // Der Sortierer im selben Takt, zwei Stunden später. Versetzter Start (50 statt
-    // 20 Sekunden), damit auf 8 GB nie zwei CLI-Läufe gleichzeitig hochfahren.
-    setTimeout(() => void maybeSortierer(), 50_000)
-    const so = setInterval(() => void maybeSortierer(), MORGENBRIEF_CHECK_MS)
-    so.unref?.()
+      // Der Sortierer im selben Takt, zwei Stunden später. Versetzter Start (50 statt
+      // 20 Sekunden), damit auf 8 GB nie zwei CLI-Läufe gleichzeitig hochfahren.
+      setTimeout(() => void maybeSortierer(), 50_000)
+      const so = setInterval(() => void maybeSortierer(), MORGENBRIEF_CHECK_MS)
+      so.unref?.()
 
-    // Netzwerk-Sync einmal täglich — NUR über den regulären Tick. Ein Lauf kurz
-    // nach dem Start wäre bei jedem Runner-Neustart ein neuer Fünf-Minuten-Lauf
-    // über Kevins LinkedIn; der erste Tick in fünf Minuten reicht vollkommen.
-    const nw = setInterval(() => void maybeNetzwerkSync(), MORGENBRIEF_CHECK_MS)
-    nw.unref?.()
+      // Netzwerk-Sync einmal täglich — NUR über den regulären Tick. Ein Lauf kurz
+      // nach dem Start wäre bei jedem Runner-Neustart ein neuer Fünf-Minuten-Lauf
+      // über Kevins LinkedIn; der erste Tick in fünf Minuten reicht vollkommen.
+      const nw = setInterval(() => void maybeNetzwerkSync(), MORGENBRIEF_CHECK_MS)
+      nw.unref?.()
 
-    // Lead-Pflege vor dem Wächter: sie verbucht, was ein Thread beweist, damit
-    // der Wächter nicht den Stand von vorgestern meldet.
-    setTimeout(() => void maybeLeadsSync(), 25_000)
-    const ls = setInterval(() => void maybeLeadsSync(), MORGENBRIEF_CHECK_MS)
-    ls.unref?.()
+      // Lead-Pflege vor dem Wächter: sie verbucht, was ein Thread beweist, damit
+      // der Wächter nicht den Stand von vorgestern meldet.
+      setTimeout(() => void maybeLeadsSync(), 25_000)
+      const ls = setInterval(() => void maybeLeadsSync(), MORGENBRIEF_CHECK_MS)
+      ls.unref?.()
 
-    // Der Widerspruchs-Wächter: kurz nach dem Start einmal, danach im 15-Minuten-
-    // Takt (er selbst bremst über `WAECHTER_ABSTAND_MS`). Reines Lesen der
-    // Datenbank — kein Chrome, kein Vault, kein Modell.
-    setTimeout(() => void maybeWaechter(), 30_000)
-    const wa = setInterval(() => void maybeWaechter(), MORGENBRIEF_CHECK_MS)
-    wa.unref?.()
+      // Der Widerspruchs-Wächter: kurz nach dem Start einmal, danach im 15-Minuten-
+      // Takt (er selbst bremst über `WAECHTER_ABSTAND_MS`). Reines Lesen der
+      // Datenbank — kein Chrome, kein Vault, kein Modell.
+      setTimeout(() => void maybeWaechter(), 30_000)
+      const wa = setInterval(() => void maybeWaechter(), MORGENBRIEF_CHECK_MS)
+      wa.unref?.()
+    }
   } else {
     console.log('[runner] Zeitplan-Routinen AUS — der Sync läuft auf Anstoß (Uriel öffnen oder „Jetzt aktualisieren")')
+  }
+
+  /**
+   * Die Runde nach Zeitplan — der Ersatz für die acht Uhren (14.09.2026).
+   *
+   * Hängt bewusst NICHT an `ROUTINEN_AUTOMATIK`: Der Schalter dort schaltet die
+   * alte Mechanik, dieser hier die neue. Ein Rechner, der durchläuft, will die
+   * Runde; ein Laptop, der zugeklappt wird, will beides nicht.
+   *
+   * Der erste Versuch kommt nach 45 Sekunden — spät genug, dass Chrome nach
+   * einem Neustart oben ist, früh genug, dass ein um 03:05 neu gestarteter
+   * Runner den Nacht-Slot noch fährt.
+   */
+  if (RUNDE_AUTOMATIK) {
+    const slots = [...new Set([RUNDE_NACHT_STUNDE, ...RUNDE_TAG_STUNDEN])]
+      .sort((a, b) => a - b)
+      .map((h) => `${String(h).padStart(2, '0')}:00${h === RUNDE_NACHT_STUNDE ? ' (voll)' : ''}`)
+      .join(' · ')
+    console.log(`[runner] Zeitplan-Runde AKTIV (RUNDE_AUTOMATIK=1) — ${slots}`)
+    setTimeout(() => void maybeRunde(), 45_000)
+    const zr = setInterval(() => void maybeRunde(), MORGENBRIEF_CHECK_MS)
+    zr.unref?.()
   }
 
   // OS-Map-Snapshot für die Live-Domain: einmal beim Start + periodisch spiegeln.
