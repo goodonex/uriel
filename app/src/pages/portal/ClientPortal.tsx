@@ -27,13 +27,20 @@ export function ClientPortal({
   })
 
   /**
-   * D11: Die Projekt-Akzentfarbe bleibt der Detail-Akzent. Ihr Ersatzwert war
-   * `#111827` — ein Fast-Schwarz, das auf der alten WEISSEN Portal-Flaeche
-   * funktionierte und auf Navy unsichtbar ist (1,05:1, in der
-   * Kontrast-Stichprobe zu Zug C3 gefunden). Ohne Projektfarbe traegt jetzt
-   * das Marken-Gold.
+   * Das Portal ist Navy × Gold (DESIGN-TOKENS.md, eingefroren 10.08.). Genau
+   * dort steht auch der offene Punkt, der bis heute stehen blieb:
+   *
+   *   „`--portal-accent` wird heute pro Projekt aus der Brand-Farbe gesetzt —
+   *    beim Umbau prüfen und die Projekt-Akzentfarbe als Detail-Akzent
+   *    erhalten, Gold als Rahmen-Akzent der HERRMANN-Hülle."
+   *
+   * Solange die Brand-Farbe der Haupt-Akzent war, war jeder Knopf im Portal
+   * HERRMANN-Blau (#3B6FE8) und vom eingefrorenen Entwurf blieb nur der
+   * Hintergrund übrig. Deshalb: Gold trägt die Hülle, die Projektfarbe bleibt
+   * als eigene Variable für Detail-Akzente (Deliverable-Status) verfügbar.
    */
-  const accent = brand?.color && brand.color.startsWith('#') ? brand.color : '#C5A059'
+  const accent = '#C5A059'
+  const projektfarbe = brand?.color && brand.color.startsWith('#') ? brand.color : accent
 
   const displayName =
     (typeof user?.user_metadata?.full_name === 'string'
@@ -74,7 +81,10 @@ export function ClientPortal({
       : () => void signOut().then(() => navigate('/portal/login'))
 
   return (
-    <div className="portal-root" style={{ '--portal-accent': accent } as CSSProperties}>
+    <div
+      className="portal-root"
+      style={{ '--portal-accent': accent, '--portal-projektfarbe': projektfarbe } as CSSProperties}
+    >
       {ownerView ? (
         <div
           style={{

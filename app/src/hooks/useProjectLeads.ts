@@ -3,6 +3,25 @@ import { supabase } from '../lib/supabase'
 import type { Contact, PortalLeadStatus } from '../types/db'
 import { useBrandId } from './useBrandId'
 
+/**
+ * ACHTUNG, hier lag ein sichtbarer Fehler (gefunden 14.09.2026 in Kevins
+ * Kundenportal-Screenshot): `contacts` hat **kein** `created_at`. Die Tabelle
+ * führt `updated_at`, `last_contact_at` und `stage_changed_at` — sonst nichts
+ * Zeitliches. Jede Abfrage, die nach `created_at` sortiert, bricht komplett ab,
+ * und der Kunde las in SEINEM Portal rot „column contacts.created_at does not
+ * exist" über einer leeren Lead-Liste.
+ *
+ * Reparatur ohne Schema-Änderung: nach `updated_at` sortieren und es unter dem
+ * Namen `created_at` ausliefern (PostgREST-Alias), damit die fünf Stellen im
+ * UI, die dieses Feld als Lead-Datum anzeigen, unverändert weiterlaufen.
+ *
+ * Das ist eine Krücke, keine Wahrheit: `updated_at` ist die letzte Änderung,
+ * nicht der Eingang. Bei einem frischen Lead ist beides dasselbe, bei einem
+ * bearbeiteten nicht. Ein echtes `created_at` auf `contacts` wäre eine eigene
+ * Migration und eine eigene Entscheidung — die historischen Werte gäbe es
+ * nicht zurück.
+ */
+
 function rowToContact(row: Record<string, unknown>): Contact {
   return row as unknown as Contact
 }
@@ -27,10 +46,10 @@ export function useProjectLeads(
 
     const { data: assigned, error: err1 } = await supabase
       .from('contacts')
-      .select('*')
+      .select('*, created_at:updated_at')
       .eq('brand_id', brandId)
       .eq('deliver_project_id', projectId)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     let rows = assigned ?? []
 
@@ -115,10 +134,10 @@ export function usePortalLeads(projectId: string | undefined) {
     const { data, error: err } = await supabase
       .from('contacts')
       .select(
-        'id, name, email, phone, lead_source, created_at, portal_lead_status, portal_notes, deliver_project_id',
+        'id, name, email, phone, lead_source, created_at:updated_at, portal_lead_status, portal_notes, deliver_project_id',
       )
       .eq('deliver_project_id', projectId)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (err) {
       setError(err.message)

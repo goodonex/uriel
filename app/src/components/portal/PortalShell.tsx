@@ -10,7 +10,7 @@ import { OutcomeHeader } from '../phase/OutcomeHeader'
 import { PhaseDashboard } from '../phase/PhaseDashboard'
 import { PortalFilesSection } from './PortalFilesSection'
 import { PortalPhaseContent } from './PortalPhaseContent'
-import { PortalWebsiteEditor } from './PortalWebsiteEditor'
+import { PortalWebsiteStudio } from './PortalWebsiteStudio'
 import { PortalPhaseMessageButton } from './PortalPhaseMessageButton'
 import { useProjectMessages } from '../../hooks/useProjectMessages'
 import { baueAbnahme, type AbnahmeArt } from '../../lib/abnahme'
@@ -39,6 +39,26 @@ export function PortalShell({
   const { unreadCount, send } = useProjectMessages(project.id, 'client', senderName)
 
   const leadCount = leads.length
+
+  /**
+   * Pflege-Portal: Der Kunde ist hier, um seine Inhalte zu pflegen — nicht,
+   * um einen Projektfortschritt zu verfolgen. Dann trägt die ganze
+   * Agentur-Strecke (Leads, Phasen, hochgerechneter Umsatz) nichts bei und
+   * schiebt nur das Einzige nach unten, worum es geht.
+   *
+   * `cms_autopublish` ist genau dieses Signal: Der Kunde versorgt sich
+   * selbst. Ein Kunde in laufender Lieferung hat den Schalter aus und sieht
+   * sein Portal unverändert, mit dem Studio zusätzlich über den Phasen.
+   */
+  const pflegeModus = project.cms_autopublish
+
+  const studio = (
+    <PortalWebsiteStudio
+      projectId={project.id}
+      autopublish={project.cms_autopublish}
+      liveUrl={getDeliverableUrl(project, 'website_live_url') ?? undefined}
+    />
+  )
 
   /**
    * O11 / D6: Freigabe und Änderungswunsch gehen über den BESTEHENDEN
@@ -116,31 +136,33 @@ export function PortalShell({
       </header>
 
       <main className="portal-shell__main">
-        <OutcomeHeader
-          outcomes={outcomes}
-          projectName={project.name}
-          startedAt={startedAt}
-          loading={outcomesLoading}
-          accentColor={accentColor}
-        />
+        {pflegeModus ? (
+          studio
+        ) : (
+          <>
+            <OutcomeHeader
+              outcomes={outcomes}
+              projectName={project.name}
+              startedAt={startedAt}
+              loading={outcomesLoading}
+              accentColor={accentColor}
+            />
 
-        <PhaseDashboard
-          currentStage={project.client_stage}
-          deliverables={project.deliverables}
-          stageDurations={project.stage_durations}
-          accentColor={accentColor}
-          leadCount={leadCount}
-          readOnlyDeliverables
-          phases={dashboardPhases}
-          renderPhaseContent={renderPhaseContent}
-          renderPhaseFooter={renderPhaseFooter}
-        />
+            {studio}
 
-        <PortalWebsiteEditor
-          projectId={project.id}
-          autopublish={project.cms_autopublish}
-          liveUrl={getDeliverableUrl(project, 'website_live_url') ?? undefined}
-        />
+            <PhaseDashboard
+              currentStage={project.client_stage}
+              deliverables={project.deliverables}
+              stageDurations={project.stage_durations}
+              accentColor={accentColor}
+              leadCount={leadCount}
+              readOnlyDeliverables
+              phases={dashboardPhases}
+              renderPhaseContent={renderPhaseContent}
+              renderPhaseFooter={renderPhaseFooter}
+            />
+          </>
+        )}
 
         <div className="portal-card mt-6">
           <PortalFilesSection projectId={project.id} documents={project.client_documents} />

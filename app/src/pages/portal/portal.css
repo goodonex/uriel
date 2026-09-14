@@ -986,3 +986,279 @@
 
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WEBSITE-STUDIO (PortalWebsiteStudio)
+
+   Links die Felder, rechts die echte Seite. Alles in der eingefrorenen
+   Portal-Welt (Navy × Gold, DESIGN-TOKENS.md vom 10.08.) — kein eigenes
+   Farbsystem, keine zweite Geometrie: dieselben Radien, dieselbe Haarlinie,
+   dieselbe Kartenfläche wie der Rest des Portals.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.studio {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.studio__kopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--portal-border);
+}
+
+.studio__titel {
+  font-family: var(--portal-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--portal-text);
+}
+
+.studio__meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--portal-text-secondary);
+  max-width: 56ch;
+}
+
+.studio__extern {
+  flex: none;
+  font-size: 13px;
+  color: var(--portal-gold-text);
+  text-decoration: none;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+.studio__extern:hover { text-decoration: underline; }
+
+/* ── Bühne ────────────────────────────────────────────────────────────── */
+
+.studio__buehne {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) 1fr;
+  align-items: stretch;
+  min-height: 62vh;
+}
+.studio__buehne--ohne { grid-template-columns: 1fr; }
+
+.studio__felder {
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  max-height: 74vh;
+  border-right: 1px solid var(--portal-border);
+}
+.studio__buehne--ohne .studio__felder { border-right: none; }
+
+.studio__gruppe { margin-bottom: 22px; }
+.studio__gruppe:last-child { margin-bottom: 0; }
+
+.studio__gruppe-titel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--portal-text-secondary);
+  margin-bottom: 10px;
+}
+
+/* ── Einzelfeld ───────────────────────────────────────────────────────── */
+
+.studio-feld {
+  position: relative;
+  padding: 10px 0 14px 12px;
+  border-left: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+.studio-feld[data-geaendert] { border-left-color: var(--portal-gold); }
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-feld { transition: none; }
+}
+
+.studio-feld__kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.studio-feld__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--portal-text);
+}
+
+.studio-chip {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.studio-chip--neu {
+  color: var(--portal-gold-text);
+  background: rgba(197, 160, 89, 0.14);
+}
+.studio-chip--fern {
+  color: var(--portal-text-secondary);
+  border: 1px solid var(--portal-border);
+}
+
+.studio-eingabe {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--portal-border);
+  background: rgba(10, 17, 40, 0.55);
+  color: var(--portal-text);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.studio-eingabe:focus-visible {
+  outline: 2px solid var(--portal-gold);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.studio-schalter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--portal-text-secondary);
+  cursor: pointer;
+}
+.studio-schalter input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--portal-gold);
+  cursor: pointer;
+}
+
+.studio-bild {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.studio-bild img {
+  width: 76px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--portal-border);
+}
+.studio-bild__leer {
+  width: 76px;
+  height: 52px;
+  border-radius: 8px;
+  border: 1px dashed var(--portal-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--portal-text-secondary);
+}
+
+.studio-fehler {
+  font-size: 12px;
+  color: var(--status-danger, #e5484d);
+}
+
+/* ── Vorschau ─────────────────────────────────────────────────────────── */
+
+.studio__vorschau {
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 11, 28, 0.6);
+  min-width: 0;
+}
+
+.studio__vorschau-leiste {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 11.5px;
+  color: var(--portal-text-secondary);
+  border-bottom: 1px solid var(--portal-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio__punkt {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--portal-gold);
+  flex: none;
+}
+
+.studio__vorschau iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+  min-height: 52vh;
+}
+
+/* ── Fuß ──────────────────────────────────────────────────────────────── */
+
+.studio__fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  border-top: 1px solid var(--portal-border);
+  background: var(--portal-surface-deckend);
+}
+
+.studio__stand {
+  font-size: 13px;
+  color: var(--portal-text-secondary);
+}
+
+.studio__knoepfe {
+  display: flex;
+  gap: 10px;
+}
+
+.studio__fuss .portal-btn { padding: 10px 18px; }
+.studio__fuss .portal-btn-primary { background: var(--portal-gold); }
+
+/* ── Schmal ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .studio__buehne {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .studio__felder {
+    border-right: none;
+    border-bottom: 1px solid var(--portal-border);
+    max-height: none;
+    order: 2;
+  }
+  .studio__vorschau { order: 1; }
+  .studio__vorschau iframe { min-height: 320px; max-height: 46vh; }
+  .studio__fuss { position: sticky; bottom: 0; z-index: 5; }
+}
+
+/* Kleiner Text im Studio traegt --portal-text-secondary statt -tertiary:
+   tertiary (#6b7590) kommt auf der Kartenflaeche nur auf 3,68:1 und faellt
+   damit unter die 4,5:1 fuer Text unter 18px. Nachgemessen am 14.09.2026,
+   nicht geschaetzt. Der Token selbst bleibt unangetastet — er wird an
+   anderen Stellen des Portals auf anderen Flaechen benutzt.  */
