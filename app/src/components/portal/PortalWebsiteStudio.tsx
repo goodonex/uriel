@@ -212,6 +212,7 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
   const [gewaehlt, setGewaehlt] = useState<string | null>(null)
   const [popupOffen, setPopupOffen] = useState(false)
   const [aktionVorschau, setAktionVorschau] = useState(false)
+  const [aktionOffen, setAktionOffen] = useState(false)
   const [gemeldet, setGemeldet] = useState<string | null>(null)
   const rahmenRef = useRef<HTMLIFrameElement | null>(null)
 
@@ -279,6 +280,18 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
     setGewaehlt(null)
   }, [gewaehlt])
 
+  /* Was am eingeklappten Block steht. Der Kunde soll nicht aufklappen müssen,
+     um zu wissen, ob gerade eine Aktion auf seiner Seite läuft. */
+  const aktionsStand = useMemo(() => {
+    if (!istAn(alleWerte['aktion.an'] ?? '')) return 'aus'
+    const bis = alleWerte['aktion.bis']
+    if (!bis) return 'läuft'
+    const ende = new Date(bis + 'T23:59:59')
+    if (Number.isNaN(ende.getTime())) return 'läuft'
+    const datum = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(ende)
+    return ende < new Date() ? `abgelaufen am ${datum}` : `läuft bis ${datum}`
+  }, [alleWerte])
+
   const offen = useMemo(
     () => fields.filter((f) => entwuerfe[f.field_key] != null && entwuerfe[f.field_key] !== (f.value_published ?? '')),
     [fields, entwuerfe],
@@ -309,6 +322,34 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
     if (rahmenRef.current && liveUrl) rahmenRef.current.src = liveUrl
   }
 
+  /* Ein Feld, überall gleich verdrahtet — die Aktion steckt in einem
+     eigenen Block, soll sich aber genauso verhalten wie jedes andere Feld. */
+  const feldFuer = (f: SiteContentField) => (
+    <Feld
+      key={f.id}
+      field={f}
+      projectId={projectId}
+      wert={wertVon(f)}
+      geaendert={offen.some((o) => o.id === f.id)}
+      aufDerSeite={seitenKeys === null ? null : seitenKeys.includes(f.field_key)}
+      onChange={(v) => setEntwuerfe((c) => ({ ...c, [f.field_key]: v }))}
+      onFokus={() => {
+        // Wer ein Aktions-Feld anfasst, soll Balken bzw. Popup sehen, auch
+        // wenn die Aktion noch aus ist. Reine Vorschau — veröffentlicht wird
+        // dadurch nichts.
+        const gehoertZurAktion = f.field_key.startsWith('aktion.')
+        if (gehoertZurAktion !== aktionVorschau) {
+          setAktionVorschau(gehoertZurAktion)
+          senden({ typ: 'aktionVorschau', an: gehoertZurAktion })
+        }
+        senden({ typ: 'zeigeFeld', key: f.field_key })
+      }}
+    />
+  )
+
+  const aktionsAbschnitt = sections.find((a) => a.fields.every((f) => f.field_key.startsWith('aktion.')))
+  const seitenAbschnitte = sections.filter((a) => a !== aktionsAbschnitt)
+
   if (loading) return null
   if (fields.length === 0) return null
 
@@ -336,31 +377,34 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
 
       <div className={keineVorschau ? 'studio__buehne studio__buehne--ohne' : 'studio__buehne'}>
         <div className="studio__felder">
-          {sections.map(({ section, fields: sf }) => (
+          {/* Die Aktion ist kein Abschnitt der Seite, sondern etwas, das sich
+              darüberlegt. Eingeklappt sieht man auf einen Blick, dass es sie
+              gibt und ob sie läuft — und die Seite fängt sichtbar darunter an,
+              statt sich an zehn Feldern vorbeizuschieben. */}
+          {aktionsAbschnitt ? (
+            <details
+              className="studio__aktion"
+              open={aktionOffen}
+              onToggle={(e) => setAktionOffen((e.currentTarget as HTMLDetailsElement).open)}
+            >
+              <summary className="studio__aktion-kopf">
+                <span className="studio__aktion-titel">Banner &amp; Popup</span>
+                <span className="studio__aktion-stand">{aktionsStand}</span>
+              </summary>
+              <div className="studio__aktion-inhalt">
+                {aktionsAbschnitt.fields.map((f) => feldFuer(f))}
+              </div>
+            </details>
+          ) : null}
+
+          {seitenAbschnitte.length > 0 ? (
+            <div className="studio__trenner">Inhalte der Seite</div>
+          ) : null}
+
+          {seitenAbschnitte.map(({ section, fields: sf }) => (
             <div key={section} className="studio__gruppe">
               <div className="studio__gruppe-titel">{section}</div>
-              {sf.map((f) => (
-                <Feld
-                  key={f.id}
-                  field={f}
-                  projectId={projectId}
-                  wert={wertVon(f)}
-                  geaendert={offen.some((o) => o.id === f.id)}
-                  aufDerSeite={seitenKeys === null ? null : seitenKeys.includes(f.field_key)}
-                  onChange={(v) => setEntwuerfe((c) => ({ ...c, [f.field_key]: v }))}
-                  onFokus={() => {
-                    // Wer ein Aktions-Feld anfasst, soll Balken bzw. Popup
-                    // sehen, auch wenn die Aktion noch aus ist. Reine
-                    // Vorschau — veröffentlicht wird dadurch nichts.
-                    const istAktion = f.field_key.startsWith('aktion.')
-                    if (istAktion !== aktionVorschau) {
-                      setAktionVorschau(istAktion)
-                      senden({ typ: 'aktionVorschau', an: istAktion })
-                    }
-                    senden({ typ: 'zeigeFeld', key: f.field_key })
-                  }}
-                />
-              ))}
+              {sf.map((f) => feldFuer(f))}
             </div>
           ))}
         </div>

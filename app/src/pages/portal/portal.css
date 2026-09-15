@@ -1284,3 +1284,120 @@
 .studio__nurvorschau { flex: none; padding: 3px 9px; border-radius: 999px;
   font-size: 11px; white-space: nowrap;
   background: rgba(197, 160, 89, 0.16); color: var(--portal-gold-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STUDIO — Aufteilung, Aktions-Block, Bildlaufleisten
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Trägt eine Seite das Studio, ist es die Arbeitsfläche und darf den Platz
+   haben. Die 1200px des Portals sind für Karten gedacht, nicht für eine
+   Website-Vorschau, die dadurch schmaler wird als das Original. */
+.portal-shell__main:has(> .studio) {
+  max-width: 1680px;
+  padding: 20px 28px;
+}
+
+/* ── Aktions-Block ─────────────────────────────────────────────────────
+   Eingeklappt, weil er nicht zur Seite gehört, sondern sich darüberlegt. */
+.studio__aktion {
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  background: rgba(197, 160, 89, 0.05);
+  margin-bottom: 4px;
+}
+
+.studio__aktion-kopf {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.studio__aktion-kopf::-webkit-details-marker { display: none; }
+
+/* Eigenes Dreieck, damit es zur Schrift passt statt zum Browser-Standard. */
+.studio__aktion-kopf::before {
+  content: '';
+  width: 0; height: 0; flex: none;
+  border-left: 5px solid var(--portal-gold);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.18s ease;
+}
+.studio__aktion[open] > .studio__aktion-kopf::before { transform: rotate(90deg); }
+
+.studio__aktion-kopf:focus-visible {
+  outline: 2px solid var(--portal-gold);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.studio__aktion-titel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--portal-text);
+  flex: 1;
+}
+
+.studio__aktion-stand {
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: rgba(197, 160, 89, 0.14);
+  color: var(--portal-gold-text);
+}
+
+.studio__aktion-inhalt {
+  padding: 2px 14px 12px;
+  border-top: 1px solid var(--portal-border);
+}
+
+/* ── Trenner zur Seite ────────────────────────────────────────────────── */
+.studio__trenner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--portal-text-secondary);
+}
+.studio__trenner::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--portal-border);
+}
+
+/* Die erste Abschnitts-Überschrift sitzt schon unter dem Trenner. */
+.studio__trenner + .studio__gruppe { margin-top: 0; }
+
+/* ── Bildlaufleisten ──────────────────────────────────────────────────
+   Die Standardleiste ist hellgrau und breit — auf Navy sieht sie aus wie
+   ein Fremdkörper. Nur im Portal, das Cockpit hat seine eigene Welt. */
+:root:has(.portal-root) { scrollbar-width: thin; scrollbar-color: rgba(197, 160, 89, 0.3) transparent; }
+.portal-root, .portal-root * { scrollbar-width: thin; scrollbar-color: rgba(197, 160, 89, 0.3) transparent; }
+
+:root:has(.portal-root)::-webkit-scrollbar,
+.portal-root ::-webkit-scrollbar { width: 11px; height: 11px; }
+
+:root:has(.portal-root)::-webkit-scrollbar-track,
+.portal-root ::-webkit-scrollbar-track { background: transparent; }
+
+:root:has(.portal-root)::-webkit-scrollbar-thumb,
+.portal-root ::-webkit-scrollbar-thumb {
+  background: rgba(197, 160, 89, 0.3);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+:root:has(.portal-root)::-webkit-scrollbar-thumb:hover,
+.portal-root ::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 160, 89, 0.5);
+  background-clip: padding-box;
+}

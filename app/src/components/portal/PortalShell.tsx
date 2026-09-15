@@ -164,9 +164,14 @@ export function PortalShell({
           </>
         )}
 
-        <div className="portal-card mt-6">
-          <PortalFilesSection projectId={project.id} documents={project.client_documents} />
-        </div>
+        {/* Dateien sind der Kanal für gelieferte Dokumente — Verträge,
+            Übergaben, Auswertungen. Ein Kunde, der nur seine Inhalte pflegt,
+            bekommt nichts davon; der Kasten stünde als leeres Versprechen da. */}
+        {pflegeModus ? null : (
+          <div className="portal-card mt-6">
+            <PortalFilesSection projectId={project.id} documents={project.client_documents} />
+          </div>
+        )}
 
         {project.booking_url ? (
           <div className="portal-shell__booking mt-4">
