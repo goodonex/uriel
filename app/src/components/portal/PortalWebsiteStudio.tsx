@@ -249,6 +249,7 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
       const n = ereignis.data as { quelle?: string; typ?: string; keys?: string[]; key?: string }
       if (n?.quelle !== 'uriel-cms-seite') return
       if (n.typ === 'bereit') {
+        setVorschauGeladen(true)
         setSeitenKeys(Array.isArray(n.keys) ? n.keys : [])
         senden({ typ: 'entwurf', werte: alleWerte })
       } else if (n.typ === 'feldGewaehlt' && n.key) {
@@ -446,7 +447,11 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
               title="Vorschau deiner Website"
               src={liveUrl}
               sandbox="allow-scripts allow-same-origin"
-              onLoad={() => setVorschauGeladen(true)}
+              onLoad={() => {
+                // Notbremse: eine Seite ohne cms.js meldet sich nie. Dann
+                // soll der Hinweis trotzdem verschwinden statt ewig zu stehen.
+                window.setTimeout(() => setVorschauGeladen(true), 4000)
+              }}
             />
           </div>
         )}
