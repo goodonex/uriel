@@ -213,6 +213,7 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
   const [popupOffen, setPopupOffen] = useState(false)
   const [aktionVorschau, setAktionVorschau] = useState(false)
   const [aktionOffen, setAktionOffen] = useState(false)
+  const [vorschauGeladen, setVorschauGeladen] = useState(false)
   const [gemeldet, setGemeldet] = useState<string | null>(null)
   const rahmenRef = useRef<HTMLIFrameElement | null>(null)
 
@@ -435,11 +436,17 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
                 Popup zeigen
               </button>
             </div>
+            {/* Eine echte Seite braucht ein paar Sekunden. Ohne Hinweis sieht
+                die weisse Flaeche so lange aus, als waere etwas kaputt. */}
+            {vorschauGeladen ? null : (
+              <div className="studio__laedt">Vorschau wird geladen …</div>
+            )}
             <iframe
               ref={rahmenRef}
               title="Vorschau deiner Website"
               src={liveUrl}
               sandbox="allow-scripts allow-same-origin"
+              onLoad={() => setVorschauGeladen(true)}
             />
           </div>
         )}

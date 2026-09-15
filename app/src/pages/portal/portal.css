@@ -1401,3 +1401,17 @@
   background: rgba(197, 160, 89, 0.5);
   background-clip: padding-box;
 }
+
+/* Ladehinweis über der Vorschau, bis die Seite im Rahmen steht */
+.studio__vorschau { position: relative; }
+.studio__laedt {
+  position: absolute;
+  inset: 34px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--portal-surface-deckend);
+  color: var(--portal-text-secondary);
+  font-size: 13px;
+  z-index: 2;
+}
