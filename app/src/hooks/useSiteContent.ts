@@ -77,7 +77,13 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
       .from('site_content')
       .select('*')
       .eq('project_id', projectId)
-      .order('section', { ascending: true })
+      // NUR nach sort_order. Vorher stand `section` davor — und damit standen
+      // die Abschnitte im Portal alphabetisch: "Aktion", "Analyse-Formular",
+      // "Ganz oben", "Häufige Fragen"… Der Kunde soll die Liste aber von oben
+      // nach unten durchgehen wie seine Seite. `sort_order` ist deshalb die
+      // Position auf der Seite, projektweit fortlaufend, und die Gruppierung
+      // in `sections` entsteht aus der Reihenfolge, in der die Abschnitte
+      // vorkommen.
       .order('sort_order', { ascending: true })
     if (err) {
       // Tabelle fehlt (Migration 0052 nicht ausgeführt) → leer, kein Crash
@@ -151,13 +157,17 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
   const seedFields = useCallback(
     async (defs: SiteContentFieldDef[]) => {
       if (!supabase || !projectId || defs.length === 0) return
+      // sort_order ist projektweit die Position auf der Seite. Ein von Hand
+      // angelegtes Feld haengt sich deshalb hinten an, statt sich mit einer
+      // niedrigen Nummer mitten zwischen bestehende Abschnitte zu setzen.
+      const hoechste = fields.reduce((max, f) => Math.max(max, f.sort_order), 0)
       const rows = defs.map((d, i) => ({
         project_id: projectId,
         field_key: d.field_key,
         section: d.section,
         label: d.label,
         field_type: d.field_type,
-        sort_order: d.sort_order ?? i,
+        sort_order: d.sort_order ?? hoechste + i + 1,
         value_published: d.value_published ?? null,
         value_draft: d.value_published ?? null,
       }))
@@ -167,7 +177,7 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
       if (err) setError(err.message)
       await reload()
     },
-    [projectId, reload],
+    [fields, projectId, reload],
   )
 
   const removeField = useCallback(
