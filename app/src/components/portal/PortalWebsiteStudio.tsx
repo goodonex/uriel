@@ -211,6 +211,7 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
   const [speichert, setSpeichert] = useState(false)
   const [gewaehlt, setGewaehlt] = useState<string | null>(null)
   const [popupOffen, setPopupOffen] = useState(false)
+  const [aktionVorschau, setAktionVorschau] = useState(false)
   const [gemeldet, setGemeldet] = useState<string | null>(null)
   const rahmenRef = useRef<HTMLIFrameElement | null>(null)
 
@@ -347,7 +348,17 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
                   geaendert={offen.some((o) => o.id === f.id)}
                   aufDerSeite={seitenKeys === null ? null : seitenKeys.includes(f.field_key)}
                   onChange={(v) => setEntwuerfe((c) => ({ ...c, [f.field_key]: v }))}
-                  onFokus={() => senden({ typ: 'zeigeFeld', key: f.field_key })}
+                  onFokus={() => {
+                    // Wer ein Aktions-Feld anfasst, soll Balken bzw. Popup
+                    // sehen, auch wenn die Aktion noch aus ist. Reine
+                    // Vorschau — veröffentlicht wird dadurch nichts.
+                    const istAktion = f.field_key.startsWith('aktion.')
+                    if (istAktion !== aktionVorschau) {
+                      setAktionVorschau(istAktion)
+                      senden({ typ: 'aktionVorschau', an: istAktion })
+                    }
+                    senden({ typ: 'zeigeFeld', key: f.field_key })
+                  }}
                 />
               ))}
             </div>
@@ -361,6 +372,9 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
               <span className="studio__adresse">
                 {liveUrl?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
               </span>
+              {aktionVorschau && !istAn(alleWerte['aktion.an'] ?? '') ? (
+                <span className="studio__nurvorschau">Aktion nur in der Vorschau</span>
+              ) : null}
               {/* Ein Popup zeigt sich von allein nur einmal pro Besuch. Ohne
                   diesen Schalter bekäme der Kunde seine eigene Aktion nie zu
                   sehen, solange er sie baut. */}

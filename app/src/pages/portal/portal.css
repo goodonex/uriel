@@ -1279,3 +1279,8 @@
 .studio__popupknopf.is-an { background: var(--portal-gold); color: var(--portal-auf-akzent);
   border-color: transparent; font-weight: 600; }
 .studio__popupknopf:focus-visible { outline: 2px solid var(--portal-gold); outline-offset: 2px; }
+
+/* Hinweis, solange die Aktion nur zur Ansicht eingeblendet ist */
+.studio__nurvorschau { flex: none; padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; white-space: nowrap;
+  background: rgba(197, 160, 89, 0.16); color: var(--portal-gold-text); }
