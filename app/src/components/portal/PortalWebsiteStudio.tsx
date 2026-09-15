@@ -214,6 +214,7 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
   const [aktionVorschau, setAktionVorschau] = useState(false)
   const [aktionOffen, setAktionOffen] = useState(false)
   const [vorschauGeladen, setVorschauGeladen] = useState(false)
+  const nachgeladen = useRef(false)
   const [gemeldet, setGemeldet] = useState<string | null>(null)
   const rahmenRef = useRef<HTMLIFrameElement | null>(null)
 
@@ -269,6 +270,20 @@ export function PortalWebsiteStudio({ projectId, autopublish, liveUrl }: Props) 
     const t = window.setTimeout(() => senden({ typ: 'entwurf', werte: alleWerte }), 140)
     return () => window.clearTimeout(t)
   }, [alleWerte, seitenKeys, senden])
+
+  /* Ein Rahmen, der sich nach zehn Sekunden nicht gemeldet hat, steht
+     erfahrungsgemäß weiß da und kommt von allein nicht mehr hoch. Genau
+     einmal neu laden holt ihn zurück — öfter wäre eine Schleife, in der der
+     Kunde nie etwas sieht. */
+  useEffect(() => {
+    if (vorschauGeladen || !liveUrl || nachgeladen.current) return
+    const t = window.setTimeout(() => {
+      if (vorschauGeladen || !rahmenRef.current) return
+      nachgeladen.current = true
+      rahmenRef.current.src = liveUrl
+    }, 10000)
+    return () => window.clearTimeout(t)
+  }, [vorschauGeladen, liveUrl])
 
   /* Ein von der Seite gemeldetes Feld in den Blick holen und den Cursor
      hineinsetzen — sonst müsste der Kunde die Liste absuchen. */
