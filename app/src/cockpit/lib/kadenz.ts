@@ -36,6 +36,24 @@
 export interface Kadenz {
   /** Die drei LinkedIn-Follow-up-Schwellen in Tagen, aufsteigend. */
   followupTage: readonly [number, number, number]
+  /**
+   * Dieselben drei Stufen, aber für Leads, die ihr Loom schon haben — enger.
+   *
+   * Der Grund ist nicht Ungeduld, sondern Zustand: Wer eine Analyse angefordert
+   * und bekommen hat, ist ein anderer Fall als jemand, der nie geantwortet hat.
+   * Vierzehn Tage bis zur letzten Nachricht sind dort verschenkte Wärme. Der
+   * Kurs veranschlagt für die Loom-Strecke ~3 / +3 / +5 Tage.
+   */
+  loomFollowupTage: readonly [number, number, number]
+  /**
+   * Loom nachweislich angesehen (`lead_ereignisse.typ = 'loom_angesehen'`,
+   * Migration 0079 — der Player meldet sich selbst zurück): noch enger.
+   *
+   * Belegtes Interesse ist der stärkste Zustand im ganzen Funnel und zugleich
+   * der kürzeste. Wer das Video heute gesehen hat, denkt in drei Tagen noch
+   * daran und in zehn nicht mehr.
+   */
+  loomGesichtetTage: readonly [number, number, number]
   /** Stiller Zweig: ab wann ein Nicht-Annehmer eine E-Mail bekommt. */
   stillEmailTage: number
   stillPostkarteTage: number
@@ -60,6 +78,11 @@ export interface Kadenz {
  */
 export const KADENZ_STANDARD: Kadenz = {
   followupTage: [3, 7, 14],
+  // Kevin, 15.09.2026: „enger nach loom. da gehört aber auch gesichtet in die
+  // rechnung mit rein." Beide Tripel sind an jeder Stufe enger als die kalte
+  // Reihe — und die gesichtete enger als die bloß verschickte.
+  loomFollowupTage: [2, 5, 10],
+  loomGesichtetTage: [1, 3, 7],
   stillEmailTage: 30,
   stillPostkarteTage: 7,
   stillAnrufTage: 7,
@@ -105,15 +128,19 @@ export function gueltigeKadenz(roh: unknown): Kadenz {
    * Stufe 1 fällig, und `isDue` liefe für dieselbe Person mehrfach an. Nicht
    * aufsteigend heisst deshalb: das ganze Tripel zurück auf die Vorgabe.
    */
-  const rohTage = q.followupTage
-  let followupTage = KADENZ_STANDARD.followupTage
-  if (Array.isArray(rohTage) && rohTage.length === 3 && rohTage.every((t) => gueltigeTage(t))) {
-    const [a, b, c] = rohTage as [number, number, number]
-    if (a < b && b < c) followupTage = [a, b, c]
+  const tripel = (feld: 'followupTage' | 'loomFollowupTage' | 'loomGesichtetTage') => {
+    const roh = q[feld]
+    if (Array.isArray(roh) && roh.length === 3 && roh.every((t) => gueltigeTage(t))) {
+      const [a, b, c] = roh as [number, number, number]
+      if (a < b && b < c) return [a, b, c] as readonly [number, number, number]
+    }
+    return KADENZ_STANDARD[feld]
   }
 
   return {
-    followupTage,
+    followupTage: tripel('followupTage'),
+    loomFollowupTage: tripel('loomFollowupTage'),
+    loomGesichtetTage: tripel('loomGesichtetTage'),
     stillEmailTage: zahl('stillEmailTage'),
     stillPostkarteTage: zahl('stillPostkarteTage'),
     stillAnrufTage: zahl('stillAnrufTage'),
@@ -164,7 +191,7 @@ export function setzeKadenzZurueck(): void {
  * entsteht und die Oberfläche es von selbst zeigt.
  */
 export interface KadenzFeld {
-  schluessel: Exclude<keyof Kadenz, 'followupTage'>
+  schluessel: Exclude<keyof Kadenz, 'followupTage' | 'loomFollowupTage' | 'loomGesichtetTage'>
   titel: string
   hinweis: string
   min: number

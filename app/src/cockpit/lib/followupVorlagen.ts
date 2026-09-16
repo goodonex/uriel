@@ -86,6 +86,106 @@ Darum geht es in der Analyse. ${ANALYSE_CTA}`,
 mal anders gefragt: Kommen eure Eigentümer-Mandate über Empfehlung und Zufall, oder steht dahinter ein System?`,
 ]
 
+/**
+ * Der Buchungslink für das Vorgespräch (15 Minuten, Telefon).
+ *
+ * Steht als Konstante hier, weil er in mehreren Vorlagen auftaucht und sich
+ * genau einmal ändern darf. Der zweite Termintyp (Konzeptgespräch, 45 Minuten,
+ * Zoom) ist auf der Buchungsseite bewusst ausgeblendet und hat deshalb keinen
+ * Link in einer Vorlage: Er wird im Vorgespräch live vereinbart.
+ */
+export const TERMIN_LINK = 'cal.com/kevin-herrmann/vorgespraech'
+
+/**
+ * Die Antwort auf ein „ja, schick rüber" — der Baustein, der bisher fehlte.
+ *
+ * Er existiert aus zwei Gründen. Erstens ist zwischen der Zusage und dem
+ * fertigen Loom ohnehin eine Nacht: Die Demo-Seite wird über Nacht gebaut.
+ * Diese Lücke wird benannt statt verschwiegen, sonst wartet der Lead ohne zu
+ * wissen, worauf. Zweitens ist das der einzige Moment, in dem eine
+ * E-Mail-Adresse ohne Widerstand rausrückt — der Lead hat gerade Ja gesagt.
+ *
+ * Kein „Moin [Vorname]" und kein Platzhalter: Das ist eine Antwort mitten im
+ * Gespräch, und sie spiegelt die Länge seiner Zusage. Auf „Ja gerne" gehören
+ * zwei Sätze, keine Anrede und kein Absatz.
+ *
+ * Der Grund für die Mail-Bitte nützt IHM (im Chat geht es unter), nicht Kevin.
+ * Eine Bitte, deren Nutzen beim Absender liegt, wird abgelehnt.
+ */
+export const LOOM_ZUSAGE_VORLAGE = `Alles klar, kommt morgen zu dir.
+
+Schick mir gerne noch deine E-Mail, dann schick ich sie dir zusätzlich per Mail — hier im Chat geht sowas schnell unter.`
+
+/**
+ * Die Nachricht, mit der das fertige Loom rausgeht.
+ *
+ * `[Loom-Link]` bleibt als Platzhalter stehen — er ist pro Lead verschieden und
+ * entsteht erst beim Hochladen der Aufnahme. Alles andere ist fertig.
+ *
+ * Zwei Wege zum Termin nebeneinander sind hier ausdrücklich erlaubt, obwohl
+ * zwei Bitten in einer Nachricht sonst dazu führen, dass keine erfüllt wird:
+ * Buchen und Nummer-schicken führen zum selben Ziel, es konkurrieren also
+ * nicht zwei Ziele, sondern zwei Wege. Wer nicht buchen mag, weil ihm ein
+ * Kalender zu verbindlich ist, schickt die Nummer.
+ */
+export const LOOM_VERSAND_VORLAGE = `Moin [Vorname], hier ist deine Analyse: [Loom-Link]
+
+Wenn du die Punkte einmal durchgehen willst: ${TERMIN_LINK}, such dir 15 Minuten aus. Oder schick mir deine Nummer und wann es dir passt, dann ruf ich dich an.`
+
+/**
+ * Der Lead hat das Video nachweislich gesehen (`lead_ereignisse.typ =
+ * 'loom_angesehen'`, Migration 0079) und trotzdem nicht geantwortet.
+ *
+ * Ersetzt in dieser Lage die erste Stufe der Loom-Reihe. „Deine Analyse liegt
+ * noch im Chat" wäre hier schlicht falsch — er hat sie gesehen, und eine
+ * Nachricht, die das Gegenteil behauptet, sagt ihm, dass niemand hinschaut.
+ *
+ * Eine Frage, kein Pitch: Der Lead hat sich dreieinhalb Minuten genommen, also
+ * ist die Analyse nicht das Problem. Und bewusst kein „danke für die Zeit" —
+ * Kevin ist nicht dankbar, dass jemand sein Video anschaut.
+ */
+export const LOOM_GESICHTET_VORLAGE = `Moin [Vorname],
+
+ich hab gesehen, dass du dir die Analyse angeschaut hast.
+
+Welcher der Punkte war für dich der überraschendste?`
+
+/**
+ * Die Follow-up-Kaskade NACH dem Loom — eine eigene Reihe, und das ist der
+ * eigentliche Punkt dieser Ergänzung.
+ *
+ * Bis hierher bekam jeder fällige Thread `FOLLOWUP_VORLAGEN`, auch wenn längst
+ * ein Loom bei ihm liegt. Der Text dort lautet „Ich nehme dir eine Analyse auf
+ * — hast du was dagegen, wenn ich sie dir einmal rüberschicke?". An jemanden,
+ * der die Analyse seit vier Tagen im Chat hat, ist das nicht nur nutzlos,
+ * sondern verrät, dass niemand hingeschaut hat.
+ *
+ * Reihenfolge und Kalkül:
+ * - Stufe 0: das Video hochholen, mit einer Frist, die er zusagen kann.
+ * - Stufe 1: der Tausch, der für IHN günstig ist — fünf Minuten am Telefon
+ *   statt Video plus Terminsuche. Nebenbei kommt so die Handynummer rein, die
+ *   im Impressum meist nicht steht (dort steht die Büronummer).
+ * - Stufe 2: kein Break-up. „Du weißt ja, wo du mich findest" ist der tote
+ *   Satz, den `verify-followup-vorlagen.ts` verbietet — danach meldet sich
+ *   niemand. Stattdessen eine Frage mit minimalem Antwortaufwand, die
+ *   zugleich qualifiziert.
+ */
+export const LOOM_FOLLOWUP_VORLAGEN: readonly string[] = [
+  `Moin [Vorname],
+
+deine Analyse liegt noch im Chat. Ich weiß, wie voll die Wochen gerade sind.
+
+Die drei Punkte drin betreffen direkt deine Eigentümer-Ansprache, das Video dauert dreieinhalb Minuten. Schaffst du es diese Woche, kurz reinzuschauen?`,
+
+  `Moin [Vorname],
+
+wenn du gerade nicht dazu kommst, dir das Video anzuschauen: Ich gehe die drei Punkte in fünf Minuten am Telefon mit dir durch. Schick mir dafür einfach deine Nummer.`,
+
+  `Moin [Vorname],
+
+eine letzte Frage zur Analyse: Ist einer der drei Punkte bei euch schon in Arbeit, oder liegt das gerade alles hinten an?`,
+]
+
 /** Führende Titel, die vor dem Vornamen stehen können. */
 const TITEL = /^(dr|prof|dipl|ing|mag|med|rer|nat|h\.?c)\.?$/i
 
@@ -121,14 +221,30 @@ export function vornameAus(name: string | null | undefined): string | null {
  * Kanälen), oder eine unplausible Stufe.
  */
 export function followupVorlage(
-  thread: Pick<LinkedinThread, 'name' | 'followup_stage'>,
+  thread: Pick<LinkedinThread, 'name' | 'followup_stage'> & Partial<Pick<LinkedinThread, 'loom_status'>>,
+  gesichtet = false,
 ): PostenEntwurf | undefined {
+  /**
+   * Wer die Analyse schon hat, bekommt die Loom-Reihe — sonst würde ihm eine
+   * Analyse angeboten, die seit Tagen in seinem Chat liegt. `loom_status` ist
+   * optional, weil ältere Aufrufer die Spalte nicht mitgeben; fehlt sie,
+   * gilt wie bisher die kalte Reihe.
+   */
+  const nachLoom = thread.loom_status === 'verschickt'
+  const reihe = nachLoom ? LOOM_FOLLOWUP_VORLAGEN : FOLLOWUP_VORLAGEN
   const stufe = thread.followup_stage
-  if (!Number.isInteger(stufe) || stufe < 0 || stufe >= FOLLOWUP_VORLAGEN.length) return undefined
+  if (!Number.isInteger(stufe) || stufe < 0 || stufe >= reihe.length) return undefined
   const vorname = vornameAus(thread.name)
   if (!vorname) return undefined
+  /**
+   * Nur die erste Stufe kennt den Unterschied zwischen „liegt noch im Chat"
+   * und „du hast es gesehen". Ab Stufe 1 ist die Frage nicht mehr, ob er das
+   * Video kennt, sondern ob das Thema bei ihm überhaupt oben liegt — und da
+   * ist der Text für beide derselbe.
+   */
+  const roh = nachLoom && gesichtet && stufe === 0 ? LOOM_GESICHTET_VORLAGE : reihe[stufe]
   return {
-    text: FOLLOWUP_VORLAGEN[stufe].replaceAll('[Vorname]', vorname),
+    text: roh.replaceAll('[Vorname]', vorname),
     // Eine Vorlage kann nicht veralten — sie nimmt auf nichts Bezug, was der
     // Lead gesagt hat. Genau das ist ihr Vorteil.
     veraltet: false,
@@ -136,4 +252,33 @@ export function followupVorlage(
     // Anzeigen. Eine Datumszeile darunter wäre eine Behauptung über nichts.
     erstelltAm: null,
   }
+}
+
+
+/**
+ * Der Text für einen Lead, der Ja gesagt hat und auf sein Loom wartet.
+ *
+ * Hängt am Loom-Posten (`arbeitsmodusQuellen.loomPosten`), also genau an der
+ * Stelle, an der Kevin diese Leute ohnehin abarbeitet. Vorher stand dort kein
+ * Text — und ohne Text passiert nichts, das ist die Lehre aus den 177 fälligen
+ * Follow-ups vom 25.08.2026.
+ *
+ * Braucht keinen Vornamen und kann deshalb nie `undefined` liefern: Die
+ * Nachricht ist eine Antwort im laufenden Chat und trägt bewusst keine Anrede.
+ */
+export function loomZusageVorlage(): PostenEntwurf {
+  return { text: LOOM_ZUSAGE_VORLAGE, veraltet: false, erstelltAm: null }
+}
+
+/**
+ * Der Text, mit dem das fertige Loom rausgeht. `[Loom-Link]` bleibt stehen —
+ * der Link entsteht erst beim Hochladen, und ein erfundener wäre schlimmer als
+ * ein sichtbarer Platzhalter.
+ */
+export function loomVersandVorlage(
+  thread: Pick<LinkedinThread, 'name'>,
+): PostenEntwurf | undefined {
+  const vorname = vornameAus(thread.name)
+  if (!vorname) return undefined
+  return { text: LOOM_VERSAND_VORLAGE.replaceAll('[Vorname]', vorname), veraltet: false, erstelltAm: null }
 }

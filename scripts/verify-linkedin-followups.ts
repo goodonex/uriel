@@ -8,8 +8,11 @@ import {
   isDue,
   istAltlast,
   istWeckbar,
+  loomLageVon,
   markDonePatch,
+  schwellenFuer,
 } from '../app/src/cockpit/lib/linkedinFollowups'
+import { KADENZ_STANDARD } from '../app/src/cockpit/lib/kadenz'
 import type { Contact, LinkedinThread } from '../app/src/types/db'
 
 const NOW = new Date('2026-07-28T12:00:00Z')
@@ -351,6 +354,66 @@ check('11b knapp über Schwelle', isDue(makeThread({ followup_stage: 0, last_mes
   // Aufwecken = snoozed_until null. Danach rechnet bucketOf den echten Bucket.
   const geweckt = { ...gesnoozt, snoozed_until: null }
   check('15g nach dem Wecken kein ruht mehr', bucketOf(geweckt, NOW) !== 'ruht', true)
+}
+
+/* ── 16 · Takt nach dem Loom (15.09.2026) ───────────────────────────────
+ *
+ * Kevin: „enger nach loom. da gehört aber auch gesichtet in die rechnung mit
+ * rein." Drei Lagen, drei Tripel — und die wichtigste Eigenschaft ist, dass
+ * sie an JEDER Stufe strikt enger werden. Eine Kadenz, in der die gesichtete
+ * Reihe an irgendeiner Stufe später fällig wird als die kalte, wäre schlimmer
+ * als gar keine Unterscheidung.
+ */
+{
+  check('16a Loom nicht verschickt = kalte Lage', loomLageVon({ loom_status: 'offen' }), 'kalt')
+  check('16b verschickt ohne Beleg', loomLageVon({ loom_status: 'verschickt' }), 'verschickt')
+  check('16c verschickt und gesehen', loomLageVon({ loom_status: 'verschickt' }, true), 'gesichtet')
+  // Ein Sichtungs-Beleg an einem Thread ohne verschicktes Loom ist ein
+  // Widerspruch — er darf den Takt nicht beschleunigen.
+  check('16d gesichtet ohne Versand bleibt kalt', loomLageVon({ loom_status: 'offen' }, true), 'kalt')
+
+  const kalt = schwellenFuer('kalt')
+  const nachLoom = schwellenFuer('verschickt')
+  const gesehen = schwellenFuer('gesichtet')
+  check('16e kalte Schwellen sind die Vorgabe', kalt.join(), KADENZ_STANDARD.followupTage.join())
+  for (const stufe of [0, 1, 2]) {
+    check(`16f Stufe ${stufe}: nach Loom enger als kalt`, nachLoom[stufe] < kalt[stufe], true)
+    check(`16g Stufe ${stufe}: gesichtet enger als nur verschickt`, gesehen[stufe] < nachLoom[stufe], true)
+  }
+  // Monotonie innerhalb jeder Reihe — sonst wäre Stufe 2 vor Stufe 1 fällig.
+  for (const [name, reihe] of [['kalt', kalt], ['verschickt', nachLoom], ['gesichtet', gesehen]] as const) {
+    check(`16h ${name} steigt an`, reihe[0] < reihe[1] && reihe[1] < reihe[2], true)
+  }
+
+  // Der Fall, um den es geht: derselbe Thread, elf Tage still.
+  const elfTage = { last_message_at: dayAgo(11), followup_stage: 2 as number }
+  check('16i kalt: Stufe 2 nach 11 Tagen noch nicht fällig', isDue(makeThread(elfTage), NOW), false)
+  check(
+    '16j nach Loom: Stufe 2 nach 11 Tagen fällig',
+    isDue(makeThread({ ...elfTage, loom_status: 'verschickt' }), NOW),
+    true,
+  )
+
+  // Und die Sichtung zieht noch einmal vor.
+  const vierTage = { last_message_at: dayAgo(4), followup_stage: 1 as number, loom_status: 'verschickt' as const }
+  check('16k verschickt: Stufe 1 nach 4 Tagen noch nicht fällig', isDue(makeThread(vierTage), NOW), false)
+  check('16l gesichtet: Stufe 1 nach 4 Tagen fällig', isDue(makeThread(vierTage), NOW, undefined, true), true)
+
+  // Wer die Schwellen explizit mitgibt, umgeht die Lage vollständig — davon
+  // hängen die Vorschau in der Oberfläche und die übrigen Prüfskripte ab.
+  check(
+    '16m explizite Schwellen schlagen die Loom-Lage',
+    isDue(makeThread({ ...elfTage, loom_status: 'verschickt' }), NOW, [3, 7, 14]),
+    false,
+  )
+
+  // bucketOf reicht die Sichtung durch.
+  check(
+    '16n bucketOf kennt die Sichtung',
+    bucketOf(makeThread(vierTage), NOW, undefined, true),
+    'faellig',
+  )
+  check('16o bucketOf ohne Beleg wartet', bucketOf(makeThread(vierTage), NOW), 'wartet')
 }
 
 console.log(`${pass}/${pass + fail} Fälle korrekt`)

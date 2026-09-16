@@ -15,7 +15,7 @@ import { istKunde, kundenSchluessel, type KundenKontakt } from './kundenAbgleich
 import { bucketOf } from './linkedinFollowups'
 import { verlaufVon } from './linkedinVerlauf'
 import type { Posten, PostenEntwurf } from './prioritaet'
-import { followupVorlage } from './followupVorlagen'
+import { followupVorlage, loomZusageVorlage } from './followupVorlagen'
 
 /**
  * Entwurf des Nacht-Agenten am Thread (Migration 0065), sofern einer anliegt.
@@ -189,11 +189,37 @@ function letzteNachricht(t: LinkedinThread): string {
   return vonKevin ? `Zuletzt hast DU geschrieben: „${text}“` : text
 }
 
+/**
+ * Hat Kevin auf die Zusage schon geantwortet?
+ *
+ * Entscheidet darüber, ob die Zusage-Antwort als Entwurf angeboten wird. Kam
+ * die letzte Nachricht von ihm, ist sie raus — ein zweites „Alles klar, kommt
+ * morgen zu dir" wäre der peinlichste Fehler, den diese Vorlage machen kann.
+ */
+function kevinHatGeantwortet(t: LinkedinThread): boolean {
+  const vom = verlaufVon(t)
+  const letzte = vom.length > 0 ? vom[vom.length - 1] : null
+  return letzte ? letzte.sender === 'me' : t.last_from === 'me'
+}
+
 /** Rang 4 — Lead hat Ja zum Loom gesagt, Skript/Aufnahme steht noch aus. */
 export function loomPosten(threads: LinkedinThread[]): Posten[] {
   return threads
     .filter((t) => t.starred && t.loom_status === 'offen')
-    .map((t) => threadZuPosten(t, 'loom', 'loom', letzteNachricht(t)))
+    .map((t) => ({
+      ...threadZuPosten(t, 'loom', 'loom', letzteNachricht(t)),
+      /**
+       * Zwischen Zusage und fertigem Loom liegt eine Nacht — die Demo-Seite
+       * wird über Nacht gebaut. Diese Lücke braucht einen Text, sonst wartet
+       * der Lead ohne zu wissen, worauf, und die E-Mail-Adresse holt sich
+       * niemand mehr ab: Der Moment direkt nach dem Ja ist der einzige, in
+       * dem sie ohne Widerstand rausrückt.
+       *
+       * Nur solange Kevin noch nicht geantwortet hat — sonst ginge die
+       * Nachricht ein zweites Mal raus.
+       */
+      entwurf: entwurfVon(t) ?? (kevinHatGeantwortet(t) ? undefined : loomZusageVorlage()),
+    }))
 }
 
 /** Rang 6 — fällige Follow-ups (bucketOf === 'faellig'). */
@@ -201,10 +227,20 @@ export function followupPosten(
   threads: LinkedinThread[],
   heute: Date,
   kontakte: KundenKontakt[] = [],
+  /**
+   * Thread-IDs, deren Loom nachweislich angesehen wurde (aus
+   * `lead_ereignisse.typ = 'loom_angesehen'`, Migration 0079).
+   *
+   * Steckt nicht am Thread, weil der Player an den Lead meldet, nicht an den
+   * Chat — also muss der Aufrufer die Brücke schlagen. Leer heißt „nichts
+   * bekannt" und rechnet wie bisher: Ein fehlender Beleg darf nie so wirken,
+   * als hätte jemand NICHT geschaut.
+   */
+  gesichteteThreads: ReadonlySet<string> = new Set(),
 ): Posten[] {
   const kunden = kundenSchluessel(kontakte)
   return threads
-    .filter((t) => bucketOf(t, heute) === 'faellig')
+    .filter((t) => bucketOf(t, heute, undefined, gesichteteThreads.has(t.id)) === 'faellig')
     // Ein laufender Kunde bekommt kein Akquise-Follow-up (18.08.2026).
     .filter((t) => !istKunde(t.name, kunden))
     .map((t) => ({
@@ -224,7 +260,7 @@ export function followupPosten(
        * geantwortet hat, gibt einem Agenten keinen Anhaltspunkt, auf den er
        * individuell eingehen könnte.
        */
-      entwurf: entwurfVon(t) ?? followupVorlage(t),
+      entwurf: entwurfVon(t) ?? followupVorlage(t, gesichteteThreads.has(t.id)),
     }))
 }
 

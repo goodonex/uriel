@@ -14,6 +14,7 @@ import { useDeliverProjects } from './useDeliverProjects'
 import { useErstnachrichten } from './useErstnachrichten'
 import { useLinkedinNetzwerk } from './useLinkedinNetzwerk'
 import { useLinkedinThreads } from './useLinkedinThreads'
+import { useLoomGesichtet } from './useLoomGesichtet'
 import { useTasks } from './useTasks'
 
 /**
@@ -59,6 +60,9 @@ export function usePosten(slug: string | undefined): UsePostenResult {
   // Nur für den Profil-Link an den Erstnachrichten (18.08.2026) — die Liste
   // selbst kommt weiter aus `linkedin_erstnachrichten`.
   const netzwerk = useLinkedinNetzwerk(slug)
+  // Wer sein Loom nachweislich gesehen hat, wird enger nachgefasst und anders
+  // angesprochen (15.09.2026).
+  const loomGesichtet = useLoomGesichtet(slug)
 
   // Minutentakt statt Date.now() bei jedem Render — sonst rechnen die useMemos
   // unten bei jedem Tastendruck neu.
@@ -89,9 +93,22 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     [linkedinThreads.items, jetzt, contacts.items],
   )
   const loomListe = useMemo(() => loomPosten(linkedinThreads.items), [linkedinThreads.items])
+  /**
+   * Die Brücke vom Lead zurück auf den Chat: Der Player meldet an den Lead,
+   * nachgefasst wird im Thread. Threads ohne `lead_id` fallen hier heraus und
+   * behalten damit den ruhigeren Takt — die sichere Richtung.
+   */
+  const gesichteteThreads = useMemo(() => {
+    const menge = new Set<string>()
+    for (const t of linkedinThreads.items) {
+      if (t.lead_id && loomGesichtet.leadIds.has(t.lead_id)) menge.add(t.id)
+    }
+    return menge
+  }, [linkedinThreads.items, loomGesichtet.leadIds])
+
   const followupListe = useMemo(
-    () => followupPosten(linkedinThreads.items, jetzt, contacts.items),
-    [linkedinThreads.items, jetzt, contacts.items],
+    () => followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads),
+    [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads],
   )
   // Threads gegenrechnen: eine verschickte Nachricht bleibt sonst ewig „offen",
   // wenn Kevin sie vom Handy geschickt und den Haken nicht gesetzt hat (17.08.).

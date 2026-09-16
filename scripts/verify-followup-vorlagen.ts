@@ -8,7 +8,19 @@
  *
  * Start: npx tsx scripts/verify-followup-vorlagen.ts
  */
-import { ANALYSE_CTA, FOLLOWUP_VORLAGEN, followupVorlage, vornameAus } from '../app/src/cockpit/lib/followupVorlagen'
+import {
+  ANALYSE_CTA,
+  FOLLOWUP_VORLAGEN,
+  LOOM_FOLLOWUP_VORLAGEN,
+  LOOM_GESICHTET_VORLAGE,
+  LOOM_VERSAND_VORLAGE,
+  LOOM_ZUSAGE_VORLAGE,
+  TERMIN_LINK,
+  followupVorlage,
+  loomVersandVorlage,
+  loomZusageVorlage,
+  vornameAus,
+} from '../app/src/cockpit/lib/followupVorlagen'
 import { FOLLOWUP_THRESHOLDS_DAYS } from '../app/src/cockpit/lib/linkedinFollowups'
 
 let pass = 0
@@ -46,6 +58,32 @@ check(
     ['Erlaubnis-CTA „willst du … sehen"', /willst du .{0,20}sehen/i],
     ['Weichspüler „unverbindlich"', /unverbindlich/i],
   ]
+
+  /**
+   * Dieselben Stimm-Regeln gelten für die Loom-Reihe. Sie hier zweimal
+   * hinzuschreiben wäre die Art von Duplikat, das beim nächsten Zusatz
+   * auseinanderläuft — also einmal als Funktion, zweimal aufgerufen.
+   */
+  function pruefeReihe(reihe: readonly string[], etikett: string) {
+    reihe.forEach((text, stufe) => {
+      check(`${etikett} ${stufe}: keine Emojis`, !emoji.test(text), text)
+      check(`${etikett} ${stufe}: Anrede „Moin"`, text.startsWith('Moin [Vorname],'), text.slice(0, 30))
+      check(`${etikett} ${stufe}: enthält den Platzhalter`, text.includes('[Vorname]'))
+      check(`${etikett} ${stufe}: keine Höflichkeitsanrede`, !/\b(Ihnen|Ihre[mnrs]?)\b/.test(text), text)
+      check(`${etikett} ${stufe}: duzt erkennbar`, /\b(du|dir|dich|euch|eure[mnrs]?)\b/i.test(text), text)
+      for (const [name, muster] of verboten) {
+        check(`${etikett} ${stufe}: ${name} kommt nicht vor`, !muster.test(text), text)
+      }
+      const saetze = text.split(/[.?!]\s/).filter((t) => t.trim()).length
+      check(`${etikett} ${stufe}: höchstens vier Sätze`, saetze <= 4, `${saetze} Sätze`)
+    })
+    check(
+      `${etikett}: kein Duplikat`,
+      new Set(reihe).size === reihe.length,
+    )
+  }
+
+  pruefeReihe(LOOM_FOLLOWUP_VORLAGEN, 'Loom-Stufe')
 
   FOLLOWUP_VORLAGEN.forEach((text, stufe) => {
     check(`Stufe ${stufe}: keine Emojis`, !emoji.test(text), text)
@@ -147,6 +185,122 @@ check(
   const texte = [0, 1, 2].map((stufe) => followupVorlage({ name: 'Felix Range', followup_stage: stufe })?.text)
   check('drei Stufen, drei verschiedene Nachrichten', new Set(texte).size === 3, JSON.stringify(texte))
   check('alle drei sprechen den Lead mit Namen an', texte.every((t) => t?.includes('Felix')))
+}
+
+/* ── Die Loom-Reihe: eigene Texte für Leads, die die Analyse schon haben ── */
+{
+  check(
+    'eine Loom-Vorlage je Follow-up-Stufe',
+    LOOM_FOLLOWUP_VORLAGEN.length === FOLLOWUP_VORLAGEN.length,
+    `${LOOM_FOLLOWUP_VORLAGEN.length} Loom-Texte, ${FOLLOWUP_VORLAGEN.length} kalte Texte`,
+  )
+
+  // Der eigentliche Zweck dieser Reihe: Wer die Analyse hat, darf sie nicht
+  // noch einmal angeboten bekommen.
+  for (const [stufe, text] of LOOM_FOLLOWUP_VORLAGEN.entries()) {
+    check(
+      `Loom-Stufe ${stufe}: bietet die Analyse nicht erneut an`,
+      !text.includes(ANALYSE_CTA),
+      text,
+    )
+  }
+
+  // Keine Überschneidung mit der kalten Reihe — sonst hätte die Verzweigung
+  // keinen Effekt und niemand würde es merken.
+  const ueberschneidung = LOOM_FOLLOWUP_VORLAGEN.filter((t) => FOLLOWUP_VORLAGEN.includes(t))
+  check('Loom-Reihe und kalte Reihe teilen keinen Text', ueberschneidung.length === 0, ueberschneidung.join(' | '))
+
+  // Verzweigung wirkt: derselbe Lead, dieselbe Stufe, anderer Loom-Status.
+  for (const stufe of [0, 1, 2]) {
+    const kalt = followupVorlage({ name: 'Felix Range', followup_stage: stufe })
+    const warm = followupVorlage({ name: 'Felix Range', followup_stage: stufe, loom_status: 'verschickt' })
+    check(`Stufe ${stufe}: Loom verschickt ergibt einen anderen Text`, Boolean(kalt && warm) && kalt?.text !== warm?.text)
+  }
+
+  // Ohne Loom-Status bleibt alles wie vorher — ältere Aufrufer geben ihn nicht mit.
+  check(
+    'ohne Loom-Status gilt die kalte Reihe',
+    followupVorlage({ name: 'Felix Range', followup_stage: 0 })?.text ===
+      followupVorlage({ name: 'Felix Range', followup_stage: 0, loom_status: 'offen' })?.text,
+  )
+}
+
+/* ── Zusage-Antwort und Loom-Versand ───────────────────────────────────── */
+{
+  const emoji = /\p{Extended_Pictographic}/u
+  const zusage = loomZusageVorlage()
+
+  check('Zusage-Antwort: keine Emojis', !emoji.test(zusage.text), zusage.text)
+  check('Zusage-Antwort: fragt nach der E-Mail', /E-Mail/i.test(zusage.text), zusage.text)
+  check('Zusage-Antwort: duzt', /\bdeine\b|\bdir\b/i.test(zusage.text), zusage.text)
+  // Bewusst ohne Anrede: Das ist eine Antwort im laufenden Chat und spiegelt
+  // die Länge der Zusage. „Moin [Vorname]" wäre hier eine Stilbruch-Anrede
+  // mitten im Gespräch.
+  check('Zusage-Antwort: keine Anrede, kein Platzhalter', !zusage.text.includes('[Vorname]'), zusage.text)
+  check('Zusage-Antwort: veraltet nie', zusage.veraltet === false)
+  check('Zusage-Antwort: behauptet kein Entstehungsdatum', zusage.erstelltAm === null)
+  check('Zusage-Antwort: bleibt kurz', zusage.text.length < 200, `${zusage.text.length} Zeichen`)
+
+  const versand = loomVersandVorlage({ name: 'Felix Range' })
+  check('Loom-Versand: liefert einen Text', Boolean(versand))
+  check('Loom-Versand: Vorname ist gesetzt', versand?.text.startsWith('Moin Felix,') === true, versand?.text.slice(0, 20))
+  check('Loom-Versand: keine Emojis', !emoji.test(versand?.text ?? ''), versand?.text)
+  check('Loom-Versand: enthält den Terminlink', versand?.text.includes(TERMIN_LINK) === true, versand?.text)
+  // Der Link zum Video entsteht erst beim Hochladen — ein sichtbarer
+  // Platzhalter ist besser als ein erfundener Link.
+  check('Loom-Versand: Video-Platzhalter bleibt stehen', versand?.text.includes('[Loom-Link]') === true, versand?.text)
+  check('Loom-Versand: unbrauchbarer Name = kein Text', loomVersandVorlage({ name: '--' }) === undefined)
+
+  // Der Terminlink zeigt auf das Vorgespräch. Das Konzeptgespräch ist auf der
+  // Buchungsseite ausgeblendet und wird live vereinbart — taucht hier also nie auf.
+  check('kein Link auf das Konzeptgespräch', !LOOM_VERSAND_VORLAGE.includes('konzeptgespraech'))
+  check(
+    'Zusage-Vorlage und Versand-Vorlage sind nicht dasselbe',
+    LOOM_ZUSAGE_VORLAGE !== LOOM_VERSAND_VORLAGE,
+  )
+}
+
+/* ── Nachweislich gesehen: eigener Text für die erste Stufe ─────────────── */
+{
+  const emoji = /\p{Extended_Pictographic}/u
+  check('Gesichtet-Vorlage: keine Emojis', !emoji.test(LOOM_GESICHTET_VORLAGE), LOOM_GESICHTET_VORLAGE)
+  check('Gesichtet-Vorlage: Anrede „Moin"', LOOM_GESICHTET_VORLAGE.startsWith('Moin [Vorname],'))
+  check('Gesichtet-Vorlage: endet auf eine Frage', LOOM_GESICHTET_VORLAGE.trimEnd().endsWith('?'))
+  // Der ganze Zweck: Sie darf nicht behaupten, das Video liege ungesehen da.
+  check(
+    'Gesichtet-Vorlage: behauptet nicht, es läge noch im Chat',
+    !/liegt noch/i.test(LOOM_GESICHTET_VORLAGE),
+    LOOM_GESICHTET_VORLAGE,
+  )
+  check(
+    'Gesichtet-Vorlage: kein Dank fürs Anschauen',
+    !/danke/i.test(LOOM_GESICHTET_VORLAGE),
+    LOOM_GESICHTET_VORLAGE,
+  )
+
+  const basis = { name: 'Felix Range', loom_status: 'verschickt' as const }
+  const ungesehen = followupVorlage({ ...basis, followup_stage: 0 })
+  const gesehen = followupVorlage({ ...basis, followup_stage: 0 }, true)
+  check('Stufe 0: Sichtung ändert den Text', ungesehen?.text !== gesehen?.text)
+  check('Stufe 0 gesehen: der Vorname steht drin', gesehen?.text.startsWith('Moin Felix,') === true, gesehen?.text)
+
+  // Ab Stufe 1 ist die Frage nicht mehr, ob er das Video kennt — dort ist der
+  // Text für beide derselbe, und das ist Absicht, kein vergessener Zweig.
+  for (const stufe of [1, 2]) {
+    check(
+      `Stufe ${stufe}: Sichtung ändert den Text NICHT`,
+      followupVorlage({ ...basis, followup_stage: stufe })?.text ===
+        followupVorlage({ ...basis, followup_stage: stufe }, true)?.text,
+    )
+  }
+
+  // Ein Sichtungs-Beleg ohne verschicktes Loom ist ein Widerspruch und darf
+  // den kalten Text nicht ersetzen.
+  check(
+    'gesichtet ohne Versand bleibt die kalte Reihe',
+    followupVorlage({ name: 'Felix Range', followup_stage: 0, loom_status: 'offen' }, true)?.text ===
+      followupVorlage({ name: 'Felix Range', followup_stage: 0 })?.text,
+  )
 }
 
 console.log(`\nverify-followup-vorlagen: ${pass} ok, ${fail} fehlgeschlagen`)

@@ -58,10 +58,48 @@ export function isTerminal(status: LinkedinThread['status']): boolean {
  * geltende Kadenz. Wer sie explizit mitgibt (Prüfskripte, die Vorschau vor dem
  * Speichern), umgeht das Modul-Singleton vollständig.
  */
+/**
+ * In welcher Lage steckt der Lead gegenüber seinem Loom?
+ *
+ * Drei Zustände, drei Taktungen — das ist der ganze Zweck. Wer nie geantwortet
+ * hat, wer die Analyse hat und wer sie nachweislich gesehen hat, sind drei
+ * verschiedene Menschen, und sie in denselben Rhythmus zu zwingen verschenkt
+ * genau bei dem Wärmsten die meiste Zeit.
+ */
+export type LoomLage = 'kalt' | 'verschickt' | 'gesichtet'
+
+export function loomLageVon(
+  thread: Pick<LinkedinThread, 'loom_status'>,
+  gesichtet = false,
+): LoomLage {
+  if (thread.loom_status !== 'verschickt') return 'kalt'
+  return gesichtet ? 'gesichtet' : 'verschickt'
+}
+
+/** Die drei Schwellen, die für diese Lage gelten. */
+export function schwellenFuer(
+  lage: LoomLage,
+  kadenz = aktiveKadenz(),
+): readonly [number, number, number] {
+  if (lage === 'gesichtet') return kadenz.loomGesichtetTage
+  if (lage === 'verschickt') return kadenz.loomFollowupTage
+  return kadenz.followupTage
+}
+
+/**
+ * `schwellen` ist seit dem 25.08.2026 übergebbar — wer sie explizit mitgibt
+ * (Prüfskripte, die Vorschau vor dem Speichern), umgeht Kadenz UND Loom-Lage
+ * vollständig und rechnet exakt wie vorher.
+ *
+ * Ohne explizite Schwellen entscheidet seit dem 15.09.2026 die Loom-Lage,
+ * welches Tripel gilt. `gesichtet` muss der Aufrufer wissen — es steht in
+ * `lead_ereignisse`, nicht am Thread.
+ */
 export function isDue(
   thread: LinkedinThread,
   now: Date,
-  schwellen: readonly [number, number, number] = aktiveKadenz().followupTage,
+  schwellen?: readonly [number, number, number],
+  gesichtet = false,
 ): boolean {
   if (thread.status !== 'active') return false
   if (thread.last_from !== 'me') return false
@@ -69,7 +107,8 @@ export function isDue(
   if (thread.followup_stage > 2) return false
   if (isSnoozed(thread, now.getTime())) return false
 
-  const thresholdDays = schwellen[thread.followup_stage]
+  const tripel = schwellen ?? schwellenFuer(loomLageVon(thread, gesichtet))
+  const thresholdDays = tripel[thread.followup_stage]
   const elapsedMs = now.getTime() - new Date(thread.last_message_at).getTime()
   return elapsedMs >= thresholdDays * DAY_MS
 }
@@ -88,7 +127,8 @@ export function istWeckbar(thread: LinkedinThread, now: Date): boolean {
 export function bucketOf(
   thread: LinkedinThread,
   now: Date,
-  schwellen: readonly [number, number, number] = aktiveKadenz().followupTage,
+  schwellen?: readonly [number, number, number],
+  gesichtet = false,
 ): FollowupBucket {
   // Nur erledigte/schlafende Threads ruhen. `waiting_reply` darf hier NICHT
   // hineinfallen — das ist genau der Zustand, den der Sync setzt, wenn der Lead
@@ -103,7 +143,7 @@ export function bucketOf(
   // Hier stand die Altlast-Regel (> 30 Tage nie nachgefasst → eigener Bucket,
   // raus aus der Tagesliste). Sie ist am 14.08.2026 gefallen: ein alter Thread
   // ist fällig, nicht erledigt. Siehe Kommentar oben.
-  if (isDue(thread, now, schwellen)) return 'faellig'
+  if (isDue(thread, now, schwellen, gesichtet)) return 'faellig'
   return 'wartet'
 }
 

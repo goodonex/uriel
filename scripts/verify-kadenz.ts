@@ -257,5 +257,39 @@ function dateien(ordner: string): string[] {
   check('Gegenprobe: kadenz.ts enthaelt das gesuchte Muster', /\[\s*3\s*,\s*7\s*,\s*14\s*\]/.test(kadenzQuelle))
 }
 
+/* ── Die beiden Loom-Takte (15.09.2026) ──────────────────────────────────
+ *
+ * Auch hier abgetippte Zahlen, aus demselben Grund wie oben: Eine Wache, die
+ * mit der Konstante rechnet, bemerkt nicht, wenn die Konstante verrutscht.
+ */
+{
+  check('Vorgabe: nach Loom 2/5/10', KADENZ_STANDARD.loomFollowupTage.join() === '2,5,10', KADENZ_STANDARD.loomFollowupTage.join())
+  check('Vorgabe: gesichtet 1/3/7', KADENZ_STANDARD.loomGesichtetTage.join() === '1,3,7', KADENZ_STANDARD.loomGesichtetTage.join())
+
+  // Die inhaltliche Invariante, nicht nur die Zahlen: enger wird es in der
+  // Reihe kalt → verschickt → gesichtet, an jeder einzelnen Stufe.
+  for (const stufe of [0, 1, 2]) {
+    check(
+      `Stufe ${stufe}: kalt > nach Loom > gesichtet`,
+      KADENZ_STANDARD.followupTage[stufe] > KADENZ_STANDARD.loomFollowupTage[stufe] &&
+        KADENZ_STANDARD.loomFollowupTage[stufe] > KADENZ_STANDARD.loomGesichtetTage[stufe],
+    )
+  }
+
+  // Ein kaputtes Tripel reisst die anderen nicht mit — feldweise, wie überall.
+  const geflickt = gueltigeKadenz({ loomFollowupTage: [10, 2, 5] })
+  check('nicht aufsteigend = ganzes Tripel zurück auf die Vorgabe', geflickt.loomFollowupTage.join() === '2,5,10')
+  check('dabei bleibt die kalte Reihe unberührt', geflickt.followupTage.join() === '3,7,14')
+
+  const eigen = gueltigeKadenz({ loomGesichtetTage: [2, 4, 6] })
+  check('eine gültige Überschreibung gilt', eigen.loomGesichtetTage.join() === '2,4,6')
+  check('und lässt die anderen Tripel stehen', eigen.loomFollowupTage.join() === '2,5,10')
+
+  for (const unsinn of [null, 'zwei', [1, 2], [0, 3, 7], [1, 3], [1.5, 3, 7]]) {
+    const k = gueltigeKadenz({ loomGesichtetTage: unsinn })
+    check(`Unsinn ${JSON.stringify(unsinn)} fällt auf die Vorgabe zurück`, k.loomGesichtetTage.join() === '1,3,7')
+  }
+}
+
 console.log(`\nverify-kadenz: ${pass} ok, ${fail} fehlgeschlagen`)
 process.exit(fail === 0 ? 0 : 1)
