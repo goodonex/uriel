@@ -68,28 +68,45 @@ const GLEICHZEITIG = Number(process.env.RECHERCHE_PARALLEL ?? 3)
  * ersten von zwei Leads ab: Ergebnis weg, Geld trotzdem ausgegeben. Das ist
  * der teuerste aller Fälle. $0,15 lässt den Normalfall (~$0,08) in Ruhe und
  * fängt nur den Ausreißer, der sich festgebissen hat.
+ *
+ * $0,20 seit dem 16.09.: Der Befund braucht wieder die Eigentümer-Unterseite
+ * (Verkaufen/Bewertung), also einen Abruf mehr als bisher.
  */
-const BUDGET_JE_LEAD = Number(process.env.RECHERCHE_BUDGET_USD ?? 0.15)
+const BUDGET_JE_LEAD = Number(process.env.RECHERCHE_BUDGET_USD ?? 0.2)
 
 /**
  * Das Destillat, das der Schreib-Agent bekommt.
  *
- * Bewusst eng: Es soll das tragen, woraus eine Beobachtung wird, und nichts
+ * Bewusst eng: Es soll das tragen, woraus ein Befund wird, und nichts
  * darüber hinaus. Jede Zeile mehr wandert in den teuren Kontext.
+ *
+ * **Befund statt Beobachtung (16.09.2026).** Bis heute hieß das Feld
+ * `beobachtung` und verlangte, „was auf der Startseite steht". Geliefert wurde
+ * genau das: der Werbespruch aus dem Kopf der Seite. Der Schreib-Agent hat die
+ * Seite nie gesehen und baute daraus die Nachricht — „‚Bestand erhalten.
+ * Zukunft gestalten.' steht bei euch ganz vorn", „Dein Hero sagt sofort …".
+ * Kevin am 16.09.: *„da wird sich irgendein Claim genommen und damit darauf
+ * rumgeritten. Das war nicht die Art und Weise, wie wir Erstnachrichten
+ * rausschicken."* Die Juli-Nachrichten, die funktioniert haben, stützten sich
+ * auf den Eigentümer-Weg der Seite: Gibt es einen Verkaufen-Bereich, liefert
+ * die Bewertung ein Ergebnis oder nur ein Formular, ist die Seite
+ * käuferlastig, veraltet, kaputt. Genau diese Prüfpunkte fragt der Prompt
+ * jetzt ab — und dafür darf er die eine Unterseite laden, auf der sie stehen.
  */
 function baueRecherchePrompt(lead) {
-  return `Du recherchierst EINEN Immobilien-Kontakt für eine Erstansprache. Kein Text an den Kontakt, nur Fakten.
+  return `Du prüfst die Website EINES Immobilien-Kontakts für eine Erstansprache. Kein Text an den Kontakt, nur Befunde.
 
 Kontakt:
 - Name: ${lead.name}
 - LinkedIn-Headline: ${lead.headline ?? '(keine)'}
 - LinkedIn-Profil: ${lead.profile_url ?? '(unbekannt)'}
 
-Aufgabe — halte dich exakt an diese zwei Schritte:
+Aufgabe — halte dich exakt an diese Schritte:
 1. EINE Websuche (WebSearch: Name + Firma/Ort + "Immobilien"). Genau eine.
-2. HÖCHSTENS EIN Seitenabruf (WebFetch) der Startseite, die am besten zu dieser Person passt.
+2. EIN Abruf (WebFetch) der Startseite, die am besten zu dieser Person passt. Frag dabei gezielt nach: Menüpunkten, einem Bereich für Verkäufer/Eigentümer (Verkaufen, Bewertung, Wertermittlung), wohin dieser Link führt, ob die Seite eher Käufer oder Eigentümer anspricht, und sichtbaren Mängeln.
+3. HÖCHSTENS EIN weiterer Abruf: die Unterseite für Eigentümer (Verkaufen/Bewertung), falls die Startseite eine verlinkt. Sonst keiner.
 
-Danach antwortest du. **Keine Nachrecherche, kein Handelsregister, keine zweite Quelle, keine Unterseiten.** Reicht das nicht für ein sicheres Urteil, setzt du "sicher": false und gibst zurück, was du hast — das ist ein gültiges Ergebnis. Gründlichkeit über diese zwei Schritte hinaus ist hier ausdrücklich nicht erwünscht: Sie kostet mehr, als die Nachricht wert ist.
+Danach antwortest du. **Keine Nachrecherche, kein Handelsregister, keine zweite Quelle, keine weiteren Unterseiten.** Reicht das nicht für ein sicheres Urteil, setzt du "sicher": false und gibst zurück, was du hast — das ist ein gültiges Ergebnis.
 
 Antworte mit NICHTS als diesem JSON-Block:
 
@@ -98,10 +115,14 @@ Antworte mit NICHTS als diesem JSON-Block:
   "firma": "",
   "website": "",
   "sicher": true,
+  "erreichbar": "",
   "taetigkeit": "",
-  "beobachtung": "",
-  "eigentuemer_ansprache": "",
-  "auffaelligkeit": ""
+  "eigentuemer_bereich": "",
+  "bewertung": "",
+  "ausrichtung": "",
+  "optik": "",
+  "mangel": "",
+  "befund": ""
 }
 \`\`\`
 
@@ -109,10 +130,14 @@ Feldregeln:
 - "firma": Firmenname, wie er auf der Seite steht. Leer, wenn keine gefunden.
 - "website": vollständige URL oder leer. NIE geraten.
 - "sicher": false, wenn du dir bei der Zuordnung nicht sicher bist.
+- "erreichbar": "ja", "offline" (Fehler, Zertifikat, lädt nicht) oder "umbau" (Wartungs-/Baustellenseite). Leer, wenn keine Website.
 - "taetigkeit": was die Person WIRKLICH macht, in einem Halbsatz — die Headline lügt oft. Bei Coach, Berater, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft: genau das hinschreiben.
-- "beobachtung": ein bis zwei Sätze, konkret und überprüfbar, über die Startseite: was dort steht, wie sie wirkt, was fehlt. Keine Wertung ins Blaue, nur was du gesehen hast.
-- "eigentuemer_ansprache": Werden verkaufswillige Eigentümer angesprochen (Bewertung, Verkaufsanfrage, Wertermittlung)? "ja", "nein" oder "unklar".
-- "auffaelligkeit": erkennbar veraltet, nicht handytauglich, kein Impressum, sehr langsam — oder leer.
+- "eigentuemer_bereich": Gibt es einen eigenen Bereich für Eigentümer, die verkaufen wollen? "nein" oder "ja: <Name des Menüpunkts>".
+- "bewertung": "sofort-ergebnis" (Tool rechnet direkt einen Wert aus), "nur-formular" (Anfrage, Wert kommt später per Mail/Anruf), "kostenpflichtig", "keine" oder "unklar".
+- "ausrichtung": "kaeuferlastig" (Objekte/Suche dominieren), "eigentuemer" (Verkäufer werden vorne angesprochen), "investoren" oder "unklar".
+- "optik": "modern", "veraltet" oder "unklar".
+- "mangel": ein konkreter, für jeden Besucher sichtbarer Fehler — Platzhalter-Bilder, tote Links, Termine aus einem vergangenen Jahr, kaputte Sonderzeichen. **Im Zweifel leer.** Kein Mangel sind: versteckte Standardtexte von Baukästen im Quelltext („Oops! Something went wrong", „Thank you! Your submission has been received"), Daten aus den letzten Monaten, Alt-Texte von Bildern, alles, was du nur vermutest. Kevin nennt diesen Mangel dem Kontakt ins Gesicht — ein falscher blamiert ihn.
+- "befund": ein bis zwei Sätze über den Weg eines verkaufswilligen Eigentümers auf dieser Seite: was es für ihn gibt und was fehlt. **Nie Werbesprüche, Slogans, Überschriften oder Selbstbeschreibungen der Firma zitieren oder nacherzählen** („Ihr Partner für …", „Werte schaffen", „mit Leidenschaft") — die sagen nichts über die Seite. Auch keine Kennzahlen aus dem Eigenlob (Anzahl Verkäufe, Sterne).
 
 Findest du keine Website, gib alle Felder leer zurück außer "taetigkeit". Das ist ein brauchbares Ergebnis, kein Fehler. **Erfinde nichts.**`
 }
