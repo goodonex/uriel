@@ -2,8 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useGlobalMessages } from '../../hooks/useGlobalMessages'
 import { supabase } from '../../lib/supabase'
 import { sendeProjektNachricht } from '../../lib/projectMessageService'
-import { gibSiteContentFrei, verwirfSiteContentEntwurf } from '../../lib/siteContentService'
-import { ordnePosteingang, zaehleJeProjekt, zaehleNachrichten, type PosteingangEintrag } from './posteingang'
+import {
+  gibProjektFrei,
+  gibSiteContentFrei,
+  verwirfProjektEntwuerfe,
+  verwirfSiteContentEntwurf,
+} from '../../lib/siteContentService'
+import { leseCmsEinreichung } from '../../lib/cmsEinreichung'
+import {
+  buendleWebsite,
+  ordnePosteingang,
+  zaehleJeProjekt,
+  zaehleNachrichten,
+  type PosteingangEintrag,
+} from './posteingang'
 
 /**
  * Der Kunden-Posteingang: alles, was von Kundenseite auf Kevin wartet, in EINER
@@ -73,7 +85,21 @@ export function useKundenPosteingang(brandSlug: string | undefined) {
   )
 
   const eintraege = useMemo<PosteingangEintrag[]>(() => {
-    const ausNachrichten: PosteingangEintrag[] = nachrichten.ungelesen.map((m) => ({
+    /**
+     * Die Einreichungs-Nachricht ("[website:12] Die Preise sind neu …") ist
+     * kein eigener Posten, sondern die Notiz zum Website-Vorgang. Sie wird hier
+     * aus der Nachrichtenliste genommen und an das Bündel gehängt — sonst stünde
+     * derselbe Vorgang zweimal in der Schlange und Kevin hakte einmal zu viel ab.
+     */
+    const notizJeProjekt = new Map<string, string>()
+    const nurEchteNachrichten = nachrichten.ungelesen.filter((m) => {
+      const eingereicht = leseCmsEinreichung(m.body)
+      if (!eingereicht) return true
+      if (eingereicht.notiz) notizJeProjekt.set(m.project_id, eingereicht.notiz)
+      return false
+    })
+
+    const ausNachrichten: PosteingangEintrag[] = nurEchteNachrichten.map((m) => ({
       id: m.id,
       art: 'nachricht',
       projektId: m.project_id,
@@ -99,7 +125,7 @@ export function useKundenPosteingang(brandSlug: string | undefined) {
       bereich: f.section,
     }))
 
-    return ordnePosteingang([...ausNachrichten, ...ausWebsite])
+    return ordnePosteingang([...ausNachrichten, ...buendleWebsite(ausWebsite, notizJeProjekt)])
   }, [nachrichten.ungelesen, website, projektName])
 
   const jeProjekt = useMemo(() => zaehleJeProjekt(eintraege), [eintraege])
@@ -124,9 +150,17 @@ export function useKundenPosteingang(brandSlug: string | undefined) {
     [nachrichten],
   )
 
+  /**
+   * Freigeben und Verwerfen gelten seit 0086 für die ganze Einreichung, nicht
+   * für ein Feld: ein Aufruf, eine Transaktion, alles oder nichts. Die
+   * Einzelfeld-Funktionen bleiben für den Projekt-Editor bestehen, wo Kevin
+   * bewusst ein einzelnes Feld anfasst.
+   */
   const gibWebsiteFrei = useCallback(
     async (eintrag: PosteingangEintrag) => {
-      const res = await gibSiteContentFrei(eintrag.id, eintrag.neu)
+      const res = eintrag.felder
+        ? await gibProjektFrei(eintrag.projektId)
+        : await gibSiteContentFrei(eintrag.id, eintrag.neu)
       await reloadWebsite()
       return res
     },
@@ -135,7 +169,9 @@ export function useKundenPosteingang(brandSlug: string | undefined) {
 
   const verwirfWebsite = useCallback(
     async (eintrag: PosteingangEintrag) => {
-      const res = await verwirfSiteContentEntwurf(eintrag.id, eintrag.alt)
+      const res = eintrag.felder
+        ? await verwirfProjektEntwuerfe(eintrag.projektId)
+        : await verwirfSiteContentEntwurf(eintrag.id, eintrag.alt)
       await reloadWebsite()
       return res
     },

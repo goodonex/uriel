@@ -1173,6 +1173,82 @@
 .studio-fehler {
   font-size: 12px;
   color: var(--status-danger, #e5484d);
+  line-height: 1.5;
+}
+
+/* Fehler, die nicht an einem einzelnen Feld hängen, sondern am Ganzen. */
+.studio-fehler--breit {
+  margin: 0;
+  padding: 10px 22px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--portal-border);
+}
+
+/* Ruhiger Hinweis (wartet auf Freigabe) — kein Fehler, deshalb kein Rot. */
+.studio-hinweis {
+  margin: 0;
+  padding: 10px 22px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--portal-text-secondary);
+  border-bottom: 1px solid var(--portal-border);
+  background: rgba(197, 160, 89, 0.07);
+}
+
+/* ── Frühere Stände ───────────────────────────────────────────────────────
+   Dasselbe eingeklappte Muster wie „Banner & Popup": selten gebraucht, aber
+   ohne Nachfrage auffindbar, wenn jemand etwas zurücknehmen will. */
+.studio__staende { margin-bottom: 18px; }
+
+.studio__staende-hinweis {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--portal-text-secondary);
+}
+
+.studio__stand-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--portal-border);
+}
+
+.studio__stand-datum {
+  display: block;
+  font-size: 13px;
+  color: var(--portal-text);
+}
+
+.studio__stand-info {
+  display: block;
+  font-size: 11.5px;
+  color: var(--portal-text-secondary);
+}
+
+/* Die Rückfrage ersetzt die Knopfleiste, statt sich darüberzulegen: auf dem
+   Handy klebt die Leiste unten und ist damit der einzige Ort, der zuverlaessig
+   sichtbar ist, auch wenn die Tastatur offen steht. */
+.studio__rueckfrage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.studio__rueckfrage-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--portal-text);
+  margin: 0;
+}
+
+.studio__rueckfrage .studio__knoepfe {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 /* ── Vorschau ─────────────────────────────────────────────────────────── */
@@ -1234,6 +1310,7 @@
 .studio__knoepfe {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .studio__fuss .portal-btn { padding: 10px 18px; }

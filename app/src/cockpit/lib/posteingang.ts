@@ -33,6 +33,11 @@ export interface PosteingangEintrag {
   neu: string | null
   /** Website: Gruppierung aus site_content.section */
   bereich: string | null
+  /**
+   * Website, gebündelt: die einzelnen Felder dieser Einreichung. Gesetzt nur
+   * am Sammel-Eintrag je Projekt, nicht an den Einzelposten darin.
+   */
+  felder?: PosteingangEintrag[]
 }
 
 /** Das Versprechen im Portal: Antwort in 24 h. Danach ist ein Posten überfällig. */
@@ -77,6 +82,52 @@ export function ordnePosteingang(eintraege: PosteingangEintrag[]): PosteingangEi
     const cmp = a.seit.localeCompare(b.seit)
     return cmp !== 0 ? cmp : a.id.localeCompare(b.id)
   })
+}
+
+/**
+ * Zwanzig geänderte Felder sind EIN Vorgang, nicht zwanzig.
+ *
+ * Vorher stand jedes eingereichte Feld als eigener Posten in der Schlange. Wer
+ * eine Stunde lang seine Seite durchgeht, erzeugte damit zwanzig Zeilen, über
+ * die zwanzigmal einzeln geurteilt werden musste — und genau daraus wird aus
+ * einem Freigabe-Schritt ein Ticketsystem. Ein Kunde denkt nicht in Feldern,
+ * er denkt in "meiner Seite".
+ *
+ * Deshalb: ein Eintrag je Projekt, der die Einzelposten als `felder` mitführt.
+ * Die Wartezeit ist die des ÄLTESTEN Feldes — der Vorgang wartet, seit das
+ * erste angefasst wurde, nicht seit dem letzten Tippen.
+ */
+export function buendleWebsite(
+  einzelne: PosteingangEintrag[],
+  notizJeProjekt: Map<string, string> = new Map(),
+): PosteingangEintrag[] {
+  const gruppen = new Map<string, PosteingangEintrag[]>()
+  for (const e of einzelne) {
+    if (e.art !== 'website') continue
+    const liste = gruppen.get(e.projektId)
+    if (liste) liste.push(e)
+    else gruppen.set(e.projektId, [e])
+  }
+
+  const gebuendelt: PosteingangEintrag[] = []
+  for (const [projektId, felder] of gruppen) {
+    const sortiert = [...felder].sort((a, b) => a.seit.localeCompare(b.seit))
+    const anzahl = sortiert.length
+    gebuendelt.push({
+      id: `website:${projektId}`,
+      art: 'website',
+      projektId,
+      projektName: sortiert[0].projektName,
+      titel: anzahl === 1 ? 'Website — 1 Änderung' : `Website — ${anzahl} Änderungen`,
+      seit: sortiert[0].seit,
+      text: notizJeProjekt.get(projektId) ?? null,
+      alt: null,
+      neu: null,
+      bereich: null,
+      felder: sortiert,
+    })
+  }
+  return gebuendelt
 }
 
 export type AenderungsArt = 'hinzugefuegt' | 'entfernt' | 'geaendert' | 'unveraendert'

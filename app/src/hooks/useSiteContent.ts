@@ -4,14 +4,44 @@ import { gibSiteContentFrei, verwirfSiteContentEntwurf } from '../lib/siteConten
 
 /**
  * Website-CMS (Migration 0052): feste Text-/Bild-Felder je Projekt.
- * Kunde speichert Entwürfe (value_draft, Trigger setzt status=pending),
- * Owner gibt frei (draft → published). RLS regelt beide Seiten.
  *
- * Seit 0084 kann ein Projekt auf `cms_autopublish` stehen — dann setzt der
- * Trigger value_published gleich mit und es gibt nichts freizugeben. Die
- * Oberflächen müssen das nur noch richtig beschriften; am Schreibweg hier
- * ändert sich nichts.
+ * Seit **0086** sind Speichern und Veröffentlichen zwei verschiedene Dinge.
+ * Geschrieben wird weiterhin nur `value_draft` — aber ein gespeicherter Entwurf
+ * geht nirgendwo mehr von allein hin, auch nicht bei `cms_autopublish`. Den
+ * Schritt nach draußen machen drei Funktionen in der Datenbank, jede für EIN
+ * Projekt und alles-oder-nichts:
+ *
+ *   liveSchalten   draft → published   (Kunde nur bei cms_autopublish)
+ *   einreichen     draft → pending     ("schau bitte drauf")
+ *   verwerfenOffen draft ← published   (zurück auf den Stand von draußen)
+ *
+ * Warum das wichtig ist: Vorher lagen die Entwürfe des Kunden im Browser-Tab,
+ * weil es in der Datenbank keinen Platz für "fertig, aber noch nicht draußen"
+ * gab. Jetzt gibt es ihn — deshalb überlebt ein halbfertiger Stand das
+ * Schließen des Tabs, und `cms_autopublish` entscheidet nur noch, ob der Kunde
+ * den Live-Knopf überhaupt angeboten bekommt.
  */
+
+/**
+ * Datenbank-Fehler in einen Satz übersetzen, den ein Makler lesen kann.
+ *
+ * Vorher stand der englische Originaltext ("new row violates row-level security
+ * policy for table …") ungefiltert im Kundenportal. Das ist für den Empfänger
+ * dieselbe Information wie gar keine — nur beunruhigender.
+ */
+export function kundenFehler(roh: string): string {
+  const t = roh.toLowerCase()
+  if (t.includes('gibt die agentur frei')) return 'Für deine Seite geben wir frei — schick uns die Änderungen, wir schauen drüber.'
+  if (t.includes('kein zugriff')) return 'Diese Seite gehört nicht zu deinem Zugang. Bitte melde dich bei uns.'
+  if (t.includes('nur entwürfe')) return 'Das lässt sich hier nicht ändern. Sag uns kurz Bescheid, wir machen das.'
+  if (t.includes('row-level security') || t.includes('permission denied')) {
+    return 'Dafür fehlt deinem Zugang die Berechtigung. Bitte melde dich bei uns.'
+  }
+  if (t.includes('failed to fetch') || t.includes('network')) {
+    return 'Keine Verbindung. Prüf kurz dein Internet und versuch es noch einmal.'
+  }
+  return 'Das hat gerade nicht geklappt. Versuch es noch einmal — wenn es bleibt, melde dich bei uns.'
+}
 
 /** Schalter-Felder liegen als '1'/'0' in derselben Textspalte wie alles andere. */
 export const istAn = (value: string | null | undefined): boolean => value === '1'
@@ -26,10 +56,25 @@ export interface SiteContentField {
   field_type: 'text' | 'textarea' | 'image' | 'boolean' | 'url'
   value_published: string | null
   value_draft: string | null
-  status: 'published' | 'pending'
+  /** draft = getippt · pending = beim Owner eingereicht · published = draußen */
+  status: 'published' | 'pending' | 'draft'
   sort_order: number
   draft_updated_at: string | null
   published_at: string | null
+}
+
+/**
+ * Ein früherer Stand der ganzen Seite (Migration 0087). Entsteht VOR jeder
+ * Veröffentlichung und hält damit fest, was bis dahin draußen stand — die
+ * Liste liest sich deshalb als „so sah die Seite vor dieser Änderung aus".
+ */
+export interface SiteContentVersion {
+  id: string
+  erstellt_am: string
+  anlass: 'live' | 'freigabe' | 'rueckname'
+  /** { field_key: value_published } über alle Felder des Projekts. */
+  werte: Record<string, string | null>
+  notiz: string | null
 }
 
 export interface SiteContentFieldDef {
@@ -41,6 +86,13 @@ export interface SiteContentFieldDef {
   value_published?: string
 }
 
+/**
+ * Ergebnis der drei Projekt-Vorgänge. Bewusst nicht `void`: die Oberfläche muss
+ * unterscheiden können zwischen "hat geklappt" und "hat nicht geklappt" — der
+ * alte Weg hat jeden Fehler verschluckt und trotzdem Erfolg gemeldet.
+ */
+export type ProjektErgebnis = { ok: true; anzahl: number } | { ok: false; error: string }
+
 interface UseSiteContentResult {
   fields: SiteContentField[]
   /** nach section gruppiert, sortiert */
@@ -49,8 +101,18 @@ interface UseSiteContentResult {
   loading: boolean
   error: string | null
   reload: () => Promise<void>
-  /** Kunde/Owner: Entwurf speichern */
-  saveDraft: (fieldId: string, value: string) => Promise<void>
+  /** Kunde/Owner: Entwurf speichern. false = hat nicht geklappt. */
+  saveDraft: (fieldId: string, value: string) => Promise<boolean>
+  /** Alle offenen Entwürfe des Projekts veröffentlichen — alles oder nichts. */
+  liveSchalten: () => Promise<ProjektErgebnis>
+  /** Alle offenen Entwürfe zur Prüfung anmelden (draft → pending). */
+  einreichen: () => Promise<ProjektErgebnis>
+  /** Alle offenen Entwürfe auf den veröffentlichten Stand zurücksetzen. */
+  verwerfenOffen: () => Promise<ProjektErgebnis>
+  /** Frühere Stände der Seite, neueste zuerst. */
+  versionen: SiteContentVersion[]
+  /** Einen früheren Stand wiederherstellen — selbst wieder rücknehmbar. */
+  versionZurueck: (versionId: string) => Promise<ProjektErgebnis>
   /** Owner: Entwurf freigeben (draft → published) */
   approve: (fieldIds: string[]) => Promise<void>
   /** Owner: Entwurf verwerfen (draft ← published) */
@@ -87,7 +149,7 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
       .order('sort_order', { ascending: true })
     if (err) {
       // Tabelle fehlt (Migration 0052 nicht ausgeführt) → leer, kein Crash
-      if (!/relation .* does not exist/i.test(err.message)) setError(err.message)
+      if (!/relation .* does not exist/i.test(err.message)) setError(kundenFehler(err.message))
       setFields([])
     } else {
       setFields((data ?? []) as SiteContentField[])
@@ -101,8 +163,8 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
   }, [reload])
 
   const saveDraft = useCallback(
-    async (fieldId: string, value: string) => {
-      if (!supabase) return
+    async (fieldId: string, value: string): Promise<boolean> => {
+      if (!supabase) return false
       // Optimistisch; Status setzt DB-seitig der Trigger (Client) bzw. bleibt
       // owner-seitig konsistent, weil wir ihn hier mitschreiben.
       setFields((cur) =>
@@ -111,7 +173,14 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
             ? {
                 ...f,
                 value_draft: value,
-                status: value !== (f.value_published ?? '') ? 'pending' : 'published',
+                // Ein einmal eingereichter Stand bleibt eingereicht, auch wenn
+                // der Kunde danach weitertippt — genau so macht es der Trigger.
+                status:
+                  value === (f.value_published ?? '')
+                    ? 'published'
+                    : f.status === 'pending'
+                      ? 'pending'
+                      : 'draft',
               }
             : f,
         ),
@@ -121,12 +190,94 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
         .update({ value_draft: value })
         .eq('id', fieldId)
       if (err) {
-        setError(err.message)
+        setError(kundenFehler(err.message))
         await reload()
+        return false
       }
+      return true
     },
     [reload],
   )
+
+  /**
+   * Die drei Projekt-Vorgänge aus 0086. Immer derselbe Ablauf: eine Funktion in
+   * der Datenbank aufrufen, danach neu laden. Ein Fehler wird zurückgegeben
+   * statt stillschweigend in einen Erfolg verwandelt — genau daran hing der
+   * Befund "halb gespeichert, trotzdem 'Steht jetzt auf deiner Website'".
+   */
+  const projektVorgang = useCallback(
+    async (fn: 'site_content_live_schalten' | 'site_content_einreichen' | 'site_content_verwerfen'): Promise<ProjektErgebnis> => {
+      if (!supabase) return { ok: false, error: 'Keine Verbindung. Bitte die Seite neu laden.' }
+      if (!projectId) return { ok: false, error: 'Kein Projekt.' }
+      const { data, error: err } = await supabase.rpc(fn, { p_project: projectId })
+      if (err) {
+        const text = kundenFehler(err.message)
+        setError(text)
+        return { ok: false, error: text }
+      }
+      setError(null)
+      await reload()
+      return { ok: true, anzahl: typeof data === 'number' ? data : 0 }
+    },
+    [projectId, reload],
+  )
+
+  /* Frühere Stände. Eigener Ladeweg, weil sie sich nur beim Veröffentlichen
+     ändern — und weil ein Fehler hier (etwa eine fehlende Migration) die
+     Feldliste nicht mitreißen darf. */
+  const [versionen, setVersionen] = useState<SiteContentVersion[]>([])
+
+  const reloadVersionen = useCallback(async () => {
+    if (!projectId || !supabase) {
+      setVersionen([])
+      return
+    }
+    const { data, error: err } = await supabase
+      .from('site_content_versionen')
+      .select('id, erstellt_am, anlass, werte, notiz')
+      .eq('project_id', projectId)
+      .order('erstellt_am', { ascending: false })
+    if (err) {
+      // Tabelle fehlt (0087 nicht gelaufen) → keine Liste statt Fehlerbanner.
+      setVersionen([])
+      return
+    }
+    setVersionen((data ?? []) as SiteContentVersion[])
+  }, [projectId])
+
+  useEffect(() => {
+    void reloadVersionen()
+  }, [reloadVersionen])
+
+  const versionZurueck = useCallback(
+    async (versionId: string): Promise<ProjektErgebnis> => {
+      if (!supabase) return { ok: false, error: 'Keine Verbindung. Bitte die Seite neu laden.' }
+      if (!projectId) return { ok: false, error: 'Kein Projekt.' }
+      const { data, error: err } = await supabase.rpc('site_content_version_zurueck', {
+        p_project: projectId,
+        p_version: versionId,
+      })
+      if (err) {
+        const text = kundenFehler(err.message)
+        setError(text)
+        return { ok: false, error: text }
+      }
+      setError(null)
+      await Promise.all([reload(), reloadVersionen()])
+      return { ok: true, anzahl: typeof data === 'number' ? data : 0 }
+    },
+    [projectId, reload, reloadVersionen],
+  )
+
+  const liveSchalten = useCallback(async () => {
+    const res = await projektVorgang('site_content_live_schalten')
+    // Veröffentlichen legt einen Stand an — die Liste ist sonst veraltet,
+    // genau in dem Moment, in dem jemand sie braucht.
+    if (res.ok) await reloadVersionen()
+    return res
+  }, [projektVorgang, reloadVersionen])
+  const einreichen = useCallback(() => projektVorgang('site_content_einreichen'), [projektVorgang])
+  const verwerfenOffen = useCallback(() => projektVorgang('site_content_verwerfen'), [projektVorgang])
 
   const approve = useCallback(
     async (fieldIds: string[]) => {
@@ -209,6 +360,11 @@ export function useSiteContent(projectId: string | undefined): UseSiteContentRes
     error,
     reload,
     saveDraft,
+    liveSchalten,
+    einreichen,
+    verwerfenOffen,
+    versionen,
+    versionZurueck,
     approve,
     discardDraft,
     seedFields,

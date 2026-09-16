@@ -14,6 +14,7 @@ import { PortalWebsiteStudio } from './PortalWebsiteStudio'
 import { PortalPhaseMessageButton } from './PortalPhaseMessageButton'
 import { useProjectMessages } from '../../hooks/useProjectMessages'
 import { baueAbnahme, type AbnahmeArt } from '../../lib/abnahme'
+import { baueCmsEinreichung } from '../../lib/cmsEinreichung'
 
 interface PortalShellProps {
   project: DeliverProject
@@ -52,11 +53,26 @@ export function PortalShell({
    */
   const pflegeModus = project.cms_autopublish
 
+  /**
+   * "Schau bitte drauf" — die Einreichung des Kunden geht über den BESTEHENDEN
+   * Sendepfad als `sender_role='client'`, genau wie die Deliverable-Abnahme
+   * darunter. Kein neues Schema, keine Warteschlange: dadurch hängt sie an
+   * allem dran, was es schon gibt (Posteingang in /freigaben, Ungelesen-Zähler,
+   * Benachrichtigungs-Mail). Der Zustand der Felder steht weiterhin allein in
+   * `site_content.status` — die Nachricht ist das Ereignis, nicht die Wahrheit.
+   */
+  const meldeEinreichung = async (anzahl: number, notiz: string) => {
+    if (preview) return true
+    const res = await send(baueCmsEinreichung(anzahl, notiz))
+    return res.ok
+  }
+
   const studio = (
     <PortalWebsiteStudio
       projectId={project.id}
       autopublish={project.cms_autopublish}
       liveUrl={getDeliverableUrl(project, 'website_live_url') ?? undefined}
+      onEinreichung={meldeEinreichung}
     />
   )
 
@@ -137,7 +153,29 @@ export function PortalShell({
 
       <main className="portal-shell__main">
         {pflegeModus ? (
-          studio
+          <>
+            {studio}
+            {/* Ohne das hier ist der Pflege-Modus eine Einbahnstraße: Die
+                Agentur-Strecke entfällt, und mit ihr entfiel bisher der EINZIGE
+                Ort, an dem der Kunde eine Nachricht lesen oder schreiben
+                konnte. Oben rechts stand trotzdem ein Zähler für ungelesene
+                Nachrichten, den niemand anklicken konnte. Seit der Kunde uns
+                seine Änderungen schicken kann, muss unsere Antwort auch
+                ankommen — sonst ist der Rückweg WhatsApp. */}
+            <div className="portal-card mt-6">
+              <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 4px' }}>Fragen an uns</h3>
+              <p style={{ fontSize: 13, color: 'var(--portal-text-secondary)', margin: 0 }}>
+                Etwas unklar, oder soll jemand draufschauen? Schreib uns hier — wir antworten an
+                derselben Stelle.
+              </p>
+              <PortalPhaseMessageButton
+                projectId={project.id}
+                senderName={senderName}
+                accentColor={accentColor}
+                brandName={brandName}
+              />
+            </div>
+          </>
         ) : (
           <>
             <OutcomeHeader

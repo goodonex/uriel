@@ -103,7 +103,10 @@ export function KundenPosteingang({
     }
     setEntwurf((d) => ({ ...d, [e.id]: '' }))
     // Beantwortet heißt erledigt — der Posten verlässt die Warteschlange.
-    await onNachrichtAbhaken(e.id)
+    // Eine Website-Einreichung nicht: dort ist die Zeile zurück der Anfang,
+    // nicht das Ende. Der Vorgang bleibt liegen, bis freigegeben oder verworfen
+    // ist — und seine Id ist ohnehin keine Nachrichten-Id.
+    if (e.art === 'nachricht') await onNachrichtAbhaken(e.id)
   }
 
   const freigeben = async (e: PosteingangEintrag) => {
@@ -164,7 +167,9 @@ export function KundenPosteingang({
         {eintraege.map((e) => {
           const istOffen = offenId === e.id
           const wartet = wartetSeit(e.seit)
-          const aenderung = e.art === 'website' ? beschreibeAenderung(e.alt, e.neu) : null
+          // Am gebündelten Vorgang sagt ein Alt-Neu-Vergleich nichts — der
+          // steht an den einzelnen Feldern darin.
+          const aenderung = e.art === 'website' && !e.felder ? beschreibeAenderung(e.alt, e.neu) : null
           const busy = laeuft === e.id
           // O11: Freigaben/Änderungswünsche sind normale Nachrichten mit Präfix.
           // Der Präfix wird als Badge gerendert und aus dem Fließtext entfernt —
@@ -292,6 +297,63 @@ export function KundenPosteingang({
                         style={{ width: '100%', fontSize: 13, lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit' }}
                       />
                     </>
+                  ) : e.felder ? (
+                    /* Eine Einreichung, nicht zwanzig Posten. Oben steht, was
+                       der Kunde dazu sagt, darunter die Felder — und der erste
+                       Knopf führt auf SEINE Seite mit SEINEN Änderungen. Ob
+                       eine Überschrift trägt, sieht man dort und nicht in einer
+                       Tabelle mit Vorher/Nachher. */
+                    <>
+                      {e.text ? (
+                        <div
+                          style={{
+                            fontSize: 13,
+                            lineHeight: 1.6,
+                            color: 'var(--ck-text-1)',
+                            whiteSpace: 'pre-wrap',
+                            borderLeft: '2px solid var(--ck-accent)',
+                            paddingLeft: 10,
+                          }}
+                        >
+                          {e.text}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="ck-btn"
+                        style={{ minHeight: 40, alignSelf: 'flex-start' }}
+                        onClick={() => navigate(`/portal/${e.projektId}?als=kunde`)}
+                      >
+                        Auf der Seite ansehen
+                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {e.felder.map((f) => (
+                          <div key={f.id}>
+                            <span className="ck-label">
+                              {f.bereich ? `${f.bereich} · ` : ''}
+                              {f.titel}
+                            </span>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                              <Wert titel="Bisher veröffentlicht" wert={f.alt} gedimmt />
+                              <Wert titel="Vom Kunden eingereicht" wert={f.neu} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Der dritte Weg neben Freigeben und Verwerfen: eine
+                          Zeile zurück. Der Entwurf des Kunden bleibt stehen, er
+                          bessert nach und schickt wieder — ohne dass daraus ein
+                          Vorgang mit eigenem Status wird. */}
+                      <textarea
+                        className="ck-input"
+                        value={entwurf[e.id] ?? ''}
+                        onChange={(ev) => setEntwurf((d) => ({ ...d, [e.id]: ev.target.value }))}
+                        rows={2}
+                        placeholder="Eine Zeile zurück an den Kunden …"
+                        aria-label={`Antwort an ${e.projektName}`}
+                        style={{ width: '100%', fontSize: 13, lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit' }}
+                      />
+                    </>
                   ) : (
                     <>
                       {e.bereich ? (
@@ -332,12 +394,14 @@ export function KundenPosteingang({
                           Ohne Antwort erledigt
                         </button>
                       </>
-                    ) : bestaetigt === e.id ? (
+                    ) : bestaetigt === `${e.id}:frei` ? (
                       <>
                         {/* Freigeben ändert die Kundenwebsite — deshalb ein
                             zweiter, benannter Klick statt eines stillen Häkchens. */}
                         <span style={{ fontSize: 12.5, color: 'var(--ck-text-2)' }}>
-                          Auf der Kundenwebsite veröffentlichen?
+                          {e.felder && e.felder.length > 1
+                            ? `Alle ${e.felder.length} Änderungen auf der Kundenwebsite veröffentlichen?`
+                            : 'Auf der Kundenwebsite veröffentlichen?'}
                         </span>
                         <button
                           type="button"
@@ -357,17 +421,13 @@ export function KundenPosteingang({
                           Abbrechen
                         </button>
                       </>
-                    ) : (
+                    ) : bestaetigt === `${e.id}:weg` ? (
                       <>
-                        <button
-                          type="button"
-                          className="ck-btn ck-btn--primary"
-                          style={{ minHeight: 40 }}
-                          disabled={busy}
-                          onClick={() => setBestaetigt(e.id)}
-                        >
-                          Freigeben …
-                        </button>
+                        {/* Verwerfen löscht die Arbeit des KUNDEN, nicht die
+                            eigene — und er erfährt es von allein nicht. */}
+                        <span style={{ fontSize: 12.5, color: 'var(--ck-text-2)' }}>
+                          Verwerfen löscht die Änderungen des Kunden. Schreib ihm danach kurz, warum.
+                        </span>
                         <button
                           type="button"
                           className="ck-btn"
@@ -375,7 +435,47 @@ export function KundenPosteingang({
                           disabled={busy}
                           onClick={() => void verwerfen(e)}
                         >
-                          Änderung verwerfen
+                          {busy ? 'verwirft …' : 'Ja, verwerfen'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ck-btn"
+                          style={{ minHeight: 40 }}
+                          onClick={() => setBestaetigt(null)}
+                        >
+                          Abbrechen
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="ck-btn ck-btn--primary"
+                          style={{ minHeight: 40 }}
+                          disabled={busy}
+                          onClick={() => setBestaetigt(`${e.id}:frei`)}
+                        >
+                          Freigeben …
+                        </button>
+                        {e.felder ? (
+                          <button
+                            type="button"
+                            className="ck-btn"
+                            style={{ minHeight: 40 }}
+                            disabled={busy || !(entwurf[e.id] ?? '').trim()}
+                            onClick={() => void antworten(e)}
+                          >
+                            {busy ? 'sendet …' : 'Zurück an den Kunden'}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="ck-btn"
+                          style={{ minHeight: 40 }}
+                          disabled={busy}
+                          onClick={() => setBestaetigt(`${e.id}:weg`)}
+                        >
+                          {e.felder && e.felder.length > 1 ? 'Alle verwerfen …' : 'Änderung verwerfen …'}
                         </button>
                       </>
                     )}
