@@ -985,7 +985,18 @@ export function SalesDashboard() {
           id: 'erstnachrichten',
           kennzahl: erstnachrichten.tableMissing
             ? 'Migration 0060 ausstehend'
-            : zahl(`${erstnachrichtStand?.wert ?? 0} von ${erstnachrichtStand?.soll ?? 0}`),
+            : /**
+               * Groß steht, was Kevin JETZT rausschicken kann (16.09.2026).
+               *
+               * „0 von 211" las sich als 211 Aufgaben — tatsächlich lagen 25
+               * Texte bereit, der Rest wartete auf den Schreib-Lauf des Mini.
+               * Dieselbe Falle wie am 10.09. („die 67 hätte ich direkt
+               * weggearbeitet"). Die Wartenden stehen weiter in der Unterzeile;
+               * ohne bereiten Text bleibt die Stufe blockiert wie bisher.
+               */
+              blockiert
+              ? zahl(`${erstnachrichtStand?.wert ?? 0} von ${erstnachrichtStand?.soll ?? 0}`)
+              : zahl(`${erstnachrichtStand?.wert ?? 0} von ${(erstnachrichtStand?.wert ?? 0) + erstnachrichtListe.length}`),
           kennzahlFarbe: !flow.laedt && blockiert ? 'var(--ck-warn)' : undefined,
           /**
            * Beide Zahlen, solange ein Rückstau da ist — nicht „zuerst: Anina".
@@ -997,7 +1008,7 @@ export function SalesDashboard() {
           unterzeile: blockiert
             ? `${wartend.length} warten · kein Text bereit`
             : wartend.length > 0
-              ? `${wartend.length} warten · ${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit`
+              ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · ${wartend.length} warten insgesamt, der Mini schreibt nach`
               : (zuerst(erstnachrichtListe) ?? 'Wer angenommen hat, bekommt seine Nachricht.'),
           inhalt: blockiert
             ? () => (
