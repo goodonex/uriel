@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConversionPanel } from '../components/ConversionPanel'
 import { MonthCurve } from '../components/MonthCurve'
@@ -6,7 +6,7 @@ import { VitalsPanel } from '../components/VitalsPanel'
 import { channelRates, funnelKpis, sumField, termineAttribution, weekVitals } from '../lib/metricsAggregate'
 import type { MetricField } from '../lib/useDailyMetrics'
 import { toIsoDate, useDailyMetrics } from '../lib/useDailyMetrics'
-import { heutigesMetrikDatum } from '../lib/metricsDates'
+import { useMetrikTag } from '../lib/useMetrikTag'
 import { formatEuro, monthKeyOf } from '../lib/goals'
 import { useActiveBrand } from '../lib/activeBrand'
 import { useMonthGoal } from '../lib/useMonthGoal'
@@ -239,8 +239,25 @@ export function TrackingArea() {
     () => funnelKpis(metrics.monthRows, monthRevenue),
     [metrics.monthRows, monthRevenue],
   )
+  // Der laufende Tag — wechselt um 0:00 von selbst (useMetrikTag).
+  const todayIso = useMetrikTag()
   // Ausgewählter Tag fürs (rückwirkende) Eintragen — Default heute.
-  const [selectedDate, setSelectedDate] = useState(heutigesMetrikDatum())
+  const [selectedDate, setSelectedDate] = useState(todayIso)
+  /**
+   * Steht die Auswahl auf „heute", zieht sie beim Tageswechsel mit.
+   *
+   * Ohne das schriebe ein über Nacht offenes Tracking-Fenster weiter auf gestern:
+   * Der Kopf zeigte den neuen Tag, der Haken landete im alten. Einen BEWUSST
+   * gewählten anderen Tag lässt der Effekt in Ruhe — das rückwirkende Eintragen
+   * ist der Zweck dieser Auswahl.
+   */
+  const vorigerTag = useRef(todayIso)
+  useEffect(() => {
+    const vorher = vorigerTag.current
+    if (vorher === todayIso) return
+    vorigerTag.current = todayIso
+    setSelectedDate((aktuell) => (aktuell === vorher ? todayIso : aktuell))
+  }, [todayIso])
 
   if (metrics.tableMissing) {
     return (
@@ -260,7 +277,6 @@ export function TrackingArea() {
   const weekUmsatz = metrics.weekRows.reduce((a, r) => a + (Number(r.umsatz) || 0), 0)
 
   // Datums-Navigation fürs rückwirkende Eintragen.
-  const todayIso = heutigesMetrikDatum()
   const shiftDate = (iso: string, delta: number) => {
     const d = new Date(`${iso}T12:00:00`) // Mittag → kein DST/TZ-Tagessprung
     d.setDate(d.getDate() + delta)

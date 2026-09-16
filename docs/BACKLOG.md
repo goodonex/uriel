@@ -11,6 +11,33 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **FERTIG 11.09.2026 — Der Tag wechselt jetzt um Mitternacht, und zwar von selbst**
+
+Kevins Beobachtung in der Nacht zum 11.09.: *„nach null Uhr standen noch vierzig
+von vierzig drin."* Zwei Ursachen, beide behoben:
+
+1. **Die Grenze lag auf 4 Uhr** (`METRIK_TAG_WECHSEL_STUNDE`) — nach Mitternacht
+   war „heute" absichtlich noch der Vortag. Sie liegt jetzt auf 0:00, damit
+   gleichgezogen mit dem Runner, der ohnehin in Kalendertagen rechnet
+   (`morgenbriefInput.mjs`). **Der Preis:** Arbeit zwischen 0 und 4 Uhr zählt auf
+   den neuen Tag; der vergangene Tag ist ab Mitternacht abgeschlossen und wird
+   nur noch über das rückwirkende Eintragen im Tracking (`bumpOn`) ergänzt.
+2. **Niemand rechnete nach Mitternacht neu.** `heutigesMetrikDatum()` lief beim
+   Rendern, und ein über Nacht offener Tab rendert nicht. Neu: `useMetrikTag` —
+   eine Uhr, die genau auf der Grenze weckt (plus Puffer), bei
+   `visibilitychange`/`focus` nachprüft (ein zugeklappter Mac hält Timer an) und
+   den Tag als Zustand führt. **Kein Reload der Seite:** ein halb getippter
+   Entwurf im Postfach darf einem Datumswechsel nicht zum Opfer fallen.
+
+An der Uhr hängen jetzt `useDailyMetrics`, `useTagesFlow`, `useIdentityCheckin`,
+`SalesDashboard` und `TrackingArea`. Im Tracking zieht die Tagesauswahl beim
+Wechsel mit, solange sie auf „heute" stand — sonst hätte der Kopf den neuen Tag
+gezeigt und der Haken wäre im alten gelandet. Drift-Wache:
+`scripts/verify-tageswechsel.ts` (25 Prüfungen, u. a. der 23-Stunden-Tag der
+Sommerzeit-Umstellung). `npx tsc -b && npm run build` grün.
+
+---
+
 ## **NACHTRAG 09.09.2026 — Das Panel war live, aber nur auf localhost sichtbar**
 
 Direkt nach dem Livegang aufgefallen: `ladePakete()` stieg remote mit
@@ -1292,7 +1319,7 @@ einfach eine Zahl?").
 | **Soll schrumpft nicht unterm Haken** | Aus-den-Daten-Solls rechnen `offen + heute erledigt` — sonst fiele „7/7" beim Abhaken auf „4/4" zurück | `lib/tagesFlow.ts` (`sollFuer`) |
 | **Leere Pflicht = erfüllt** | Ist die Quelle leer (Erstnachricht verworfen statt gesendet), gilt die Stufe als erledigt statt für immer rot zu bleiben | `lib/tagesFlow.ts` |
 | **Streak je Zeile** | Werktage, ein Freeze pro Woche (auch am Serien-Kopf: Freitag beim Kunden, Montag früh geöffnet → Serie lebt), laufender Tag bricht nichts. Ein Tag ohne eingefrorene Portion ist KEIN Urteil — die Serie beginnt sauber bei der Einführung | `lib/salesStreak.ts` |
-| **4-Uhr-Tagesgrenze** | Der Metrik-Tag wechselt um 4 Uhr, nicht um Mitternacht. Ein Loom um 0:30 gehört zu Kevins „gestern" (Commits um 01:25 sind im Log) | `lib/metricsDates.ts` (`heutigesMetrikDatum`) |
+| **Tagesgrenze Mitternacht** (war 4 Uhr, geändert 11.09.2026) | Der Metrik-Tag wechselt um 0:00. Die alte 4-Uhr-Grenze („ein Loom um 0:30 gehört zu Kevins gestern") kostete mehr, als sie brachte: Nach Mitternacht stand die abgearbeitete Tagesliste weiter auf „40 von 40". Preis der Umstellung: Arbeit zwischen 0 und 4 Uhr zählt auf den neuen Tag, der vergangene ist ab 0:00 abgeschlossen (Nachtragen über das Tracking) | `lib/metricsDates.ts` (`METRIK_TAG_WECHSEL_STUNDE`), `lib/useMetrikTag.ts`, `scripts/verify-tageswechsel.ts` |
 | **InMail-Stand wird ehrlich** | Kevins Frage „getrackt oder einfach eine Zahl?" hatte die Antwort „Zahl". Jetzt: Stand mit Datums-Stempel, Anzeige zieht seither gebuchte InMails ab, Tagesration (0 von 5) vorne, Pool + Reichweite dahinter | `lib/inmailStand.ts`, `components/InmailPanel.tsx` |
 | **Daten-Frische sichtbar** | „Postfach-Stand: vor 2 h" aus `last_synced_at`. Die 18 Looms sind vielleicht nicht falsch, sondern alt — ohne den Hinweis liest sich eine alte Zahl wie eine falsche | `pages/SalesDashboard.tsx` |
 | **Projekte statt „Kundenarbeit"** | Umbenannt, unter das Ritual verschoben, ohne Alarm-Optik („Liegt still" statt „Liegt zu lange > 14 Tage" in Warnfarbe). Blockiert ≠ überfällig | `pages/SalesDashboard.tsx` |

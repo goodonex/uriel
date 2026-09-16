@@ -26,7 +26,7 @@ import { KADENZ_SCHLUESSEL, gueltigeKadenz, setzeAktiveKadenz, type Kadenz } fro
 import { NACHSIGNIEREN_MS, bereiteJophielVorschauVor, fetchJophielProjekte } from '../lib/jophielApi'
 import { mitVorschau, verknuepfeProjekte, type JophielStand } from '../lib/jophielProjekte'
 import { ausAltemWert, poolAbleitung, type InmailStand } from '../lib/inmailStand'
-import { heutigesMetrikDatum } from '../lib/metricsDates'
+import { useMetrikTag } from '../lib/useMetrikTag'
 import { INMAIL_CREDITS_STAND, type Posten, type Spur } from '../lib/prioritaet'
 import type { LinkedinThread } from '../../types/db'
 import { bereiteDatenVor, salesSerie, type SalesStreak } from '../lib/salesStreak'
@@ -532,7 +532,7 @@ export function SalesDashboard() {
   const aktivIndex = flow.laedt ? -2 : ersteOffeneStufe(staende)
 
   /** Serien je Zähl-Stufe — aus Metrik-Historie und eingefrorenen Portionen. */
-  const heuteIso = heutigesMetrikDatum()
+  const heuteIso = useMetrikTag()
   const streakDaten = useMemo(
     () => bereiteDatenVor(metrics.windowRows, flow.portionen.historie),
     [metrics.windowRows, flow.portionen.historie],

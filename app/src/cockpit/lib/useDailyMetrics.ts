@@ -3,7 +3,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { useActiveBrand } from './activeBrand'
 import type { MetricField } from './metrikFelder'
-import { heutigesMetrikDatum, toIsoDate, weekRowsOf } from './metricsDates'
+import { toIsoDate, weekRowsOf } from './metricsDates'
+import { useMetrikTag } from './useMetrikTag'
 
 /**
  * Eine Tageszeile aus daily_metrics (Migration 0049).
@@ -127,8 +128,9 @@ export function useDailyMetrics(): UseDailyMetricsResult {
   const [tableMissing, setTableMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 4-Uhr-Grenze (metricsDates): ein Haken um 0:30 zählt auf Kevins „gestern".
-  const todayIso = heutigesMetrikDatum()
+  // Der laufende Metrik-Tag als Zustand (useMetrikTag): Um 0:00 wechselt er von
+  // selbst, ohne Reload — vorher hing ein über Nacht offener Tab auf gestern.
+  const todayIso = useMetrikTag()
   const monthStart = todayIso.slice(0, 8) + '01'
   // Ladefenster ~45 Tage zurück → rückwirkendes Eintragen (auch über die
   // Monatsgrenze) funktioniert. Aggregate filtern davon wieder auf Monat/Woche.

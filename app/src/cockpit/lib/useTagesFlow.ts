@@ -7,7 +7,7 @@ import { useLinkedinNetzwerk } from '../../hooks/useLinkedinNetzwerk'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import { useActiveBrand } from './activeBrand'
 import { antwortPosten, erstnachrichtPosten, followupPosten, loomPosten } from './arbeitsmodusQuellen'
-import { heutigesMetrikDatum } from './metricsDates'
+import { useMetrikTag } from './useMetrikTag'
 import { useTagesPortionen, type TagesPortionen } from './useTagesPortionen'
 import { useUiSetting } from './uiSettings'
 import {
@@ -107,7 +107,7 @@ export function useTagesFlow(
   quelleLaedt = false,
 ): TagesFlowStand {
   const { wert: ziele, geladen } = useUiSetting<ZielUeberschreibung>(TAGES_FLOW_ZIELE, KEINE_ZIELE)
-  const heute = heutigesMetrikDatum()
+  const heute = useMetrikTag()
   const portionen = useTagesPortionen(heute)
 
   /**

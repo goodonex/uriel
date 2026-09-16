@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useActiveBrand } from './activeBrand'
 import type { StreakTag } from './identityStreak'
 import { toIsoDate } from './metricsDates'
+import { useMetrikTag } from './useMetrikTag'
 
 /**
  * Der tägliche Identitäts-Check-in (Migration 0072).
@@ -84,14 +85,18 @@ export function useIdentityCheckin(): UseIdentityCheckinResult {
   const [fehler, setFehler] = useState<string | null>(null)
 
   /**
-   * „Heute" kommt aus `toIsoDate` — derselben Uhr wie `daily_metrics`, und
+   * „Heute" kommt aus `useMetrikTag` — derselben Uhr wie `daily_metrics`, und
    * die rechnet LOKAL. `isoTag` aus identityStreak rechnet dagegen in UTC
    * (bewusst, für die DST-sichere Serien-Arithmetik): zwischen Mitternacht
    * und 2 Uhr deutscher Zeit wäre „heute" darüber noch der Vortag, und der
    * Abend-Check-in (Dankbarkeit!) wäre auf dem falschen Tag gelandet —
    * neben einer daily_metrics-Zeile, die längst auf dem neuen steht.
+   *
+   * Seit 11.09.2026 der Hook statt `toIsoDate(new Date())`: dieselbe Zahl, aber
+   * um 0:00 aktualisiert sie sich von selbst. Ein Abend-Check-in in einem seit
+   * Stunden offenen Tab schrieb sonst noch auf gestern.
    */
-  const heuteIso = toIsoDate(new Date())
+  const heuteIso = useMetrikTag()
   const fensterStart = useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() - CHECKIN_FENSTER_TAGE)

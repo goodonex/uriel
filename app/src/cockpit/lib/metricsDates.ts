@@ -8,20 +8,48 @@
  */
 
 /**
- * Der Metrik-Tag wechselt um 4 Uhr morgens, nicht um Mitternacht.
+ * Der Metrik-Tag wechselt um Mitternacht (seit 11.09.2026).
  *
- * Kevin arbeitet nachweislich nach Mitternacht (Commits um 01:25 sind im Log).
- * Ein Loom um 0:30 gehört zu seinem „gestern" — zählte er auf den Kalendertag,
- * stünde die Hälfte des Abends morgens als „heute schon erledigt" im Flow, und
- * die Tageszeile von gestern bliebe unvollständig. Die Grenze gilt überall,
- * wo `daily_metrics` gelesen oder geschrieben wird — EINE Tageswahrheit, kein
- * zweiter Kalender daneben.
+ * **Vorher standen hier 4 Uhr** — mit der Begründung, Kevin arbeite nachweislich
+ * nach Mitternacht, ein Loom um 0:30 gehöre zu seinem „gestern". In der Nutzung
+ * war der Preis größer als der Gewinn: Am 10.09. stand die Tagesliste nach
+ * Mitternacht noch auf „40 von 40" — abgearbeitet, grün, und keine Zeile, die
+ * den neuen Tag angekündigt hätte. Wer um 0:30 an den Rechner geht, liest das
+ * als „das System hängt", nicht als „das ist noch gestern".
+ *
+ * Dazu kam eine zweite Wahrheit im Haus: Der Runner (`morgenbriefInput.mjs`)
+ * rechnet in Kalendertagen. Mit 4 Uhr wichen App und Runner nachts um einen Tag
+ * voneinander ab; jetzt nicht mehr.
+ *
+ * **Was die Umstellung kostet:** Arbeit zwischen 0 und 4 Uhr zählt auf den neuen
+ * Tag. Der eben vergangene Tag ist ab Mitternacht abgeschlossen — nachgereichte
+ * Haken retten seine Streak nicht mehr, dafür gibt es das rückwirkende Eintragen
+ * im Tracking (`bumpOn`).
+ *
+ * Die Grenze gilt überall, wo `daily_metrics` gelesen oder geschrieben wird —
+ * EINE Tageswahrheit, kein zweiter Kalender daneben. Wer sie verschiebt, ändert
+ * auch, wann `useMetrikTag` die Flächen umschaltet; beides hängt an dieser Zahl.
  */
-export const METRIK_TAG_WECHSEL_STUNDE = 4
+export const METRIK_TAG_WECHSEL_STUNDE = 0
 
-/** Das Datum, auf das JETZT gebucht und gelesen wird — mit 4-Uhr-Grenze. */
+/** Das Datum, auf das JETZT gebucht und gelesen wird — mit der Grenze oben. */
 export function heutigesMetrikDatum(jetzt: Date = new Date()): string {
   return toIsoDate(new Date(jetzt.getTime() - METRIK_TAG_WECHSEL_STUNDE * 60 * 60 * 1000))
+}
+
+/**
+ * Der nächste Zeitpunkt, an dem `heutigesMetrikDatum()` etwas anderes sagt.
+ *
+ * Gerechnet wird über `setDate`/`setHours` in Ortszeit, nicht über „+24 Stunden":
+ * An den zwei Umstellungstagen im Jahr hat der Tag 23 bzw. 25 Stunden, und ein
+ * Timer auf 24 Stunden läge dann eine Stunde falsch — genau in der Nacht, in der
+ * niemand nachsieht.
+ */
+export function naechsterTageswechsel(jetzt: Date = new Date()): Date {
+  const grenze = new Date(jetzt)
+  grenze.setHours(METRIK_TAG_WECHSEL_STUNDE, 0, 0, 0)
+  if (grenze.getTime() <= jetzt.getTime()) grenze.setDate(grenze.getDate() + 1)
+  return grenze
 }
 
 export function toIsoDate(d: Date): string {
