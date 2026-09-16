@@ -125,7 +125,22 @@ async function handleProjectMessage(
     return json({ error: 'project_not_found' }, 404)
   }
 
-  const { data: brand, error: bErr } = await supabase
+  /**
+   * Marke und Besitzer-Mail immer mit dem Service-Schlüssel lesen (16.09.2026).
+   *
+   * `supabase` trägt bei Aufrufen aus dem Portal das Token des Kunden. Damit
+   * scheiterte `auth.admin.getUserById` still, die Empfänger-Adresse blieb leer
+   * und keine einzige Kunden-Nachricht hat Kevin je per Mail erreicht. Die
+   * Berechtigung prüft der Block darunter ausdrücklich — das Lesen selbst darf
+   * deshalb ohne Zeilen-Regeln laufen.
+   */
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+
+  const { data: brand, error: bErr } = await admin
     .from('brands')
     .select('id, user_id, name, slug')
     .eq('id', project.owner_brand_id)
@@ -140,7 +155,7 @@ async function handleProjectMessage(
     const isOwner = brand.user_id === uid
     const isClient =
       payload.sender_role === 'client' &&
-      (await clientOwnsProject(supabase, uid, payload.project_id))
+      (await clientOwnsProject(admin, uid, payload.project_id))
     const isOwnerSender =
       payload.sender_role === 'owner' && isOwner
     if (!isOwnerSender && !isClient) {
@@ -154,7 +169,7 @@ async function handleProjectMessage(
   const preview = message.body.slice(0, 240)
 
   if (payload.sender_role === 'client') {
-    const { data: ownerUser } = await supabase.auth.admin.getUserById(brand.user_id)
+    const { data: ownerUser } = await admin.auth.admin.getUserById(brand.user_id)
     toEmail = ownerUser?.user?.email ?? ''
     subject = `Neue Nachricht von ${message.sender_name ?? project.client_name ?? 'Kunde'} — ${project.name}`
     // Cockpit-Route. Die alte Brand-Welt `/brand/:slug/deliver/:id` wurde in
