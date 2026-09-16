@@ -1,145 +1,136 @@
 /**
  * runner/linkedin/leadRecherche.mjs — die Website-Recherche aus dem
- * Schreib-Agenten herausgelöst (07.09.2026).
+ * Schreib-Agenten herausgelöst (07.09.2026), neu gebaut am 16.09.2026.
  *
- * **Der Anlass, gemessen.** Kevin am 07.09. nach einem Blick auf sein
- * 5-Stunden-Limit: *„Ich habe heute 5 Prompts eingegeben. 22 % sind weg. Was
- * zieht hier gerade die Tokens?"* Die Antwort stand in einer einzigen
- * Agenten-Session vom selben Morgen — 13 Leads, 51 Modell-Aufrufe:
+ * **Warum ausgelagert (07.09.).** Der Schreib-Agent recherchierte je Lead im
+ * selben Kontext, in dem er danach alle Nachrichten schrieb: 51 Aufrufe,
+ * Kontext 47k → 102k, 315.000 Token je Erstnachricht. Seitdem bekommt jeder
+ * Lead einen eigenen, kurzlebigen Lauf, und in den Schreib-Agenten wandert nur
+ * ein Destillat.
  *
- * | Aufruf 1  | Kontext  47.186 |
- * | Aufruf 51 | Kontext 102.055 |
- * | Summe     | 4.091.687       |
+ * **Warum neu gebaut (16.09.).** Die ausgelagerte Recherche lief auf Haiku mit
+ * genau EINER Websuche und las die Seite per WebFetch als Rohtext. Kevin ging
+ * die ersten sechs von 48 Nachrichten durch — vier waren falsch:
  *
- * Der Agent recherchierte je Lead die Website (WebSearch + WebFetch) und
- * schrieb im selben Kontext die Nachricht. Alles, was er für Lead 1 gelesen
- * hatte, trug er bis Lead 13 mit — und bezahlte es bei jedem der 51 Aufrufe
- * erneut. Das wächst quadratisch: 41 % der Summe waren mitgeschleppte
- * Recherche, der Rest derselbe Sockel, 51 Mal getragen. Mal vier Batches
- * ergab das rund 16 Millionen Token für 50 Nachrichten — **315.000 Token pro
- * Erstnachricht**.
+ * - Drei Mal „keine Website gefunden" (Jauck, Schmitt, Barendsma), obwohl eine
+ *   Suche nach Name + Firma die Seite als ersten Treffer liefert.
+ * - „Nullen in den Statistik-Boxen" bei immobilien-sis.com — die Zähler laufen
+ *   per JavaScript hoch, der Rohtext zeigt die Startwerte.
+ * - „Anfragen über die Mail kommen nie an" bei Stierling — der sichtbare Text
+ *   hat einen Tippfehler, der Link dahinter ist korrekt.
+ * - „Weg für Eigentümer klar aufgebaut" bei Stierling — die Seite ist fast
+ *   leer, was man nur SIEHT.
  *
- * **Der Tausch.** Die Recherche ist Handwerk, das Schreiben ist die teure
- * Arbeit. Hier bekommt jeder Lead seinen EIGENEN, kurzlebigen Lauf: Der
- * Kontext stirbt mit ihm, und was in den Schreib-Agenten wandert, sind zehn
- * Zeilen Destillat statt einer ganzen Website. Der Schreib-Agent braucht dann
- * weder WebSearch noch WebFetch — und sein Kontext wächst nicht mehr.
+ * Kevin: *„darauf kann ich mich nicht verlassen."* Die Kosten-Optimierung hatte
+ * die Recherche so ausgedünnt, dass sie falsche Befunde produzierte — und ein
+ * falscher Befund kostet mehr als jeder Token: Kevin sagt ihn dem Lead ins
+ * Gesicht.
  *
- * **Warum nicht ganz ohne Modell?** Weil das Finden der Seite die eigentliche
- * Denkarbeit ist: Zu „Marc Weber, Immobilien" gibt es zwanzig Treffer, und der
- * richtige ist selten der erste. Ein reines fetch-Skript bräuchte eine
- * Such-API (Schlüssel, eigene Kosten) und träfe schlechter.
- *
- * **Warum Sonnet und nicht Opus?** Beobachten, was auf einer Startseite steht,
- * ist Lesen, kein Urteil über einen Menschen. Das Urteil — schreiben oder
- * aussortieren — und die Nachricht selbst bleiben bei Opus, wo sie hingehören.
+ * **Der neue Weg, drei Stufen je Lead:**
+ * 1. *Finden* (Sonnet, nur WebSearch, bis zu drei Suchen): Kandidaten-URLs,
+ *    Firma, Tätigkeit. Kein Seitenabruf — das macht Stufe 2 besser.
+ * 2. *Rendern* (`seiteRendern.mjs`, kein Modell): echter Chrome, durchscrollen,
+ *    Text + Links + Screenshots. Offline/Download stellt der Browser fest,
+ *    nicht ein Modell.
+ * 3. *Befund* (Sonnet mit Read): liest Screenshots und gerenderten Text. Jeder
+ *    Mangel braucht einen wörtlichen Beleg, und den prüft HIER der Code gegen
+ *    den gerenderten Text — ohne Beleg fliegt der Mangel raus.
  */
 import { spawn } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { starteBrowser, rendereKandidat } from './seiteRendern.mjs'
 
-/** Ein Lauf je Lead — mehr als zwei Minuten braucht eine Website-Recherche nicht. */
-const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 2 * 60 * 1000)
+const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 
-/**
- * Wie viele Leads gleichzeitig?
- *
- * Drei, nicht dreizehn: Jeder Lauf ist ein eigener `claude`-Prozess, und
- * dreizehn davon nebeneinander bringen den Mac ins Schwitzen, während Kevin
- * am selben Rechner arbeitet. Drei halten die Rampe kurz, ohne dass man es
- * merkt.
- */
+/** Drei gleichzeitig: jeder Lauf ist ein eigener `claude`-Prozess, dazu ein Chrome-Tab. */
 const GLEICHZEITIG = Number(process.env.RECHERCHE_PARALLEL ?? 3)
 
 /**
- * Harter Deckel je Lead, in Dollar (07.09.2026).
- *
- * Der erste Entwurf dieses Moduls war TEURER als der Zustand, den er ablösen
- * sollte: $0,47 je Lead nur für die Recherche, gegen $0,41 für Recherche UND
- * Nachricht im alten Weg. Gemessen an den Aufrufen lag es nicht am Kontext
- * (der blieb bei 39–45k stehen, das Destillat wirkt), sondern an acht bis zehn
- * Modell-Aufrufen je Lead: Das Modell suchte nach, prüfte Handelsregister,
- * holte zweite Quellen. Gründlich, aber nicht bezahlt.
- *
- * Der Deckel ist die Antwort auf Kevins eigentliche Forderung — nicht „billiger
- * werden", sondern „das darf nicht nochmal unbemerkt passieren". Ein Lauf, der
- * ihn reißt, wird abgeschnitten und gemeldet, statt still weiterzulaufen.
- *
- * **Er ist eine Notbremse, keine Regelgrenze.** Beim ersten Messlauf stand er
- * auf $0,08 — genau dort, wo ein normaler Lead landet — und schnitt prompt den
- * ersten von zwei Leads ab: Ergebnis weg, Geld trotzdem ausgegeben. Das ist
- * der teuerste aller Fälle. $0,15 lässt den Normalfall (~$0,08) in Ruhe und
- * fängt nur den Ausreißer, der sich festgebissen hat.
- *
- * $0,20 seit dem 16.09.: Der Befund braucht wieder die Eigentümer-Unterseite
- * (Verkaufen/Bewertung), also einen Abruf mehr als bisher.
+ * Deckel je Modell-Lauf, in Dollar. Eine Notbremse gegen Ausreißer, keine
+ * Regelgrenze — ein abgeschnittener Lauf ist bezahlt und liefert nichts.
+ * Zwei Läufe je Lead (Finden + Befund).
  */
-const BUDGET_JE_LEAD = Number(process.env.RECHERCHE_BUDGET_USD ?? 0.2)
+const BUDGET_FINDEN = Number(process.env.RECHERCHE_BUDGET_FINDEN_USD ?? 0.5)
+const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.4)
 
-/**
- * Das Destillat, das der Schreib-Agent bekommt.
- *
- * Bewusst eng: Es soll das tragen, woraus ein Befund wird, und nichts
- * darüber hinaus. Jede Zeile mehr wandert in den teuren Kontext.
- *
- * **Befund statt Beobachtung (16.09.2026).** Bis heute hieß das Feld
- * `beobachtung` und verlangte, „was auf der Startseite steht". Geliefert wurde
- * genau das: der Werbespruch aus dem Kopf der Seite. Der Schreib-Agent hat die
- * Seite nie gesehen und baute daraus die Nachricht — „‚Bestand erhalten.
- * Zukunft gestalten.' steht bei euch ganz vorn", „Dein Hero sagt sofort …".
- * Kevin am 16.09.: *„da wird sich irgendein Claim genommen und damit darauf
- * rumgeritten. Das war nicht die Art und Weise, wie wir Erstnachrichten
- * rausschicken."* Die Juli-Nachrichten, die funktioniert haben, stützten sich
- * auf den Eigentümer-Weg der Seite: Gibt es einen Verkaufen-Bereich, liefert
- * die Bewertung ein Ergebnis oder nur ein Formular, ist die Seite
- * käuferlastig, veraltet, kaputt. Genau diese Prüfpunkte fragt der Prompt
- * jetzt ab — und dafür darf er die eine Unterseite laden, auf der sie stehen.
- */
-function baueRecherchePrompt(lead) {
-  return `Du prüfst die Website EINES Immobilien-Kontakts für eine Erstansprache. Kein Text an den Kontakt, nur Befunde.
+/** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
+const MODELL = process.env.RECHERCHE_MODELL ?? 'claude-sonnet-5'
+
+function baueFindenPrompt(lead) {
+  return `Finde die Website EINES Immobilien-Kontakts. Kein Text an den Kontakt.
 
 Kontakt:
 - Name: ${lead.name}
 - LinkedIn-Headline: ${lead.headline ?? '(keine)'}
 - LinkedIn-Profil: ${lead.profile_url ?? '(unbekannt)'}
 
-Aufgabe — halte dich exakt an diese Schritte:
-1. EINE Websuche (WebSearch: Name + Firma/Ort + "Immobilien"). Genau eine.
-2. EIN Abruf (WebFetch) der Startseite, die am besten zu dieser Person passt. Frag dabei gezielt nach: Menüpunkten, einem Bereich für Verkäufer/Eigentümer (Verkaufen, Bewertung, Wertermittlung), wohin dieser Link führt, ob die Seite eher Käufer oder Eigentümer anspricht, und sichtbaren Mängeln.
-3. HÖCHSTENS EIN weiterer Abruf: die Unterseite für Eigentümer (Verkaufen/Bewertung), falls die Startseite eine verlinkt. Sonst keiner.
+Vorgehen:
+1. WebSearch mit Name + Firma aus der Headline (falls vorhanden) + "Immobilien".
+2. Findest du keine eigene Firmen-Website: zweite Suche nur mit dem Firmennamen (bzw. Name + "Immobilienmakler"). Höchstens eine dritte Suche.
+3. Keine Seiten abrufen — die Seite öffnet danach ein Browser.
 
-Danach antwortest du. **Keine Nachrecherche, kein Handelsregister, keine zweite Quelle, keine weiteren Unterseiten.** Reicht das nicht für ein sicheres Urteil, setzt du "sicher": false und gibst zurück, was du hast — das ist ein gültiges Ergebnis.
+Portale, Verzeichnisse, Presseportale, Facebook, LinkedIn, Xing, ImmoScout sind KEINE Website der Firma — aber sie verraten oft deren Domain. Eine persönliche Seite des Kontakts zählt als Kandidat.
 
 Antworte mit NICHTS als diesem JSON-Block:
 
 \`\`\`json
 {
   "firma": "",
-  "website": "",
-  "sicher": true,
-  "erreichbar": "",
   "taetigkeit": "",
+  "kandidaten": [],
+  "nur_portal": false
+}
+\`\`\`
+
+- "firma": Firmenname. Leer, wenn unklar.
+- "taetigkeit": was die Person wirklich macht, ein Halbsatz. Die Headline lügt oft — Coach, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft genau so benennen.
+- "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
+- "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.`
+}
+
+function baueBefundPrompt(lead, { firma, dateien, render }) {
+  const s = render.start
+  const u = render.unterseite
+  return `Du prüfst die Website eines Immobilien-Kontakts für eine Erstansprache. Kein Text an den Kontakt, nur Befunde.
+
+Kontakt: ${lead.name} · ${lead.headline ?? ''} · Firma laut Suche: ${firma || '(unklar)'}
+Website: ${s.endUrl}
+Menü: ${(s.menue ?? []).join(' | ') || '(keins erkannt)'}
+Eigentümer-Unterseite: ${u ? `${u.url} (${u.erreichbar})` : 'keine im Menü/in den Links gefunden'}
+
+Die Seite wurde in einem echten Browser geöffnet und einmal ganz durchgescrollt (Zähler und Animationen sind durchgelaufen). Lies mit Read GENAU diese Dateien:
+${dateien.map((d) => `- ${d}`).join('\n')}
+
+Die Screenshots zeigen, was ein Besucher sieht — urteile über Optik, Leere, Aufbau NUR danach. Die Textdatei ist der sichtbare Text. Keine anderen Quellen, kein Web.
+
+Antworte mit NICHTS als diesem JSON-Block:
+
+\`\`\`json
+{
+  "passt_zur_person": true,
   "eigentuemer_bereich": "",
   "bewertung": "",
   "ausrichtung": "",
   "optik": "",
+  "inhalt": "",
   "mangel": "",
+  "mangel_beleg": "",
   "befund": ""
 }
 \`\`\`
 
 Feldregeln:
-- "firma": Firmenname, wie er auf der Seite steht. Leer, wenn keine gefunden.
-- "website": vollständige URL oder leer. NIE geraten.
-- "sicher": false, wenn du dir bei der Zuordnung nicht sicher bist.
-- "erreichbar": "ja", "offline" (Fehler, Zertifikat, lädt nicht) oder "umbau" (Wartungs-/Baustellenseite). Leer, wenn keine Website.
-- "taetigkeit": was die Person WIRKLICH macht, in einem Halbsatz — die Headline lügt oft. Bei Coach, Berater, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft: genau das hinschreiben.
-- "eigentuemer_bereich": Gibt es einen eigenen Bereich für Eigentümer, die verkaufen wollen? "nein" oder "ja: <Name des Menüpunkts>".
-- "bewertung": "sofort-ergebnis" (Tool rechnet direkt einen Wert aus), "nur-formular" (Anfrage, Wert kommt später per Mail/Anruf), "kostenpflichtig", "keine" oder "unklar".
-- "ausrichtung": "kaeuferlastig" (Objekte/Suche dominieren), "eigentuemer" (Verkäufer werden vorne angesprochen), "investoren" oder "unklar".
-- "optik": "modern", "veraltet" oder "unklar".
-- "mangel": ein konkreter, für jeden Besucher sichtbarer Fehler — Platzhalter-Bilder, tote Links, Termine aus einem vergangenen Jahr, kaputte Sonderzeichen. **Im Zweifel leer.** Kein Mangel sind: versteckte Standardtexte von Baukästen im Quelltext („Oops! Something went wrong", „Thank you! Your submission has been received"), Daten aus den letzten Monaten, Alt-Texte von Bildern, alles, was du nur vermutest. Kevin nennt diesen Mangel dem Kontakt ins Gesicht — ein falscher blamiert ihn.
-- "befund": ein bis zwei Sätze über den Weg eines verkaufswilligen Eigentümers auf dieser Seite: was es für ihn gibt und was fehlt. **Nie Werbesprüche, Slogans, Überschriften oder Selbstbeschreibungen der Firma zitieren oder nacherzählen** („Ihr Partner für …", „Werte schaffen", „mit Leidenschaft") — die sagen nichts über die Seite. Auch keine Kennzahlen aus dem Eigenlob (Anzahl Verkäufe, Sterne).
-
-Findest du keine Website, gib alle Felder leer zurück außer "taetigkeit". Das ist ein brauchbares Ergebnis, kein Fehler. **Erfinde nichts.**`
+- "passt_zur_person": false, wenn Seite erkennbar nicht zu dieser Person/Firma gehört.
+- "eigentuemer_bereich": "nein" oder "ja: <Menüpunkt>".
+- "bewertung": "sofort-ergebnis" (rechnet direkt einen Wert aus), "nur-formular" (Wert kommt später), "kostenpflichtig", "keine" oder "unklar".
+- "ausrichtung": "kaeuferlastig", "eigentuemer", "investoren" oder "unklar".
+- "optik": "modern", "veraltet", "baukasten-schlicht" (weiß, kaum gestaltet, wirkt unfertig) oder "unklar" — aus den Screenshots.
+- "inhalt": "duenn" (Startseite sagt kaum etwas), "normal" oder "reich".
+- "mangel": ein konkreter, für jeden Besucher sichtbarer Fehler. **Im Zweifel leer.** Kevin sagt ihn dem Kontakt ins Gesicht — ein falscher blamiert ihn. Nie: Zahlen, die „0" oder leer wirken (die Seite ist durchgescrollt, was jetzt da steht, stimmt), abgeschnittene Texte in der Textdatei (die ist gekürzt), Folgen eines Fehlers, die du nicht gesehen hast (etwa „Mails kommen nicht an"), Platzhalter für Cookie-/Consent-Inhalte (der Prüf-Browser lehnt Cookies ab, echte Besucher sehen den Inhalt). Doppelte Kacheln oder Objekte in Slidern/Karussells (die klonen ihre Elemente technisch, der Besucher sieht sie einmal). Bewusste Positionierung ist kein Widerspruch („kein Schnellrechner, persönliche Bewertung"). Copyright-Jahre aus dem Vorjahr, einzelne Tippfehler und Du/Sie-Wechsel — zu klein, um sie jemandem vorzuhalten.
+- "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei, die den Mangel zeigt (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — der Beleg wird maschinell geprüft.
+- "befund": ein bis zwei Sätze über den Weg eines verkaufswilligen Eigentümers auf dieser Seite: was es gibt und was fehlt. Nie Slogans, Überschriften, Selbstbeschreibungen oder Eigenlob-Kennzahlen zitieren. Kein „vermutlich": Was du nicht siehst, lässt du weg. **Erfinde nichts.**`
 }
 
 /** Den letzten ```json-Block aus einer Antwort ziehen — dasselbe Muster wie beim Schreib-Agenten. */
@@ -153,29 +144,24 @@ function letzterJsonBlock(text) {
   }
 }
 
-/** Ein Lead, ein Prozess, ein Kontext — und danach ist er weg. */
-function rechercheEinen(lead, { cliPath, cwd, modell }) {
+/** Ein kurzlebiger `claude -p`-Lauf. Nie werfen. */
+function claudeLauf(prompt, { cliPath, cwd, tools, budget, zusatzOrdner }) {
   return new Promise((fertig) => {
     const args = [
       '-p',
-      baueRecherchePrompt(lead),
+      prompt,
       '--output-format',
       'json',
       '--model',
-      modell,
+      MODELL,
       '--allowedTools',
-      'WebSearch,WebFetch',
+      tools,
       '--max-budget-usd',
-      String(BUDGET_JE_LEAD),
-      /**
-       * Die User-Hooks bleiben draußen (07.09.2026): `uriel-status.mjs` hängt
-       * als SessionStart-Hook an Kevins Konfiguration und fragt bei JEDEM
-       * Agentenstart Supabase nach dem Stand — für einen Bericht, den ein
-       * headless Lauf niemandem zeigt. Bei dreizehn Leads waren das dreizehn
-       * Abfragen ins Leere.
-       */
+      String(budget),
+      // User-Hooks bleiben draußen (07.09.2026): der SessionStart-Hook fragte je Lauf Supabase ab.
       '--setting-sources',
       'project',
+      ...(zusatzOrdner ? ['--add-dir', zusatzOrdner] : []),
     ]
     const proc = spawn(process.env.CLAUDE_BIN ?? 'claude', args, {
       cwd,
@@ -188,7 +174,7 @@ function rechercheEinen(lead, { cliPath, cwd, modell }) {
     const uhr = setTimeout(() => proc.kill('SIGKILL'), LEAD_TIMEOUT_MS)
     proc.on('error', () => {
       clearTimeout(uhr)
-      fertig({ lead, destillat: null, token: 0, grund: 'claude nicht startbar' })
+      fertig({ json: null, kosten: 0, token: 0, grund: 'claude nicht startbar' })
     })
     proc.on('close', () => {
       clearTimeout(uhr)
@@ -196,33 +182,153 @@ function rechercheEinen(lead, { cliPath, cwd, modell }) {
       try {
         hülle = JSON.parse(aus)
       } catch {
-        return fertig({ lead, destillat: null, token: 0, grund: 'Antwort nicht lesbar' })
+        return fertig({ json: null, kosten: 0, token: 0, grund: 'Antwort nicht lesbar' })
       }
       const u = hülle?.usage ?? {}
-      const token =
-        (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.output_tokens ?? 0)
-      const destillat = letzterJsonBlock(hülle?.result)
+      const json = letzterJsonBlock(hülle?.result)
       fertig({
-        lead,
-        destillat,
-        token,
-        // Die CLI rechnet selbst ab — das ist die Währung, in der die Etappe meldet.
+        json,
         kosten: Number(hülle?.total_cost_usd ?? 0),
-        grund: destillat ? null : (hülle?.is_error ? 'Lauf abgebrochen (Budget oder Fehler)' : 'kein JSON-Block in der Antwort'),
+        token: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.output_tokens ?? 0),
+        grund: json ? null : hülle?.is_error ? 'Lauf abgebrochen (Budget oder Fehler)' : 'kein JSON-Block in der Antwort',
       })
     })
   })
+}
+
+const normal = (t) => String(t ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+/** Portale sind keine eigene Website, auch wenn die Suche sie nennt. */
+const PORTAL = /linkedin\.|xing\.|facebook\.|instagram\.|immobilienscout|immowelt|immonet|kleinanzeigen|openpr|pflumm|stilpunkte|northdata|firmenwissen|gelbeseiten|11880|google\.|provenexpert|homeday|wikipedia/i
+
+function kuerzelFuer(lead) {
+  return String(lead.profil_key ?? lead.name ?? 'lead').replace(/[^a-z0-9]+/gi, '-').slice(0, 60)
+}
+
+/** Ein Lead, drei Stufen. */
+async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
+  let kosten = 0
+  let token = 0
+
+  // Stufe 1 — Finden
+  const f = await claudeLauf(baueFindenPrompt(lead), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
+  kosten += f.kosten
+  token += f.token
+  if (!f.json) return { lead, destillat: null, kosten, token, grund: `Finden: ${f.grund}` }
+  const firma = String(f.json.firma ?? '').trim()
+  const taetigkeit = String(f.json.taetigkeit ?? '').trim()
+  const kandidaten = (Array.isArray(f.json.kandidaten) ? f.json.kandidaten : [])
+    .map((k) => String(k).trim())
+    .filter((k) => /^https?:\/\//.test(k) && !PORTAL.test(k))
+    /**
+     * Immer die Startseite der Domain (16.09.): Die Suche liefert gern die
+     * Team- oder Über-uns-Seite, und dann urteilte der Befund über eine
+     * Unterseite („nur Kurzbiografie und Kontaktdaten"). Ein Eigentümer
+     * googelt die Firma und landet vorn.
+     */
+    .map((k) => {
+      try {
+        return new URL(k).origin + '/'
+      } catch {
+        return k
+      }
+    })
+    .filter((k, i, alle) => alle.indexOf(k) === i)
+    .slice(0, 3)
+
+  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
+  if (!kandidaten.length) return { lead, destillat: leer, kosten, token, grund: null }
+
+  // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
+  const kuerzel = kuerzelFuer(lead)
+  let render = null
+  let ersterKaputt = null
+  for (const [i, url] of kandidaten.entries()) {
+    const r = await rendereKandidat(browser, url, { ordner, kuerzel: `${kuerzel}-${i}` })
+    if (r.start.erreichbar === 'ja' && (r.start.textLaenge ?? 0) > 0) {
+      render = r
+      break
+    }
+    ersterKaputt ??= r.start
+  }
+  if (!render) {
+    // Die Seite existiert, lädt aber nicht (oder startet einen Download) — das hat der Browser gesehen, nicht ein Modell.
+    return {
+      lead,
+      destillat: { ...leer, website: ersterKaputt.url, sicher: true, erreichbar: 'offline', befund: ersterKaputt.grund ?? '' },
+      kosten,
+      token,
+      grund: null,
+    }
+  }
+
+  // Stufe 3 — Befund aus Screenshots und sichtbarem Text
+  const s = render.start
+  const u = render.unterseite
+  const textDatei = join(ordner, `${kuerzel}-text.md`)
+  const sichtbarerText = `# Startseite ${s.endUrl}\n\n${s.text}\n\n` + (u?.erreichbar === 'ja' ? `# Eigentümer-Unterseite ${u.endUrl}\n\n${u.text}\n` : '')
+  await writeFile(textDatei, sichtbarerText.slice(0, 16_000))
+  const dateien = [s.screenshotOben, s.screenshotGanz, ...(u?.erreichbar === 'ja' ? [u.screenshotGanz] : []), textDatei]
+  const b = await claudeLauf(baueBefundPrompt(lead, { firma, dateien, render }), { cliPath, cwd, tools: 'Read', budget: BUDGET_BEFUND, zusatzOrdner: ordner })
+  kosten += b.kosten
+  token += b.token
+  if (!b.json) return { lead, destillat: null, kosten, token, grund: `Befund: ${b.grund}` }
+
+  /**
+   * Der Beleg-Check: Ein Mangel ohne wörtliche Fundstelle im gerenderten Text
+   * fliegt raus. Das ist die Wache gegen genau die Sorte Fehler, die Kevin am
+   * 16.09. fand — ein Modell, das aus Rohdaten eine Folge ableitet, die auf
+   * der echten Seite nicht existiert.
+   */
+  let mangel = String(b.json.mangel ?? '').trim()
+  const beleg = normal(b.json.mangel_beleg)
+  const gesamt = normal(sichtbarerText)
+  // Consent-Platzhalter sieht nur der Prüf-Browser, weil er Cookies ablehnt (Hellweger, 16.09.).
+  if (mangel && /cookie|consent|drittanbieter|einwilligung/i.test(mangel + ' ' + beleg)) {
+    console.log(`[runner] Recherche ${lead.name}: Consent-Platzhalter ist kein Mangel — verworfen`)
+    mangel = ''
+  }
+  if (mangel && (!beleg || beleg.length < 4 || !gesamt.includes(beleg))) {
+    console.log(`[runner] Recherche ${lead.name}: Mangel ohne Beleg verworfen — „${mangel.slice(0, 80)}"`)
+    mangel = ''
+  }
+
+  const passt = b.json.passt_zur_person !== false
+  return {
+    lead,
+    destillat: {
+      firma,
+      website: passt ? s.endUrl : '',
+      sicher: passt,
+      erreichbar: 'ja',
+      taetigkeit,
+      eigentuemer_bereich: String(b.json.eigentuemer_bereich ?? ''),
+      bewertung: String(b.json.bewertung ?? ''),
+      ausrichtung: String(b.json.ausrichtung ?? ''),
+      optik: String(b.json.optik ?? ''),
+      inhalt: String(b.json.inhalt ?? ''),
+      mangel,
+      befund: String(b.json.befund ?? ''),
+      nur_portal: false,
+    },
+    kosten,
+    token,
+    grund: null,
+  }
 }
 
 /**
  * Alle Leads eines Batches recherchieren — höchstens `GLEICHZEITIG` auf einmal.
  *
  * Gibt die Leads ZURÜCK, angereichert um `recherche`. Ein Lead ohne Ergebnis
- * fällt nicht raus: „keine Website gefunden" ist im Skill ausdrücklich ein
- * Aufhänger und kein Grund zum Überspringen.
+ * fällt nicht raus: „keine Website gefunden" ist ein Aufhänger, kein Grund zum
+ * Überspringen.
  */
-export async function rechercheLeads(leads, { melde = () => {}, cliPath = process.env.PATH ?? '', cwd, modell = process.env.RECHERCHE_MODELL ?? 'claude-haiku-4-5-20251001' } = {}) {
+export async function rechercheLeads(leads, { melde = () => {}, cliPath = process.env.PATH ?? '', cwd } = {}) {
   const ergebnisse = new Array(leads.length)
+  const ordner = join(tmpdir(), 'uriel-recherche', new Date().toISOString().slice(0, 10))
+  await mkdir(ordner, { recursive: true })
+  const browser = await starteBrowser()
   let naechster = 0
   let fertig = 0
   let token = 0
@@ -231,7 +337,12 @@ export async function rechercheLeads(leads, { melde = () => {}, cliPath = proces
   async function arbeiter() {
     while (naechster < leads.length) {
       const i = naechster++
-      const r = await rechercheEinen(leads[i], { cliPath, cwd, modell })
+      let r
+      try {
+        r = await rechercheEinen(leads[i], { cliPath, cwd, browser, ordner })
+      } catch (e) {
+        r = { lead: leads[i], destillat: null, kosten: 0, token: 0, grund: String(e?.message ?? e).slice(0, 160) }
+      }
       token += r.token
       kosten += r.kosten ?? 0
       ergebnisse[i] = r
@@ -240,7 +351,11 @@ export async function rechercheLeads(leads, { melde = () => {}, cliPath = proces
     }
   }
 
-  await Promise.all(Array.from({ length: Math.min(GLEICHZEITIG, leads.length) }, arbeiter))
+  try {
+    await Promise.all(Array.from({ length: Math.min(GLEICHZEITIG, leads.length) }, arbeiter))
+  } finally {
+    await browser.close().catch(() => {})
+  }
 
   const angereichert = leads.map((lead, i) => ({
     ...lead,

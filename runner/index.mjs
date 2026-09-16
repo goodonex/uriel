@@ -319,8 +319,9 @@ const AGENT_CATALOG = [
     // wieder vorgelegt bekommt.
     //
     // **Ohne WebFetch/WebSearch seit dem 07.09.2026.** Die Website-Recherche
-    // läuft vorgelagert je Lead in einem eigenen, kurzlebigen Haiku-Lauf
-    // (`runner/linkedin/leadRecherche.mjs`); hier kommt sie als Destillat im
+    // läuft vorgelagert je Lead in eigenen, kurzlebigen Läufen — seit 16.09.
+    // Sonnet + echter Browser mit Screenshots, vorher Haiku + WebFetch, was
+    // falsche Befunde lieferte (`runner/linkedin/leadRecherche.mjs`); hier kommt sie als Destillat im
     // Input an. Vorher trug dieser Agent jede gelesene Seite bis zum letzten
     // Lead mit: 51 Aufrufe, Kontext 47k → 102k, 4,09 Mio. Token für 13
     // Nachrichten. Wer hier die Web-Werkzeuge zurückgibt, holt genau das
@@ -4111,6 +4112,20 @@ async function codeCheckTick() {
     if ((await git('pull', '--ff-only', '--quiet')) === null) {
       console.error('[runner] neuer Code liegt bereit, aber der Pull ging nicht durch (kein Fast-Forward?)')
       return
+    }
+    /**
+     * Neue Pakete mitziehen (16.09.2026): Die Website-Recherche braucht seitdem
+     * `playwright-core`. Ein Pull allein hätte den Code geholt, aber nicht das
+     * Paket — und die Erstnachrichten wären auf dem Mini gescheitert.
+     */
+    const geaenderte = await git('diff', '--name-only', hier, dort)
+    if (geaenderte && /(^|\n)package-lock\.json($|\n)/.test(geaenderte)) {
+      const npmOk = await new Promise((fertig) => {
+        const p = spawn('npm', ['install', '--no-audit', '--no-fund'], { cwd: REPO_WURZEL, env: { ...process.env, PATH: CLI_PATH }, stdio: 'ignore' })
+        p.on('error', () => fertig(false))
+        p.on('close', (code) => fertig(code === 0))
+      })
+      console.log(`[runner] Pakete nach dem Pull ${npmOk ? 'installiert' : 'NICHT installiert — bitte im Uriel-Ordner npm install ausführen'}`)
     }
     console.log(`[runner] neuer Code geholt (${hier.slice(0, 7)} → ${dort.slice(0, 7)}) — Neustart, launchd fängt ihn auf`)
     process.exit(0)

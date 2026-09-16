@@ -272,11 +272,14 @@ console.log('\n5b) Erstnachrichten: Recherche getrennt, Kosten gedeckelt')
   check('die Etappe meldet, was die Recherche gekostet hat', /Recherche \$\$\{kostenRecherche/.test(quelle))
 
   const rech = readFileSync(join(wurzel, 'runner/linkedin/leadRecherche.mjs'), 'utf8')
-  check('die Recherche laeuft auf dem billigen Modell', /RECHERCHE_MODELL \?\? 'claude-haiku/.test(rech))
+  // 16.09.2026: Haiku mit einer Suche fand drei von sechs existierenden Seiten nicht — Sonnet ist der Boden.
+  check('die Recherche laeuft NICHT mehr auf Haiku', !/RECHERCHE_MODELL \?\? 'claude-haiku/.test(rech))
+  check('die Seite wird im echten Browser gerendert, nicht per WebFetch gelesen', /rendereKandidat\(/.test(rech) && !/WebFetch/.test(rech.replace(/\/\*\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')))
+  check('ein Mangel ohne woertlichen Beleg fliegt raus', /gesamt\.includes\(beleg\)/.test(rech))
   check('sie traegt einen eigenen Deckel je Lead', /'--max-budget-usd'/.test(rech))
   // Der Deckel darf nicht dort stehen, wo der Normalfall landet (~$0,08):
   // Beim ersten Messlauf schnitt er auf $0,08 prompt einen von zwei Leads ab.
-  check('der Deckel je Lead liegt ueber dem gemessenen Normalfall', /RECHERCHE_BUDGET_USD \?\? 0\.1[5-9]|RECHERCHE_BUDGET_USD \?\? 0\.[2-9]/.test(rech))
+  check('der Deckel je Lead liegt ueber dem gemessenen Normalfall', /RECHERCHE_BUDGET_FINDEN_USD \?\? 0\.[2-9]/.test(rech) && /RECHERCHE_BUDGET_BEFUND_USD \?\? 0\.[2-9]/.test(rech))
   check('die User-Hooks bleiben bei Agentenlaeufen draussen', /'--setting-sources',\s*\n?\s*'project'/.test(rech))
 }
 
