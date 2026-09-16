@@ -1127,6 +1127,19 @@ async function startRun(agent, input) {
 
   running.set(id, { id, agent, startedAt, proc, lauf })
 
+  /**
+   * Das Ende des Laufs als Promise (16.09.2026).
+   *
+   * `startRun` kommt direkt nach dem Start zurück — richtig für die Brücke,
+   * falsch für die Erstnachrichten-Batches: Batch 2 wählte seine Leads, bevor
+   * Batch 1 seine Texte gespeichert hatte, recherchierte dieselben 13 noch
+   * einmal und verwarf sie dann als „hatten schon eine Zeile". Jeder zweite
+   * Batch war bezahlt und leer (16.09.: 50 im Budget, 25 Texte). Löst erst
+   * nach dem Speichern der Ergebnisse auf, also am Ende von 'close'/'error'.
+   */
+  let meldeFertig = () => {}
+  const fertig = new Promise((r) => (meldeFertig = r))
+
   // spawn-Fehler (z.B. claude nicht im PATH) dürfen den Runner NICHT crashen —
   // ohne diesen Handler wirft der ChildProcess ein unhandled 'error' Event
   // (beobachtet: ENOENT-Crash-Loop unter launchd am 08.07.).
@@ -1147,6 +1160,7 @@ async function startRun(agent, input) {
     }
     console.error(`[runner] spawn-Fehler für ${id}:`, e?.message ?? e)
     await pushRunsSnapshot()
+    meldeFertig()
   })
 
   proc.on('close', async (code) => {
@@ -1207,6 +1221,7 @@ async function startRun(agent, input) {
     // Ergebnis direkt spiegeln statt auf den 60s-Tick zu warten — daran hängen
     // Freigaben-Queue, Run-Toasts und der „Skript fertig"-Zustand am Handy.
     await pushRunsSnapshot()
+    meldeFertig()
   })
 
   // Erst hier spiegeln — und bewusst abwarten: über die Brücke gilt der Auftrag
@@ -1216,7 +1231,7 @@ async function startRun(agent, input) {
   // oder 'error', das während des Netzwerk-Aufrufs feuert.
   await pushRunsSnapshot()
 
-  return { id, agent, startedAt }
+  return { id, agent, startedAt, fertig }
 }
 
 // ---------- Vault: Wikilink-Graph (Obsidian-Gefühl) ----------
@@ -4362,7 +4377,10 @@ const ETAPPEN_ARBEIT = {
       if (recherchiert.ohneErgebnis) {
         console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${recherchiert.ohneErgebnis} ohne Recherche-Ergebnis (schreiben trotzdem)`)
       }
-      await startRun('linkedin-erstnachrichten', { ...gebaut, leads: recherchiert.leads })
+      const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: recherchiert.leads })
+      // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
+      // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
+      await schreiblauf.fertig
       vorbereitet += gebaut.leads.length
       // Nach JEDEM Batch, nicht erst am Ende: Bricht der Lauf in Batch 3 ab,
       // sind die ersten beiden trotzdem bezahlt und geschrieben — das Budget
