@@ -111,6 +111,31 @@ Deno.serve(async (req) => {
     userId = created.user.id
   }
 
+  /**
+   * Ein Agentur-Konto wird nie zum Kunden umgeschrieben (16.09.2026).
+   *
+   * Der Upsert unten ersetzt die Rollen-Zeile. Eine Test-Einladung an Kevins
+   * eigene Adresse machte sein Konto damit zum Kunden — beim nächsten Laden
+   * hätte ihn das Cockpit ins Portal umgeleitet.
+   */
+  if (existingUser) {
+    const { data: vorhandeneRolle } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (vorhandeneRolle?.role === 'owner') {
+      return json(
+        {
+          success: false,
+          error: 'owner_account',
+          detail: 'Diese Adresse gehört zu einem Agentur-Konto und kann nicht als Kunde eingeladen werden.',
+        },
+        409,
+      )
+    }
+  }
+
   const portalUrl = `${PUBLIC_APP_URL}/portal/${payload.project_id}`
   const setupUrl = `${PUBLIC_APP_URL}/portal/setup?project=${payload.project_id}`
   const loginUrl = `${PUBLIC_APP_URL}/portal/login`
