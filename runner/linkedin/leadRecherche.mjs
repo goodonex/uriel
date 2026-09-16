@@ -53,7 +53,7 @@ const GLEICHZEITIG = Number(process.env.RECHERCHE_PARALLEL ?? 3)
  * Zwei Läufe je Lead (Finden + Befund).
  */
 const BUDGET_FINDEN = Number(process.env.RECHERCHE_BUDGET_FINDEN_USD ?? 0.5)
-const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.4)
+const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.6)
 
 /** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
 const MODELL = process.env.RECHERCHE_MODELL ?? 'claude-sonnet-5'
@@ -99,22 +99,53 @@ Kontakt: ${lead.name} · ${lead.headline ?? ''} · Firma laut Suche: ${firma || 
 Website: ${s.endUrl}
 Menü: ${(s.menue ?? []).join(' | ') || '(keins erkannt)'}
 Eigentümer-Unterseite: ${u ? `${u.url} (${u.erreichbar})` : 'keine im Menü/in den Links gefunden'}
+Vom Browser gemessen (Startseite): ${JSON.stringify(s.checkliste ?? {})}
 
 Die Seite wurde in einem echten Browser geöffnet und einmal ganz durchgescrollt (Zähler und Animationen sind durchgelaufen). Lies mit Read GENAU diese Dateien:
 ${dateien.map((d) => `- ${d}`).join('\n')}
 
-Die Screenshots zeigen, was ein Besucher sieht — urteile über Optik, Leere, Aufbau NUR danach. Die Textdatei ist der sichtbare Text. Keine anderen Quellen, kein Web.
+Die Screenshots zeigen, was ein Besucher sieht — urteile über Optik, Leere, Aufbau NUR danach. **Aber:** Leere weiße Kacheln, weiße Bildrahmen oder schwarze Flächen im Ganzseiten-Screenshot sind fast immer Technik (Slider, Lazy-Loading, Video), nicht die Seite. „Leer" oder „kaum Inhalt" nur, wenn auch die Textdatei kaum etwas hergibt. Ein Hintergrundbild oder -video oben ist oft ein Video, das wechselt — nie das Motiv eines Standbilds kritisieren. Die Textdatei ist der sichtbare Text. Keine anderen Quellen, kein Web.
+
+## Worum es geht
+
+Kevin verkauft Maklern und Immobilienfirmen eine Website, die Anfragen bringt. Er schreibt jedem Kontakt: eine echte Stärke der Seite → das EINE Problem, das am meisten Anfragen kostet → Angebot. Deine Aufgabe ist, diese beiden Dinge richtig zu treffen. Ein wahrer, aber nebensächlicher Punkt entkräftet die Nachricht: Wer eine Seite von 2005 hat und hört „dir fehlt ein Bewertungstool", denkt „meine Seite ist eh Schrott" — und antwortet nicht.
+
+## Schritt 1 — Gesamteindruck (IMMER zuerst)
+
+Stell dir einen Eigentümer vor, der 2026 drei Makler vergleicht und auf dieser Seite landet. Würde er hier anfragen?
+- Wirkt sie zeitgemäß und gepflegt, oder alt, amateurhaft, leer, wie ein Baukasten?
+- Sieht man die Menschen dahinter (Fotos vom Team/Makler)?
+- Gibt es Vertrauen: Kundenstimmen, Referenzen, verkaufte Objekte?
+- Versteht man oben sofort, was die Firma macht und für wen?
+
+**Ist die Seite als Ganzes nicht auf einem Stand, auf dem jemand anfragt, IST das der Elefant** — egal, was sonst fehlt. Nur wenn die Seite zeitgemäß und vertrauenswürdig ist, suchst du den Elefanten im Weg zur Anfrage.
+
+## Schritt 2 — Checkliste (aus Screenshots + Messwerten)
+
+## Schritt 3 — Zielgruppe
+
+Nicht jeder Kontakt lebt von Eigentümer-Mandaten. Bestimme, wen die Seite gewinnen MUSS: Eigentümer (Makler), Käufer/Mieter (Vermarkter, Vermieter, Bauträger), Investoren, Grundstücksverkäufer (Entwickler), Verwaltungskunden (Hausverwaltung). Der Elefant ist das, was genau DIESE Anfragen kostet.
 
 Antworte mit NICHTS als diesem JSON-Block:
 
 \`\`\`json
 {
   "passt_zur_person": true,
+  "gesamteindruck": "",
+  "zeitgemaess": "",
+  "menschen_sichtbar": false,
+  "kundenstimmen": false,
+  "referenzen": false,
+  "hero_klar": false,
   "eigentuemer_bereich": "",
   "bewertung": "",
   "ausrichtung": "",
+  "zielgruppe": "",
   "optik": "",
   "inhalt": "",
+  "staerke": "",
+  "elefant_typ": "",
+  "elefant": "",
   "mangel": "",
   "mangel_beleg": "",
   "befund": ""
@@ -123,14 +154,23 @@ Antworte mit NICHTS als diesem JSON-Block:
 
 Feldregeln:
 - "passt_zur_person": false, wenn Seite erkennbar nicht zu dieser Person/Firma gehört.
+- "gesamteindruck": ein Satz, wie die Seite auf einen Besucher wirkt — ehrlich, wie ein Freund es sagen würde.
+- "zeitgemaess": "ja", "teils" oder "nein".
+- "menschen_sichtbar": echte Fotos vom Team/Makler auf Start- oder Eigentümerseite (keine Stockfotos).
+- "kundenstimmen", "referenzen": sichtbar vorhanden (Messwerte helfen, Screenshot entscheidet).
+- "hero_klar": Versteht man im ersten Screenshot, was die Firma macht und für wen?
 - "eigentuemer_bereich": "nein" oder "ja: <Menüpunkt>".
-- "bewertung": "sofort-ergebnis" (rechnet direkt einen Wert aus), "nur-formular" (Wert kommt später), "kostenpflichtig", "keine" oder "unklar".
+- "bewertung": "sofort-ergebnis", "nur-formular", "kostenpflichtig", "keine" oder "unklar".
 - "ausrichtung": "kaeuferlastig", "eigentuemer", "investoren" oder "unklar".
-- "optik": "modern", "veraltet", "baukasten-schlicht" (weiß, kaum gestaltet, wirkt unfertig) oder "unklar" — aus den Screenshots.
-- "inhalt": "duenn" (Startseite sagt kaum etwas), "normal" oder "reich".
-- "mangel": ein konkreter, für jeden Besucher sichtbarer Fehler. **Im Zweifel leer.** Kevin sagt ihn dem Kontakt ins Gesicht — ein falscher blamiert ihn. Nie: Zahlen, die „0" oder leer wirken (die Seite ist durchgescrollt, was jetzt da steht, stimmt), abgeschnittene Texte in der Textdatei (die ist gekürzt), Folgen eines Fehlers, die du nicht gesehen hast (etwa „Mails kommen nicht an"), Platzhalter für Cookie-/Consent-Inhalte (der Prüf-Browser lehnt Cookies ab, echte Besucher sehen den Inhalt). Doppelte Kacheln oder Objekte in Slidern/Karussells (die klonen ihre Elemente technisch, der Besucher sieht sie einmal). Bewusste Positionierung ist kein Widerspruch („kein Schnellrechner, persönliche Bewertung"). Copyright-Jahre aus dem Vorjahr, einzelne Tippfehler und Du/Sie-Wechsel — zu klein, um sie jemandem vorzuhalten.
-- "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei, die den Mangel zeigt (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — der Beleg wird maschinell geprüft.
-- "befund": ein bis zwei Sätze über den Weg eines verkaufswilligen Eigentümers auf dieser Seite: was es gibt und was fehlt. Nie Slogans, Überschriften, Selbstbeschreibungen oder Eigenlob-Kennzahlen zitieren. Kein „vermutlich": Was du nicht siehst, lässt du weg. **Erfinde nichts.**`
+- "zielgruppe": "eigentuemer", "kaeufer-mieter", "investoren", "grundstuecke", "verwaltung" oder gemischt mit "+".
+- "optik": "modern", "veraltet", "baukasten-schlicht" oder "unklar".
+- "inhalt": "duenn", "normal" oder "reich".
+- "staerke": EINE echte, konkrete Stärke, die der Inhaber gern hört und die stimmt (etwa „eigene Seite für Verkäufer mit Ablauf in sechs Schritten", „ihr zeigt euch mit Foto und Namen", „Kundenstimmen direkt auf der Startseite"). Nie Slogans, Überschriften, Eigenlob-Zahlen. Gibt es ehrlich nichts: leer lassen.
+- "elefant_typ": genau einer von "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "keiner" (Seite stark).
+- "elefant": ein bis zwei Sätze: was das ist und warum es ANFRAGEN kostet. Konkret an dieser Seite, in Geld-/Anfragen-Logik, nicht in Technik. **Nie** Code, Quelltext, Ladezeiten, Meta-Tags, Tippfehler, Copyright-Jahre oder Barrierefreiheit — das macht niemanden zum Kunden.
+- "mangel": ein konkreter, sichtbarer Fehler, der den Elefanten stützt, sonst leer. **Im Zweifel leer.** Nie: Zahlen, die „0" wirken, abgeschnittene Texte der Textdatei, Folgen, die du nicht gesehen hast, Cookie-/Consent-Platzhalter, Slider-Klone, bewusste Positionierung, Tippfehler, Du/Sie-Wechsel.
+- "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — wird maschinell geprüft.
+- "befund": ein bis zwei Sätze zum Weg eines Anfragenden der Zielgruppe: was es gibt und was fehlt. Kein „vermutlich". **Erfinde nichts.**`
 }
 
 /** Den letzten ```json-Block aus einer Antwort ziehen — dasselbe Muster wie beim Schreib-Agenten. */
@@ -210,8 +250,16 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   let kosten = 0
   let token = 0
 
-  // Stufe 1 — Finden
-  const f = await claudeLauf(baueFindenPrompt(lead), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
+  /**
+   * Stufe 1 — Finden. Steht die Website schon fest (Kevin hat sie korrigiert,
+   * oder sie ist aus einem früheren Lauf bestätigt), wird nicht noch einmal
+   * gesucht: Die Suche fand am 16.09. für Christopher Schmitt eine fremde
+   * Hausverwaltung statt immo-schmitt.com.
+   */
+  const bekannt = String(lead.website_bekannt ?? '').trim()
+  const f = bekannt
+    ? { json: { firma: lead.firma_bekannt ?? '', taetigkeit: lead.taetigkeit_bekannt ?? '', kandidaten: [bekannt], nur_portal: false }, kosten: 0, token: 0 }
+    : await claudeLauf(baueFindenPrompt(lead), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
   kosten += f.kosten
   token += f.token
   if (!f.json) return { lead, destillat: null, kosten, token, grund: `Finden: ${f.grund}` }
@@ -288,6 +336,11 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     console.log(`[runner] Recherche ${lead.name}: Consent-Platzhalter ist kein Mangel — verworfen`)
     mangel = ''
   }
+  // Kleinkram ist nie der Aufhänger (Kevin, 16.09.): „krass, dass dir das auffällt" macht niemanden zum Kunden.
+  if (mangel && /tippfehler|grammatik|copyright|quelltext|code|meta|du\/sie|anrede/i.test(mangel)) {
+    console.log(`[runner] Recherche ${lead.name}: Kleinkram ist kein Aufhänger — verworfen`)
+    mangel = ''
+  }
   if (mangel && (!beleg || beleg.length < 4 || !gesamt.includes(beleg))) {
     console.log(`[runner] Recherche ${lead.name}: Mangel ohne Beleg verworfen — „${mangel.slice(0, 80)}"`)
     mangel = ''
@@ -307,6 +360,25 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       ausrichtung: String(b.json.ausrichtung ?? ''),
       optik: String(b.json.optik ?? ''),
       inhalt: String(b.json.inhalt ?? ''),
+      /**
+       * Gesamteindruck, Stärke und Elefant (16.09.2026, Kevins zweite Runde):
+       * *„Diese Nachricht wäre gut für jemanden, der eine richtig gute Seite
+       * hat, wo nur das für die Eigentümer fehlt. Wenn wir sie jemandem
+       * schicken, dessen Seite aussieht wie aus dem Jahr 2000, sagt der: ja,
+       * das fehlt, aber meine Seite ist eh Schmutz."* Der Befund muss den
+       * Punkt treffen, der die Anfragen kostet — gut, schlecht, gut.
+       */
+      gesamteindruck: String(b.json.gesamteindruck ?? ''),
+      zeitgemaess: String(b.json.zeitgemaess ?? ''),
+      menschen_sichtbar: b.json.menschen_sichtbar === true,
+      kundenstimmen: b.json.kundenstimmen === true,
+      referenzen: b.json.referenzen === true,
+      hero_klar: b.json.hero_klar === true,
+      zielgruppe: String(b.json.zielgruppe ?? ''),
+      staerke: String(b.json.staerke ?? ''),
+      elefant_typ: String(b.json.elefant_typ ?? ''),
+      elefant: String(b.json.elefant ?? ''),
+      checkliste: s.checkliste ?? null,
       mangel,
       befund: String(b.json.befund ?? ''),
       nur_portal: false,

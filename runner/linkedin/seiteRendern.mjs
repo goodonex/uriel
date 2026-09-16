@@ -98,7 +98,40 @@ async function lies(page) {
         ...(document.body.innerText.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g) ?? []).map((m) => m.toLowerCase()),
       ]),
     ]
+    /**
+     * Die Checkliste, soweit sie ohne Modell messbar ist (16.09.2026). Kevin:
+     * „eine Checkliste haben — sind da Kundenstimmen drin, hat er ein
+     * Hero-Bild, eine Animation, ein Bewertungstool …" Was sich zählen lässt,
+     * zählt der Browser; was man sehen muss (wirkt die Seite zeitgemäß, sind
+     * Menschen zu sehen), urteilt der Befund anhand der Screenshots.
+     */
+    const text = document.body.innerText
+    const grosseBilder = [...document.images].filter((i) => {
+      const r = i.getBoundingClientRect()
+      return r.width >= 250 && r.height >= 150
+    }).length
+    const hintergrundBilder = [...document.querySelectorAll('section, header, div')]
+      .slice(0, 1500)
+      .filter((el) => /url\(/.test(getComputedStyle(el).backgroundImage) && el.getBoundingClientRect().width >= 600).length
+    const animiert =
+      Boolean(document.querySelector('[data-aos], [data-animate], [class*="animate"], [class*="wow "], [class*="reveal"], [data-scroll], video[autoplay]')) ||
+      [...document.querySelectorAll('body *')].slice(0, 1500).some((el) => getComputedStyle(el).animationName !== 'none')
+    const jahre = [...text.matchAll(/(?:©|copyright)\s*(?:\d{4}\s*[-–]\s*)?(\d{4})/gi)].map((m) => Number(m[1]))
+    const checkliste = {
+      grosse_bilder: grosseBilder + hintergrundBilder,
+      video: Boolean(document.querySelector('video, iframe[src*="youtube"], iframe[src*="vimeo"]')),
+      animation: animiert,
+      kundenstimmen: /kundenstimme|kundenmeinung|erfahrungsbericht|rezension|das sagen unsere|google[- ]bewertung|provenexpert|sterne|testimonial/i.test(text),
+      referenzen: /referenz|verkauft|erfolgreich vermittelt/i.test(text),
+      bewertungs_tool: Boolean(document.querySelector('iframe[src*="bewert"], iframe[src*="wertermittl"], iframe[src*="pricehubble"], iframe[src*="sprengnetter"], iframe[src*="immowelt"], iframe[src*="homeday"], iframe[src*="leadfox"], iframe[src*="propstack"], iframe[src*="onoffice"]')),
+      impressum: [...document.querySelectorAll('a')].some((a) => /impressum|imprint/i.test(a.innerText + a.href)),
+      mobil_viewport: Boolean(document.querySelector('meta[name="viewport"]')),
+      copyright_jahr: jahre.length ? Math.max(...jahre) : null,
+      telefon_sichtbar: /(\+\d{2}|\b0\d{2,5})[\d\s/()-]{7,}/.test(text),
+      whatsapp: /whatsapp|wa\.me/i.test(document.body.innerHTML),
+    }
     return {
+      checkliste,
       titel: document.title,
       text: document.body.innerText.replace(/\n{3,}/g, '\n\n').slice(0, 12_000),
       textLaenge: document.body.innerText.trim().length,
@@ -148,6 +181,32 @@ export async function rendereSeite(browser, url, { ordner, kuerzel }) {
       .click({ timeout: 1500 })
       .catch(() => {})
     await durchscrollen(page)
+    /**
+     * Scroll-Einblendungen sichtbar machen, bevor fotografiert wird (16.09.):
+     * Der Ganzseiten-Screenshot zeigt Elemente, die erst beim Hinscrollen
+     * einfaden, als leere Flächen. xania.ch sah dadurch „über weite Strecken
+     * leer" aus — im Browser sind dort Projektbilder. Alles, was nach dem
+     * Durchscrollen noch unsichtbar im Inhalt steht, wird eingeblendet;
+     * fixierte Elemente (Menüs, Popups) bleiben, wie sie sind.
+     */
+    await page.addStyleTag({
+      content:
+        '[data-aos],[data-animate],[data-scroll],.wow,.elementor-invisible,[class*="reveal"],[class*="fade-in"],[class*="fadeIn"],[class*="animate__"]{opacity:1!important;visibility:visible!important;transform:none!important;animation:none!important}',
+    }).catch(() => {})
+    await page.evaluate(() => {
+      for (const el of [...document.querySelectorAll('main *, section *, article *, body > div *')].slice(0, 4000)) {
+        const st = getComputedStyle(el)
+        if (st.position === 'fixed' || st.position === 'sticky') continue
+        const r = el.getBoundingClientRect()
+        if (r.height < 40 || r.width < 40) continue
+        if (Number(st.opacity) < 0.05) {
+          el.style.setProperty('opacity', '1', 'important')
+          el.style.setProperty('transform', 'none', 'important')
+        }
+        if (st.visibility === 'hidden') el.style.setProperty('visibility', 'visible', 'important')
+      }
+    }).catch(() => {})
+    await page.waitForTimeout(600)
     const daten = await lies(page)
     await mkdir(ordner, { recursive: true })
     const screenshotOben = join(ordner, `${kuerzel}-oben.jpg`)
