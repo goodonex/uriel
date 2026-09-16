@@ -1,0 +1,1401 @@
+/*
+ * Ambient-Fläche — Uriels Schreibtisch (10.09.2026).
+ *
+ * Werte aus `docs/phase2/DESIGN-TOKENS.md` (eingefroren 10.08.). Die Tokens
+ * stehen in `cockpit.css` auf `.ck-root`; diese Fläche lebt außerhalb der
+ * Cockpit-Shell und trägt sie deshalb selbst — mit denselben Werten als
+ * Fallback, damit sie auch ohne die Shell stimmt.
+ *
+ * **Die Form:** vier Spalten, getrennt durch Haarlinien, die über die ganze
+ * Höhe laufen. Das ist das tragende Element — es macht aus Text auf einem Bild
+ * ein Raster, in dem jede Spalte eine eigene Aufgabe hat.
+ *
+ * **Der Schleier ist stärker als bei einem reinen Bild-Wallpaper**, und das ist
+ * Absicht: Die zweite Fassung hatte einen zarten Scrim und trug genau eine
+ * Textspalte. Vier Spalten über der ganzen Breite brauchen durchgehend Grund.
+ * Die Szene bleibt sichtbar — sie ist jetzt Textur statt Motiv.
+ */
+
+.amb-flaeche {
+  --amb-text-1: var(--ck-text-1, #eaf0e6);
+  --amb-text-2: var(--ck-text-2, #a7b3a2);
+  --amb-text-3: var(--ck-text-3, #737d70);
+  --amb-accent: var(--ck-accent, #aecfa4);
+  --amb-warn: var(--ck-warn, #d9ab52);
+  --amb-bg: var(--ck-bg, #0c130e);
+  --amb-linie: rgba(214, 235, 205, 0.11);
+
+  /* Der Kopf startet tiefer als die Menüleiste endet: oben ist der Scrim jetzt
+     bei null, dort trüge das nackte Foto keine Schrift. */
+  --amb-oben: clamp(96px, 9.5vh, 140px);
+  --amb-unten: clamp(58px, 7vh, 104px);
+  --amb-seite: clamp(30px, 3vw, 62px);
+  /* Breite der zugeklappten Menüleiste. Kopf und Raster beginnen dahinter —
+     die Fläche rückt also nach rechts und wird um genau diesen Betrag
+     schmaler, statt dass die Leiste über den Spalten läge. */
+  --amb-menue: 52px;
+  --amb-menue-offen: 216px;
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--amb-bg);
+  pointer-events: auto;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Die Szene — und warum es genau **diese** Datei sein muss.
+ *
+ * `horizont-desktop-exakt.jpg` ist die JPEG-Fassung von
+ * `uriel-wallpaper-macbook-3456x2234.png`, also exakt des Bildes, das als
+ * macOS-Wallpaper gesetzt ist. Die Flaeche liegt damit deckungsgleich ueber dem
+ * Schreibtisch: gleicher Zuschnitt, gleiche Position, gleiche eingebaute
+ * Abdunklung fuer Menueleiste und Dock.
+ *
+ * Vorher standen hier zwei andere Fassungen — die Cockpit-Fassung (2560x1600)
+ * und ein frischer Master-Schnitt (3840x2576). Beide zeigen dieselbe Szene,
+ * aber in anderem Seitenverhaeltnis: 1,49 bzw. 1,60 gegen 1,547 des Wallpapers.
+ * Bei `cover` beschneidet jedes davon anders — die Flaeche zeigte den Grat ein
+ * Stueck versetzt zum Hintergrund darunter. Genau dieser Versatz war zuletzt
+ * noch sichtbar.
+ *
+ * `center` statt eines eigenen Fokuspunktes, weil macOS bei „Bildschirm
+ * fuellen" ebenfalls zentriert. Wer den Ausschnitt hier verschiebt, bricht die
+ * Deckungsgleichheit. Wird das Wallpaper gewechselt, wird diese Datei
+ * mitgewechselt — sonst driften die beiden auseinander.
+ */
+/*
+ * `--amb-versatz` misst `AmbientPage` im Wallpaper-Betrieb (Bildschirmhöhe
+ * minus Fensterhöhe): der Streifen, den die Menüleiste verdeckt. Die Szene
+ * wird um genau diesen Betrag nach oben gezogen und entsprechend höher, damit
+ * sie den Bildausschnitt fortsetzt, der in der Leiste durchscheint, statt noch
+ * einmal bei der Bildoberkante anzufangen. Ohne die Variable (Browser,
+ * Vorschau) bleibt alles wie zuvor.
+ */
+.amb-szene {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--amb-versatz, 0px));
+  height: calc(100% + var(--amb-versatz, 0px));
+  background-image: url('/ambient/horizont-desktop-exakt.jpg');
+  background-size: cover;
+  background-position: center center;
+}
+
+.amb-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    /*
+     * Ganz oben steht die Abdunklung auf **null**, und das ist der Kern.
+     *
+     * Die Ambient-Fläche zeigt dasselbe Motiv, das auch als macOS-Wallpaper
+     * gesetzt ist. Solange der Scrim schon bei 0 % greift, ist der Streifen
+     * unter der Menüleiste dunkler als auf dem normalen Schreibtisch — und
+     * genau das liest sich als Kante an der Leiste. Nicht die Leiste ist das
+     * Problem, sondern dass wir unter ihr ein anderes Bild zeigen als sie
+     * gewohnt ist.
+     *
+     * Der Schutz setzt deshalb erst unterhalb der Leiste ein und steigt weich
+     * an, bis er den Text trägt. Wer ihn hier wieder hochzieht, holt sich die
+     * Kante zurück.
+     */
+    linear-gradient(
+      178deg,
+      rgba(12, 19, 14, 0) 0%,
+      rgba(12, 19, 14, 0.06) 5%,
+      rgba(12, 19, 14, 0.28) 12%,
+      rgba(12, 19, 14, 0.52) 22%,
+      rgba(12, 19, 14, 0.6) 40%,
+      rgba(12, 19, 14, 0.6) 70%,
+      rgba(12, 19, 14, 0.7) 100%
+    );
+}
+
+/*
+ * Der Schutz von rechts: dort steht im Foto der Sonnendurchbruch, und genau
+ * darüber liegen Monatsblatt und Zahlen. Er liegt als eigene Schicht mit
+ * Maske, damit er — wie der Grundverlauf — oben auf null steht: sonst wäre
+ * der Streifen unter der Menüleiste rechts wieder dunkler als das Wallpaper
+ * und die Kante käme an der rechten Bildhälfte zurück.
+ */
+.amb-scrim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(12, 19, 14, 0) 44%,
+    rgba(12, 19, 14, 0.28) 72%,
+    rgba(12, 19, 14, 0.5) 100%
+  );
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 6%, #000 20%, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, transparent 6%, #000 20%, #000 100%);
+}
+
+/*
+ * Der Bereich unter der Menüleiste — und warum hier bewusst NICHTS liegt.
+ *
+ * Die Leiste sieht aus wie ein transparentes Fenster auf das Wallpaper, ist
+ * aber ein eigenes Material: macOS legt im Dark Mode Weichzeichner *und* eine
+ * Aufhellung darüber. Sie ist damit immer heller als ein dunkler Grund — die
+ * Kante an ihrer Unterseite lässt sich durch Malen nicht schließen.
+ *
+ * Zwei Versuche haben das bewiesen und beide verschlimmert: ein deckender
+ * Balken in geratener Leistenhöhe (bekam seine eigene, härtere Kante) und ein
+ * 160px-Verlauf von Schwarz nach transparent (machte den Kontrast zur helleren
+ * Leiste maximal — genau falsch herum).
+ *
+ * Wer die Kante wirklich weghaben will, blendet die Menüleiste aus
+ * (Systemeinstellungen → Kontrollzentrum → Menüleiste automatisch ein- und
+ * ausblenden → Immer). Dann ist der Schirm durchgehend Fläche. Das Wallpaper
+ * bleibt dafür unverändert — deshalb steht hier kein Balken und kein Verlauf.
+ */
+
+/* ── Menüleiste ─────────────────────────────────────────────────────── */
+
+/*
+ * Der Weg in Uriel hinein (10.09.2026).
+ *
+ * Zugeklappt sind es 52 px mit den Kürzeln; beim Darüberfahren wächst die
+ * Leiste nach rechts auf 216 px und zeigt die Namen. Sie wächst *über* die
+ * Spalten, nicht neben ihnen: läge sie im Fluss, ruckte das ganze Raster bei
+ * jeder Mausbewegung.
+ */
+.amb-menue {
+  position: absolute;
+  top: var(--amb-oben);
+  bottom: var(--amb-unten);
+  left: 0;
+  width: calc(var(--amb-seite) + var(--amb-menue));
+  padding-left: clamp(8px, 0.9vw, 16px);
+  display: flex;
+  align-items: center;
+  z-index: 3;
+  overflow: hidden;
+  transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.amb-menue:hover,
+.amb-menue:focus-within {
+  width: calc(var(--amb-seite) + var(--amb-menue-offen));
+  overflow: visible;
+}
+
+/*
+ * Das Panel — der Grund der offenen Leiste.
+ *
+ * **Warum es deckt und eine Kante hat.** Die erste Fassung legte einen weichen
+ * Verlauf über die volle Spaltenhöhe. Der schnitt die Zeilen der Spalte
+ * „Offen" mitten im Wort an: halb verblasster Fließtext direkt neben den
+ * Menünamen, beides schlecht lesbar, und über dem Foto sah es aus wie ein
+ * Darstellungsfehler. Ein Grund, der wirklich deckt, verdeckt sauber.
+ *
+ * **Und warum es nur so hoch ist wie sein Inhalt.** Ein Grund über die volle
+ * Spaltenhöhe wäre ein dunkler Balken quer durch das Bild. So ist es ein
+ * Element, das neben dem Schreibtisch steht — mit Rundung und weichem Schatten
+ * statt einer harten Kante.
+ *
+ * Zugeklappt ist das Panel unsichtbar: die Kürzel tragen ihren eigenen Grund.
+ */
+.amb-menue-panel {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.2vh, 18px);
+  width: 100%;
+  padding: 10px 12px 10px 10px;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.amb-menue:hover .amb-menue-panel,
+.amb-menue:focus-within .amb-menue-panel {
+  background: rgba(9, 14, 10, 0.95);
+  box-shadow: 0 20px 56px rgba(4, 7, 5, 0.5);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.amb-menue-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amb-menue-trenner {
+  height: 1px;
+  width: 28px;
+  margin-left: 10px;
+  background: var(--amb-linie);
+}
+
+.amb-menue-knopf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* 40px hoch: Daumen- und Zeigergröße, ohne dass zehn Einträge die Spalte
+     sprengen. */
+  min-height: 40px;
+  padding: 0 10px 0 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--amb-text-2);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.amb-menue-knopf:hover,
+.amb-menue-knopf:focus-visible {
+  background: rgba(214, 235, 205, 0.09);
+  color: var(--amb-text-1);
+}
+
+.amb-menue-knopf:focus-visible {
+  outline: 2px solid var(--amb-accent);
+  outline-offset: -2px;
+}
+
+/*
+ * Kürzel statt Marken-Logos. Ein Dock aus LinkedIn-Blau, Google-Bunt und
+ * Notion-Schwarz macht aus einer Fläche mit einer Akzentfarbe eine
+ * Symbolleiste — und die Logos müssten in Originalabmessungen liegen, wofür
+ * eine 32-px-Zelle der falsche Ort ist.
+ */
+.amb-menue-kuerzel {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(214, 235, 205, 0.16);
+  background: rgba(8, 13, 9, 0.5);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: inherit;
+}
+
+.amb-menue-knopf:hover .amb-menue-kuerzel,
+.amb-menue-knopf:focus-visible .amb-menue-kuerzel {
+  border-color: var(--amb-accent);
+}
+
+/* Der Name erscheint erst mit der offenen Leiste. `white-space: nowrap` hält
+   ihn einzeilig, während die Breite animiert — sonst bricht er beim Aufklappen
+   kurz um. */
+.amb-menue-label {
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 160ms ease, transform 200ms ease;
+}
+
+.amb-menue:hover .amb-menue-label,
+.amb-menue:focus-within .amb-menue-label {
+  opacity: 1;
+  transform: none;
+}
+
+/* Im Wallpaper-Ruhezustand tritt die Leiste zurück wie die übrigen
+   Bedienelemente — bedienbar wird sie ohnehin erst im Browsing Mode. */
+.amb-wallpaper .amb-menue-kuerzel {
+  opacity: 0.42;
+}
+
+html.plash-is-browsing-mode .amb-wallpaper .amb-menue-kuerzel,
+body.plash-is-browsing-mode .amb-wallpaper .amb-menue-kuerzel {
+  opacity: 1;
+}
+
+/* ── Kopf ───────────────────────────────────────────────────────────── */
+
+.amb-kopf {
+  position: absolute;
+  top: var(--amb-oben);
+  left: calc(var(--amb-seite) + var(--amb-menue));
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.amb-gruss {
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(28px, 2.3vw, 46px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--amb-text-1);
+  /* Kräftiger als in den Spalten: der Kopf steht am weitesten oben, wo der
+     Scrim noch fast durchsichtig ist und der Himmel hell werden kann. */
+  text-shadow: 0 2px 10px rgba(6, 10, 7, 0.85), 0 2px 30px rgba(6, 10, 7, 0.7);
+}
+
+.amb-datum {
+  margin: 0;
+  font-size: clamp(13px, 0.92vw, 18px);
+  color: var(--amb-text-2);
+  text-shadow: 0 1px 8px rgba(6, 10, 7, 0.85), 0 1px 20px rgba(6, 10, 7, 0.6);
+}
+
+/* ── Das Raster ─────────────────────────────────────────────────────── */
+
+.amb-raster {
+  position: absolute;
+  top: calc(var(--amb-oben) + clamp(52px, 5vh, 84px));
+  right: var(--amb-seite);
+  bottom: var(--amb-unten);
+  left: calc(var(--amb-seite) + var(--amb-menue));
+  display: grid;
+  /* Die Termin-Spalte bekommt mehr als die Zähler: „Closing-Call ·
+     Hausverwaltung Nord" darf nicht abgeschnitten werden, ein Zählfeld heißt
+     „LI Follow-up". */
+  grid-template-columns: 1.3fr 1.15fr 0.95fr 0.8fr;
+  gap: 0;
+}
+
+/* Die Haarlinien laufen über die volle Spaltenhöhe — sie sind die Form,
+   nicht Dekoration. Deshalb am Element, nicht als eigene Deko-Schicht. */
+.amb-spalte {
+  position: relative;
+  /* Container für `cqw`: die Riesenziffer im Monatsblatt richtet sich nach der
+     Spaltenbreite, weil die Spalte ziehbar ist. */
+  container-type: inline-size;
+  min-width: 0;
+  padding: 0 clamp(18px, 1.8vw, 38px);
+  border-left: 1px solid var(--amb-linie);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.5vh, 22px);
+  overflow: hidden;
+}
+
+/*
+ * Der Griff auf der Trennlinie. Sichtbar ist nur die Haarlinie der Nachbar-
+ * spalte; greifbar ist ein 16px-Streifen, weil eine 1px-Linie mit dem Zeiger
+ * nicht zu treffen ist. Doppelklick stellt die Standardaufteilung wieder her.
+ */
+/*
+ * Der Griff liegt als eigene Ebene im Raster, nicht in der Spalte: dort saß er
+ * außerhalb seiner Spalte und wurde von deren `overflow: hidden` komplett
+ * weggeschnitten — unsichtbar und nicht anklickbar (Fehler vom 10.09.).
+ *
+ * `left` kommt aus dem aufsummierten Spaltenanteil, `margin-left` zentriert die
+ * 16 px Trefferfläche auf der Haarlinie: eine 1-px-Linie ist mit dem Zeiger
+ * nicht zu treffen.
+ */
+.amb-griff {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  margin-left: -8px;
+  cursor: col-resize;
+  /* Unter der Menüleiste (z-index 3), über den Spalteninhalten. */
+  z-index: 2;
+}
+
+.amb-griff::after {
+  content: '';
+  position: absolute;
+  inset: 0 7px;
+  background: var(--amb-accent);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.amb-griff:hover::after {
+  opacity: 0.5;
+}
+
+/* Während des Zugs gilt der Cursor für die ganze Fläche — sonst springt er,
+   sobald der Zeiger die 16px verlässt. */
+.amb-zieht,
+.amb-zieht .amb-griff {
+  cursor: col-resize;
+}
+
+.amb-zieht .amb-griff::after {
+  opacity: 0.5;
+}
+
+.amb-spalte:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.amb-spalte:last-child {
+  padding-right: 0;
+}
+
+/* Die Labels stehen am oberen Rand des Rasters, wo der Scrim noch schwach ist.
+   Sie tragen deshalb ihren Kontrast selbst — über den Schatten, nicht über
+   mehr Abdunklung der Fläche. */
+.amb-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--amb-text-2);
+  text-shadow: 0 1px 6px rgba(6, 10, 7, 0.9), 0 1px 16px rgba(6, 10, 7, 0.7);
+}
+
+.amb-still {
+  margin: 0;
+  font-size: clamp(13px, 0.9vw, 17px);
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.5);
+}
+
+/* ── Spalte 1 · Offen ───────────────────────────────────────────────── */
+
+.amb-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.5vh, 22px);
+}
+
+.amb-zeile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.amb-inhalt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.amb-titel {
+  font-size: clamp(13px, 0.94vw, 18px);
+  line-height: 1.36;
+  color: var(--amb-text-1);
+  text-shadow: 0 1px 14px rgba(6, 10, 7, 0.55);
+}
+
+/* Der Handgriff ist ein Link an den Ort, wo er getan wird — im Browser, nicht
+   in der Fläche (sonst navigiert das Wallpaper weg). */
+.amb-tun {
+  font-size: clamp(11.5px, 0.78vw, 15px);
+  line-height: 1.34;
+  color: var(--amb-text-3);
+  text-decoration: none;
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.5);
+  transition: color 140ms ease;
+}
+
+.amb-tun::before {
+  content: '→ ';
+}
+
+.amb-tun:hover,
+.amb-tun:focus-visible {
+  color: var(--amb-accent);
+}
+
+.amb-mehr {
+  font-size: clamp(11.5px, 0.78vw, 15px);
+  color: var(--amb-text-3);
+  text-decoration: none;
+  padding-left: 29px;
+}
+
+.amb-mehr:hover {
+  color: var(--amb-text-2);
+}
+
+.amb-haken {
+  flex: none;
+  /* 44px Trefferfläche, davon sichtbar nur das Kästchen. */
+  width: 44px;
+  height: 44px;
+  margin: -13px -13px -13px -13px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.amb-kaestchen {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(214, 235, 205, 0.5);
+  background: rgba(8, 13, 9, 0.42);
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.amb-haken:hover .amb-kaestchen,
+.amb-haken:focus-visible .amb-kaestchen {
+  border-color: var(--amb-accent);
+  background: rgba(174, 207, 164, 0.2);
+}
+
+.amb-haken:focus-visible {
+  outline: 2px solid var(--amb-accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Widersprüche tragen einen Strich statt eines Kästchens: sie werden nicht
+   abgehakt, sie verschwinden, wenn die Ursache weg ist. */
+.amb-marke {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  border-left: 2px solid rgba(214, 235, 205, 0.3);
+  border-radius: 1px;
+}
+
+.amb-zeile-dringend .amb-marke {
+  border-left-color: var(--amb-warn);
+}
+
+/* ── Spalte 1 · Monatsziel am Fuß ───────────────────────────────────── */
+
+/*
+ * `margin-top: auto` schiebt den Block an den Fuß der Spalte — gegenüber der
+ * Tageszahl in Spalte 3. Ein Anker an jedem Ende gibt der Fläche unten zwei
+ * Gewichte statt eines.
+ */
+.amb-monat {
+  margin-top: auto;
+  padding-top: clamp(14px, 1.8vh, 24px);
+  border-top: 1px solid var(--amb-linie);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 140ms ease;
+}
+
+.amb-monat:hover {
+  opacity: 0.82;
+}
+
+.amb-monat-zahl {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(26px, 2vw, 40px);
+  line-height: 1;
+  color: var(--amb-text-1);
+  text-shadow: 0 2px 12px rgba(6, 10, 7, 0.7);
+}
+
+.amb-monat-von {
+  font-size: clamp(11px, 0.74vw, 14px);
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 10px rgba(6, 10, 7, 0.6);
+}
+
+.amb-monat-balken {
+  position: relative;
+  height: 4px;
+  margin-top: 3px;
+  border-radius: 999px;
+  background: rgba(214, 235, 205, 0.12);
+  overflow: hidden;
+}
+
+.amb-monat-fuellung {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--amb-accent);
+  transition: width 220ms ease;
+}
+
+/* Die Soll-Marke steht im Balken, nicht daneben: davor oder dahinter liest man
+   damit an der Stelle ab, statt zwei Zahlen zu vergleichen. */
+.amb-monat-soll {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(234, 240, 230, 0.7);
+}
+
+.amb-monat-lage {
+  font-size: clamp(10.5px, 0.7vw, 13px);
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 10px rgba(6, 10, 7, 0.6);
+}
+
+/* Hinter Plan: gedämpftes Gold, wie bei jedem dringenden Befund. Nie Rot —
+   das ist in den Tokens festgeschrieben. */
+.amb-monat-hinten .amb-monat-fuellung {
+  background: var(--amb-warn);
+}
+
+.amb-monat-hinten .amb-monat-lage {
+  color: var(--amb-warn);
+}
+
+/* ── Spalte 2 · Bestand ─────────────────────────────────────────────── */
+
+/*
+ * Die drei Bestandszahlen quer statt untereinander: so liest man sie als
+ * *einen* Stand. Untereinander wären sie eine Liste, die man durchgeht.
+ */
+.amb-bestand {
+  display: flex;
+  justify-content: space-between;
+  gap: clamp(8px, 1vw, 18px);
+}
+
+.amb-bestand-zahl {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-decoration: none;
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.5);
+  transition: color 140ms ease;
+}
+
+.amb-bestand-zahl b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(17px, 1.25vw, 27px);
+  line-height: 1.05;
+  color: var(--amb-text-1);
+}
+
+.amb-bestand-zahl span {
+  font-size: clamp(10.5px, 0.72vw, 13px);
+  letter-spacing: 0.04em;
+}
+
+.amb-bestand-zahl:hover {
+  color: var(--amb-text-2);
+}
+
+/* Gedämpftes Gold wie bei jedem dringenden Befund — nie Rot. */
+.amb-bestand-alt {
+  color: var(--amb-warn);
+  opacity: 0.85;
+}
+
+/* Das zweite Label derselben Spalte (Tageszähler unter dem Bestand) braucht
+   sichtbar mehr Luft nach oben als nach unten — sonst liest es sich als
+   Fußzeile des Bestands statt als eigener Block. */
+.amb-label-zweit {
+  margin-top: clamp(10px, 2.2vh, 30px);
+}
+
+/* ── Spalte 4 · Tagesverlauf als 24-Stunden-Achse ───────────────────── */
+
+/*
+ * Die Neufassung vom 10.09.2026.
+ *
+ * Vorher eine Liste mit Trennlinien: die Abstände sagten nichts, ein
+ * Halbstünder sah aus wie ein Halbtagestermin. Jetzt eine echte Achse — 00:00
+ * bis 24:00 über die volle Spaltenhöhe, jeder Termin an seiner Uhrzeit und so
+ * hoch, wie er dauert.
+ *
+ * **Alles rechnet in Prozent, nichts in Pixeln.** Die Spalte ist ziehbar und
+ * die Fläche läuft auf verschiedenen Bildschirmen; eine Achse mit gerechneten
+ * Pixelhöhen wäre bei jedem Zug neu falsch. `top: (minute / 1440) * 100 %` ist
+ * auf jeder Höhe richtig.
+ */
+.amb-achse-block {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 0.8vh, 12px);
+  min-height: 0;
+  flex: 1;
+  /* Luft für die Stundenzahlen an 00:00 und die Jetzt-Marke kurz vor
+     Mitternacht: beide sitzen mittig auf ihrer Linie und ragen sonst über den
+     Rand der Spalte hinaus, die `overflow: hidden` trägt. */
+  padding: 7px 0;
+}
+
+/*
+ * Der Kopf der Achse: welcher Tag, und wann der Tag begonnen hat.
+ *
+ * Beides sitzt hier und nicht in einer Einstellung, weil beides zur Achse
+ * gehört — der Tageswechsel ändert, was darunter steht, die Aufwachzeit
+ * verschiebt die Kurve daneben. Man sieht das Ergebnis, während man es stellt.
+ */
+.amb-achse-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.amb-tagwahl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.amb-tagpfeil {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--amb-text-2);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.amb-tagpfeil:hover:not(:disabled),
+.amb-tagpfeil:focus-visible:not(:disabled) {
+  background: rgba(8, 13, 9, 0.55);
+  color: var(--amb-text-1);
+}
+
+/* Am Rand des Fensters (gestern/morgen) bleibt der Pfeil stehen, statt zu
+   verschwinden: ein Knopf, der wegspringt, verschiebt den ganzen Kopf. */
+.amb-tagpfeil:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.amb-tagname {
+  min-width: 5.6em;
+  text-align: center;
+  font-size: clamp(11.5px, 0.78vw, 14px);
+  color: var(--amb-text-1);
+  text-shadow: 0 1px 4px rgba(6, 10, 7, 0.9), 0 1px 12px rgba(6, 10, 7, 0.7);
+}
+
+.amb-wachwahl,
+.amb-ansichtwahl {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Der Kopf trägt jetzt drei Gruppen (Tag, Ausschnitt, Aufwachzeit). Bei
+   schmaler Spalte bricht er um, statt sich zusammenzuquetschen. */
+.amb-achse-kopf {
+  row-gap: 6px;
+}
+
+.amb-wachlabel {
+  margin-right: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 8px rgba(6, 10, 7, 0.8);
+}
+
+.amb-wachknopf {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: rgba(8, 13, 9, 0.4);
+  color: var(--amb-text-3);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.amb-wachknopf:hover,
+.amb-wachknopf:focus-visible {
+  border-color: rgba(214, 235, 205, 0.3);
+  color: var(--amb-text-2);
+}
+
+.amb-wachknopf-an {
+  border-color: var(--amb-accent);
+  background: rgba(174, 207, 164, 0.2);
+  color: var(--amb-text-1);
+}
+
+.amb-ganztags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Ganztägige Termine haben keine Uhrzeit und damit keinen Platz auf der Achse.
+   Sie über 24 Stunden zu ziehen hieße, den Tag zuzukleben. */
+.amb-ganztag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 235, 205, 0.18);
+  background: rgba(8, 13, 9, 0.42);
+  font-size: clamp(10.5px, 0.72vw, 13px);
+  color: var(--amb-text-2);
+  text-decoration: none;
+}
+
+.amb-achse {
+  /* Der Streifen links für Stundenzahlen und Energiekurve. Als Variable, weil
+     die Terminblöcke ihn brauchen: sie teilen sich die Breite *rechts davon*,
+     wenn sie sich überschneiden. */
+  --amb-achse-links: 90px;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Die Energiekurve. `preserveAspectRatio="none"` zieht die viewBox (0 0 100
+   1440) auf die volle Höhe — dadurch entspricht jede y-Koordinate einer Minute
+   und liegt exakt neben dem Termin derselben Uhrzeit. */
+/*
+ * Die Kurve. **`height: 100%` ist hier tragend, nicht kosmetisch** (Fehler vom
+ * 11.09.): Ein `<svg>` mit viewBox hat ein eigenes Seitenverhältnis. Mit
+ * `top: 0; bottom: 0` und automatischer Höhe rechnet der Browser daraus
+ * `width × 1440/100` — bei 60 px Breite also 864 px, ganz gleich, wie hoch die
+ * Achse wirklich ist. Die Kurve lief damit über den unteren Rand hinaus und
+ * saß gegenüber dem Stundenraster verschoben: bei der 24-Uhr-Linie stand sie
+ * noch auf dem Wert von etwa 21 Uhr. Erst die feste Höhe zwingt sie auf
+ * dieselbe Skala wie Raster und Termine.
+ */
+.amb-energie {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  left: 24px;
+  width: 60px;
+  overflow: visible;
+}
+
+.amb-energie-flaeche {
+  fill: var(--amb-accent);
+  opacity: 0.13;
+}
+
+.amb-energie-linie {
+  fill: none;
+  stroke: var(--amb-accent);
+  stroke-width: 1.6;
+  opacity: 0.72;
+}
+
+.amb-stunde {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amb-stunde-zahl {
+  flex: none;
+  width: 22px;
+  font-size: clamp(9px, 0.62vw, 11px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--amb-text-2);
+  text-shadow: 0 1px 4px rgba(6, 10, 7, 0.95), 0 1px 12px rgba(6, 10, 7, 0.8);
+}
+
+/* Die Linie beginnt hinter der Kurve, nicht am Spaltenrand: sie ordnet die
+   Termine, sie soll die Kurve nicht durchstreichen. */
+.amb-stunde-linie {
+  position: absolute;
+  left: var(--amb-achse-links);
+  right: 0;
+  height: 1px;
+  background: var(--amb-linie);
+}
+
+/* Die beiden Hochs an der Kurve. Nur ein Wort — mehr Text macht aus einer
+   Stimmungslinie eine Tabelle. */
+.amb-hoch {
+  position: absolute;
+  left: 24px;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amb-accent);
+  opacity: 0.75;
+  text-shadow: 0 1px 10px rgba(6, 10, 7, 0.8);
+  pointer-events: none;
+}
+
+/*
+ * Der Terminblock. Höhe = Dauer, und das ist der ganze Punkt: zwei Stunden
+ * sind doppelt so hoch wie eine.
+ *
+ * `overflow: hidden` statt Umbruch nach außen — ein 30-Minuten-Block ist auf
+ * einer 24-Stunden-Achse etwa 2 % hoch, und ein Titel, der aus ihm herausläuft,
+ * legt sich über den nächsten.
+ */
+/*
+ * Der Block. `left` und `width` setzt die Komponente: überschneidende Termine
+ * teilen sich die Breite, statt sich zu verdecken.
+ */
+.amb-block {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border-left: 2px solid var(--amb-accent);
+  /*
+   * Dunkler Grund, nicht heller Akzentschleier. Rechts steht im Foto der
+   * Sonnendurchbruch — ein aufgehellter Block verschwindet dort, während ein
+   * dunkler auf jedem Untergrund trägt. Die Akzentfarbe bleibt an der Kante,
+   * wo sie den Block zuordnet, ohne den Text zu tragen.
+   */
+  background: rgba(10, 16, 11, 0.52);
+  text-decoration: none;
+  overflow: hidden;
+  transition: background-color 140ms ease;
+}
+
+.amb-block:hover {
+  background: rgba(10, 16, 11, 0.68);
+}
+
+/*
+ * Der Titel bleibt IM Block. Vorher brach er um und lief unten heraus — auf
+ * dem Wallpaper sah das aus, als lägen zwei Termine ineinander. Eine Zeile mit
+ * Auslassungspunkten sagt weniger, verdeckt aber nichts.
+ */
+.amb-block-titel {
+  min-width: 0;
+  font-size: clamp(11px, 0.78vw, 14px);
+  line-height: 1.25;
+  color: var(--amb-text-1);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Geteilte Blöcke stehen dicht nebeneinander und brauchen eine sichtbare
+   Fuge — sonst liest sich das Paar als ein breiter Kasten. */
+.amb-block-geteilt {
+  margin-right: 3px;
+}
+
+.amb-block-geteilt .amb-block-zeit {
+  display: none;
+}
+
+.amb-block-zeit {
+  flex: none;
+  font-size: clamp(9.5px, 0.66vw, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  color: var(--amb-text-3);
+}
+
+/* Vergangenes bleibt stehen, tritt aber zurück — eine Achse, aus der Termine
+   verschwinden, verliert den Tag. */
+.amb-block-vorbei {
+  opacity: 0.42;
+}
+
+/* Was gerade läuft, ist der einzige Block, den man aus drei Metern erkennen
+   muss. */
+.amb-block-laeuft {
+  background: rgba(24, 40, 26, 0.72);
+  border-left-width: 3px;
+  box-shadow: inset 0 0 0 1px rgba(174, 207, 164, 0.28);
+}
+
+.amb-block-laeuft .amb-block-zeit {
+  color: var(--amb-text-2);
+}
+
+/*
+ * Die Jetzt-Marke sitzt an ihrer echten Höhe statt zwischen zwei Einträgen —
+ * auf einer maßstäblichen Achse geht das endlich. Sie ist die einzige Stelle
+ * der Fläche in voller Akzentfarbe über die ganze Spaltenbreite.
+ */
+.amb-jetzt-marke {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.amb-jetzt-zeit {
+  flex: none;
+  width: 34px;
+  font-size: clamp(9.5px, 0.66vw, 12px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--amb-accent);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.85);
+}
+
+.amb-jetzt-linie {
+  flex: 1;
+  height: 1px;
+  background: var(--amb-accent);
+  opacity: 0.7;
+}
+
+/* ── Spalte 3 · Tageszähler ─────────────────────────────────────────── */
+
+.amb-zaehler {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(11px, 1.4vh, 20px);
+}
+
+.amb-zaehler-zeile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.amb-zaehler-kopf {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.amb-zaehler-label {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(12.5px, 0.86vw, 16px);
+  color: var(--amb-text-2);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amb-zaehler-stand {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(13px, 0.9vw, 17px);
+  color: var(--amb-text-1);
+  text-shadow: 0 1px 12px rgba(6, 10, 7, 0.5);
+}
+
+.amb-zaehler-ziel {
+  color: var(--amb-text-3);
+}
+
+/* „140 warten" unter der Zeile: das, was aus einer nackten 0 erst eine
+   Aussage macht. Zurückgenommen, weil der Stand die Hauptzahl bleibt. */
+.amb-zaehler-offen {
+  font-size: clamp(10.5px, 0.7vw, 13px);
+  color: var(--amb-text-3);
+  text-shadow: 0 1px 10px rgba(6, 10, 7, 0.6);
+}
+
+/* Der Knopf, der die Fläche vom Poster unterscheidet. 34px sichtbar, 44px
+   Trefferfläche über das negative Margin des Elternabstands hinaus. */
+.amb-plus {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 235, 205, 0.2);
+  background: rgba(8, 13, 9, 0.44);
+  color: var(--amb-text-2);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.amb-plus:hover,
+.amb-plus:focus-visible {
+  border-color: var(--amb-accent);
+  background: rgba(174, 207, 164, 0.2);
+  color: var(--amb-text-1);
+}
+
+.amb-plus:active {
+  transform: scale(0.94);
+}
+
+/*
+ * Der Knopf für die Zeilen, die man nicht zählt, sondern abarbeitet
+ * (Erstnachrichten, Antworten, Follow-ups). Gleiche Größe und Position wie das
+ * Plus, damit die Spalte eine Kante behält — nur der Pfeil sagt, dass hier
+ * etwas aufgeht statt hochgezählt zu werden.
+ */
+.amb-oeffnen {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 235, 205, 0.2);
+  background: rgba(8, 13, 9, 0.44);
+  color: var(--amb-text-2);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.amb-oeffnen svg {
+  width: 15px;
+  height: 15px;
+}
+
+.amb-oeffnen:hover,
+.amb-oeffnen:focus-visible {
+  border-color: var(--amb-accent);
+  background: rgba(174, 207, 164, 0.2);
+  color: var(--amb-text-1);
+}
+
+.amb-oeffnen:active {
+  transform: scale(0.94);
+}
+
+.amb-balken {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(214, 235, 205, 0.12);
+  overflow: hidden;
+}
+
+.amb-balken span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--amb-accent);
+  transition: width 220ms ease;
+}
+
+/* ── Spalte 3 · Monat ───────────────────────────────────────────────── */
+
+.amb-kalenderblock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vh, 30px);
+  /* Der Block füllt die Spalte, damit die Ziffer wirklich am Fuß sitzt und
+     nicht direkt unter dem Monatsraster hängt. */
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Die Tageszahl. Wie in der ersten Fassung: riesig, dünn, halb durchsichtig —
+ * Grafik, kein Datum zum Ablesen. Geändert hat sich nur der Ort: sie steht
+ * jetzt am Fuß der Monatsspalte statt frei über der ganzen Fläche.
+ *
+ * `min(…, 88cqw)` deckelt sie an der Spaltenbreite. Ohne das schnitte die
+ * Spalte (`overflow: hidden`) eine zweistellige Zahl an, sobald Kevin den
+ * Trenner nach links zieht.
+ */
+/*
+ * Die Spalte, die nicht clippt.
+ *
+ * Alle anderen tragen `overflow: hidden`, damit lange Inhalte nicht in die
+ * Nachbarspalte laufen. Hier ist der Überlauf gewollt: die Tageszahl ist so
+ * groß wie in der ersten Fassung und damit breiter als die Spalte. Sie ragt
+ * nach rechts hinaus, wo die Verlaufsspalte über ihr liegt — dieselbe Wirkung
+ * wie vorher, als sie frei über der Fläche stand.
+ */
+.amb-spalte-monat {
+  overflow: visible;
+}
+
+/*
+ * Links am Spaltenrand, unten bündig mit den Trennlinien.
+ *
+ * **Warum `-0.159em` und keine runde Zahl.** Bündig heißt: die *Grundlinie* der
+ * Ziffer liegt auf der Unterkante der Spalte — nicht die Zeilenbox, die bei
+ * dieser Schrift 0,31 em unter der Grundlinie endet. Mit `line-height: 1` steht
+ * die Grundlinie 0,159 em über der Elementunterkante (aus den Metriken von
+ * Instrument Serif: Ascent 0,991, Descent 0,310); genau um diesen Betrag wird
+ * nach unten geschoben. Wer die Schrift wechselt, rechnet das neu, sonst
+ * schwebt die Ziffer wieder über der Linie.
+ *
+ * `-0.005em` links gleicht das linke Seitenlager der Ziffern aus.
+ */
+.amb-tageszahl {
+  position: absolute;
+  left: -0.005em;
+  bottom: -0.159em;
+  /* Ohne Deckel an der Spaltenbreite: die Spalte clippt hier nicht. Es ist
+     wieder die Größe der ersten Fassung — Kevin ging es um den Ort, nicht um
+     die Größe. */
+  font-size: clamp(200px, 32vh, 470px);
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(234, 240, 230, 0.1);
+  user-select: none;
+  pointer-events: none;
+}
+
+.amb-kalender {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.amb-kal-kopf,
+.amb-kal-raster {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: clamp(2px, 0.4vh, 6px);
+  text-align: center;
+}
+
+.amb-kal-kopf {
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--amb-text-3);
+}
+
+.amb-kal-tag {
+  position: relative;
+  padding: clamp(2px, 0.5vh, 5px) 0;
+  font-size: clamp(11px, 0.76vw, 14px);
+  font-variant-numeric: tabular-nums;
+  color: var(--amb-text-2);
+  text-shadow: 0 1px 4px rgba(6, 10, 7, 0.95), 0 1px 12px rgba(6, 10, 7, 0.7);
+}
+
+.amb-kal-heute {
+  color: var(--amb-bg);
+  background: var(--amb-accent);
+  border-radius: 6px;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+/* Ein Punkt markiert Tage mit Terminen — mehr trägt ein Monatsblatt nicht,
+   ohne zur zweiten Terminliste zu werden. */
+.amb-kal-punkt:not(.amb-kal-heute)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 999px;
+  background: var(--amb-accent);
+  opacity: 0.75;
+}
+
+/*
+ * Wallpaper-Betrieb (`?plash=1`): Plash zeigt die Seite nur an, bis der
+ * Browsing Mode an ist — dabei setzt es `plash-is-browsing-mode` auf das
+ * Wurzelelement. Solange der fehlt, sind die Bedienelemente zurückgenommen:
+ * eine Lesefläche. Im normalen Browser greift das nie (kein `?plash=1`).
+ */
+.amb-wallpaper .amb-kaestchen,
+.amb-wallpaper .amb-oeffnen,
+.amb-wallpaper .amb-tagpfeil,
+.amb-wallpaper .amb-wachknopf,
+.amb-wallpaper .amb-plus {
+  opacity: 0.42;
+}
+
+html.plash-is-browsing-mode .amb-wallpaper .amb-kaestchen,
+html.plash-is-browsing-mode .amb-wallpaper .amb-oeffnen,
+html.plash-is-browsing-mode .amb-wallpaper .amb-tagpfeil,
+html.plash-is-browsing-mode .amb-wallpaper .amb-wachknopf,
+html.plash-is-browsing-mode .amb-wallpaper .amb-plus,
+body.plash-is-browsing-mode .amb-wallpaper .amb-kaestchen,
+body.plash-is-browsing-mode .amb-wallpaper .amb-oeffnen,
+body.plash-is-browsing-mode .amb-wallpaper .amb-tagpfeil,
+body.plash-is-browsing-mode .amb-wallpaper .amb-wachknopf,
+body.plash-is-browsing-mode .amb-wallpaper .amb-plus {
+  opacity: 1;
+}
+
+/* Bewegung erst nach dem Aufbau, dann kurz und selten (Haltung der Tokens). */
+@media (prefers-reduced-motion: no-preference) {
+  .amb-kopf,
+  .amb-raster {
+    animation: amb-auftauchen 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .amb-raster {
+    animation-delay: 90ms;
+  }
+}
+
+@keyframes amb-auftauchen {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Schmale Fläche (iPad quer, kleiner Zweitschirm): vier Spalten nebeneinander
+   werden dort zu Streifen. Zwei Reihen zu zwei Spalten halten die Form. */
+@media (max-width: 1200px) {
+  .amb-raster {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    row-gap: clamp(18px, 2.5vh, 34px);
+  }
+
+  .amb-spalte:nth-child(3) {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  /* Auf zwei Reihen ist jede Spalte halb so hoch — die Riesenziffer läge dann
+     über dem Monatsraster statt darunter. */
+  .amb-tageszahl {
+    display: none;
+  }
+}

@@ -33,6 +33,7 @@ import { AdsArea } from './cockpit/pages/AdsArea'
 import { SocialArea } from './cockpit/pages/SocialArea'
 import { AgentsArea } from './cockpit/pages/AgentsArea'
 import { AufgabenArea } from './cockpit/pages/AufgabenArea'
+import { AmbientPage } from './cockpit/pages/AmbientPage'
 import { TermineArea } from './cockpit/pages/TermineArea'
 import { FreigabenArea } from './cockpit/pages/FreigabenArea'
 import { LinkedinArea } from './cockpit/pages/LinkedinArea'
@@ -44,6 +45,7 @@ import { RundeVorschau } from './dev/RundeVorschau'
 import { IdentitaetVorschau } from './dev/IdentitaetVorschau'
 import { PosteingangVorschau } from './dev/PosteingangVorschau'
 import { RechnungVorschau } from './dev/RechnungVorschau'
+import { AmbientVorschau } from './dev/AmbientVorschau'
 
 
 /** CRM → Sales (Juli 2026): alte /crm-Links/Bookmarks/Deep-Links auf /sales umleiten. */
@@ -175,6 +177,13 @@ function App() {
    */
   const isPortal = location.pathname.startsWith('/portal')
   /**
+   * Die Ambient-Fläche (10.09.) ist dasselbe in Grün: sie legt ihre eigene
+   * Szene fixed über den Viewport. Die Background-Blobs lägen darunter und
+   * würden nur Frames kosten — und sie läuft als Wallpaper stunden- bis
+   * tagelang, wo jeder unnötige Compositing-Schritt dauerhaft mitläuft.
+   */
+  const isAmbient = location.pathname === '/ambient'
+  /**
    * Das Portal bringt seine eigene Breite und sein eigenes Innenmass mit. Die
    * 1100px dieser Huelle sind fuer Karten-Layouts gedacht — im Website-Studio
    * pressen sie die Seiten-Vorschau schmaler, als die Seite in Wirklichkeit
@@ -185,7 +194,7 @@ function App() {
   return (
     <ToastProvider>
       <SaveStatusProvider>
-      {isCockpit || isPortal ? null : <Background />}
+      {isCockpit || isPortal || isAmbient ? null : <Background />}
       {/* Phase 6: Three.js-Welt abgerissen — reines DOM-Layout. */}
       <div
         id="app-ui-overlay"
@@ -237,6 +246,7 @@ function App() {
             {import.meta.env.DEV ? <Route path="/dev/runde-vorschau" element={<RundeVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/identitaet-vorschau" element={<IdentitaetVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/posteingang-vorschau" element={<PosteingangVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/ambient-vorschau" element={<AmbientVorschau />} /> : null}
             <Route element={<OwnerWorkspaceShell />}>
               {/* Neue Cockpit-Shell (REBUILD-PLAN §5) */}
               <Route element={<CockpitShell />}>
@@ -264,6 +274,12 @@ function App() {
                     eine Lesefläche und lebt in der Shell. */}
                 <Route path="/identitaet" element={<IdentitaetArea />} />
               </Route>
+              {/* Die Ambient-Fläche steht bewusst NEBEN der Cockpit-Shell, nicht
+                  darin: als Schreibtisch-Hintergrund braucht sie weder Dock noch
+                  Rail noch Kopfzeile. Innerhalb des OwnerWorkspaceShell bleibt
+                  sie aber, weil sie Login und Marken-Kontext braucht wie jede
+                  andere Arbeitsfläche. */}
+              <Route path="/ambient" element={<AmbientPage />} />
               {/* Phase 6: Universe + Denk-Modi abgerissen → Cockpit ist Home */}
               <Route path="/" element={<Navigate to="/cockpit" replace />} />
               {/* Etappe 4/2: Die alte Brand-Oberfläche ist abgerissen. Was bleibt,

@@ -23,6 +23,16 @@ export interface CalendarEvent {
   /** HH:MM, fehlt bei Ganztags-Terminen */
   time?: string
   allDay: boolean
+  /**
+   * Länge in Minuten, wo der Kalender sie hergibt (`DTEND` oder `DURATION`).
+   *
+   * Sie kam am 10.09.2026 dazu, weil die Ambient-Fläche Termine maßstäblich
+   * zeichnet: ein Zwei-Stunden-Block muss doppelt so hoch sein wie ein
+   * Ein-Stunden-Block, sonst ist die Achse eine Liste mit Linien. Fehlt die
+   * Angabe (kein DTEND, ganztägig, unparsbar), bleibt das Feld leer — die
+   * Fläche setzt dann ihre eigene Mindesthöhe, statt eine Länge zu erfinden.
+   */
+  dauerMin?: number
 }
 
 /** RFC-5545-Line-Folding auflösen: Fortsetzungszeilen beginnen mit Space/Tab. */
@@ -47,7 +57,7 @@ function unescapeText(v: string): string {
     .replace(/\\\\/g, '\\')
 }
 
-/** DTSTART-Zeile (inkl. Parameter) → date/time/allDay. */
+/** DTSTART-/DTEND-Zeile (inkl. Parameter) → date/time/allDay. */
 function parseDtStart(line: string): { date: string; time?: string; allDay: boolean } | null {
   const colon = line.indexOf(':')
   if (colon === -1) return null
@@ -70,6 +80,55 @@ function parseDtStart(line: string): { date: string; time?: string; allDay: bool
   }
   // Floating / TZID: als Wandzeit übernehmen (keine TZ-Bibliothek in v1)
   return { date: `${y}-${mo}-${d}`, time: `${hh}:${mi}`, allDay: false }
+}
+
+/** `PT1H30M`, `P1DT2H` → Minuten. Nur was im Alltag vorkommt; sonst `null`. */
+function parseDuration(wert: string): number | null {
+  const m = wert.trim().toUpperCase().match(/^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/)
+  if (!m) return null
+  const [, w, d, h, min] = m
+  const total = (+(w ?? 0) * 7 + +(d ?? 0)) * 1440 + +(h ?? 0) * 60 + +(min ?? 0)
+  return total > 0 ? total : null
+}
+
+/**
+ * Wie lang ein Termin dauert — aus `DTEND` oder `DURATION`.
+ *
+ * Gerechnet wird auf Minuten seit Mitternacht des Starttags, damit ein Termin
+ * über den Tageswechsel (23:00–01:00) nicht negativ wird. Was länger als ein
+ * Tag läuft, wird auf den Rest des Starttags gekappt: die Ambient-Achse zeigt
+ * genau einen Tag, ein 3-Tage-Block würde sie sonst komplett ausfüllen.
+ */
+function dauerAus(
+  start: { date: string; time?: string; allDay: boolean },
+  endeLine: string,
+  durationLine: string,
+): number | null {
+  if (start.allDay || !start.time) return null
+
+  if (endeLine) {
+    const ende = parseDtStart(endeLine)
+    if (ende?.time) {
+      const startMin = +start.time.slice(0, 2) * 60 + +start.time.slice(3, 5)
+      const tage = Math.round(
+        (new Date(`${ende.date}T00:00:00`).getTime() - new Date(`${start.date}T00:00:00`).getTime()) / 86_400_000,
+      )
+      const endeMin = tage * 1440 + +ende.time.slice(0, 2) * 60 + +ende.time.slice(3, 5)
+      const dauer = endeMin - startMin
+      if (dauer > 0) return Math.min(dauer, 1440 - startMin)
+    }
+    return null
+  }
+
+  if (durationLine) {
+    const colon = durationLine.indexOf(':')
+    const dauer = colon === -1 ? null : parseDuration(durationLine.slice(colon + 1))
+    if (dauer !== null) {
+      const startMin = +start.time.slice(0, 2) * 60 + +start.time.slice(3, 5)
+      return Math.min(dauer, 1440 - startMin)
+    }
+  }
+  return null
 }
 
 // ---------- RRULE v1 (D9) ----------
@@ -297,6 +356,8 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
   let summary = ''
   let uid = ''
   let dtStartLine = ''
+  let dtEndLine = ''
+  let durationLine = ''
   let rrule: string | null = null
   let exdates: string[] = []
 
@@ -306,6 +367,8 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
       summary = ''
       uid = ''
       dtStartLine = ''
+      dtEndLine = ''
+      durationLine = ''
       rrule = null
       exdates = []
       continue
@@ -315,6 +378,9 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
         const dt = parseDtStart(dtStartLine)
         if (dt) {
           const titel = unescapeText(summary) || '(ohne Titel)'
+          // Einmal gerechnet, für den Einzeltermin wie für jede Serien-Instanz:
+          // eine Serie hat überall dieselbe Länge, nur andere Tage.
+          const dauer = dauerAus(dt, dtEndLine, durationLine)
           if (!rrule) {
             // Einzeltermin: unverändert, insbesondere die ID. Kein Fenster —
             // ein einzelner Termin außerhalb war bisher sichtbar und bleibt es.
@@ -324,6 +390,7 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
               date: dt.date,
               time: dt.time,
               allDay: dt.allDay,
+              ...(dauer !== null ? { dauerMin: dauer } : {}),
             })
           } else {
             for (const datum of expandRRule(dt.date, rrule, exdates, fenster.start, fenster.ende)) {
@@ -335,6 +402,7 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
                 date: datum,
                 time: dt.time,
                 allDay: dt.allDay,
+                ...(dauer !== null ? { dauerMin: dauer } : {}),
               })
             }
           }
@@ -349,6 +417,8 @@ export function parseIcal(text: string, jetzt: Date = new Date()): CalendarEvent
     if (colon === -1) continue
     const name = line.slice(0, colon).split(';')[0].toUpperCase()
     if (name === 'DTSTART') dtStartLine = line
+    else if (name === 'DTEND') dtEndLine = line
+    else if (name === 'DURATION') durationLine = line
     else if (name === 'SUMMARY') summary = line.slice(colon + 1)
     else if (name === 'UID') uid = line.slice(colon + 1)
     else if (name === 'RRULE') rrule = line.slice(colon + 1).trim()
