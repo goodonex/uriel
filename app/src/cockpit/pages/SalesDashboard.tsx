@@ -1200,10 +1200,8 @@ export function SalesDashboard() {
       titel: 'Wochenkontrolle',
       zustand: 'ruhig',
       kennzahl: zahl(
-        kontrolle.alle.length === 0
-          ? 'Keine Annahmen'
-          : `${kontrolle.alle.length} angenommen · ${kontrolle.angeschrieben.length} angeschrieben` +
-              (kontrolle.aussortiert.length > 0 ? ` · ${kontrolle.aussortiert.length} aussortiert` : ''),
+        `${kontrolle.verschickt} Erstnachrichten raus · ${kontrolle.alle.length} neu angenommen` +
+          (kontrolle.aussortiert.length > 0 ? ` · ${kontrolle.aussortiert.length} aussortiert` : ''),
       ),
       unterzeile:
         kontrolle.aussortiert.length > 0

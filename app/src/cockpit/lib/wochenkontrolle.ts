@@ -57,6 +57,13 @@ export interface Wochenkontrolle {
   offen: WochenEintrag[]
   /** Vom ICP-Filter aussortiert — die einzige Liste, die ein Fehler sein kann. */
   aussortiert: WochenEintrag[]
+  /**
+   * Alle Erstnachrichten, die im Fenster abgehakt wurden — egal, wann die
+   * Person angenommen hat. Kevin am 17.09.: *„Ich glaube schon, dass wir diese
+   * Woche mehr als acht Leute angeschrieben haben."* Stimmte: `angeschrieben`
+   * zählt nur die Annahmen DIESER Woche (8), rausgegangen waren 38.
+   */
+  verschickt: number
 }
 
 const TAG_MS = 86_400_000
@@ -123,9 +130,16 @@ export function wochenkontrolle(
 
   alle.sort((a, b) => String(b.angenommenAt ?? '').localeCompare(String(a.angenommenAt ?? '')))
 
+  const verschickt = erstnachrichten.filter((e) => {
+    if (e.status !== 'gesendet' || !e.sent_at) return false
+    const tag = e.sent_at.slice(0, 10)
+    return tag >= von && tag <= bis
+  }).length
+
   return {
     von,
     bis,
+    verschickt,
     alle,
     angeschrieben: alle.filter((e) => e.lage === 'angeschrieben'),
     offen: alle.filter((e) => e.lage === 'offen'),

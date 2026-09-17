@@ -8,6 +8,7 @@ import { SalesBibliothek } from './SalesBibliothek'
 import { SalesDashboard } from './SalesDashboard'
 import { LeadListe } from './sales/LeadListe'
 import { LeadDetail } from './sales/LeadDetail'
+import { KontakteListe } from './sales/KontakteListe'
 import { LinkedinArea } from './LinkedinArea'
 
 interface SubNavItem {
@@ -32,6 +33,7 @@ const SUB_NAV: SubNavItem[] = [
   // LinkedIn-Akquise ist Vertriebsarbeit — sie gehört hierher, nicht nur unter „Heute".
   { to: '/sales/linkedin', label: 'LinkedIn', end: false },
   { to: '/sales/leads', label: 'Leads', end: false },
+  { to: '/sales/kontakte', label: 'LinkedIn-Kontakte', end: false },
   { to: '/sales/lists', label: 'Listen', end: false },
   { to: '/sales/call-mode', label: 'Call-Mode', end: false },
   { to: '/sales/new', label: 'Neuer Lead', end: false },
@@ -152,6 +154,8 @@ export function SalesArea() {
         <Route index element={<SalesDashboard />} />
         <Route path="linkedin" element={<LinkedinArea eingebettet />} />
         <Route path="leads" element={<LeadListe />} />
+        <Route path="kontakte" element={<KontakteListe />} />
+        <Route path="kontakte/:leadId" element={<KontakteListe />} />
         <Route path="pipeline" element={<KlassischePipeline />} />
         <Route path="lists" element={<ContactListsPage />} />
         <Route path="lists/:listId" element={<ContactListsPage />} />

@@ -66,6 +66,14 @@ function Gruppe({
 }
 
 export function WochenkontrolleTafel({ kontrolle }: { kontrolle: Wochenkontrolle }) {
+  const kopf = (
+    <p style={{ fontSize: 13, color: 'var(--ck-text-2)', margin: 0 }}>
+      In den letzten sieben Tagen sind <strong style={{ color: 'var(--ck-text-1)' }}>{kontrolle.verschickt}</strong>{' '}
+      Erstnachrichten rausgegangen. Die Gruppen darunter zeigen nur die {kontrolle.alle.length} Kontakte, die in
+      dieser Zeit neu angenommen haben.
+    </p>
+  )
+
   if (kontrolle.alle.length === 0) {
     return (
       <p style={{ fontSize: 13, color: 'var(--ck-text-3)', margin: 0 }}>
@@ -77,6 +85,7 @@ export function WochenkontrolleTafel({ kontrolle }: { kontrolle: Wochenkontrolle
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {kopf}
       <Gruppe
         titel="Aussortiert"
         hinweis="Hat angenommen, wurde nicht angeschrieben, weil der Filter sie nicht als Zielgruppe liest. Steht hier ein Makler, greift der Filter zu scharf — dann das Wort in icpRegeln.json anfassen."
@@ -89,8 +98,8 @@ export function WochenkontrolleTafel({ kontrolle }: { kontrolle: Wochenkontrolle
         eintraege={kontrolle.offen}
       />
       <Gruppe
-        titel="Angeschrieben"
-        hinweis="Angenommen und bearbeitet — der Normalfall."
+        titel="Davon angeschrieben"
+        hinweis="Diese Woche angenommen und schon angeschrieben — der Normalfall."
         eintraege={kontrolle.angeschrieben}
       />
     </div>

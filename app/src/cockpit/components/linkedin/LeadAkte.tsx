@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import { useIsMobile } from '../../../hooks/useViewport'
+import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
 import type { Lead, LeadEreignis, LeadEreignisTyp, LinkedinThread } from '../../../types/db'
 import { SPRUNG_ZIELE, STATION_TITEL, leadStation, type Station } from '../../lib/leadStation'
 
@@ -92,6 +93,92 @@ export interface LeadAkteProps {
    * rausgegangen ist, sondern dass Kevin entschieden hat.
    */
   onUmhaengen?: (nach: Station, grund: string) => void | Promise<void>
+  /**
+   * Die vorbereitete Erstnachricht (17.09.2026). Kevin hatte in der
+   * Arbeitsliste versehentlich „Erledigt" statt „Kopieren" gedrückt — der Text
+   * war danach nur noch im Vault zu finden. Seitdem steht er in der Akte, samt
+   * Weg zurück in die Arbeitsliste.
+   */
+  erstnachricht?: Pick<Erstnachricht, 'nachricht' | 'firma' | 'website' | 'status' | 'sent_at'> | null
+  onErstnachrichtStatus?: (status: Erstnachricht['status']) => void | Promise<void>
+}
+
+const ERSTNACHRICHT_STATUS: Record<Erstnachricht['status'], string> = {
+  offen: 'Noch nicht verschickt',
+  gesendet: 'Als verschickt abgehakt',
+  uebersprungen: 'Übersprungen',
+}
+
+function ErstnachrichtBlock({
+  erstnachricht,
+  onStatus,
+}: {
+  erstnachricht: NonNullable<LeadAkteProps['erstnachricht']>
+  onStatus?: LeadAkteProps['onErstnachrichtStatus']
+}) {
+  const [kopiert, setKopiert] = useState(false)
+  const kopieren = () => {
+    try {
+      void navigator.clipboard.writeText(erstnachricht.nachricht).catch(() => undefined)
+    } catch {
+      return
+    }
+    setKopiert(true)
+    window.setTimeout(() => setKopiert(false), 2000)
+  }
+  const website = erstnachricht.website
+    ? `https://${erstnachricht.website.replace(/^https?:\/\//, '').split(' ')[0]}`
+    : null
+
+  return (
+    <div>
+      <div className="ck-label" style={{ marginBottom: 8 }}>
+        Erstnachricht
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ck-text-3)', marginBottom: 8 }}>
+        {ERSTNACHRICHT_STATUS[erstnachricht.status]}
+        {erstnachricht.status === 'gesendet' && erstnachricht.sent_at ? ` am ${datumLang(erstnachricht.sent_at)}` : ''}
+        {erstnachricht.firma ? ` · ${erstnachricht.firma}` : ''}
+        {website ? (
+          <>
+            {' · '}
+            <a href={website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ck-accent)' }}>
+              Website ↗
+            </a>
+          </>
+        ) : null}
+      </div>
+      <div
+        style={{
+          fontSize: 13,
+          lineHeight: 1.55,
+          color: 'var(--ck-text-2)',
+          whiteSpace: 'pre-wrap',
+          background: 'var(--ck-panel-2)',
+          borderRadius: 'var(--ck-radius-innen)',
+          padding: 12,
+          userSelect: 'text',
+        }}
+      >
+        {erstnachricht.nachricht}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="ck-btn ck-btn--primary" style={{ minHeight: 40 }} onClick={kopieren}>
+          {kopiert ? '✓ kopiert' : 'Nachricht kopieren'}
+        </button>
+        {onStatus && erstnachricht.status !== 'offen' ? (
+          <button type="button" className="ck-btn" style={{ minHeight: 40 }} onClick={() => void onStatus('offen')}>
+            Zurück in die Arbeitsliste
+          </button>
+        ) : null}
+        {onStatus && erstnachricht.status === 'offen' ? (
+          <button type="button" className="ck-btn" style={{ minHeight: 40 }} onClick={() => void onStatus('gesendet')}>
+            Verschickt
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 export function LeadAkte({
@@ -106,6 +193,8 @@ export function LeadAkte({
   onNotiz,
   onProtokolliere,
   onUmhaengen,
+  erstnachricht,
+  onErstnachrichtStatus,
 }: LeadAkteProps) {
   const mobil = useIsMobile()
   const jetzt = useMemo(() => new Date(), [])
@@ -243,6 +332,10 @@ export function LeadAkte({
               </a>
             ) : null}
           </div>
+
+          {erstnachricht?.nachricht ? (
+            <ErstnachrichtBlock erstnachricht={erstnachricht} onStatus={onErstnachrichtStatus} />
+          ) : null}
 
           {lead.lead_status === 'wiedervorlage' && lead.wiedervorlage_am ? (
             <div
