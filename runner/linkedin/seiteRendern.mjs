@@ -138,6 +138,11 @@ async function lies(page) {
       hoehe: document.documentElement.scrollHeight,
       menue: [...new Set(menue)].slice(0, 30),
       links: links.slice(0, 120),
+      // Auch unsichtbare Links: Unterseiten wie „Team" stecken oft in Ausklapp-Menüs (viventa.ch, 17.09.).
+      alleLinks: [...document.querySelectorAll('a[href]')]
+        .map((a) => ({ text: (a.textContent || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 60), href: a.href }))
+        .filter((l) => l.text && !/^(#|javascript:|mailto:|tel:)/.test(l.href))
+        .slice(0, 300),
       mails,
     }
   })
@@ -225,35 +230,64 @@ export async function rendereSeite(browser, url, { ordner, kuerzel }) {
   }
 }
 
-/** Die Eigentümer-Unterseite aus den Links der Startseite wählen — ohne Modell. */
-export function eigentuemerLink(links, basis) {
-  const muster = /verkauf|bewert|wertermittl|eigent(ü|ue)mer|immobilie (verkaufen|bewerten)|marktwert|verkäufer|verkaeufer/i
+/**
+ * Einen internen Link wählen — ohne Modell. `muster` ist eine Liste in
+ * Vorrang-Reihenfolge: Der erste Ausdruck, der einen echten Link trifft,
+ * gewinnt. Links, die nur auf die Seite selbst zeigen (`/#`, Ausklapp-Menüs),
+ * zählen nicht — bei im-immobilien.ch war „Über uns" genau so ein Link, und
+ * die Team-Seite daneben wurde nie geöffnet (17.09.2026).
+ */
+function internerLink(links, basis, muster) {
   let host = ''
   try {
     host = new URL(basis).hostname.replace(/^www\./, '')
   } catch {}
-  const treffer = (links ?? []).find((l) => {
-    if (!muster.test(l.text) && !muster.test(l.href)) return false
+  const ohneAnker = (x) => String(x ?? '').split('#')[0].replace(/\/(index\.(php|html?))?$/, '')
+  const echte = (links ?? []).filter((l) => {
     try {
-      return new URL(l.href).hostname.replace(/^www\./, '') === host
+      return new URL(l.href).hostname.replace(/^www\./, '') === host && ohneAnker(l.href) !== ohneAnker(basis)
     } catch {
       return false
     }
   })
-  return treffer?.href ?? null
+  for (const m of [].concat(muster)) {
+    const treffer = echte.find((l) => m.test(l.text) || m.test(new URL(l.href).pathname))
+    if (treffer) return treffer.href
+  }
+  return null
+}
+
+/** Die Eigentümer-Unterseite aus den Links der Startseite wählen. */
+export function eigentuemerLink(links, basis) {
+  return internerLink(links, basis, /verkauf|bewert|wertermittl|eigent(ü|ue)mer|immobilie (verkaufen|bewerten)|marktwert|verkäufer|verkaeufer/i)
+}
+
+/**
+ * Die Team-/Über-uns-Seite (17.09.2026). Kevin fand in drei Nachrichten „man
+ * sieht nirgends ein Gesicht" — bei im-immobilien.ch und ethosimmo.ch stehen
+ * die Gesichter auf der Über-uns-Seite, die nie geöffnet wurde. Wer über
+ * Menschen und Vertrauen urteilt, muss diese Seite gesehen haben.
+ */
+export function teamLink(links, basis) {
+  return internerLink(links, basis, [/team|ansprechpartner|köpfe|makler(innen)?$/i, /(über|ueber)[ -]?uns|about|wir sind/i, /unternehmen|profil/i])
 }
 
 /** Startseite + Eigentümer-Unterseite eines Kandidaten rendern und als Befund-Mappe ablegen. */
 export async function rendereKandidat(browser, url, { ordner, kuerzel }) {
   const start = await rendereSeite(browser, url, { ordner, kuerzel })
   let unterseite = null
+  let team = null
   if (start.erreichbar === 'ja') {
-    const ziel = eigentuemerLink(start.links, start.endUrl ?? url)
+    const ziel = eigentuemerLink(start.alleLinks ?? start.links, start.endUrl ?? url)
     // Ein Anker auf derselben Seite (`/#bewertung`) ist keine Unterseite — sonst wird dieselbe Seite zweimal gelesen.
     const ohneAnker = (x) => String(x ?? '').split('#')[0].replace(/\/(index\.(php|html?))?$/, '')
     if (ziel && ohneAnker(ziel) !== ohneAnker(start.endUrl)) unterseite = await rendereSeite(browser, ziel, { ordner, kuerzel: `${kuerzel}-eigentuemer` })
+    const teamZiel = teamLink(start.alleLinks ?? start.links, start.endUrl ?? url)
+    if (teamZiel && ohneAnker(teamZiel) !== ohneAnker(start.endUrl) && ohneAnker(teamZiel) !== ohneAnker(ziel)) {
+      team = await rendereSeite(browser, teamZiel, { ordner, kuerzel: `${kuerzel}-team` })
+    }
   }
-  const mappe = { start, unterseite }
+  const mappe = { start, unterseite, team }
   await mkdir(ordner, { recursive: true })
   await writeFile(join(ordner, `${kuerzel}.json`), JSON.stringify(mappe, null, 2))
   return mappe

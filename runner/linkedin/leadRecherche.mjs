@@ -68,8 +68,13 @@ Kontakt:
 
 Vorgehen:
 1. WebSearch mit Name + Firma aus der Headline (falls vorhanden) + "Immobilien".
-2. Findest du keine eigene Firmen-Website: zweite Suche nur mit dem Firmennamen (bzw. Name + "Immobilienmakler"). Höchstens eine dritte Suche.
+2. Keine eigene Website dabei? Dann nacheinander, bis du eine hast (höchstens fünf Suchen insgesamt):
+   - nur der Firmenname (ohne Personennamen), auch in Varianten ohne GmbH/AG
+   - Name + "Geschäftsführer" oder "Inhaber" — Handelsregister-/Firmenverzeichnis-Treffer verraten die Firma, danach deren Namen suchen
+   - Firmenname + Ort
 3. Keine Seiten abrufen — die Seite öffnet danach ein Browser.
+
+„Keine Website" ist teuer: Kevin schreibt dann „ich hab eure Website nicht gefunden" — am 17.09. an zwei Leute, die eine haben (iazicifi.ch, ador-immobilien.de). Gib erst nach mehreren Suchen auf.
 
 Portale, Verzeichnisse, Presseportale, Facebook, LinkedIn, Xing, ImmoScout sind KEINE Website der Firma — aber sie verraten oft deren Domain. Eine persönliche Seite des Kontakts zählt als Kandidat.
 
@@ -99,6 +104,7 @@ Kontakt: ${lead.name} · ${lead.headline ?? ''} · Firma laut Suche: ${firma || 
 Website: ${s.endUrl}
 Menü: ${(s.menue ?? []).join(' | ') || '(keins erkannt)'}
 Eigentümer-Unterseite: ${u ? `${u.url} (${u.erreichbar})` : 'keine im Menü/in den Links gefunden'}
+Team-/Über-uns-Seite: ${render.team ? `${render.team.url} (${render.team.erreichbar})` : 'keine im Menü/in den Links gefunden'}
 Vom Browser gemessen (Startseite): ${JSON.stringify(s.checkliste ?? {})}
 
 Die Seite wurde in einem echten Browser geöffnet und einmal ganz durchgescrollt (Zähler und Animationen sind durchgelaufen). Lies mit Read GENAU diese Dateien:
@@ -114,7 +120,8 @@ Kevin verkauft Maklern und Immobilienfirmen eine Website, die Anfragen bringt. E
 
 Stell dir einen Eigentümer vor, der 2026 drei Makler vergleicht und auf dieser Seite landet. Würde er hier anfragen?
 - Wirkt sie zeitgemäß und gepflegt, oder alt, amateurhaft, leer, wie ein Baukasten?
-- Sieht man die Menschen dahinter (Fotos vom Team/Makler)?
+- **Sieht sie aus wie von einer guten Agentur gebaut — oder selbst zusammengeklickt?** Lass dich nicht von Farben blenden: Gold/Schwarz oder ein großes Foto machen keine Seite hochwertig. Zeichen für NICHT hochwertig (viventa.ch, 17.09.: als „hochwertig" bewertet, Kevin: „wirkt überhaupt nicht hochwertig"): KI-generierte oder Stock-Bilder statt eigener Fotos, Menü/Logo unter statt über dem Titelbild, ein einzelner Knopf mitten im Bild ohne Aussage, keine Überschrift, die sagt, wer man ist, Standard-Template-Optik, unruhige Abstände, gemischte Schriften. Im Zweifel „teils", nicht „ja".
+- Sieht man die Menschen dahinter (Fotos vom Team/Makler)? **Prüfe dafür auch die Team-/Über-uns-Seite.** „Kein Gesicht" darfst du nur sagen, wenn auch dort keins ist — Kevin sagt es sonst jemandem, der eine Teamseite mit Fotos hat.
 - Gibt es Vertrauen: Kundenstimmen, Referenzen, verkaufte Objekte?
 - Versteht man oben sofort, was die Firma macht und für wen?
 
@@ -156,7 +163,7 @@ Feldregeln:
 - "passt_zur_person": false, wenn Seite erkennbar nicht zu dieser Person/Firma gehört.
 - "gesamteindruck": ein Satz, wie die Seite auf einen Besucher wirkt — ehrlich, wie ein Freund es sagen würde.
 - "zeitgemaess": "ja", "teils" oder "nein".
-- "menschen_sichtbar": echte Fotos vom Team/Makler auf Start- oder Eigentümerseite (keine Stockfotos).
+- "menschen_sichtbar": echte Fotos vom Team/Makler auf Start-, Eigentümer- ODER Team-/Über-uns-Seite (keine Stockfotos).
 - "kundenstimmen", "referenzen": sichtbar vorhanden (Messwerte helfen, Screenshot entscheidet).
 - "hero_klar": Versteht man im ersten Screenshot, was die Firma macht und für wen?
 - "eigentuemer_bereich": "nein" oder "ja: <Menüpunkt>".
@@ -166,7 +173,7 @@ Feldregeln:
 - "optik": "modern", "veraltet", "baukasten-schlicht" oder "unklar".
 - "inhalt": "duenn", "normal" oder "reich".
 - "staerke": EINE echte, konkrete Stärke, die der Inhaber gern hört und die stimmt (etwa „eigene Seite für Verkäufer mit Ablauf in sechs Schritten", „ihr zeigt euch mit Foto und Namen", „Kundenstimmen direkt auf der Startseite"). Nie Slogans, Überschriften, Eigenlob-Zahlen. Gibt es ehrlich nichts: leer lassen.
-- "elefant_typ": genau einer von "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "keiner" (Seite stark).
+- "elefant_typ": genau einer von (**nie leer, nie „keiner"** — auch eine starke Seite hat einen größten Hebel; dann ist er eben kleiner und wird freundlicher formuliert) "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "feinschliff" (Seite stark — der größte verbleibende Hebel, etwa kein Sofort-Wert, keine Stimmen auf der Startseite, Eigentümer-Seite versteckt).
 - "elefant": ein bis zwei Sätze: was das ist und warum es ANFRAGEN kostet. Konkret an dieser Seite, in Geld-/Anfragen-Logik, nicht in Technik. **Nie** Code, Quelltext, Ladezeiten, Meta-Tags, Tippfehler, Copyright-Jahre oder Barrierefreiheit — das macht niemanden zum Kunden.
 - "mangel": ein konkreter, sichtbarer Fehler, der den Elefanten stützt, sonst leer. **Im Zweifel leer.** Nie: Zahlen, die „0" wirken, abgeschnittene Texte der Textdatei, Folgen, die du nicht gesehen hast, Cookie-/Consent-Platzhalter, Slider-Klone, bewusste Positionierung, Tippfehler, Du/Sie-Wechsel.
 - "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — wird maschinell geprüft.
@@ -314,9 +321,19 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   const s = render.start
   const u = render.unterseite
   const textDatei = join(ordner, `${kuerzel}-text.md`)
-  const sichtbarerText = `# Startseite ${s.endUrl}\n\n${s.text}\n\n` + (u?.erreichbar === 'ja' ? `# Eigentümer-Unterseite ${u.endUrl}\n\n${u.text}\n` : '')
-  await writeFile(textDatei, sichtbarerText.slice(0, 16_000))
-  const dateien = [s.screenshotOben, s.screenshotGanz, ...(u?.erreichbar === 'ja' ? [u.screenshotGanz] : []), textDatei]
+  const t = render.team
+  const sichtbarerText =
+    `# Startseite ${s.endUrl}\n\n${s.text}\n\n` +
+    (u?.erreichbar === 'ja' ? `# Eigentümer-Unterseite ${u.endUrl}\n\n${u.text}\n\n` : '') +
+    (t?.erreichbar === 'ja' ? `# Team-/Über-uns-Seite ${t.endUrl}\n\n${String(t.text ?? '').slice(0, 4000)}\n` : '')
+  await writeFile(textDatei, sichtbarerText.slice(0, 20_000))
+  const dateien = [
+    s.screenshotOben,
+    s.screenshotGanz,
+    ...(u?.erreichbar === 'ja' ? [u.screenshotGanz] : []),
+    ...(t?.erreichbar === 'ja' ? [t.screenshotGanz] : []),
+    textDatei,
+  ]
   const b = await claudeLauf(baueBefundPrompt(lead, { firma, dateien, render }), { cliPath, cwd, tools: 'Read', budget: BUDGET_BEFUND, zusatzOrdner: ordner })
   kosten += b.kosten
   token += b.token
