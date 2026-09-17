@@ -272,6 +272,20 @@ export function teamLink(links, basis) {
   return internerLink(links, basis, [/team|ansprechpartner|köpfe|makler(innen)?$/i, /(über|ueber)[ -]?uns|about|wir sind/i, /unternehmen|profil/i])
 }
 
+/**
+ * Wer entscheidet? Die Geschäftsführung steht im Impressum (17.09.2026):
+ * Angestellte bekommen keine Analyse, Kevin vernetzt sich stattdessen mit der
+ * Geschäftsführung — dafür braucht er die Namen.
+ */
+async function geschaeftsfuehrungAusImpressum(browser, links, basis, { ordner, kuerzel }) {
+  const ziel = internerLink(links, basis, [/impressum|imprint|legal notice/i])
+  if (!ziel) return ''
+  const seite = await rendereSeite(browser, ziel, { ordner, kuerzel: `${kuerzel}-impressum` })
+  const text = String(seite.text ?? '')
+  const i = text.search(/geschäftsführ|geschaeftsfuehr|vertreten durch|vertretungsberechtigt|inhaber(in)?\b|vorstand|verwaltungsrat|managing director/i)
+  return i >= 0 ? text.slice(i, i + 220).replace(/\s+/g, ' ').trim() : ''
+}
+
 /** Startseite + Eigentümer-Unterseite eines Kandidaten rendern und als Befund-Mappe ablegen. */
 export async function rendereKandidat(browser, url, { ordner, kuerzel }) {
   const start = await rendereSeite(browser, url, { ordner, kuerzel })
@@ -287,7 +301,11 @@ export async function rendereKandidat(browser, url, { ordner, kuerzel }) {
       team = await rendereSeite(browser, teamZiel, { ordner, kuerzel: `${kuerzel}-team` })
     }
   }
-  const mappe = { start, unterseite, team }
+  const geschaeftsfuehrung =
+    start.erreichbar === 'ja'
+      ? await geschaeftsfuehrungAusImpressum(browser, start.alleLinks ?? start.links, start.endUrl ?? url, { ordner, kuerzel }).catch(() => '')
+      : ''
+  const mappe = { start, unterseite, team, geschaeftsfuehrung }
   await mkdir(ordner, { recursive: true })
   await writeFile(join(ordner, `${kuerzel}.json`), JSON.stringify(mappe, null, 2))
   return mappe

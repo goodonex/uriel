@@ -54,6 +54,13 @@ export const CTA_KATALOG = Object.freeze({
   telefon: 'Hast du was dagegen, wenn wir zehn Minuten telefonieren?',
   /** Bewusst noch kein Angebot: erst verstehen, wie die Mandate reinkommen. */
   mandate: 'Wie kommen die Mandate aktuell rein?',
+  /**
+   * Angestellte bekommen KEINE Analyse (Kevin, 17.09.2026): *„sonst nimmt er
+   * die, baut sich selber die Seite, gibt die seinem Chef und kriegt die
+   * Credits dafür."* Ziel ist der Entscheider — diese Frage klärt, ob man ihn
+   * schon vor sich hat, und holt sonst den Weg zur Geschäftsführung.
+   */
+  angestellt: 'Kümmerst du dich bei euch um Website und Marketing, oder liegt das bei der Geschäftsführung?',
 })
 
 /** Endet der Text auf einen der erlaubten CTAs? */
@@ -82,7 +89,7 @@ const ANGEBOTS_FRAGE =
  * offline ist, eine Analyse zu einer Seite angeboten, die es nicht gibt.
  */
 const ANDERER_TYP =
-  /offline|umbau|erreichbar|zugang|finde ich|komme? (nur )?ich|mandate|netzwerk|telefonat|telefonieren|zehn minuten|diese woche|call/i
+  /offline|umbau|erreichbar|zugang|finde ich|komme? (nur )?ich|mandate|netzwerk|telefonat|telefonieren|zehn minuten|diese woche|call|geschäftsführung|kümmerst/i
 
 /** Grußformel samt Namenszeile am Textende. */
 const GRUSSFORMEL =
@@ -170,6 +177,12 @@ export function parseErstnachrichtenRoh(content) {
       firma: typeof n.firma === 'string' ? n.firma.trim() : '',
       website: typeof n.website === 'string' ? n.website.trim() : '',
       nachricht: mitCta,
+      /**
+       * Wo der Agent unsicher ist, sagt er es (Kevin, 17.09.2026): *„wenn das
+       * 5 von 50 sind, ist das kein Problem, dass ich selber nochmal drauf
+       * gucke."* Lieber ein offener Hinweis als eine geratene Aussage.
+       */
+      pruefen: typeof n.pruefen === 'string' ? n.pruefen.trim().slice(0, 200) : '',
     })
   }
 
@@ -239,7 +252,9 @@ export async function schreibeErstnachrichten({
       brand_id: brandId,
       gruppe,
       name: n.name,
-      firma: n.firma,
+      // Die Tabelle hat (noch) kein eigenes Prüf-Feld — die Firma steht im Cockpit
+      // direkt neben dem Namen und wird nicht mitkopiert, dort fällt der Hinweis auf.
+      firma: n.pruefen ? `${n.firma} · PRÜFEN: ${n.pruefen}` : n.firma,
       website: n.website,
       nachricht: n.nachricht,
       sort_index: sortIndex++,

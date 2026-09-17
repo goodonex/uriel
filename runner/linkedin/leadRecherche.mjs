@@ -84,6 +84,7 @@ Antworte mit NICHTS als diesem JSON-Block:
 {
   "firma": "",
   "taetigkeit": "",
+  "rolle": "",
   "kandidaten": [],
   "nur_portal": false
 }
@@ -91,6 +92,7 @@ Antworte mit NICHTS als diesem JSON-Block:
 
 - "firma": Firmenname. Leer, wenn unklar.
 - "taetigkeit": was die Person wirklich macht, ein Halbsatz. Die Headline lügt oft — Coach, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft genau so benennen.
+- "rolle": "inhaber" (Inhaber, Gründer, Geschäftsführer, Vorstand der eigenen Firma), "angestellt" (Abteilungsleiter, Makler im Team, Manager, Mitarbeiter) oder "unklar". Angestellte bekommen keine Analyse — im Zweifel "unklar", nie raten.
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
 - "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.`
 }
@@ -291,7 +293,7 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     .filter((k, i, alle) => alle.indexOf(k) === i)
     .slice(0, 3)
 
-  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
+  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, rolle: String(f.json.rolle ?? ''), eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
   if (!kandidaten.length) return { lead, destillat: leer, kosten, token, grund: null }
 
   // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
@@ -396,6 +398,8 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       elefant_typ: String(b.json.elefant_typ ?? ''),
       elefant: String(b.json.elefant ?? ''),
       checkliste: s.checkliste ?? null,
+      rolle: String(f.json.rolle ?? lead.rolle_bekannt ?? ''),
+      geschaeftsfuehrung: render.geschaeftsfuehrung ?? '',
       mangel,
       befund: String(b.json.befund ?? ''),
       nur_portal: false,
