@@ -254,6 +254,27 @@ function kuerzelFuer(lead) {
   return String(lead.profil_key ?? lead.name ?? 'lead').replace(/[^a-z0-9]+/gi, '-').slice(0, 60)
 }
 
+/**
+ * Rolle gegen das Impressum abgleichen (18.09.2026).
+ *
+ * Charlotte Rostek („Maklerin mit Herz") bekam eine Analyse angeboten, obwohl
+ * bei Paegel Real Estate ein anderer Geschäftsführer im Impressum steht — die
+ * Rolle riet ein Modell aus der Headline, das Impressum lag daneben und niemand
+ * verglich die beiden. Jetzt entscheidet das Impressum, wenn es Namen nennt:
+ * Steht der Nachname dort, ist die Person Entscheider; steht er nicht dort,
+ * ist sie angestellt und bekommt keine Analyse.
+ */
+export function rolleAbgleichen(name, rolle, geschaeftsfuehrung) {
+  const norm = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const gf = norm(geschaeftsfuehrung)
+  // Nur ein Impressum, das wirklich Personen nennt, darf entscheiden.
+  if (!/geschaftsfuhr|inhaber|vertreten durch|vorstand/.test(gf)) return rolle
+  const teile = norm(name).replace(/,.*$/, '').replace(/\b(dr|prof|mrics|dipl|ing)\.?\b/g, ' ').split(/[\s-]+/).filter((t) => t.length > 2)
+  const nachname = teile[teile.length - 1]
+  if (!nachname) return rolle
+  return gf.includes(nachname) ? 'inhaber' : 'angestellt'
+}
+
 /** Ein Lead, drei Stufen. */
 async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   let kosten = 0
@@ -398,7 +419,7 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       elefant_typ: String(b.json.elefant_typ ?? ''),
       elefant: String(b.json.elefant ?? ''),
       checkliste: s.checkliste ?? null,
-      rolle: String(f.json.rolle ?? lead.rolle_bekannt ?? ''),
+      rolle: rolleAbgleichen(lead.name, String(f.json.rolle ?? lead.rolle_bekannt ?? ''), render.geschaeftsfuehrung ?? ''),
       geschaeftsfuehrung: render.geschaeftsfuehrung ?? '',
       mangel,
       befund: String(b.json.befund ?? ''),
