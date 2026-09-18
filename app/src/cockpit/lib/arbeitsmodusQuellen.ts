@@ -243,6 +243,19 @@ export function followupPosten(
     .filter((t) => bucketOf(t, heute, undefined, gesichteteThreads.has(t.id)) === 'faellig')
     // Ein laufender Kunde bekommt kein Akquise-Follow-up (18.08.2026).
     .filter((t) => !istKunde(t.name, kunden))
+    /**
+     * Nachfassen nur bei möglichen Kunden (18.09.2026).
+     *
+     * Die Spur hatte als einzige keinen ICP-Filter. Kevins Screenshot: oben
+     * standen ein Vertriebstrainer, ein Abnehm-Coach, ein Steuerberater und ein
+     * KI-Anbieter — neun von dreizehn gar nicht seine Zielgruppe. Raus fliegt,
+     * wen die Headline als Off markiert oder wen der Sortierer als
+     * Akquise-Versuch bzw. reinen Kontakt eingestuft hat. `unklar` ohne
+     * Sortierer-Urteil bleibt drin — ein übersehener Makler kostet mehr als ein
+     * Blick zu viel.
+     */
+    .filter((t) => istArbeitsVorrat(icpUrteil(t.company, t.name).urteil))
+    .filter((t) => t.agent_urteil !== 'akquise' && t.agent_urteil !== 'kontakt')
     .map((t) => ({
       ...threadZuPosten(t, 'followup', 'thread', t.preview || `Follow-up an ${t.name || 'den Lead'}.`),
       /**

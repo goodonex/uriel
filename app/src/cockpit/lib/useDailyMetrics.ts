@@ -109,7 +109,7 @@ interface UseDailyMetricsResult {
   bumpOn: (datum: string, field: MetricField, delta: number) => void
   /** Umsatz eines BELIEBIGEN Tages setzen */
   setUmsatzOn: (datum: string, value: number) => void
-  refresh: () => Promise<void>
+  refresh: (opts?: { leise?: boolean }) => Promise<void>
 }
 
 /**
@@ -148,20 +148,22 @@ export function useDailyMetrics(): UseDailyMetricsResult {
   const brandRef = useRef(activeBrand)
   brandRef.current = activeBrand
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  // Was noch zur Datenbank muss — als Änderung, nicht als Endstand (siehe persist).
+  const pendingRef = useRef<Map<string, { deltas: Partial<Record<MetricField, number>>; umsatz?: number }>>(new Map())
 
   const applyRows = useCallback((rows: DailyMetricsRow[]) => {
     rowsRef.current = rows
     setAllRows(rows)
   }, [])
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ leise = false }: { leise?: boolean } = {}) => {
     const u = userRef.current
     const b = brandRef.current
     if (!supabase || !u || !b) {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (!leise) setLoading(true)
     const { data, error: err } = await supabase
       .from('daily_metrics')
       .select('*')
@@ -184,6 +186,8 @@ export function useDailyMetrics(): UseDailyMetricsResult {
         setError(err.message)
       }
       applyRows([])
+    } else if (leise && (timersRef.current.size > 0 || pendingRef.current.size > 0)) {
+      // Während des Abgleichs wurde getrackt — der nächste Takt holt es nach.
     } else {
       setTableMissing(false)
       setError(null)
@@ -215,57 +219,103 @@ export function useDailyMetrics(): UseDailyMetricsResult {
     )
   }
 
-  // Selbstheilendes persist(): schreibt den FRISCHEN Ref-Stand des Tages und
-  // versucht bei transienten Fehlern mehrfach erneut, ohne die Eingabe zu
-  // verwerfen. Nur ein echter DB-Fehler setzt auf die Server-Wahrheit zurück.
+  /**
+   * Was noch zur Datenbank muss — als ÄNDERUNG, nicht als Endstand (18.09.2026).
+   *
+   * Bis heute schrieb jeder Klick die ganze Tageszeile aus dem Gerätespeicher.
+   * Kevin trackte am Handy 40 Anfragen, eine halbe Stunde später schrieb der
+   * Laptop seine Zeile mit `li_anfragen: 0` aus dem alten Ladestand — und die
+   * 40 waren weg. Jetzt geht nur das Delta raus (`daily_metric_bump`, Migration
+   * 0089), die Datenbank rechnet. Zwei Geräte können sich nicht mehr löschen.
+   */
+
+  const offen = (datum: string) => {
+    const p = pendingRef.current.get(datum)
+    return !!p && (p.umsatz !== undefined || Object.values(p.deltas).some((d) => d))
+  }
+
+  /** Server-Zeile übernehmen — aber nur, wenn lokal nichts mehr unterwegs ist. */
+  const uebernimm = useCallback(
+    (serverRow: DailyMetricsRow) => {
+      if (offen(serverRow.datum) || timersRef.current.has(serverRow.datum)) return
+      const others = rowsRef.current.filter((r) => r.datum !== serverRow.datum)
+      applyRows([...others, serverRow].sort((a, c) => a.datum.localeCompare(c.datum)))
+    },
+    [applyRows],
+  )
+
   const persistRef = useRef<(datum: string) => Promise<void>>(async () => {})
   const persist = useCallback(
     async (datum: string) => {
       const u = userRef.current
       const b = brandRef.current
       if (!supabase || !u || !b) return
+      const arbeit = pendingRef.current.get(datum)
+      if (!arbeit) return
+      pendingRef.current.delete(datum)
 
+      const zurueckstellen = (rest: { deltas: Partial<Record<MetricField, number>>; umsatz?: number }) => {
+        const jetzt = pendingRef.current.get(datum) ?? { deltas: {} }
+        for (const [f, d] of Object.entries(rest.deltas) as [MetricField, number][]) {
+          jetzt.deltas[f] = (jetzt.deltas[f] ?? 0) + d
+        }
+        if (rest.umsatz !== undefined && jetzt.umsatz === undefined) jetzt.umsatz = rest.umsatz
+        pendingRef.current.set(datum, jetzt)
+      }
+
+      const rest = { deltas: { ...arbeit.deltas }, umsatz: arbeit.umsatz }
+      let letzteZeile: DailyMetricsRow | null = null
       const delays = [0, 350, 900, 1800] // 1 Versuch + 3 Retries
       for (let attempt = 0; attempt < delays.length; attempt++) {
         if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]))
+        let fehler: { message: string; name?: string } | null = null
 
-        // Pro Versuch neu lesen → schnelle Klicks während des Retrys gehen mit.
-        const row = rowsRef.current.find((r) => r.datum === datum)
-        if (!row) return
-        // created_at/updated_at/user_id/brand_id einer geladenen Zeile NICHT
-        // mitschreiben (Trigger/Defaults pflegen sie; created_at bliebe sonst
-        // bei jedem Update überschrieben).
-        const {
-          id: _id,
-          created_at: _c,
-          updated_at: _u2,
-          user_id: _uid,
-          brand_id: _bid,
-          ...payload
-        } = row as DailyMetricsRow & {
-          created_at?: string
-          updated_at?: string
-          user_id?: string
-          brand_id?: string
+        for (const [field, delta] of Object.entries(rest.deltas) as [MetricField, number][]) {
+          if (!delta) {
+            delete rest.deltas[field]
+            continue
+          }
+          const { data, error: err } = await supabase.rpc('daily_metric_bump', {
+            p_brand: b.id,
+            p_datum: datum,
+            p_field: field,
+            p_delta: delta,
+          })
+          if (err) {
+            fehler = err
+            break
+          }
+          delete rest.deltas[field]
+          letzteZeile = data as DailyMetricsRow
         }
 
-        const { error: err } = await supabase.from('daily_metrics').upsert(
-          { ...payload, user_id: u.id, brand_id: b.id },
-          { onConflict: 'user_id,brand_id,datum' },
-        )
-        if (!err) {
+        if (!fehler && rest.umsatz !== undefined) {
+          // Nur die eine Spalte — ein Upsert mit Teilzeile lässt die übrigen stehen.
+          const { data, error: err } = await supabase
+            .from('daily_metrics')
+            .upsert({ user_id: u.id, brand_id: b.id, datum, umsatz: rest.umsatz }, { onConflict: 'user_id,brand_id,datum' })
+            .select()
+            .single()
+          if (err) fehler = err
+          else {
+            rest.umsatz = undefined
+            letzteZeile = data as DailyMetricsRow
+          }
+        }
+
+        if (!fehler) {
           setError(null)
+          if (letzteZeile) uebernimm(letzteZeile)
           return
         }
-        if (!isTransientWriteError(err.message, (err as { name?: string }).name)) {
-          // Echter DB-Fehler (Constraint/RLS/fehlende Spalte) → sichtbar machen
-          // und mit Server-Wahrheit abgleichen. NUR hier wird zurückgesetzt.
-          setError(err.message)
+        if (!isTransientWriteError(fehler.message, fehler.name)) {
+          // Echter DB-Fehler (fehlende Funktion/RLS) → sichtbar machen und mit
+          // Server-Wahrheit abgleichen. NUR hier wird die Eingabe verworfen.
+          setError(fehler.message)
           void refresh()
           return
         }
-        // Transient: bei Token/JWT einmal aktiv erneuern, dann weiter retryen.
-        if (/jwt|token|refresh/i.test(err.message)) {
+        if (/jwt|token|refresh/i.test(fehler.message)) {
           try {
             await supabase.auth.refreshSession()
           } catch {
@@ -274,16 +324,16 @@ export function useDailyMetrics(): UseDailyMetricsResult {
         }
       }
 
-      // Retries erschöpft: Eingabe bleibt erhalten (kein refresh()!), sanfter
-      // Hinweis + späterer Selbstheil-Versuch, sobald der Lock frei ist.
+      // Retries erschöpft: Eingabe bleibt erhalten und wird später nachgezogen.
+      zurueckstellen(rest)
       setError('Speichern hakt kurz (Verbindung/Session) — dein Eintrag bleibt erhalten und wird automatisch nachgezogen.')
       setTimeout(() => void persistRef.current(datum), 4000)
     },
-    [refresh],
+    [refresh, uebernimm],
   )
   persistRef.current = persist
 
-  // Bündelt schnelle Klicks pro Tag zu einem Write des Endstands (350ms).
+  // Bündelt schnelle Klicks pro Tag zu einem Write (350ms).
   const schedulePersist = useCallback(
     (datum: string) => {
       const timers = timersRef.current
@@ -300,21 +350,21 @@ export function useDailyMetrics(): UseDailyMetricsResult {
     [persist],
   )
 
-  const mutate = useCallback(
-    (datum: string, patch: Partial<DailyMetricsRow>) => {
+  const lokalAendern = useCallback(
+    (datum: string, patch: Partial<DailyMetricsRow>): boolean => {
       const b = brandRef.current
       // Nicht mit Fallback-Brand schreiben (keine echte UUID) → Insert schlüge fehl.
       if (b && b.id.startsWith('local-fallback-')) {
         setError('Brand lädt noch — bitte 1–2 Sekunden warten und erneut tracken.')
-        return
+        return false
       }
       const cur = rowsRef.current.find((r) => r.datum === datum) ?? emptyRow(datum)
       const next = { ...cur, ...patch }
       const others = rowsRef.current.filter((r) => r.datum !== datum)
       applyRows([...others, next].sort((a, c) => a.datum.localeCompare(c.datum)))
-      schedulePersist(datum)
+      return true
     },
-    [applyRows, schedulePersist],
+    [applyRows],
   )
 
   // Ausstehende Writes beim Verlassen sofort rausschicken (kein Datenverlust).
@@ -328,6 +378,27 @@ export function useDailyMetrics(): UseDailyMetricsResult {
       timers.clear()
     }
   }, [persist])
+
+  /**
+   * Live nachziehen, was das andere Gerät getrackt hat: beim Zurückkehren in
+   * den Tab sofort, solange er sichtbar ist alle 30 Sekunden. Läuft lokal noch
+   * ein Write, wartet der Abgleich — sonst blinkte der Zähler kurz zurück.
+   */
+  useEffect(() => {
+    const nachziehen = () => {
+      if (document.visibilityState !== 'visible') return
+      if (timersRef.current.size > 0 || pendingRef.current.size > 0) return
+      void refresh({ leise: true })
+    }
+    document.addEventListener('visibilitychange', nachziehen)
+    window.addEventListener('focus', nachziehen)
+    const takt = setInterval(nachziehen, 30_000)
+    return () => {
+      document.removeEventListener('visibilitychange', nachziehen)
+      window.removeEventListener('focus', nachziehen)
+      clearInterval(takt)
+    }
+  }, [refresh])
 
   const rowFor = useCallback(
     (datum: string) => allRows.find((r) => r.datum === datum) ?? emptyRow(datum),
@@ -352,16 +423,28 @@ export function useDailyMetrics(): UseDailyMetricsResult {
   const bumpOn = useCallback(
     (datum: string, field: MetricField, delta: number) => {
       const cur = rowsRef.current.find((r) => r.datum === datum) ?? emptyRow(datum)
-      mutate(datum, { [field]: Math.max(0, (cur[field] ?? 0) + delta) })
+      const alt = cur[field] ?? 0
+      const neu = Math.max(0, alt + delta)
+      if (neu === alt) return
+      if (!lokalAendern(datum, { [field]: neu })) return
+      const p = pendingRef.current.get(datum) ?? { deltas: {} }
+      p.deltas[field] = (p.deltas[field] ?? 0) + (neu - alt)
+      pendingRef.current.set(datum, p)
+      schedulePersist(datum)
     },
-    [mutate],
+    [lokalAendern, schedulePersist],
   )
 
   const setUmsatzOn = useCallback(
     (datum: string, value: number) => {
-      mutate(datum, { umsatz: Math.max(0, value) })
+      const umsatz = Math.max(0, value)
+      if (!lokalAendern(datum, { umsatz })) return
+      const p = pendingRef.current.get(datum) ?? { deltas: {} }
+      p.umsatz = umsatz
+      pendingRef.current.set(datum, p)
+      schedulePersist(datum)
     },
-    [mutate],
+    [lokalAendern, schedulePersist],
   )
 
   const bump = useCallback(
