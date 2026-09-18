@@ -1993,6 +1993,7 @@ async function fuehreJobAus(job) {
       ausloeser: 'handy',
       nur: Array.isArray(job.payload?.nur) && job.payload.nur.length ? job.payload.nur : null,
       tief: typeof job.payload?.tief === 'boolean' ? job.payload.tief : null,
+      anzahl: Number.isInteger(job.payload?.anzahl) ? job.payload.anzahl : null,
     })
     await new Promise((r) => setTimeout(r, 200))
     return { gestartet: true, ...rundeStand() }
@@ -4091,6 +4092,38 @@ function git(...args) {
   })
 }
 
+function npmInstall() {
+  return new Promise((fertig) => {
+    const p = spawn('npm', ['install', '--no-audit', '--no-fund'], { cwd: REPO_WURZEL, env: { ...process.env, PATH: CLI_PATH }, stdio: 'ignore' })
+    p.on('error', () => fertig(false))
+    p.on('close', (code) => fertig(code === 0))
+  })
+}
+
+/**
+ * Fehlende Pakete beim Start nachziehen (18.09.2026).
+ *
+ * **Der Anlass.** Die Paket-Nachinstallation im Pull kam mit demselben Commit
+ * (62b3e08), der `playwright-core` brachte — der alte Prozess kannte sie noch
+ * nicht, holte den Code und startete ohne das Paket neu. Zwei Tage lang
+ * scheiterte jede Erstnachrichten-Runde auf dem Mini sofort. Deshalb prüft der
+ * Runner beim Start selbst, ob jedes Paket aus der `package.json` im Ordner
+ * liegt — egal, wie der Code dorthin kam.
+ */
+async function paketeAbgleichen() {
+  try {
+    const pkg = JSON.parse(readFileSync(join(REPO_WURZEL, 'package.json'), 'utf8'))
+    const namen = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+    const fehlend = namen.filter((n) => !existsSync(join(REPO_WURZEL, 'node_modules', n, 'package.json')))
+    if (!fehlend.length) return
+    console.log(`[runner] Pakete fehlen (${fehlend.join(', ')}) — npm install läuft…`)
+    const ok = await npmInstall()
+    console.log(`[runner] Pakete ${ok ? 'installiert' : 'NICHT installiert — bitte im Uriel-Ordner npm install ausführen'}`)
+  } catch (e) {
+    console.error('[runner] Paket-Abgleich übersprungen:', e?.message ?? e)
+  }
+}
+
 let codeCheckLaeuft = false
 async function codeCheckTick() {
   if (codeCheckLaeuft || running.size > 0) return
@@ -4120,11 +4153,7 @@ async function codeCheckTick() {
      */
     const geaenderte = await git('diff', '--name-only', hier, dort)
     if (geaenderte && /(^|\n)package-lock\.json($|\n)/.test(geaenderte)) {
-      const npmOk = await new Promise((fertig) => {
-        const p = spawn('npm', ['install', '--no-audit', '--no-fund'], { cwd: REPO_WURZEL, env: { ...process.env, PATH: CLI_PATH }, stdio: 'ignore' })
-        p.on('error', () => fertig(false))
-        p.on('close', (code) => fertig(code === 0))
-      })
+      const npmOk = await npmInstall()
       console.log(`[runner] Pakete nach dem Pull ${npmOk ? 'installiert' : 'NICHT installiert — bitte im Uriel-Ordner npm install ausführen'}`)
     }
     console.log(`[runner] neuer Code geholt (${hier.slice(0, 7)} → ${dort.slice(0, 7)}) — Neustart, launchd fängt ihn auf`)
@@ -4337,7 +4366,7 @@ const ETAPPEN_ARBEIT = {
     }
   },
 
-  erstnachrichten: async ({ melde }) => {
+  erstnachrichten: async ({ melde, anzahl }) => {
     /**
      * Kevins Tagesziel (01.09.2026): *„Bei den Erstnachrichten will ich
      * fünfzig pro Tag machen."*
@@ -4365,7 +4394,15 @@ const ETAPPEN_ARBEIT = {
      */
     const heuteZahl = Number(nowStamp().slice(0, 10).replace(/-/g, ''))
     const schonHeute = markeLies('erstnachrichten-tag') === heuteZahl ? markeLies('erstnachrichten-heute') : 0
-    const TAGESZIEL = Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? 50) - schonHeute)
+    /**
+     * Eine ausdrückliche Stückzahl aus dem Auftrag (18.09.2026, Kevin: „mach
+     * bitte nur 36") ersetzt das Resttagesbudget für DIESEN Lauf. Der Knopf
+     * ohne Zahl bleibt beim Tagesziel.
+     */
+    const TAGESZIEL =
+      Number.isInteger(anzahl) && anzahl > 0
+        ? anzahl
+        : Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? 50) - schonHeute)
     if (TAGESZIEL === 0) return { text: `Tagesbudget erreicht (${schonHeute} heute)` }
     const BATCH = 13
     let vorbereitet = 0
@@ -4439,7 +4476,7 @@ const ETAPPEN_ARBEIT = {
  * Schirm genau, was fehlt und warum, statt einer roten Zeile im Log, die er nie
  * liest.
  */
-async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null } = {}) {
+async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzahl = null } = {}) {
   if (laufendeRunde?.status === 'laeuft') return rundeStand()
   rundeAbbruch = false
   laufendeRunde = neueRunde({ jetzt: Date.now(), ausloeser, nur })
@@ -4478,6 +4515,7 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null } = {}
     try {
       const r = await ETAPPEN_ARBEIT[etappe.schluessel]({
         tief: vollNoetig,
+        anzahl,
         melde: (text, anteil = null) => {
           laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
             text: String(text ?? '').slice(0, 120),
@@ -4607,6 +4645,7 @@ server.listen(PORT, '127.0.0.1', () => {
    * nach dem Start wäre eine Schleife, wenn der Pull den Code nicht wirklich
    * ändert. Der erste Blick kommt nach einer Minute, danach im Takt.
    */
+  void paketeAbgleichen()
   if (CODE_AUTOUPDATE) {
     setTimeout(() => void codeCheckTick(), 60_000)
     const cc = setInterval(() => void codeCheckTick(), CODE_CHECK_MS)
