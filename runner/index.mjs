@@ -4141,7 +4141,7 @@ async function codeCheckTick() {
 
     // Zwischen fetch und pull kann ein Lauf gestartet sein — dann lieber beim
     // nächsten Tick, der Code läuft ja nicht weg.
-    if (running.size > 0) return
+    if (running.size > 0 || laufendeRunde?.status === 'laeuft') return
     if ((await git('pull', '--ff-only', '--quiet')) === null) {
       console.error('[runner] neuer Code liegt bereit, aber der Pull ging nicht durch (kein Fast-Forward?)')
       return
