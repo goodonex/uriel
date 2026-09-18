@@ -4426,13 +4426,49 @@ const ETAPPEN_ARBEIT = {
         cwd: VAULT,
       })
       kostenRecherche += recherchiert.kosten
-      if (recherchiert.ohneErgebnis) {
-        console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${recherchiert.ohneErgebnis} ohne Recherche-Ergebnis (schreiben trotzdem)`)
+      /**
+       * Gescheiterte Recherche ist NICHT „keine Website" (18.09.2026).
+       *
+       * Bis heute ging ein Lead ohne Recherche-Ergebnis trotzdem an den
+       * Schreib-Agenten — und der machte daraus „ich hab nach eurer Website
+       * gesucht und keine gefunden". Gerd Springer (newland-immobilien.com)
+       * und Erik Renk (immlab.de) bekamen das, obwohl dieselbe Recherche am
+       * Laptop beide Seiten sofort fand: Auf dem Mini war sie technisch
+       * gescheitert, nicht erfolglos. Deshalb: einmal nachfassen, und wer dann
+       * noch kein Ergebnis hat, bekommt KEINE Zeile — die nächste Runde nimmt
+       * ihn erneut. „Keine Website" schreibt nur, wer wirklich gesucht hat.
+       */
+      let leads = recherchiert.leads
+      const ohne = leads.filter((l) => !l.recherche)
+      if (ohne.length) {
+        console.log(
+          `[runner] Erstnachrichten Batch ${runde + 1}: ${ohne.length} ohne Recherche-Ergebnis — zweiter Versuch: ` +
+            ohne.map((l) => `${l.name} (${l.recherche_fehler ?? '?'})`).join('; '),
+        )
+        const nochmal = await rechercheLeads(
+          ohne.map(({ recherche: _r, recherche_fehler: _f, ...rest }) => rest),
+          { cliPath: CLI_PATH, cwd: VAULT },
+        )
+        kostenRecherche += nochmal.kosten
+        const neu = new Map(nochmal.leads.map((l) => [l.name, l]))
+        leads = leads.map((l) => (l.recherche ? l : neu.get(l.name) ?? l))
+        const weg = leads.filter((l) => !l.recherche)
+        if (weg.length) {
+          console.log(
+            `[runner] Erstnachrichten Batch ${runde + 1}: ${weg.length} bleiben für die nächste Runde: ` +
+              weg.map((l) => `${l.name} (${l.recherche_fehler ?? '?'})`).join('; '),
+          )
+        }
+        leads = leads.filter((l) => l.recherche)
       }
-      const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: recherchiert.leads })
-      // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
-      // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
-      await schreiblauf.fertig
+      if (leads.length) {
+        const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads })
+        // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
+        // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
+        await schreiblauf.fertig
+      }
+      // Versuche zählen, nicht Treffer: Sonst griffe ein dauerhaft scheiternder
+      // Lead in jedem Batch neu zu und die Schleife liefe nie aus.
       vorbereitet += gebaut.leads.length
       // Nach JEDEM Batch, nicht erst am Ende: Bricht der Lauf in Batch 3 ab,
       // sind die ersten beiden trotzdem bezahlt und geschrieben — das Budget
