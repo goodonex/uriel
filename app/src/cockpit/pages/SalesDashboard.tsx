@@ -43,6 +43,8 @@ import {
 import { useTagesFlow } from '../lib/useTagesFlow'
 import { wochenkontrolle } from '../lib/wochenkontrolle'
 import { WochenkontrolleTafel } from '../components/linkedin/WochenkontrolleTafel'
+import { CoachAuswertungTafel } from '../components/sales/CoachAuswertungTafel'
+import { coachAuswertung, type CoachEingabe } from '../lib/coachAuswertung'
 import { useUiSetting } from '../lib/uiSettings'
 import { tagesansage } from '../lib/tagesansage'
 import { postRun } from '../lib/runnerApi'
@@ -1162,6 +1164,27 @@ export function SalesDashboard() {
   )
 
   /**
+   * Die Coach-Auswertung (17.09.2026) — Kevins Wochenzahlen im Raster des
+   * Agentur-Inkubator-Sheets, gezogen donnerstags abends. Rechnung in
+   * `lib/coachAuswertung.ts`.
+   */
+  const coachEingabe = useMemo<CoachEingabe>(
+    () => ({
+      tageszeilen: metrics.windowRows,
+      erstnachrichten: erstnachrichten.items,
+      netzwerk: netzwerk.items,
+      ereignisse: leadsQuery.ereignisse,
+      jetzt,
+    }),
+    [metrics.windowRows, erstnachrichten.items, netzwerk.items, leadsQuery.ereignisse, jetzt],
+  )
+  const coachKurz = useMemo(() => {
+    const a = coachAuswertung(coachEingabe)
+    const wert = (block: string, zeile: number) => a.bloecke.find((b) => b.id === block)?.zeilen[zeile]?.woche ?? 0
+    return `KW ${a.woche.kw} · ${wert('linkedin', 0)} Nachrichten · ${wert('standards', 0)} Looms · ${wert('standards', 1)} Termine`
+  }, [coachEingabe])
+
+  /**
    * Der Projekte-Block — bewusst UNTER dem Ritual und bewusst leise: bei
    * Reichentrog wartet Kevin auf den Kollegen, da ist kein Handgriff. Eine
    * Alarm-Optik hier wäre Druck ohne Funktion (Kevins Wort vom 18.08.:
@@ -1194,6 +1217,14 @@ export function SalesDashboard() {
       unterzeile: liegend.length > 0 ? 'Ansehen — nachfassen oder bewusst warten.' : undefined,
       inhalt: liste(kundeLiegtListe),
       fensterAktion: mobilArbeitsmodus('kunde_liegt', kundeLiegtListe),
+    },
+    {
+      id: 'coach-auswertung',
+      titel: 'Coach-Auswertung',
+      zustand: 'ruhig',
+      kennzahl: zahl(coachKurz),
+      unterzeile: 'Wochenzahlen im Raster des Agentur Inkubators, Freitag bis Donnerstag.',
+      inhalt: () => <CoachAuswertungTafel eingabe={coachEingabe} />,
     },
     {
       id: 'wochenkontrolle',

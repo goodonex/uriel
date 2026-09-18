@@ -45,6 +45,7 @@ import { RundeVorschau } from './dev/RundeVorschau'
 import { IdentitaetVorschau } from './dev/IdentitaetVorschau'
 import { PosteingangVorschau } from './dev/PosteingangVorschau'
 import { RechnungVorschau } from './dev/RechnungVorschau'
+import { CoachVorschau } from './dev/CoachVorschau'
 import { AmbientVorschau } from './dev/AmbientVorschau'
 
 
@@ -240,6 +241,7 @@ function App() {
             {/* Dev-only: Sales-Bausteine mit Fixtures, ohne Login prüfbar */}
             {import.meta.env.DEV ? <Route path="/dev/sales-vorschau" element={<SalesVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/rechnung-vorschau" element={<RechnungVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/coach-vorschau" element={<CoachVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/ziel-vorschau" element={<ZielVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/nav-vorschau" element={<NavVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/shell-vorschau" element={<ShellVorschau />} /> : null}
