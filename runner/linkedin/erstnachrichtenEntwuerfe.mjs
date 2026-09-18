@@ -63,6 +63,21 @@ export const CTA_KATALOG = Object.freeze({
   angestellt: 'Kümmerst du dich bei euch um Website und Marketing, oder liegt das bei der Geschäftsführung?',
 })
 
+/**
+ * Feste Sperre: Angestellte bekommen keine Analyse (18.09.2026).
+ *
+ * Die Regel stand seit dem 17.09. im Skill — und trotzdem ging Moritz Wagner
+ * (angestellt bei Igel & Kaufmann, die Recherche hatte es richtig erkannt) ein
+ * Analyse-Angebot. Ein Modell, das eine Regel „meistens" befolgt, reicht bei
+ * diesem Punkt nicht. Deshalb schneidet der Code jeden Absatz heraus, der die
+ * Analyse anbietet, und setzt die Frage nach der Geschäftsführung ans Ende.
+ */
+export function ohneAnalyseFuerAngestellte(text) {
+  const absaetze = String(text ?? '').split(/\n\s*\n/)
+  const rest = absaetze.filter((a) => !/analyse/i.test(a) && a.trim() !== ANALYSE_CTA && !Object.values(CTA_KATALOG).includes(a.trim()))
+  return [...rest, CTA_KATALOG.angestellt].join('\n\n')
+}
+
 /** Endet der Text auf einen der erlaubten CTAs? */
 export function hatFestenCta(text) {
   const roh = String(text ?? '').trimEnd()

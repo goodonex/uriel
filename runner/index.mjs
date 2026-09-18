@@ -20,7 +20,7 @@ import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
 import { baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
-import { parseErstnachrichtenRoh, schreibeErstnachrichten } from './linkedin/erstnachrichtenEntwuerfe.mjs'
+import { ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
@@ -879,10 +879,18 @@ async function erstnachrichtenInput(limit = 12) {
  * Wie bei den Antwort-Entwürfen darf ein Fehler hier den Lauf nicht
  * nachträglich zum Fehlschlag machen — das Ergebnis steht in der Run-Datei.
  */
+/** Namen, die die Recherche als angestellt erkannt hat — gesetzt vor dem Schreiblauf. */
+const angestellteVorgemerkt = new Set()
+
 async function erstnachrichtenAnListe(runId, markdown) {
   if (!SNAPSHOT_ENABLED) return
   try {
-    const { nachrichten, uebersprungen } = parseErstnachrichtenRoh(markdown)
+    const { nachrichten: roh, uebersprungen } = parseErstnachrichtenRoh(markdown)
+    const nachrichten = roh.map((n) => {
+      if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(n.nachricht)) return n
+      console.log(`[runner] Erstnachrichten: ${n.name} ist angestellt — Analyse-Angebot entfernt`)
+      return { ...n, nachricht: ohneAnalyseFuerAngestellte(n.nachricht) }
+    })
     if (!nachrichten.length && !uebersprungen.length) {
       console.warn(`[runner] ${runId}: kein verwertbarer json-Block — keine Erstnachrichten angelegt`)
       return
@@ -4460,6 +4468,9 @@ const ETAPPEN_ARBEIT = {
           )
         }
         leads = leads.filter((l) => l.recherche)
+      }
+      for (const l of leads) {
+        if (l.recherche?.rolle === 'angestellt') angestellteVorgemerkt.add(String(l.name).toLowerCase())
       }
       if (leads.length) {
         const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads })
