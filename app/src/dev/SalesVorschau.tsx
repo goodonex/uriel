@@ -3,7 +3,6 @@ import { AnimatePresence, MotionConfig } from 'framer-motion'
 import { AnfragenZaehler } from '../cockpit/components/AnfragenZaehler'
 import { Arbeitsliste, type LoomSkriptAktionen } from '../cockpit/components/Arbeitsliste'
 import { HeuteDeck } from '../cockpit/components/HeuteDeck'
-import { InmailPanel } from '../cockpit/components/InmailPanel'
 import { FlowZeile, KachelFenster, type FlowZeileDef } from '../cockpit/pages/SalesDashboard'
 import { FunnelCanvas } from '../cockpit/components/sales/FunnelCanvas'
 import { TagesListe } from '../cockpit/components/sales/TagesListe'
@@ -98,10 +97,10 @@ const FUNNEL_KARTEN: FunnelKarte[] = [
   { id: 'anfrage_offen', titel: 'Anfrage läuft', bestand: 337, heuteFaellig: 0, soll: null, erledigtHeute: null, stufenId: 'anfragen', vorlage: null, zweig: null },
   { id: 'erstnachricht_faellig', titel: 'Erstnachricht fällig', bestand: 12, heuteFaellig: 12, soll: null, erledigtHeute: null, stufenId: 'erstnachrichten', vorlage: null, zweig: null },
   { id: 'antwort_da', titel: 'Antwort da', bestand: 5, heuteFaellig: 5, soll: null, erledigtHeute: null, stufenId: 'antworten', vorlage: null, zweig: null },
+  { id: 'loom_offen', titel: 'Loom offen', bestand: 11, heuteFaellig: 11, soll: null, erledigtHeute: null, stufenId: 'looms', vorlage: null, zweig: null },
   { id: 'followup_0', titel: 'Follow-up 1', bestand: 18, heuteFaellig: 8, soll: null, erledigtHeute: null, stufenId: 'followups', vorlage: 'Vorlage 1', zweig: null },
   { id: 'followup_1', titel: 'Follow-up 2', bestand: 64, heuteFaellig: 7, soll: null, erledigtHeute: null, stufenId: 'followups', vorlage: 'Vorlage 2', zweig: null },
   { id: 'followup_2', titel: 'Follow-up 3', bestand: 100, heuteFaellig: 5, soll: null, erledigtHeute: null, stufenId: 'followups', vorlage: 'Vorlage 3', zweig: null },
-  { id: 'loom_offen', titel: 'Loom offen', bestand: 11, heuteFaellig: 11, soll: null, erledigtHeute: null, stufenId: 'looms', vorlage: null, zweig: null },
   { id: 'wartet_auf_antwort', titel: 'Wartet auf Antwort', bestand: 182, heuteFaellig: 0, soll: null, erledigtHeute: null, stufenId: null, vorlage: null, zweig: null },
   { id: 'email_faellig', titel: 'E-Mail fällig', bestand: 603, heuteFaellig: 0, soll: null, erledigtHeute: null, stufenId: null, vorlage: null, zweig: 'still' },
   { id: 'postkarte_still', titel: 'Postkarte — kennt dich noch nicht', bestand: 9, heuteFaellig: 0, soll: null, erledigtHeute: null, stufenId: null, vorlage: null, zweig: 'still' },
@@ -190,41 +189,23 @@ export function SalesVorschau() {
       ),
     },
     {
-      id: 'followups',
+      id: 'looms',
       nummer: 4,
+      titel: 'Looms',
+      zustand: 'offen',
+      kennzahl: '0 von 2',
+      unterzeile: `${LOOM_POSTEN.length} zugesagt und offen — Stern = Ja zur Analyse.`,
+      inhalt: () => <Arbeitsliste posten={LOOM_POSTEN} onErledigt={() => {}} loom={loomAktionen} />,
+    },
+    {
+      id: 'followups',
+      nummer: 5,
       titel: 'Follow-ups · LinkedIn',
       zustand: 'offen',
       kennzahl: '0 von 20',
       unterzeile: 'Portion für heute — 199 weitere warten im Rückstand.',
       streak: { laenge: 2, heuteOffen: true },
       inhalt: () => <Arbeitsliste posten={ANTWORT_POSTEN} onErledigt={() => {}} />,
-    },
-    {
-      id: 'inmails',
-      nummer: 5,
-      titel: 'Reaktivierung · InMails',
-      zustand: 'offen',
-      kennzahl: '0 von 5 · Pool ≈ 143',
-      unterzeile: 'Nie angenommene Anfragen — die InMail-Welle.',
-      inhalt: () => (
-        <InmailPanel
-          stand={{ wert: 150, standVom: '2026-08-12' }}
-          abgeleitet={{ pool: 143, seitherGebucht: 7, reichtTage: 28 }}
-          tagesration={5}
-          heuteGebucht={0}
-          onBuchen={() => {}}
-          onSpeichern={() => {}}
-        />
-      ),
-    },
-    {
-      id: 'looms',
-      nummer: 6,
-      titel: 'Looms',
-      zustand: 'offen',
-      kennzahl: '0 von 2',
-      unterzeile: `${LOOM_POSTEN.length} zugesagt und offen — Stern = Ja zur Analyse.`,
-      inhalt: () => <Arbeitsliste posten={LOOM_POSTEN} onErledigt={() => {}} loom={loomAktionen} />,
     },
   ]
 
@@ -329,7 +310,7 @@ export function SalesVorschau() {
           <TagesListe
             zeilen={zeilen}
             onOeffnen={(id) => setOffen(id)}
-            fortschritt={{ erledigt: anfragen >= 30 ? 1 : 0, gesamt: 6 }}
+            fortschritt={{ erledigt: anfragen >= 30 ? 1 : 0, gesamt: 5 }}
             laedt={false}
           />
         </div>

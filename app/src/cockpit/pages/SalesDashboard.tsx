@@ -32,6 +32,7 @@ import type { LinkedinThread } from '../../types/db'
 import { bereiteDatenVor, salesSerie, type SalesStreak } from '../lib/salesStreak'
 import {
   ANTWORT_FRISCHE_STUNDEN,
+  ERSTNACHRICHTEN_LIMIT_TAG,
   TAGES_FLOW,
   ersteOffeneStufe,
   flowFortschritt,
@@ -905,6 +906,19 @@ export function SalesDashboard() {
   const loomsStand = standJeStufe.get('looms')
 
   /**
+   * Der Tagesdeckel auf der Liste selbst (21.09.2026): Es liegen oft mehr Texte
+   * bereit als rausdürfen („da steht jetzt gerade 98"). Heute zeigt die Zeile
+   * nur so viele, wie bis 50 noch fehlen — der Rest bleibt für morgen liegen.
+   * Der Bestand im Canvas zeigt weiter alle.
+   */
+  const erstnachrichtenGesendet = erstnachrichtStand?.wert ?? 0
+  const erstnachrichtHeute = useMemo(
+    () => erstnachrichtListe.slice(0, Math.max(0, ERSTNACHRICHTEN_LIMIT_TAG - erstnachrichtenGesendet)),
+    [erstnachrichtListe, erstnachrichtenGesendet],
+  )
+  const erstnachrichtMorgen = erstnachrichtListe.length - erstnachrichtHeute.length
+
+  /**
    * Wer geantwortet hat, aber nicht Kevins Zielgruppe ist (18.08.2026).
    * Nicht weggeworfen, sondern eine Klappe tiefer — die Zeile nennt die Zahl,
    * damit der Filter prüfbar bleibt. Ein Filter, dem man nicht auf die Finger
@@ -998,7 +1012,7 @@ export function SalesDashboard() {
                */
               blockiert
               ? zahl(`${erstnachrichtStand?.wert ?? 0} von ${erstnachrichtStand?.soll ?? 0}`)
-              : zahl(`${erstnachrichtStand?.wert ?? 0} von ${(erstnachrichtStand?.wert ?? 0) + erstnachrichtListe.length}`),
+              : zahl(`${erstnachrichtenGesendet} von ${erstnachrichtenGesendet + erstnachrichtHeute.length}`),
           kennzahlFarbe: !flow.laedt && blockiert ? 'var(--ck-warn)' : undefined,
           /**
            * Beide Zahlen, solange ein Rückstau da ist — nicht „zuerst: Anina".
@@ -1009,9 +1023,11 @@ export function SalesDashboard() {
            */
           unterzeile: blockiert
             ? `${wartend.length} warten · kein Text bereit`
-            : wartend.length > 0
-              ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · ${wartend.length} warten insgesamt, der Mini schreibt nach`
-              : (zuerst(erstnachrichtListe) ?? 'Wer angenommen hat, bekommt seine Nachricht.'),
+            : erstnachrichtMorgen > 0
+              ? `Tageslimit ${ERSTNACHRICHTEN_LIMIT_TAG} · ${erstnachrichtMorgen} weitere Texte liegen für morgen bereit`
+              : wartend.length > 0
+                ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · ${wartend.length} warten insgesamt, der Mini schreibt nach`
+                : (zuerst(erstnachrichtListe) ?? 'Wer angenommen hat, bekommt seine Nachricht.'),
           inhalt: blockiert
             ? () => (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1031,8 +1047,8 @@ export function SalesDashboard() {
                   )()}
                 </div>
               )
-            : liste(erstnachrichtListe),
-          fensterAktion: mobilArbeitsmodus('erstnachricht', erstnachrichtListe),
+            : liste(erstnachrichtHeute),
+          fensterAktion: mobilArbeitsmodus('erstnachricht', erstnachrichtHeute),
         }
       }
       case 'antworten':

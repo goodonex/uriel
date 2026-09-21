@@ -94,9 +94,8 @@ check(
   reihenfolge.slice(zaehlbareStufen.length).every((f) => !flowFelder.has(f)),
 )
 check(
-  'die Reaktivierung (InMails) ist als Zähl-Kachel wirklich erreichbar',
-  reihenfolge.includes('inmails'),
-  'Ohne Index geprueft: der stand auf 3 und war damit an der Stufen-Reihenfolge festgenagelt — eine neue Stufe davor liess ihn fallen, ohne dass an den InMails etwas kaputt war.',
+  'InMails sind keine Zähl-Kachel mehr (21.09.2026, kein Sales Navigator)',
+  !reihenfolge.includes('inmails'),
 )
 
 // --- 3. Nachschlag ------------------------------------------------------

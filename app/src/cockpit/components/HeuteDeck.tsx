@@ -287,9 +287,6 @@ export function HeuteDeck({ slug }: { slug: string | undefined }) {
                       <span style={{ color: 'var(--ck-text-3)' }}> · {p.firma}</span>
                     ) : null}
                   </button>
-                  {p.entwurf && !p.entwurf.veraltet ? (
-                    <span style={{ flexShrink: 0, fontSize: 10, color: 'var(--ck-accent)' }}>Entwurf da</span>
-                  ) : null}
                   {p.starred ? (
                     <span aria-label="Loom zugesagt" style={{ flexShrink: 0, fontSize: 10, color: 'var(--ck-warn)' }}>
                       ★

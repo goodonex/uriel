@@ -20,9 +20,9 @@ import { ANFRAGEN_LIMIT_TAG } from '../app/src/cockpit/lib/prioritaet'
 import {
   ANTWORT_FRISCHE_STUNDEN,
   ARBEITSTAGE_WOCHE,
+  ERSTNACHRICHTEN_LIMIT_TAG,
   FOLLOWUP_PORTION_TAG,
   PORTION_STUFEN,
-  REAKTIVIERUNG_ZIEL_TAG,
   TAGES_FLOW,
   TAGES_FLOW_ZIELE,
   ersteOffeneStufe,
@@ -59,12 +59,11 @@ function eingabe(teil: Partial<FlowEingabe> = {}): FlowEingabe {
 const ANFRAGEN = 0
 const ERSTNACHRICHTEN = 1
 const ANTWORTEN = 2
-const FOLLOWUPS = 3
-const REAKTIVIERUNG = 4
-const LOOMS = 5
+const LOOMS = 3
+const FOLLOWUPS = 4
 
 // --- 1. Die Reihenfolge ist Kevins Diktat (D1, 18.08.2026) ---------------
-const erwartet: StufenId[] = ['anfragen', 'erstnachrichten', 'antworten', 'followups', 'reaktivierung', 'looms']
+const erwartet: StufenId[] = ['anfragen', 'erstnachrichten', 'antworten', 'looms', 'followups']
 check(
   'die sechs Stufen stehen in Kevins Reihenfolge',
   JSON.stringify(TAGES_FLOW.map((s) => s.id)) === JSON.stringify(erwartet),
@@ -117,9 +116,27 @@ check(
   'Follow-ups haben kein festes Ziel — ihr Soll ist die Portion aus dem Fälligen',
   TAGES_FLOW[FOLLOWUPS].standardZiel === null,
 )
+check('die InMail-Stufe ist raus (21.09.2026, kein Sales Navigator)', TAGES_FLOW.every((s) => s.id !== 'reaktivierung'))
 check(
-  'das Reaktivierungs-Ziel steht als benannte Konstante',
-  TAGES_FLOW[REAKTIVIERUNG].standardZiel === REAKTIVIERUNG_ZIEL_TAG,
+  'Erstnachrichten: nie mehr als 50 am Tag, auch wenn mehr warten',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98 })) === ERSTNACHRICHTEN_LIMIT_TAG &&
+    ERSTNACHRICHTEN_LIMIT_TAG === 50,
+)
+check(
+  'Erstnachrichten: der Deckel greift auch auf eine schon eingefrorene 98',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 98 } })) ===
+    50,
+)
+check(
+  'Erstnachrichten: ein eigenes Ziel drosselt, hebt aber nicht über 50',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 80 } })) === 50 &&
+    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 20 } })) === 20,
+)
+check(
+  'Erstnachrichten: nach 50 gesendeten steht die Stufe, obwohl noch 48 warten',
+  stufenStaende(eingabe({ erstnachrichtenOffen: 48, erstnachrichtenTexte: 48, today: { li_nachrichten: 50 } }))[
+    ERSTNACHRICHTEN
+  ].erledigt,
 )
 check(
   'das Loom-Ziel kommt aus dem Wochenziel geteilt durch die Arbeitswoche',
@@ -206,12 +223,12 @@ check(
 
 // --- 6. Zielüberschreibung aus ui_settings ------------------------------
 check(
-  'eine gültige Überschreibung gilt (Reaktivierung 10 statt 5)',
-  sollFuer(TAGES_FLOW[REAKTIVIERUNG], eingabe({ ziele: { reaktivierung: 10 } })) === 10,
+  'eine gültige Überschreibung gilt (Anfragen 10 statt 30)',
+  sollFuer(TAGES_FLOW[ANFRAGEN], eingabe({ ziele: { anfragen: 10 } })) === 10,
 )
 check(
   '0 ist eine gültige Überschreibung (Stufe heute aus)',
-  sollFuer(TAGES_FLOW[REAKTIVIERUNG], eingabe({ ziele: { reaktivierung: 0 } })) === 0,
+  sollFuer(TAGES_FLOW[ANFRAGEN], eingabe({ ziele: { anfragen: 0 } })) === 0,
 )
 for (const [was, wert] of [
   ['Text', '5'],
@@ -224,8 +241,8 @@ for (const [was, wert] of [
 ] as const) {
   check(
     `eine kaputte Überschreibung (${was}) fällt auf den Standard zurück`,
-    sollFuer(TAGES_FLOW[REAKTIVIERUNG], eingabe({ ziele: { reaktivierung: wert as unknown as number } })) ===
-      REAKTIVIERUNG_ZIEL_TAG,
+    sollFuer(TAGES_FLOW[ANFRAGEN], eingabe({ ziele: { anfragen: wert as unknown as number } })) ===
+      ANFRAGEN_LIMIT_TAG,
     'Ein kaputter ui_settings-Wert darf keine Stufe für immer offen halten.',
   )
 }
@@ -289,15 +306,14 @@ const standardTag = eingabe({
   antworten: { warten: 5, aeltesteStunden: 2 },
 })
 const s1 = stufenStaende(standardTag)
-check('sechs Stände für sechs Stufen', s1.length === 6)
+check('fünf Stände für fünf Stufen', s1.length === 5)
 check('Anfragen stehen bei 30/30', s1[ANFRAGEN].erledigt && s1[ANFRAGEN].wert === 30 && s1[ANFRAGEN].soll === 30)
 check('Erstnachrichten stehen (alle raus: offen 0)', s1[ERSTNACHRICHTEN].erledigt)
 check('Antworten sind offen (0 von 5)', !s1[ANTWORTEN].erledigt && s1[ANTWORTEN].soll === 5)
 check('Follow-ups sind offen (0 von 3)', !s1[FOLLOWUPS].erledigt && s1[FOLLOWUPS].soll === 3)
-check('Reaktivierung ist offen (0 von 5)', !s1[REAKTIVIERUNG].erledigt && s1[REAKTIVIERUNG].soll === 5)
 check('Looms stehen bei 2/2', s1[LOOMS].erledigt)
 check('die erste offene Stufe sind die Antworten', ersteOffeneStufe(s1) === ANTWORTEN)
-check('Fortschritt: 3 von 6', JSON.stringify(flowFortschritt(s1)) === JSON.stringify({ erledigt: 3, gesamt: 6 }))
+check('Fortschritt: 3 von 5', JSON.stringify(flowFortschritt(s1)) === JSON.stringify({ erledigt: 3, gesamt: 5 }))
 
 const uebererfuellt = stufenStaende(eingabe({ today: { li_anfragen: 44 } }))
 check('mehr als das Ziel gilt als erledigt', uebererfuellt[ANFRAGEN].erledigt)
@@ -328,14 +344,14 @@ const allesFertig = stufenStaende(
   }),
 )
 check('ein vollendeter Tag hat keine offene Stufe', ersteOffeneStufe(allesFertig) === -1)
-check('Fortschritt am vollendeten Tag: 6 von 6', flowFortschritt(allesFertig).erledigt === 6)
+check('Fortschritt am vollendeten Tag: 5 von 5', flowFortschritt(allesFertig).erledigt === 5)
 
 // --- 9. Auto-Advance ----------------------------------------------------
 check('von Stufe 1 aus geht es auf die nächste offene (Antworten)', naechsteStufe(s1, ANFRAGEN) === ANTWORTEN)
-check('von den Follow-ups aus geht es weiter zur Reaktivierung', naechsteStufe(s1, FOLLOWUPS) === REAKTIVIERUNG)
+check('von den Antworten aus geht es über die fertigen Looms zu den Follow-ups', naechsteStufe(s1, ANTWORTEN) === FOLLOWUPS)
 check(
   'nach der letzten offenen Stufe wird von vorne gesucht',
-  naechsteStufe(s1, LOOMS) === ANTWORTEN,
+  naechsteStufe(s1, FOLLOWUPS) === ANTWORTEN,
   'Wer mittendrin einsteigt, darf vorne Offenes nicht verlieren.',
 )
 check('ist alles erledigt, gibt es kein Weiter (-1)', naechsteStufe(allesFertig, 0) === -1)
@@ -344,14 +360,14 @@ check(
   (() => {
     const nurEineOffen = stufenStaende(
       eingabe({
-        today: { li_anfragen: 30, li_nachrichten: 2, looms: 2, inmails: 0 },
-        faelligHeute: 0,
+        today: { li_anfragen: 30, li_nachrichten: 2, looms: 2 },
+        faelligHeute: 2,
         erstnachrichtenOffen: 0,
         loomsOffen: 0,
         antworten: { warten: 0, aeltesteStunden: null },
       }),
     )
-    return naechsteStufe(nurEineOffen, REAKTIVIERUNG) === -1
+    return naechsteStufe(nurEineOffen, FOLLOWUPS) === -1
   })(),
   'Sonst schöbe der Auto-Advance den Zähler auf sich selbst und liefe im Kreis.',
 )

@@ -20,13 +20,14 @@ import type { FlowZeileDef } from '../../pages/SalesDashboard'
  * die hier verschwinden soll.
  *
  * **Die Reihenfolge ist Kevins Ritual** (`TAGES_FLOW`, sein Diktat vom 18.08.):
- * Anfragen → Erstnachrichten → Antworten → Follow-ups → InMails → Looms. Diese
+ * Anfragen → Erstnachrichten → Antworten → Looms → Follow-ups (seit 21.09.2026,
+ * InMails sind raus). Diese
  * Komponente sortiert nicht, sie zeigt in der Reihenfolge, in der sie die
  * Zeilen bekommt.
  */
 
 export interface TagesListeProps {
-  /** Die sechs Zeilen des Rituals, in der Reihenfolge von `TAGES_FLOW`. */
+  /** Die fünf Zeilen des Rituals, in der Reihenfolge von `TAGES_FLOW`. */
   zeilen: FlowZeileDef[]
   /** Klick auf eine Zeile — öffnet dasselbe Fenster wie vorher der Balken. */
   onOeffnen: (id: string) => void

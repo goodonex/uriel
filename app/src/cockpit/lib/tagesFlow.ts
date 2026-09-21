@@ -87,6 +87,18 @@ export const FOLLOWUP_PORTION_TAG = 20
  */
 
 /**
+ * **Doch ein Deckel: 50 Erstnachrichten am Tag** (21.09.2026, Kevins Diktat).
+ *
+ * Kevin: *„Ich will nicht mehr als 50 Nachrichten pro Tag rausschicken, auch
+ * wenn gerade schon mehr geschrieben sind."* Grund ist der Account-Schutz, nicht
+ * das Pensum — 40 Anfragen plus 100 Erstnachrichten an einem Tag wirken auf
+ * LinkedIn nicht menschlich. Der Deckel greift auch auf eine schon
+ * eingefrorene Portion (sonst stünde heute weiter 98). Ein eigenes Ziel aus
+ * `ui_settings` kann nur weiter drosseln, nie über 50 heben.
+ */
+export const ERSTNACHRICHTEN_LIMIT_TAG = 50
+
+/**
  * Ab wann eine wartende Antwort die Frische-Stufe rot macht. Bei Antworten
  * zählt Reaktionszeit, nicht Vollständigkeit — 43 können warten, solange
  * keine davon von vorgestern ist.
@@ -127,6 +139,12 @@ export interface Stufe {
  * morgens erst alle Anfragen raus, dann bekommen die Annehmer ihre
  * Erstnachricht, dann die wartenden Antworten, dann die Follow-up-Portion,
  * dann die InMail-Welle an die Nie-Annehmer, zuletzt die zugesagten Looms.
+ *
+ * **Umbau 21.09.2026 (Kevins Diktat):** Looms rücken auf Platz 4 vor die
+ * Follow-ups — ein zugesagtes Loom ist ein gegebenes Versprechen. Die
+ * InMail-Stufe ist raus: ohne Sales Navigator gibt es keine InMails. Die
+ * `StufenId` 'reaktivierung' bleibt als Typ stehen, damit alte Einträge in
+ * `ui_settings`/`sales_tagesportionen` nichts zerschiessen.
  */
 export const TAGES_FLOW: readonly Stufe[] = [
   {
@@ -175,6 +193,15 @@ export const TAGES_FLOW: readonly Stufe[] = [
     standardZiel: null,
   },
   {
+    id: 'looms',
+    art: 'zaehler',
+    feld: 'looms',
+    label: 'Looms',
+    langLabel: 'Looms',
+    hinweis: 'Zugesagte Analysen aufnehmen und rausschicken.',
+    standardZiel: Math.round(WEEK_TARGETS.looms / ARBEITSTAGE_WOCHE),
+  },
+  {
     id: 'followups',
     art: 'zaehler',
     feld: 'li_followups',
@@ -184,24 +211,6 @@ export const TAGES_FLOW: readonly Stufe[] = [
     // Kein festes Ziel: die Portion kommt aus dem Fälligen, gedrosselt auf
     // FOLLOWUP_PORTION_TAG. Siehe sollFuer().
     standardZiel: null,
-  },
-  {
-    id: 'reaktivierung',
-    art: 'zaehler',
-    feld: 'inmails',
-    label: 'InMails',
-    langLabel: 'Reaktivierung · InMails',
-    hinweis: 'Nie angenommene Anfragen — die InMail-Welle.',
-    standardZiel: REAKTIVIERUNG_ZIEL_TAG,
-  },
-  {
-    id: 'looms',
-    art: 'zaehler',
-    feld: 'looms',
-    label: 'Looms',
-    langLabel: 'Looms',
-    hinweis: 'Zugesagte Analysen aufnehmen und rausschicken.',
-    standardZiel: Math.round(WEEK_TARGETS.looms / ARBEITSTAGE_WOCHE),
   },
 ]
 
@@ -357,7 +366,9 @@ export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
   const offenLive = offenJetztFuer(stufe, eingabe)
   if (portion === 0 && (offenLive ?? 0) > 0) {
     // durchfallen zur Live-Rechnung
-  } else if (gueltigesZiel(portion)) return portion
+  } else if (gueltigesZiel(portion)) {
+    return stufe.id === 'erstnachrichten' ? Math.min(portion, ERSTNACHRICHTEN_LIMIT_TAG) : portion
+  }
 
   const eigen = eingabe.ziele?.[stufe.id]
   const wert = wertVon(stufe, eingabe)
@@ -368,9 +379,10 @@ export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
       // beim Abhaken stehen bleibt und die Zeile nicht über den Tag lügt.
       // Ein eigenes Ziel aus `ui_settings` sticht weiterhin, falls Kevin doch
       // einmal drosseln will.
-      return gueltigesZiel(eigen)
-        ? Math.min(eigen, anzahl(eingabe.erstnachrichtenOffen) + wert)
-        : anzahl(eingabe.erstnachrichtenOffen) + wert
+      return Math.min(
+        gueltigesZiel(eigen) ? Math.min(eigen, ERSTNACHRICHTEN_LIMIT_TAG) : ERSTNACHRICHTEN_LIMIT_TAG,
+        anzahl(eingabe.erstnachrichtenOffen) + wert,
+      )
     case 'antworten':
       /**
        * Wer wartet, wird beantwortet — alle, nicht eine Portion. Anders als

@@ -164,11 +164,11 @@ export const FUNNEL_BAUPLAN: readonly Bauplan[] = [
     zweig: null,
   },
   { id: 'antwort_da', titel: STATION_TITEL.antwort_da, stufenId: 'antworten', vorlage: null, zweig: null },
+  { id: 'loom_offen', titel: STATION_TITEL.loom_offen, stufenId: 'looms', vorlage: null, zweig: null },
   // Kevin zählt in der Oberfläche ab 1 — `followup_stage` im Datensatz ab 0.
   { id: 'followup_0', titel: 'Follow-up 1', stufenId: 'followups', vorlage: FOLLOWUP_VORLAGEN[0], zweig: null },
   { id: 'followup_1', titel: 'Follow-up 2', stufenId: 'followups', vorlage: FOLLOWUP_VORLAGEN[1], zweig: null },
   { id: 'followup_2', titel: 'Follow-up 3', stufenId: 'followups', vorlage: FOLLOWUP_VORLAGEN[2], zweig: null },
-  { id: 'loom_offen', titel: STATION_TITEL.loom_offen, stufenId: 'looms', vorlage: null, zweig: null },
 
   // ── Bestand ohne Tagesbezug: hier ist heute nichts zu tun ───────────────
   { id: 'wartet_auf_antwort', titel: STATION_TITEL.wartet_auf_antwort, stufenId: null, vorlage: null, zweig: null },

@@ -238,7 +238,10 @@ export function Arbeitsliste({
                     nachrichtStand(p.timestamp) || null,
                     p.firma && p.firma !== p.name ? p.firma : null,
                     p.spur === 'loom' && skriptUrl ? 'Skript da' : null,
-                    p.entwurf ? (p.entwurf.veraltet ? 'Entwurf veraltet' : 'Entwurf da') : null,
+                    // „Entwurf da" steht nicht mehr dran (21.09.2026): liegt bei
+                    // fast jeder Antwort an und sagt deshalb nichts. Nur die
+                    // Ausnahme — veraltet — ist eine Information.
+                    p.entwurf?.veraltet ? 'Entwurf veraltet' : null,
                   ]
                     .filter(Boolean)
                     .join(' · ') || undefined
@@ -354,16 +357,8 @@ export function Arbeitsliste({
                 ) : null}
                 {/* Am eingeklappten Namen sichtbar, damit Kevin nicht aufklappen
                     muss, um zu sehen, ob etwas vorbereitet ist. */}
-                {p.entwurf ? (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      flexShrink: 0,
-                      color: p.entwurf.veraltet ? 'var(--ck-warn)' : 'var(--ck-accent)',
-                    }}
-                  >
-                    {p.entwurf.veraltet ? 'Entwurf veraltet' : 'Entwurf da'}
-                  </span>
+                {p.entwurf?.veraltet ? (
+                  <span style={{ fontSize: 11, flexShrink: 0, color: 'var(--ck-warn)' }}>Entwurf veraltet</span>
                 ) : null}
               </button>
               <button
