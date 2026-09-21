@@ -100,14 +100,13 @@ export async function leseErfahrung(profileUrl) {
     f.style.cssText = 'width:1200px;height:900px;position:fixed;left:-3000px;top:0';
     f.src = ${pfad};
     let n = 0;
-    f.onload = () => {
-      const uhr = setInterval(() => {
-        n++;
-        let tx = '';
-        try { const m = f.contentDocument && f.contentDocument.querySelector('main'); tx = m ? m.innerText : ''; } catch (e) {}
-        if ((tx.length > 200 && tx.includes('Erfahrung')) || n > 30) { clearInterval(uhr); f.remove(); fertig(tx); }
-      }, 500);
-    };
+    // Nicht auf onload warten: im Test am 21.09. blieb der Lauf bei 80 von 98 an einem iframe hängen, dessen onload nie kam.
+    const uhr = setInterval(() => {
+      n++;
+      let tx = '';
+      try { const m = f.contentDocument && f.contentDocument.querySelector('main'); tx = m ? m.innerText : ''; } catch (e) {}
+      if ((tx.length > 200 && tx.includes('Erfahrung')) || n > 36) { clearInterval(uhr); f.remove(); fertig(tx); }
+    }, 500);
     document.body.appendChild(f);
   })`
   return erfahrungKuerzen(await auswerten(tab.webSocketDebuggerUrl, expr, 25_000))
