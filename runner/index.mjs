@@ -20,7 +20,7 @@ import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
 import { baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
-import { ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten } from './linkedin/erstnachrichtenEntwuerfe.mjs'
+import { ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
@@ -4468,6 +4468,34 @@ const ETAPPEN_ARBEIT = {
           )
         }
         leads = leads.filter((l) => l.recherche)
+      }
+      /**
+       * Segment-Sperre (21.09.2026): Hausverwaltungen, Investoren, Banken,
+       * Berater bekommen keinen Makler-Text — der Code entscheidet, nicht das
+       * Modell. Sie bekommen trotzdem eine Zeile (Status „übersprungen" mit
+       * Grund), sonst stünden sie jeden Morgen wieder im Vorrat.
+       */
+      const gesperrt = []
+      leads = leads.filter((l) => {
+        const u = segmentUrteil(l.recherche)
+        if (u.aktion === 'schreiben') return true
+        gesperrt.push({ profil_key: l.profil_key, name: l.name, grund: u.grund })
+        return false
+      })
+      if (gesperrt.length && SNAPSHOT_ENABLED) {
+        try {
+          const br = await fetch(
+            `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+            { headers: supabaseHeaders() },
+          )
+          const [brand] = br.ok ? await br.json() : []
+          if (brand?.id) {
+            await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: gesperrt })
+          }
+          console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${gesperrt.length} ohne Text — ` + gesperrt.map((g) => `${g.name} (${g.grund.slice(0, 60)})`).join('; '))
+        } catch (e) {
+          console.error('[runner] Segment-Sperre konnte nicht gespeichert werden:', e?.message ?? e)
+        }
       }
       for (const l of leads) {
         if (l.recherche?.rolle === 'angestellt') angestellteVorgemerkt.add(String(l.name).toLowerCase())

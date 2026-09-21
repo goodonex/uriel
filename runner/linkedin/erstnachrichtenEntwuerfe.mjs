@@ -319,3 +319,40 @@ export async function schreibeErstnachrichten({
 
   return { geschrieben, uebersprungen: uebersprungenGeschrieben, schonDa }
 }
+
+/**
+ * Wer bekommt überhaupt einen Text? Entscheidet der Code, nicht das Modell
+ * (21.09.2026).
+ *
+ * Der Schreib-Agent hatte die Regel „jeder, der mit Immobilien Geld verdient,
+ * bekommt eine Nachricht" — heraus kamen Texte an eine Volksbank, ein
+ * Weiterbildungs-Institut, Capital- und Holding-Firmen, einen KI-Software-
+ * Gründer (Tim Brück) und Hausverwaltungen mit dem Makler-Pitch. Kevin zur
+ * Hausverwaltung (Maximilian Schaper, Verto): *„da müssten wir uns bevor wir
+ * das machen, auch mal klar überlegen, welchen Pain haben überhaupt
+ * Hausverwaltungen — wenn die sich vor Mandaten nicht retten können, macht das
+ * überhaupt gar keinen Sinn."*
+ *
+ * - `makler`, `projektentwickler` → schreiben (Entwickler mit Käufer-Angle, siehe Skill)
+ * - `hausverwaltung` → zurückstellen, bis der Pain geklärt ist
+ * - `investor`, `sonstiges` → überspringen
+ * - keine Website gefunden, obwohl die Erfahrung nicht gelesen werden konnte →
+ *   kein „keine Website gefunden"-Text, sondern Kevin prüft selbst
+ *
+ * @returns {{ aktion: 'schreiben'|'zurueckstellen'|'ueberspringen', grund: string }}
+ */
+export function segmentUrteil(recherche) {
+  const r = recherche ?? {}
+  const modell = String(r.geschaeftsmodell ?? '').toLowerCase()
+  const was = String(r.taetigkeit ?? '').slice(0, 120)
+  if (modell === 'hausverwaltung') {
+    return { aktion: 'zurueckstellen', grund: `[zurückgestellt] Hausverwaltung — erst Pain klären. ${was}`.trim() }
+  }
+  if (modell === 'investor' || modell === 'sonstiges') {
+    return { aktion: 'ueberspringen', grund: `${modell === 'investor' ? 'Investor/Bestandshalter' : 'kein Makler'}: ${was || r.firma || 'Tätigkeit unklar'}` }
+  }
+  if (!String(r.website ?? '').trim() && r.erreichbar !== 'offline' && !r.nur_portal && !(r.erfahrung_gelesen && r.firma)) {
+    return { aktion: 'zurueckstellen', grund: `[prüfen] Website nicht gefunden, LinkedIn-Erfahrung nicht lesbar — bitte selbst googeln${r.firma ? `: ${r.firma}` : ''}` }
+  }
+  return { aktion: 'schreiben', grund: '' }
+}

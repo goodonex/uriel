@@ -41,6 +41,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { starteBrowser, rendereKandidat } from './seiteRendern.mjs'
+import { leseErfahrung } from './erfahrung.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 
@@ -58,18 +59,22 @@ const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.6)
 /** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
 const MODELL = process.env.RECHERCHE_MODELL ?? 'claude-sonnet-5'
 
-function baueFindenPrompt(lead) {
-  return `Finde die Website EINES Immobilien-Kontakts. Kein Text an den Kontakt.
+function baueFindenPrompt(lead, erfahrung) {
+  return `Finde die Website EINES Immobilien-Kontakts und bestimme, womit er sein Geld verdient. Kein Text an den Kontakt.
 
 Kontakt:
 - Name: ${lead.name}
 - LinkedIn-Headline: ${lead.headline ?? '(keine)'}
 - LinkedIn-Profil: ${lead.profile_url ?? '(unbekannt)'}
+- LinkedIn-Erfahrung (neueste Station zuerst): ${erfahrung || '(nicht lesbar)'}
+
+**Die Firma steht in der Erfahrung, nicht in der Headline** (Kevin, 21.09.2026). Die Headline ist oft ein Spruch („be great at what you do"). Kevins Weg: die aktuellen Stationen („Heute") ansehen, den Firmennamen googeln — fertig. Berna Ayhan: Headline „Geschäftsführerin", Erfahrung „A Group Real Estate GmbH" → Seite ist der erste Treffer. „Stealth" oder Stationen ohne Firmennamen überspringen. Mehrere aktuelle Stationen: die mit Immobilienbezug und eigener Rolle (Gründer/GF/Inhaber) zuerst.
 
 Vorgehen:
-1. WebSearch mit Name + Firma aus der Headline (falls vorhanden) + "Immobilien".
+1. WebSearch mit dem Firmennamen der aktuellen Station aus der Erfahrung (ohne Personennamen, auch ohne GmbH/UG/AG). Keine Erfahrung lesbar? Dann Name + Firma aus der Headline + "Immobilien".
 2. Keine eigene Website dabei? Dann nacheinander, bis du eine hast (höchstens fünf Suchen insgesamt):
-   - nur der Firmenname (ohne Personennamen), auch in Varianten ohne GmbH/AG
+   - die nächste aktuelle Station aus der Erfahrung
+   - Firmenname + Personenname
    - Name + "Geschäftsführer" oder "Inhaber" — Handelsregister-/Firmenverzeichnis-Treffer verraten die Firma, danach deren Namen suchen
    - Firmenname + Ort
 3. Keine Seiten abrufen — die Seite öffnet danach ein Browser.
@@ -85,13 +90,21 @@ Antworte mit NICHTS als diesem JSON-Block:
   "firma": "",
   "taetigkeit": "",
   "rolle": "",
+  "geschaeftsmodell": "",
   "kandidaten": [],
   "nur_portal": false
 }
 \`\`\`
 
 - "firma": Firmenname. Leer, wenn unklar.
-- "taetigkeit": was die Person wirklich macht, ein Halbsatz. Die Headline lügt oft — Coach, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft genau so benennen.
+- "taetigkeit": was die Person wirklich macht, ein Halbsatz. Die Headline lügt oft — Coach, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft genau so benennen. Die Erfahrung ist dafür die beste Quelle.
+- "geschaeftsmodell": genau einer von
+  - "makler" — vermittelt Wohnimmobilien von Eigentümern (Verkauf/Vermietung), auch mit Verwaltung als Nebengeschäft
+  - "projektentwickler" — kauft Grundstücke/Objekte, baut oder saniert und verkauft Einheiten (Bauträger, Aufteiler)
+  - "hausverwaltung" — Verwaltung (WEG/Miet) ist das Hauptgeschäft
+  - "investor" — Bestandshalter, Asset-/Fondsmanager, Family Office, Capital, Holding ohne Vertrieb an Endkunden
+  - "sonstiges" — Bank, Berater, Gutachter, Institut, Software/KI, Coach, Agentur, Student/Werkstudent, alles andere
+  Nach dem, was die Firma TUT, nicht nach Wörtern im Namen („Real Estate GmbH" kann alles sein).
 - "rolle": "inhaber" (Inhaber, Gründer, Geschäftsführer, Vorstand der eigenen Firma), "angestellt" (Abteilungsleiter, Makler im Team, Manager, Mitarbeiter) oder "unklar". Angestellte bekommen keine Analyse — im Zweifel "unklar", nie raten.
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
 - "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.`
@@ -287,9 +300,11 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
    * Hausverwaltung statt immo-schmitt.com.
    */
   const bekannt = String(lead.website_bekannt ?? '').trim()
+  // Erfahrung zuerst (21.09.2026) — dort steht die Firma, siehe erfahrung.mjs.
+  const erfahrung = String(lead.erfahrung ?? '') || (await leseErfahrung(lead.profile_url).catch(() => ''))
   const f = bekannt
-    ? { json: { firma: lead.firma_bekannt ?? '', taetigkeit: lead.taetigkeit_bekannt ?? '', kandidaten: [bekannt], nur_portal: false }, kosten: 0, token: 0 }
-    : await claudeLauf(baueFindenPrompt(lead), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
+    ? { json: { firma: lead.firma_bekannt ?? '', taetigkeit: lead.taetigkeit_bekannt ?? '', geschaeftsmodell: lead.geschaeftsmodell_bekannt ?? '', kandidaten: [bekannt], nur_portal: false }, kosten: 0, token: 0 }
+    : await claudeLauf(baueFindenPrompt(lead, erfahrung), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
   kosten += f.kosten
   token += f.token
   if (!f.json) return { lead, destillat: null, kosten, token, grund: `Finden: ${f.grund}` }
@@ -314,7 +329,8 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     .filter((k, i, alle) => alle.indexOf(k) === i)
     .slice(0, 3)
 
-  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, rolle: String(f.json.rolle ?? ''), eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
+  const geschaeftsmodell = String(f.json.geschaeftsmodell ?? '').trim()
+  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung), rolle: String(f.json.rolle ?? ''), eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
   if (!kandidaten.length) return { lead, destillat: leer, kosten, token, grund: null }
 
   // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
@@ -395,6 +411,8 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       sicher: passt,
       erreichbar: 'ja',
       taetigkeit,
+      geschaeftsmodell,
+      erfahrung_gelesen: Boolean(erfahrung),
       eigentuemer_bereich: String(b.json.eigentuemer_bereich ?? ''),
       bewertung: String(b.json.bewertung ?? ''),
       ausrichtung: String(b.json.ausrichtung ?? ''),
