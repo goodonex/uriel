@@ -20,7 +20,8 @@ import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
 import { baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
-import { ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
+import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
+import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
@@ -887,9 +888,12 @@ async function erstnachrichtenAnListe(runId, markdown) {
   try {
     const { nachrichten: roh, uebersprungen } = parseErstnachrichtenRoh(markdown)
     const nachrichten = roh.map((n) => {
-      if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(n.nachricht)) return n
+      const ohneGf = ohneAlteGfFrage(n.nachricht)
+      if (ohneGf.korrigiert) console.log(`[runner] Erstnachrichten: ${n.name} — abgeschaffte GF-Frage entfernt`)
+      const m = { ...n, nachricht: ohneGf.text }
+      if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(m.nachricht)) return m
       console.log(`[runner] Erstnachrichten: ${n.name} ist angestellt — Analyse-Angebot entfernt`)
-      return { ...n, nachricht: ohneAnalyseFuerAngestellte(n.nachricht) }
+      return { ...m, nachricht: ohneAnalyseFuerAngestellte(m.nachricht) }
     })
     if (!nachrichten.length && !uebersprungen.length) {
       console.warn(`[runner] ${runId}: kein verwertbarer json-Block — keine Erstnachrichten angelegt`)
@@ -4495,6 +4499,35 @@ const ETAPPEN_ARBEIT = {
           console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${gesperrt.length} ohne Text — ` + gesperrt.map((g) => `${g.name} (${g.grund.slice(0, 60)})`).join('; '))
         } catch (e) {
           console.error('[runner] Segment-Sperre konnte nicht gespeichert werden:', e?.message ?? e)
+        }
+      }
+      /**
+       * Entscheider zuerst (22.09.2026): Wer laut Impressum angestellt ist,
+       * bringt den GF auf Kevins Anfrageliste und wird selbst zurückgestellt —
+       * Ausnahmen (eigene Firma nebenher, Konzern-Marketing) stehen in
+       * `entscheider.mjs`. Scheitert der Schritt (Tabelle fehlt, Netz), gehen
+       * die Leads unverändert weiter: Der Skill stellt reine Angestellte dann
+       * selbst zurück, nur die Liste bleibt leer.
+       */
+      if (SNAPSHOT_ENABLED && leads.length) {
+        try {
+          const br = await fetch(
+            `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+            { headers: supabaseHeaders() },
+          )
+          const [brand] = br.ok ? await br.json() : []
+          if (brand?.id) {
+            const e = await entscheiderZuerst(leads, { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id })
+            if (e.zurueck.length) {
+              await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: e.zurueck })
+            }
+            if (e.angelegt || e.zurueck.length) {
+              console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${e.angelegt} GF auf die Anfrageliste, ${e.zurueck.length} Angestellte zurückgestellt`)
+            }
+            leads = e.behalten
+          }
+        } catch (e) {
+          console.error('[runner] Entscheider zuerst übersprungen:', e?.message ?? e)
         }
       }
       for (const l of leads) {

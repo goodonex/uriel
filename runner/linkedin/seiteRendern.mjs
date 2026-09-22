@@ -130,6 +130,23 @@ async function lies(page) {
       telefon_sichtbar: /(\+\d{2}|\b0\d{2,5})[\d\s/()-]{7,}/.test(text),
       whatsapp: /whatsapp|wa\.me/i.test(document.body.innerHTML),
     }
+    /**
+     * Wie viele eigene Unterseiten verlinkt sind (22.09.2026) — ein Maß für
+     * „viele Unterseiten" in der Website-Stufe. Gezählt werden Pfade auf
+     * derselben Domain, ohne Anker, Rechtliches und Dateien.
+     */
+    const host = location.hostname.replace(/^www\./, '')
+    const pfade = new Set()
+    for (const a of document.querySelectorAll('a[href]')) {
+      try {
+        const u = new URL(a.href)
+        if (u.hostname.replace(/^www\./, '') !== host) continue
+        const p = u.pathname.replace(/\/(index\.(php|html?))?$/, '') || '/'
+        if (p === '/' || /impressum|datenschutz|privacy|agb|cookie|\.(pdf|jpe?g|png|zip)$/i.test(p)) continue
+        pfade.add(p.toLowerCase())
+      } catch {}
+    }
+    checkliste.unterseiten = pfade.size
     return {
       checkliste,
       titel: document.title,
@@ -276,14 +293,170 @@ export function teamLink(links, basis) {
  * Wer entscheidet? Die Geschäftsführung steht im Impressum (17.09.2026):
  * Angestellte bekommen keine Analyse, Kevin vernetzt sich stattdessen mit der
  * Geschäftsführung — dafür braucht er die Namen.
+ *
+ * Seit 22.09.2026 kommen die Namen als Liste (`namen`), nicht mehr nur als
+ * 220-Zeichen-Auszug: Der Auszug reichte für einen Nachnamen-Vergleich, aber
+ * nicht, um den GF als eigenen Kandidaten in die Anfrageliste zu legen.
  */
 async function geschaeftsfuehrungAusImpressum(browser, links, basis, { ordner, kuerzel }) {
   const ziel = internerLink(links, basis, [/impressum|imprint|legal notice/i])
-  if (!ziel) return ''
+  if (!ziel) return { auszug: '', namen: [], gelesen: false }
   const seite = await rendereSeite(browser, ziel, { ordner, kuerzel: `${kuerzel}-impressum` })
   const text = String(seite.text ?? '')
   const i = text.search(/geschäftsführ|geschaeftsfuehr|vertreten durch|vertretungsberechtigt|inhaber(in)?\b|vorstand|verwaltungsrat|managing director/i)
-  return i >= 0 ? text.slice(i, i + 220).replace(/\s+/g, ' ').trim() : ''
+  return {
+    auszug: i >= 0 ? text.slice(i, i + 220).replace(/\s+/g, ' ').trim() : '',
+    namen: gfNamenAusImpressum(text),
+    gelesen: seite.erreichbar === 'ja' && text.length > 50,
+    // Der Kopf des Impressums für den Namensabgleich, wenn keine GF-Namen erkennbar sind („NBI-Natascha Borkowski Immobilien").
+    kopf: text.slice(0, 1500),
+  }
+}
+
+const GF_SCHLUESSEL =
+  /(gesch(?:ä|ae)ftsf(?:ü|ue)hr(?:er(?:in)?|ung|ende[rn]?)?|vertreten\s+durch|vertretungsberechtigte?[rn]?|inhaber(?:in)?|vorstand|verwaltungsrat|managing directors?|owner)\b/gi
+/** Hier endet der Namensblock: Register, Kontakt, Adresse, Rechtliches. */
+const GF_STOPP =
+  /registergericht|handelsregister|amtsgericht|registernummer|\bhrb?\b|\bust\b|ust-?id|umsatzsteuer|steuernummer|telefon|\btel\b|\bfax\b|e-mail|\bemail\b|\bmail\b|sitz der|anschrift|adresse|kontakt|aufsichtsbeh|kammer|berufsbezeichnung|verantwortlich|haftung|www\.|https?:|datenschutz|streitschlichtung|\b\d{4,5}\b|stra(ß|ss)e\b|str\.|§/i
+const FIRMEN_WORT = /gmbh|\bag\b|\bug\b|\bkg\b|mbh|holding|verwaltung|immobilien|real estate|group|gesellschaft|beteiligung|\bco\b|stiftung|\bse\b|partner|team|makler|büro|buero/i
+const TITEL = /\b(dr|prof|dipl|ing|mba|mrics|msc|m\.sc|b\.a|ll\.m|rechtsanwalt|herr|frau|kfm|kffr|betriebswirt(in)?|immobilienkauf(mann|frau)|ihk)\.?(?=\s|$|,)/gi
+const PARTIKEL = /^(von|van|de|zu|der|den|di|da|le|la|del|dos|ten|ter)$/
+
+/** Ist das ein Personenname? 2–4 Wörter, groß geschrieben, keine Firma, kein Amt. */
+function personName(teil) {
+  const t = String(teil ?? '')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(TITEL, ' ')
+    .replace(/[.:,;]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t || FIRMEN_WORT.test(t) || GF_SCHLUESSEL.test(t)) {
+    GF_SCHLUESSEL.lastIndex = 0
+    return ''
+  }
+  GF_SCHLUESSEL.lastIndex = 0
+  const w = t.split(' ')
+  if (w.length < 2 || w.length > 4) return ''
+  const gross = (x) => /^[A-ZÄÖÜ][a-zäöüßéèáàóòíìúç'’]+(-[A-ZÄÖÜ]?[a-zäöüßéèáàóòíìúç'’]+)*$/.test(x)
+  if (!gross(w[0]) || !gross(w[w.length - 1])) return ''
+  if (!w.every((x) => gross(x) || PARTIKEL.test(x))) return ''
+  return w.join(' ')
+}
+
+/**
+ * Die Namen der Geschäftsführung/Inhaber aus dem Impressum-Text (22.09.2026).
+ * Kein Modell: Impressen folgen dem Gesetz und sind sich deshalb ähnlich
+ * genug für Regeln. Was die Regeln nicht sicher finden, bleibt draußen — ein
+ * leerer Treffer macht die Rolle `unklar`, ein falscher Name dagegen würde
+ * Kevin einen Fremden anfragen lassen.
+ *
+ * @returns {string[]} höchstens sechs Namen, in Fundreihenfolge
+ */
+export function gfNamenAusImpressum(text) {
+  const t = String(text ?? '')
+  const namen = []
+  const nimm = (n) => {
+    if (n && !namen.some((x) => x.toLowerCase() === n.toLowerCase())) namen.push(n)
+  }
+  for (const m of t.matchAll(GF_SCHLUESSEL)) {
+    let rest = t.slice(m.index + m[0].length, m.index + m[0].length + 260)
+    // Die erste Zeile gehört immer dazu, danach endet der Block am ersten Register-/Kontakt-Wort.
+    const stopp = rest.slice(1).search(GF_STOPP)
+    if (stopp >= 0) rest = rest.slice(0, stopp + 1)
+    rest = rest.replace(/^[\s:]*(?:(?:den|die|der|ihre[nr]?|seine[nr]?|durch|the|by)\s+)*/i, '')
+    for (const teil of rest.split(/\n|,|;|\s+und\s+|\s+and\s+|&|\/|\s[–-]\s/)) nimm(personName(teil))
+  }
+  /**
+   * Einzelunternehmen: Oft steht der Inhaber ohne Amtsbezeichnung im Kopf —
+   * „Impressum / Wohnschmiede Hamburg Immobilien / Karen Dierks / Kuhmühle 16"
+   * (am 22.09. an echten Seiten gesehen). Gesucht wird nur im Block direkt
+   * unter der Überschrift, bis zur ersten Zeile mit Ziffern oder Doppelpunkt
+   * (Adresse, Telefon, „Kontakt:").
+   */
+  if (!namen.length) {
+    const zeilen = t.split('\n').map((z) => z.trim()).filter(Boolean)
+    zeilen.forEach((z, i) => {
+      if (namen.length || !/^(impressum|angaben\s+gem(ä|ae)(ß|ss)\s+§\s*5.*|betreiber|anbieter|herausgeber|diensteanbieter)$/i.test(z)) return
+      for (const kandidat of zeilen.slice(i + 1, i + 6)) {
+        if (/\d|:/.test(kandidat)) break
+        nimm(personName(kandidat))
+        if (namen.length) break
+      }
+    })
+  }
+  return namen.slice(0, 6)
+}
+
+/**
+ * ---- Meta-Werbebibliothek (22.09.2026) ----
+ *
+ * Bei einer starken Website ist die Seite nicht der Hebel — dann ist die
+ * Frage, ob die Firma schon Werbung schaltet. Kevin schaut dafür in die
+ * Werbebibliothek; die Seite rendert per JavaScript, deshalb derselbe Browser
+ * wie für die Websites. Kein Login nötig (am 22.09. gemessen: ~300 Ergebnisse
+ * für „Engel & Völkers", „keine Anzeigen gefunden" für eine erfundene Firma).
+ *
+ * Die Stichwortsuche trifft auch Anzeigen ANDERER, die den Namen im Text
+ * tragen. `ja` gilt deshalb nur, wenn ein Werbetreibender den Firmennamen
+ * trägt; Treffer ohne passenden Werbetreibenden sind `unbekannt`, nicht `nein`
+ * — ein falsches „ihr schaltet keine Werbung" sagt Kevin sonst jemandem ins
+ * Gesicht, der welche schaltet.
+ */
+export function metaAdsUrl(firma) {
+  return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=DE&q=${encodeURIComponent(firmaKern(firma))}&search_type=keyword_unordered`
+}
+
+/** Firmenname ohne Rechtsform — so sucht auch ein Mensch. */
+export function firmaKern(firma) {
+  return String(firma ?? '')
+    .replace(/\b(gmbh\s*&\s*co\.?\s*kg|gmbh|mbh|ag|ug(\s*\(haftungsbeschränkt\))?|kg|ohg|gbr|e\.\s?k\.?|se|ltd\.?|inc\.?)\b/gi, ' ')
+    .replace(/[,.]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * @param {string} text — sichtbarer Text der Werbebibliothek
+ * @returns {'ja'|'nein'|'unbekannt'}
+ */
+export function metaAdsAuswerten(text, firma) {
+  const t = String(text ?? '')
+  if (/keine anzeigen gefunden|no ads match|keine ergebnisse/i.test(t)) return 'nein'
+  if (!/\d[\d.,]*\s*(ergebnis|results?)/i.test(t)) return 'unbekannt'
+  const norm = (x) => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const kern = norm(firmaKern(firma))
+  if (kern.length < 3) return 'unbekannt'
+  const zeilen = t.split('\n').map((z) => z.trim())
+  const werbende = []
+  zeilen.forEach((z, i) => {
+    if (/^(anzeigendetails ansehen|see ad details|details zur werbeanzeige ansehen)$/i.test(z) && zeilen[i + 1]) werbende.push(norm(zeilen[i + 1]))
+  })
+  return werbende.some((w) => w && (w.includes(kern) || kern.includes(w))) ? 'ja' : 'unbekannt'
+}
+
+/** Nie werfen — ein kaputter Abruf ist `unbekannt`. */
+export async function pruefeMetaAds(browser, firma) {
+  if (!firmaKern(firma)) return 'unbekannt'
+  const ctx = await browser.newContext({ userAgent: SAFARI_UA, viewport: { width: 1440, height: 900 }, locale: 'de-DE' })
+  try {
+    const page = await ctx.newPage()
+    await page.goto(metaAdsUrl(firma), { waitUntil: 'domcontentloaded', timeout: LADE_TIMEOUT_MS })
+    await page
+      .getByRole('button', { name: /optionale cookies ablehnen|decline optional cookies|nur erforderliche cookies/i })
+      .first()
+      .click({ timeout: 2000 })
+      .catch(() => {})
+    // Die Ergebnisse kommen per JavaScript nach — warten, bis die Zahl oder das „keine" steht.
+    await page
+      .waitForFunction(() => /ergebnis|results|keine anzeigen gefunden|no ads match/i.test(document.body.innerText), null, { timeout: 15_000 })
+      .catch(() => {})
+    await page.waitForTimeout(1500)
+    return metaAdsAuswerten(await page.evaluate(() => document.body.innerText), firma)
+  } catch {
+    return 'unbekannt'
+  } finally {
+    await ctx.close().catch(() => {})
+  }
 }
 
 /** Startseite + Eigentümer-Unterseite eines Kandidaten rendern und als Befund-Mappe ablegen. */
@@ -301,11 +474,19 @@ export async function rendereKandidat(browser, url, { ordner, kuerzel }) {
       team = await rendereSeite(browser, teamZiel, { ordner, kuerzel: `${kuerzel}-team` })
     }
   }
-  const geschaeftsfuehrung =
+  const impressum =
     start.erreichbar === 'ja'
-      ? await geschaeftsfuehrungAusImpressum(browser, start.alleLinks ?? start.links, start.endUrl ?? url, { ordner, kuerzel }).catch(() => '')
-      : ''
-  const mappe = { start, unterseite, team, geschaeftsfuehrung }
+      ? await geschaeftsfuehrungAusImpressum(browser, start.alleLinks ?? start.links, start.endUrl ?? url, { ordner, kuerzel }).catch(() => null)
+      : null
+  const mappe = {
+    start,
+    unterseite,
+    team,
+    geschaeftsfuehrung: impressum?.auszug ?? '',
+    impressum_gf: impressum?.namen ?? [],
+    impressum_gelesen: impressum?.gelesen ?? false,
+    impressum_kopf: impressum?.kopf ?? '',
+  }
   await mkdir(ordner, { recursive: true })
   await writeFile(join(ordner, `${kuerzel}.json`), JSON.stringify(mappe, null, 2))
   return mappe

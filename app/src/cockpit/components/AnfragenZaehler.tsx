@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { EntscheiderListe } from './EntscheiderListe'
 
 /**
  * Zähler für Vernetzungsanfragen — Kevins Tagesritual läuft direkt auf
@@ -78,6 +79,8 @@ export function AnfragenZaehler({ heute, limit, onPlus, onMinus, vollbild, onClo
         {zaehler}
         {plusKnopf(96)}
         <div style={{ display: 'flex', justifyContent: 'center' }}>{minusKnopf}</div>
+        {/* Wen Kevin heute anfragen soll (22.09.2026): die Geschäftsführer, deren Mitarbeiter schon in der Liste stehen. */}
+        <EntscheiderListe />
       </div>
     )
   }

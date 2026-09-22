@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useErstnachrichten, type Erstnachricht } from '../../hooks/useErstnachrichten'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import { teileErstnachrichten } from '../lib/erstnachrichtenOffen'
+import { EntscheiderListe } from './EntscheiderListe'
 
 /**
  * Arbeitsliste für die versandfertigen LinkedIn-Erstnachrichten.
@@ -212,6 +213,9 @@ export function ErstnachrichtenListe({ brandSlug }: { brandSlug: string | undefi
       ) : null}
 
       {q.error ? <div style={{ fontSize: 11, color: 'var(--ck-warn)' }}>{q.error}</div> : null}
+
+      {/* Entscheider zuerst (22.09.2026): zurückgestellte Mitarbeiter warten auf diese Anfragen. */}
+      <EntscheiderListe brandSlug={brandSlug} />
 
       {offen.length === 0 ? (
         <div className="ck-panel" style={{ padding: '28px 14px', textAlign: 'center', fontSize: 13, color: 'var(--ck-text-2)' }}>

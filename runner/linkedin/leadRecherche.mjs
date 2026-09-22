@@ -40,8 +40,9 @@ import { spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeFile, mkdir } from 'node:fs/promises'
-import { starteBrowser, rendereKandidat } from './seiteRendern.mjs'
+import { starteBrowser, rendereKandidat, pruefeMetaAds } from './seiteRendern.mjs'
 import { leseErfahrung } from './erfahrung.mjs'
+import { personGleich, wortGleich } from './entscheider.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 
@@ -59,7 +60,10 @@ const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.6)
 /** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
 const MODELL = process.env.RECHERCHE_MODELL ?? 'claude-sonnet-5'
 
-function baueFindenPrompt(lead, erfahrung) {
+function baueFindenPrompt(lead, erfahrung, stationen = []) {
+  const liste = stationen.length
+    ? stationen.map((s) => `  - ${s.rolle || '?'} bei ${s.firma} (seit ${s.seit || '?'}${s.selbststaendig ? ', selbstständig/Inhaber' : ''})`).join('\n')
+    : '  (keine erkannt)'
   return `Finde die Website EINES Immobilien-Kontakts und bestimme, womit er sein Geld verdient. Kein Text an den Kontakt.
 
 Kontakt:
@@ -67,6 +71,8 @@ Kontakt:
 - LinkedIn-Headline: ${lead.headline ?? '(keine)'}
 - LinkedIn-Profil: ${lead.profile_url ?? '(unbekannt)'}
 - LinkedIn-Erfahrung (neueste Station zuerst): ${erfahrung || '(nicht lesbar)'}
+- Aktuelle Stationen („Heute"), aus der Erfahrung gelesen:
+${liste}
 
 **Die Firma steht in der Erfahrung, nicht in der Headline** (Kevin, 21.09.2026). Die Headline ist oft ein Spruch („be great at what you do"). Kevins Weg: die aktuellen Stationen („Heute") ansehen, den Firmennamen googeln — fertig. Berna Ayhan: Headline „Geschäftsführerin", Erfahrung „A Group Real Estate GmbH" → Seite ist der erste Treffer. „Stealth" oder Stationen ohne Firmennamen überspringen. Mehrere aktuelle Stationen: die mit Immobilienbezug und eigener Rolle (Gründer/GF/Inhaber) zuerst.
 
@@ -92,7 +98,9 @@ Antworte mit NICHTS als diesem JSON-Block:
   "rolle": "",
   "geschaeftsmodell": "",
   "kandidaten": [],
-  "nur_portal": false
+  "nur_portal": false,
+  "groesse": "",
+  "stationen": []
 }
 \`\`\`
 
@@ -107,7 +115,9 @@ Antworte mit NICHTS als diesem JSON-Block:
   Nach dem, was die Firma TUT, nicht nach Wörtern im Namen („Real Estate GmbH" kann alles sein).
 - "rolle": "inhaber" (Inhaber, Gründer, Geschäftsführer, Vorstand der eigenen Firma), "angestellt" (Abteilungsleiter, Makler im Team, Manager, Mitarbeiter) oder "unklar". Angestellte bekommen keine Analyse — im Zweifel "unklar", nie raten.
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
-- "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.`
+- "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.
+- "groesse": Größe der Firma, zu der die Website gehört: "klein" (Einzelmakler, Team bis ~10), "mittel" oder "konzern" (Franchise-Zentrale, AG, bundesweit, Hunderte Mitarbeiter). Leer, wenn unklar.
+- "stationen": ALLE aktuellen Stationen („Heute") aus der Erfahrung, auch Nebenfirmen und Selbstständigkeit, je {"firma": "", "rolle": "", "seit": "", "selbststaendig": false}. "selbststaendig": true bei eigener Firma (Inhaber, Gründer, GF, Selbstständig). Nur, was in der Erfahrung steht — nichts erfinden. Nicht lesbar: [].`
 }
 
 function baueBefundPrompt(lead, { firma, dateien, render }) {
@@ -120,7 +130,7 @@ Website: ${s.endUrl}
 Menü: ${(s.menue ?? []).join(' | ') || '(keins erkannt)'}
 Eigentümer-Unterseite: ${u ? `${u.url} (${u.erreichbar})` : 'keine im Menü/in den Links gefunden'}
 Team-/Über-uns-Seite: ${render.team ? `${render.team.url} (${render.team.erreichbar})` : 'keine im Menü/in den Links gefunden'}
-Vom Browser gemessen (Startseite): ${JSON.stringify(s.checkliste ?? {})}
+Vom Browser gemessen (Startseite): ${JSON.stringify(s.checkliste ?? {})} (\`unterseiten\` = verlinkte eigene Unterseiten ohne Rechtliches)
 
 Die Seite wurde in einem echten Browser geöffnet und einmal ganz durchgescrollt (Zähler und Animationen sind durchgelaufen). Lies mit Read GENAU diese Dateien:
 ${dateien.map((d) => `- ${d}`).join('\n')}
@@ -168,6 +178,7 @@ Antworte mit NICHTS als diesem JSON-Block:
   "staerke": "",
   "elefant_typ": "",
   "elefant": "",
+  "website_stufe": "",
   "mangel": "",
   "mangel_beleg": "",
   "befund": ""
@@ -190,6 +201,7 @@ Feldregeln:
 - "staerke": EINE echte, konkrete Stärke, die der Inhaber gern hört und die stimmt (etwa „eigene Seite für Verkäufer mit Ablauf in sechs Schritten", „ihr zeigt euch mit Foto und Namen", „Kundenstimmen direkt auf der Startseite"). Nie Slogans, Überschriften, Eigenlob-Zahlen. Gibt es ehrlich nichts: leer lassen.
 - "elefant_typ": genau einer von (**nie leer, nie „keiner"** — auch eine starke Seite hat einen größten Hebel; dann ist er eben kleiner und wird freundlicher formuliert) "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "feinschliff" (Seite stark — der größte verbleibende Hebel, etwa kein Sofort-Wert, keine Stimmen auf der Startseite, Eigentümer-Seite versteckt).
 - "elefant": ein bis zwei Sätze: was das ist und warum es ANFRAGEN kostet. Konkret an dieser Seite, in Geld-/Anfragen-Logik, nicht in Technik. **Nie** Code, Quelltext, Ladezeiten, Meta-Tags, Tippfehler, Copyright-Jahre oder Barrierefreiheit — das macht niemanden zum Kunden.
+- "website_stufe": genau einer von "schwach" (wirkt veraltet, alt, amateurhaft oder leer), "solide" (zeitgemäß und ordentlich, aber Standard) oder "stark" (so gut, dass eine Agentur sie kaum besser bauen könnte: eigene Wege für Eigentümer/Verkäufer UND weitere Zielgruppen wie Bauträger, Käufer oder Tippgeber, ein Bewertungstool, viele Unterseiten, eigene Fotos, Vertrauen sichtbar). "stark" ist selten — im Zweifel "solide".
 - "mangel": ein konkreter, sichtbarer Fehler, der den Elefanten stützt, sonst leer. **Im Zweifel leer.** Nie: Zahlen, die „0" wirken, abgeschnittene Texte der Textdatei, Folgen, die du nicht gesehen hast, Cookie-/Consent-Platzhalter, Slider-Klone, bewusste Positionierung, Tippfehler, Du/Sie-Wechsel.
 - "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — wird maschinell geprüft.
 - "befund": ein bis zwei Sätze zum Weg eines Anfragenden der Zielgruppe: was es gibt und was fehlt. Kein „vermutlich". **Erfinde nichts.**`
@@ -267,25 +279,84 @@ function kuerzelFuer(lead) {
   return String(lead.profil_key ?? lead.name ?? 'lead').replace(/[^a-z0-9]+/gi, '-').slice(0, 60)
 }
 
+const ohneAkzent = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Nachname einer Person, ohne Titel und Zusätze hinter dem Komma. */
+export function nachnameVon(name) {
+  const teile = ohneAkzent(name)
+    .replace(/,.*$/, '')
+    .replace(/\b(dr|prof|mrics|dipl|ing|mba)\.?\b/g, ' ')
+    .replace(/[^a-zß\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 1)
+  return teile[teile.length - 1] ?? ''
+}
+
 /**
- * Rolle gegen das Impressum abgleichen (18.09.2026).
+ * Rolle gegen das Impressum abgleichen (18.09.2026, neu gefasst 22.09.2026).
  *
  * Charlotte Rostek („Maklerin mit Herz") bekam eine Analyse angeboten, obwohl
  * bei Paegel Real Estate ein anderer Geschäftsführer im Impressum steht — die
- * Rolle riet ein Modell aus der Headline, das Impressum lag daneben und niemand
- * verglich die beiden. Jetzt entscheidet das Impressum, wenn es Namen nennt:
- * Steht der Nachname dort, ist die Person Entscheider; steht er nicht dort,
- * ist sie angestellt und bekommt keine Analyse.
+ * Rolle riet ein Modell aus der Headline. Seit dem 18.09. entschied ein
+ * 220-Zeichen-Auszug; am 22.09. kam Kevins zweiter Befund: Die Frage „oder
+ * liegt das bei der Geschäftsführung?" ging an Leute, deren Rolle nie geprüft
+ * war — peinlich, wenn es der GF selbst ist.
+ *
+ * Jetzt entscheiden die NAMEN aus dem Impressum (`gfNamenAusImpressum`):
+ * - `gf` — der Nachname der Person steht unter den Namen
+ * - `angestellt` — das Impressum nennt Namen, ihrer ist nicht dabei
+ * - `unklar` — kein Impressum oder keine Namen darin. Nie raten.
+ *
+ * @returns {'gf'|'angestellt'|'unklar'}
  */
-export function rolleAbgleichen(name, rolle, geschaeftsfuehrung) {
-  const norm = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  const gf = norm(geschaeftsfuehrung)
-  // Nur ein Impressum, das wirklich Personen nennt, darf entscheiden.
-  if (!/geschaftsfuhr|inhaber|vertreten durch|vorstand/.test(gf)) return rolle
-  const teile = norm(name).replace(/,.*$/, '').replace(/\b(dr|prof|mrics|dipl|ing)\.?\b/g, ' ').split(/[\s-]+/).filter((t) => t.length > 2)
-  const nachname = teile[teile.length - 1]
-  if (!nachname) return rolle
-  return gf.includes(nachname) ? 'inhaber' : 'angestellt'
+export function rolleAusImpressum(name, impressumGf, impressumKopf = '') {
+  const namen = Array.isArray(impressumGf) ? impressumGf.filter(Boolean) : []
+  const nach = nachnameVon(name)
+  if (!namen.length) {
+    // Keine Amtsnamen, aber der volle Name steht im Impressum-Kopf (Einzelfirma „NBI-Natascha Borkowski Immobilien") → Inhaber.
+    const voll = ohneAkzent(name).replace(/,.*$/, '').replace(/\b(dr|prof)\.?\s*/g, '').replace(/\s+/g, ' ').trim()
+    const kopf = ohneAkzent(impressumKopf).replace(/[-_/]+/g, ' ').replace(/\s+/g, ' ')
+    return voll.includes(' ') && kopf.includes(voll) ? 'gf' : 'unklar'
+  }
+  if (!nach) return 'unklar'
+  if (namen.some((n) => personGleich(n, name))) return 'gf'
+  // Gleicher Nachname, anderer Vorname: meist Familie im Betrieb (Tochter beim Vater) — nicht raten.
+  const gleicherNachname = namen.some((n) => ohneAkzent(n).split(/\s+/).some((w) => wortGleich(w, nach)))
+  return gleicherNachname ? 'unklar' : 'angestellt'
+}
+
+/**
+ * Die alte `rolle` (`inhaber`/`angestellt`/`unklar`), die der Schreib-Skill
+ * liest, aus der Impressum-Rolle ableiten. Das Impressum sticht das Modell;
+ * nur wenn es schweigt, zählt „inhaber" aus der Recherche — ein Modell-
+ * „angestellt" ohne Impressum-Beleg wird `unklar`, weil genau diese Leute am
+ * 22.09. die Zuständigkeits-Frage bekamen.
+ */
+export function rolleFuerSkill(rolleImpressum, modellRolle) {
+  if (rolleImpressum === 'gf') return 'inhaber'
+  if (rolleImpressum === 'angestellt') return 'angestellt'
+  return String(modellRolle ?? '') === 'inhaber' ? 'inhaber' : 'unklar'
+}
+
+/** Stationen aus dem Modell auf die feste Form bringen — nie mehr als acht. */
+function stationenAusModell(roh) {
+  return (Array.isArray(roh) ? roh : [])
+    .filter((x) => x && typeof x === 'object' && String(x.firma ?? '').trim())
+    .map((x) => ({ firma: String(x.firma).trim(), rolle: String(x.rolle ?? '').trim(), seit: String(x.seit ?? '').trim(), selbststaendig: x.selbststaendig === true }))
+    .slice(0, 8)
+}
+
+/**
+ * Stufe der Website, mit Wache gegen Ausreißer: Eine Seite, die der Befund
+ * selbst „nicht zeitgemäß" oder „veraltet" nennt, kann nicht `stark` sein.
+ */
+export function websiteStufe(json) {
+  const stufe = String(json?.website_stufe ?? '').toLowerCase()
+  const zeitgemaess = String(json?.zeitgemaess ?? '').toLowerCase()
+  const optik = String(json?.optik ?? '').toLowerCase()
+  if (zeitgemaess === 'nein' || optik === 'veraltet') return 'schwach'
+  if (stufe === 'stark' && zeitgemaess !== 'ja') return 'solide'
+  return ['schwach', 'solide', 'stark'].includes(stufe) ? stufe : ''
 }
 
 /** Ein Lead, drei Stufen. */
@@ -301,10 +372,12 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
    */
   const bekannt = String(lead.website_bekannt ?? '').trim()
   // Erfahrung zuerst (21.09.2026) — dort steht die Firma, siehe erfahrung.mjs.
-  const erfahrung = String(lead.erfahrung ?? '') || (await leseErfahrung(lead.profile_url).catch(() => ''))
+  // Alle aktuellen Stationen (22.09.2026): im Code gelesen, das Modell darf nur ergänzen, wenn der Code nichts fand.
+  const gelesen = lead.erfahrung ? { text: String(lead.erfahrung), stationen: Array.isArray(lead.stationen) ? lead.stationen : [] } : await leseErfahrung(lead.profile_url).catch(() => ({ text: '', stationen: [] }))
+  const erfahrung = gelesen.text
   const f = bekannt
     ? { json: { firma: lead.firma_bekannt ?? '', taetigkeit: lead.taetigkeit_bekannt ?? '', geschaeftsmodell: lead.geschaeftsmodell_bekannt ?? '', kandidaten: [bekannt], nur_portal: false }, kosten: 0, token: 0 }
-    : await claudeLauf(baueFindenPrompt(lead, erfahrung), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
+    : await claudeLauf(baueFindenPrompt(lead, erfahrung, gelesen.stationen), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
   kosten += f.kosten
   token += f.token
   if (!f.json) return { lead, destillat: null, kosten, token, grund: `Finden: ${f.grund}` }
@@ -330,7 +403,14 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     .slice(0, 3)
 
   const geschaeftsmodell = String(f.json.geschaeftsmodell ?? '').trim()
-  const leer = { firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung), rolle: String(f.json.rolle ?? ''), eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal) }
+  const stationen = gelesen.stationen.length ? gelesen.stationen : stationenAusModell(f.json.stationen)
+  const groesse = String(f.json.groesse ?? '').trim()
+  const leer = {
+    firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung),
+    rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse,
+    website_stufe: '', meta_ads_aktiv: 'unbekannt',
+    eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal),
+  }
   if (!kandidaten.length) return { lead, destillat: leer, kosten, token, grund: null }
 
   // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
@@ -403,6 +483,15 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   }
 
   const passt = b.json.passt_zur_person !== false
+  const impressumGf = passt ? (render.impressum_gf ?? []) : []
+  const rolleImpressum = passt ? rolleAusImpressum(lead.name, impressumGf, render.impressum_kopf ?? '') : 'unklar'
+  /**
+   * Werbebibliothek nur bei starken Seiten (22.09.2026): Dort ist die Website
+   * nicht der Hebel, sondern die Frage, ob schon Anzeigen laufen. Bei allen
+   * anderen spart das einen Seitenaufruf je Lead.
+   */
+  const stufe = websiteStufe(b.json)
+  const metaAds = passt && stufe === 'stark' ? await pruefeMetaAds(browser, firma || render.start.titel).catch(() => 'unbekannt') : 'unbekannt'
   return {
     lead,
     destillat: {
@@ -437,8 +526,14 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       elefant_typ: String(b.json.elefant_typ ?? ''),
       elefant: String(b.json.elefant ?? ''),
       checkliste: s.checkliste ?? null,
-      rolle: rolleAbgleichen(lead.name, String(f.json.rolle ?? lead.rolle_bekannt ?? ''), render.geschaeftsfuehrung ?? ''),
+      rolle: rolleFuerSkill(rolleImpressum, f.json.rolle ?? lead.rolle_bekannt),
+      rolle_impressum: rolleImpressum,
+      impressum_gf: impressumGf,
       geschaeftsfuehrung: render.geschaeftsfuehrung ?? '',
+      stationen,
+      groesse,
+      website_stufe: stufe,
+      meta_ads_aktiv: metaAds,
       mangel,
       befund: String(b.json.befund ?? ''),
       nur_portal: false,

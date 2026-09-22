@@ -11,6 +11,32 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **FERTIG 22.09.2026 — Tiefere Lead-Recherche und „Entscheider zuerst"** (Branch `feat/entscheider-zuerst`, Migration 0091)
+
+Kevins Feedback zu den Erstnachrichten: Struktur gut, Recherche zu flach — und
+die Frage „Kümmerst du dich … oder liegt das bei der Geschäftsführung?" ging an
+Leute, deren Rolle nie geprüft war.
+
+| Baustein | Wo |
+|---|---|
+| Alle aktuellen Stationen („Heute") als `stationen` `{firma, rolle, seit, selbststaendig}`, im Code gelesen, Modell nur als Ersatz | `runner/linkedin/erfahrung.mjs` (`parseStationen`) |
+| GF-Namen aus dem Impressum (`impressum_gf`) und `rolle_impressum` `gf`/`angestellt`/`unklar`; `rolle` für den Skill daraus abgeleitet, nie mehr aus der Headline geraten | `seiteRendern.mjs` (`gfNamenAusImpressum`), `leadRecherche.mjs` (`rolleAusImpressum`) |
+| `website_stufe` `schwach`/`solide`/`stark`; bei `stark` Meta-Werbebibliothek → `meta_ads_aktiv` `ja`/`nein`/`unbekannt` | Befund-Prompt, `pruefeMetaAds` |
+| Reine Angestellte werden vor dem Schreib-Lauf zurückgestellt, ihr GF kommt auf die Liste „Heute anfragen" (Ausnahmen: eigene Firma nebenher, Konzern-Marketing, GF verworfen) | `runner/linkedin/entscheider.mjs`, Tabelle `entscheider_kandidaten` |
+| Die GF-Frage ist aus dem CTA-Katalog raus und wird aus Entwürfen geschnitten | `erstnachrichtenEntwuerfe.mjs` (`ALTE_GF_FRAGE`) |
+| Liste „Heute anfragen" unter dem Anfragen-Zähler (Sales) und über den Erstnachrichten (LinkedIn) | `EntscheiderListe.tsx` |
+
+Am 22.09. an acht echten Seiten gemessen: Impressum-Namen bei sechs gefunden,
+zwei ohne Personen (AG ohne Namen, Seite ohne Impressum) bleiben `unklar`. Ein
+Tippfehler im Impressum („Jnglin" statt Jünglin) hätte einen Inhaber zum
+Angestellten gemacht — deshalb vergleicht der Code Namen mit einem Buchstaben
+Toleranz. Drift-Wache: `scripts/verify-entscheider.ts`.
+
+**Nicht automatisiert, mit Absicht:** Vernetzungsanfragen schickt Kevin selbst.
+Die Liste zeigt nur den Suchlink und zwei Haken.
+
+---
+
 ## **FERTIG 11.09.2026 — Der Tag wechselt jetzt um Mitternacht, und zwar von selbst**
 
 Kevins Beobachtung in der Nacht zum 11.09.: *„nach null Uhr standen noch vierzig

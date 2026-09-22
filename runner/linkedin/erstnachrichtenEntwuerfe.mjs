@@ -54,14 +54,19 @@ export const CTA_KATALOG = Object.freeze({
   telefon: 'Hast du was dagegen, wenn wir zehn Minuten telefonieren?',
   /** Bewusst noch kein Angebot: erst verstehen, wie die Mandate reinkommen. */
   mandate: 'Wie kommen die Mandate aktuell rein?',
-  /**
-   * Angestellte bekommen KEINE Analyse (Kevin, 17.09.2026): *„sonst nimmt er
-   * die, baut sich selber die Seite, gibt die seinem Chef und kriegt die
-   * Credits dafür."* Ziel ist der Entscheider — diese Frage klärt, ob man ihn
-   * schon vor sich hat, und holt sonst den Weg zur Geschäftsführung.
-   */
-  angestellt: 'Kümmerst du dich bei euch um Website und Marketing, oder liegt das bei der Geschäftsführung?',
 })
+
+/**
+ * Die frühere Angestellten-Frage (17.09.–22.09.2026) — **abgeschafft**.
+ *
+ * Kevin am 22.09.: *„Wenn wir da einen Fehler machen, dass der vielleicht doch
+ * die Geschäftsführung ist, kommt das richtig blöd."* Sie ging an Leute, deren
+ * Rolle nie geprüft war. Seitdem kommt der GF aus dem Impressum auf die
+ * Anfrageliste (`entscheider.mjs`), und reine Angestellte werden
+ * zurückgestellt. Der Satz bleibt nur hier, damit die Wache ihn aus
+ * Entwürfen herausschneiden kann, falls ein Agent ihn noch schreibt.
+ */
+export const ALTE_GF_FRAGE = 'Kümmerst du dich bei euch um Website und Marketing, oder liegt das bei der Geschäftsführung?'
 
 /**
  * Feste Sperre: Angestellte bekommen keine Analyse (18.09.2026).
@@ -70,12 +75,36 @@ export const CTA_KATALOG = Object.freeze({
  * (angestellt bei Igel & Kaufmann, die Recherche hatte es richtig erkannt) ein
  * Analyse-Angebot. Ein Modell, das eine Regel „meistens" befolgt, reicht bei
  * diesem Punkt nicht. Deshalb schneidet der Code jeden Absatz heraus, der die
- * Analyse anbietet, und setzt die Frage nach der Geschäftsführung ans Ende.
+ * Analyse anbietet.
+ *
+ * **Seit 22.09.2026 ohne die Frage nach der Geschäftsführung** (siehe
+ * `ALTE_GF_FRAGE`). Wer als Angestellter überhaupt noch geschrieben wird, hat
+ * eine eigene Firma nebenher oder verantwortet im Konzern das Marketing — dem
+ * stellt man keine Zuständigkeitsfrage. Endet der Rest nicht auf eine Frage,
+ * kommt die neutrale Mandats-Frage aus dem Katalog dran.
  */
 export function ohneAnalyseFuerAngestellte(text) {
   const absaetze = String(text ?? '').split(/\n\s*\n/)
-  const rest = absaetze.filter((a) => !/analyse/i.test(a) && a.trim() !== ANALYSE_CTA && !Object.values(CTA_KATALOG).includes(a.trim()))
-  return [...rest, CTA_KATALOG.angestellt].join('\n\n')
+  const rest = absaetze.filter(
+    (a) => !/analyse/i.test(a) && a.trim() !== ANALYSE_CTA && a.trim() !== ALTE_GF_FRAGE && !Object.values(CTA_KATALOG).includes(a.trim()),
+  )
+  const letzter = String(rest[rest.length - 1] ?? '').trimEnd()
+  return (letzter.endsWith('?') ? rest : [...rest, CTA_KATALOG.mandate]).join('\n\n')
+}
+
+/**
+ * Die abgeschaffte GF-Frage aus JEDEM Entwurf nehmen (22.09.2026) — auch bei
+ * Inhabern: Dort ist sie genau die Peinlichkeit, die Kevin gefunden hat.
+ * Was davor steht, bleibt; fehlt danach die Schlussfrage, kommt die neutrale
+ * Mandats-Frage dran.
+ *
+ * @returns {{ text: string, korrigiert: boolean }}
+ */
+export function ohneAlteGfFrage(text) {
+  const roh = String(text ?? '')
+  if (!roh.includes(ALTE_GF_FRAGE)) return { text: roh, korrigiert: false }
+  const rest = roh.replace(ALTE_GF_FRAGE, '').replace(/\n{3,}/g, '\n\n').trimEnd()
+  return { text: rest.endsWith('?') ? rest : `${rest}\n\n${CTA_KATALOG.mandate}`.trimStart(), korrigiert: true }
 }
 
 /** Endet der Text auf einen der erlaubten CTAs? */
@@ -209,6 +238,8 @@ export function parseErstnachrichtenRoh(content) {
     uebersprungen.push({
       profil_key: key,
       name: typeof u.name === 'string' ? u.name.trim() : '',
+      firma: typeof u.firma === 'string' ? u.firma.trim() : '',
+      website: typeof u.website === 'string' ? u.website.trim() : '',
       // Der Grund ist Pflicht im Skill und steht hier, damit ein Fehlgriff
       // nachvollziehbar bleibt: „passt nicht" ist keine Begründung.
       grund: typeof u.grund === 'string' ? u.grund.trim().slice(0, 200) : '',
@@ -290,11 +321,13 @@ export async function schreibeErstnachrichten({
       brand_id: brandId,
       gruppe,
       name: u.name,
-      firma: '',
-      website: '',
+      firma: u.firma ?? '',
+      website: u.website ?? '',
       // Der Grund steht im Textfeld, damit er in der Oberfläche sichtbar wird,
-      // wenn Kevin die Aussortierten gegenliest.
-      nachricht: `[übersprungen] ${u.grund}`,
+      // wenn Kevin die Aussortierten gegenliest. Ein Grund mit eigener Marke
+      // („[zurückgestellt] erst GF … anfragen", 22.09.2026) behält sie — sonst
+      // stünde „[übersprungen] [zurückgestellt]" da.
+      nachricht: /^\[/.test(String(u.grund ?? '')) ? u.grund : `[übersprungen] ${u.grund}`,
       sort_index: sortIndex++,
       status: 'uebersprungen',
       quelle_datei: 'agent:linkedin-erstnachrichten',
