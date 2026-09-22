@@ -3,6 +3,32 @@ import { useErstnachrichten, type Erstnachricht } from '../../hooks/useErstnachr
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import { teileErstnachrichten } from '../lib/erstnachrichtenOffen'
 import { EntscheiderListe } from './EntscheiderListe'
+import { useRundeTor } from './RundeTor'
+import { ERSTNACHRICHTEN_RUNDE } from '../lib/tagesFlow'
+
+/**
+ * „Noch 20" (22.09.2026, Kevin: *„wenn ich Zeit und Lust habe, schieße ich
+ * nochmal 20 hinterher"*). Die Nacht-Runde bereitet 20 vor; dieser Knopf
+ * startet nur die Erstnachrichten-Etappe mit einer ausdrücklichen Stückzahl —
+ * das Tagesbudget des Runners fragt er nicht, der Knopf „Jetzt aktualisieren"
+ * dagegen schon (sonst kostete jedes Aktualisieren 20 Recherchen).
+ */
+function NachschubKnopf() {
+  const { stand, runnerWeg, starteMit } = useRundeTor()
+  if (runnerWeg || !stand) return null
+  return (
+    <button
+      type="button"
+      className="ck-btn"
+      style={{ fontSize: 11, minHeight: 40, paddingInline: 14, alignSelf: 'stretch' }}
+      disabled={stand.laeuft}
+      title={`Recherchiert und schreibt ${ERSTNACHRICHTEN_RUNDE} weitere Erstnachrichten — dauert eine Weile, die Recherche kostet je Lead ein paar Cent bis Dollar`}
+      onClick={() => starteMit({ nur: ['erstnachrichten'], anzahl: ERSTNACHRICHTEN_RUNDE })}
+    >
+      {stand.laeuft ? 'Lauf aktiv …' : `Noch ${ERSTNACHRICHTEN_RUNDE} vorbereiten`}
+    </button>
+  )
+}
 
 /**
  * Arbeitsliste für die versandfertigen LinkedIn-Erstnachrichten.
@@ -188,6 +214,7 @@ export function ErstnachrichtenListe({ brandSlug }: { brandSlug: string | undefi
             ) : null}
           </div>
         ) : null}
+        <NachschubKnopf />
       </div>
 
       {ausPostfach.length ? (

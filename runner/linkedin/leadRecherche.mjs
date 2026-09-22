@@ -43,6 +43,8 @@ import { writeFile, mkdir } from 'node:fs/promises'
 import { starteBrowser, rendereKandidat, pruefeMetaAds } from './seiteRendern.mjs'
 import { leseErfahrung } from './erfahrung.mjs'
 import { personGleich, wortGleich } from './entscheider.mjs'
+import { pruefeGoogleAds } from './googleAds.mjs'
+import { baueProfil, klasseFuer } from './leadProfil.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 
@@ -179,6 +181,9 @@ Antworte mit NICHTS als diesem JSON-Block:
   "elefant_typ": "",
   "elefant": "",
   "website_stufe": "",
+  "gruendungsjahr": null,
+  "gruendung_beleg": "",
+  "team_personen": null,
   "mangel": "",
   "mangel_beleg": "",
   "befund": ""
@@ -202,6 +207,9 @@ Feldregeln:
 - "elefant_typ": genau einer von (**nie leer, nie „keiner"** — auch eine starke Seite hat einen größten Hebel; dann ist er eben kleiner und wird freundlicher formuliert) "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "feinschliff" (Seite stark — der größte verbleibende Hebel, etwa kein Sofort-Wert, keine Stimmen auf der Startseite, Eigentümer-Seite versteckt).
 - "elefant": ein bis zwei Sätze: was das ist und warum es ANFRAGEN kostet. Konkret an dieser Seite, in Geld-/Anfragen-Logik, nicht in Technik. **Nie** Code, Quelltext, Ladezeiten, Meta-Tags, Tippfehler, Copyright-Jahre oder Barrierefreiheit — das macht niemanden zum Kunden.
 - "website_stufe": genau einer von "schwach" (wirkt veraltet, alt, amateurhaft oder leer), "solide" (zeitgemäß und ordentlich, aber Standard) oder "stark" (so gut, dass eine Agentur sie kaum besser bauen könnte: eigene Wege für Eigentümer/Verkäufer UND weitere Zielgruppen wie Bauträger, Käufer oder Tippgeber, ein Bewertungstool, viele Unterseiten, eigene Fotos, Vertrauen sichtbar). "stark" ist selten — im Zweifel "solide".
+- "gruendungsjahr": Gründungsjahr der Firma als Zahl, NUR wenn es im Text steht („gegründet 2005", „seit 1998", „Gründung 2011"). Sonst null. Nie aus dem Copyright schätzen.
+- "gruendung_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen), in der das Jahr steht. Ohne Beleg bleibt das Jahr leer — wird maschinell geprüft.
+- "team_personen": Wie viele Personen zeigt die Team-/Über-uns-Seite (oder die Startseite) mit Namen oder Foto? Zahl, nur gezählt, nicht geschätzt. Keine Personen erkennbar: null.
 - "mangel": ein konkreter, sichtbarer Fehler, der den Elefanten stützt, sonst leer. **Im Zweifel leer.** Nie: Zahlen, die „0" wirken, abgeschnittene Texte der Textdatei, Folgen, die du nicht gesehen hast, Cookie-/Consent-Platzhalter, Slider-Klone, bewusste Positionierung, Tippfehler, Du/Sie-Wechsel.
 - "mangel_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen). Ohne wörtlichen Beleg bleibt "mangel" leer — wird maschinell geprüft.
 - "befund": ein bis zwei Sätze zum Weg eines Anfragenden der Zielgruppe: was es gibt und was fehlt. Kein „vermutlich". **Erfinde nichts.**`
@@ -359,6 +367,35 @@ export function websiteStufe(json) {
   return ['schwach', 'solide', 'stark'].includes(stufe) ? stufe : ''
 }
 
+/**
+ * Anzeigen aus BEIDEN Quellen (22.09.2026, abends): Amoreal schaltet seit Mai
+ * Google-Anzeigen, die Meta-Werbebibliothek zeigt davon nichts. Geprüft wird
+ * jetzt jeder Lead mit Website, nicht mehr nur starke Seiten — die Nachricht
+ * „ihr schaltet keine Anzeigen" darf nur entstehen, wenn beide „nein" sagen.
+ * Parallel, nie werfen.
+ */
+async function pruefeWerbung(browser, website, firma) {
+  const [meta, google] = await Promise.all([
+    firma ? pruefeMetaAds(browser, firma).catch(() => 'unbekannt') : Promise.resolve('unbekannt'),
+    pruefeGoogleAds(website).catch(() => ({ google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null, google_ads_grund: 'Fehler' })),
+  ])
+  return {
+    meta_ads_aktiv: meta,
+    google_ads_aktiv: google.google_ads_aktiv,
+    google_ads_seit: google.google_ads_seit,
+    google_ads_zuletzt: google.google_ads_zuletzt,
+    google_ads_anzahl: google.google_ads_anzahl,
+    ...(google.google_ads_grund ? { google_ads_grund: google.google_ads_grund } : {}),
+  }
+}
+
+/** Profil + Klasse an ein Destillat hängen (Migration 0092, `leadProfil.mjs`). */
+function mitProfil(destillat, quellen = {}) {
+  const profil = baueProfil(destillat, quellen)
+  const { klasse, grund } = klasseFuer(profil)
+  return { ...destillat, profil, klasse, klasse_grund: grund }
+}
+
 /** Ein Lead, drei Stufen. */
 async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   let kosten = 0
@@ -409,9 +446,10 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung),
     rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse,
     website_stufe: '', meta_ads_aktiv: 'unbekannt',
+    google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null,
     eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal),
   }
-  if (!kandidaten.length) return { lead, destillat: leer, kosten, token, grund: null }
+  if (!kandidaten.length) return { lead, destillat: mitProfil(leer), kosten, token, grund: null }
 
   // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
   const kuerzel = kuerzelFuer(lead)
@@ -427,9 +465,11 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   }
   if (!render) {
     // Die Seite existiert, lädt aber nicht (oder startet einen Download) — das hat der Browser gesehen, nicht ein Modell.
+    // Anzeigen trotzdem prüfen: Eine kaputte Seite, auf die bezahlte Klicks laufen, ist der teuerste Befund überhaupt.
+    const werbung = await pruefeWerbung(browser, ersterKaputt.url, firma)
     return {
       lead,
-      destillat: { ...leer, website: ersterKaputt.url, sicher: true, erreichbar: 'offline', befund: ersterKaputt.grund ?? '' },
+      destillat: mitProfil({ ...leer, ...werbung, website: ersterKaputt.url, sicher: true, erreichbar: 'offline', befund: ersterKaputt.grund ?? '' }),
       kosten,
       token,
       grund: null,
@@ -486,15 +526,25 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   const impressumGf = passt ? (render.impressum_gf ?? []) : []
   const rolleImpressum = passt ? rolleAusImpressum(lead.name, impressumGf, render.impressum_kopf ?? '') : 'unklar'
   /**
-   * Werbebibliothek nur bei starken Seiten (22.09.2026): Dort ist die Website
-   * nicht der Hebel, sondern die Frage, ob schon Anzeigen laufen. Bei allen
-   * anderen spart das einen Seitenaufruf je Lead.
+   * Werbung aus beiden Quellen, für jede passende Seite (22.09.2026, abends —
+   * bis dahin nur Meta und nur bei `stark`). Siehe `pruefeWerbung`.
    */
   const stufe = websiteStufe(b.json)
-  const metaAds = passt && stufe === 'stark' ? await pruefeMetaAds(browser, firma || render.start.titel).catch(() => 'unbekannt') : 'unbekannt'
+  const werbung = passt
+    ? await pruefeWerbung(browser, s.endUrl, firma || render.start.titel)
+    : { meta_ads_aktiv: 'unbekannt', google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null }
+  const profilQuellen = passt
+    ? {
+        impressumText: render.impressum_text ?? render.impressum_kopf ?? '',
+        texte: [s.text, t?.erreichbar === 'ja' ? t.text : '', u?.erreichbar === 'ja' ? u.text : ''],
+        modellGruendung: { jahr: b.json.gruendungsjahr, beleg: b.json.gruendung_beleg },
+        sichtbarerText,
+        teamPersonen: b.json.team_personen,
+      }
+    : {}
   return {
     lead,
-    destillat: {
+    destillat: mitProfil({
       firma,
       website: passt ? s.endUrl : '',
       sicher: passt,
@@ -533,11 +583,11 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       stationen,
       groesse,
       website_stufe: stufe,
-      meta_ads_aktiv: metaAds,
+      ...werbung,
       mangel,
       befund: String(b.json.befund ?? ''),
       nur_portal: false,
-    },
+    }, profilQuellen),
     kosten,
     token,
     grund: null,

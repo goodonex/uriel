@@ -71,6 +71,48 @@ const ANTWORT_POSTEN: Posten[] = [
   },
 ]
 
+/** Follow-ups mit Klasse (22.09.2026) — so ordnet `followupPosten` sie: A, B, ungeprüft, C. */
+const FOLLOWUP_POSTEN: Posten[] = [
+  {
+    id: 'thread:f1',
+    spur: 'followup',
+    name: 'Mara Beispiel',
+    firma: 'Beispiel Immobilien GmbH',
+    text: 'Follow-up an Mara Beispiel.',
+    timestamp: '2026-09-10T09:00:00.000Z',
+    klasse: 'A',
+    klasseGrund: 'Zahlt für Anzeigen, solide Firma, schwache Seite — Google-Ads seit 05/2026 · GmbH · seit 2008 · Team 6 · Seite schwach',
+  },
+  {
+    id: 'thread:f2',
+    spur: 'followup',
+    name: 'Jonas Muster',
+    firma: 'Muster & Partner Immobilien',
+    text: 'Follow-up an Jonas Muster.',
+    timestamp: '2026-09-08T09:00:00.000Z',
+    klasse: 'B',
+    klasseGrund: 'Solide Firma ohne Anzeigen — GmbH · seit 2015 · Team 4 · Seite solide',
+  },
+  {
+    id: 'thread:f3',
+    spur: 'followup',
+    name: 'Petra Probe',
+    firma: 'Probe Immobilien',
+    text: 'Follow-up an Petra Probe.',
+    timestamp: '2026-09-05T09:00:00.000Z',
+  },
+  {
+    id: 'thread:f4',
+    spur: 'followup',
+    name: 'Tim Test',
+    firma: 'Tim Test Immobilien',
+    text: 'Follow-up an Tim Test.',
+    timestamp: '2026-09-01T09:00:00.000Z',
+    klasse: 'C',
+    klasseGrund: 'Einzelkämpfer — e.K. · Seite schwach',
+  },
+]
+
 const KUNDEN_POSTEN: Posten[] = [
   { id: 'task:1', spur: 'kundenaufgabe', name: 'Startseite: Hero-Video Safari-Fix', firma: 'Reichentrog & Kollegen', website: undefined, text: 'Video lädt in Safari nicht — muted playsinline poster prüfen.', timestamp: null },
   { id: 'task:2', spur: 'kundenaufgabe', name: 'Leistungsseiten finalisieren', firma: 'CoLective', website: undefined, text: 'Texte aus dem Leitbild übernehmen, i18n-Keys nachziehen.', timestamp: null },
@@ -221,7 +263,7 @@ export function SalesVorschau() {
       kennzahl: '0 von 20',
       unterzeile: 'Portion für heute — 199 weitere warten im Rückstand.',
       streak: { laenge: 2, heuteOffen: true },
-      inhalt: () => <Arbeitsliste posten={ANTWORT_POSTEN} onErledigt={() => {}} />,
+      inhalt: () => <Arbeitsliste posten={FOLLOWUP_POSTEN} onErledigt={() => {}} />,
     },
   ]
 

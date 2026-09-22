@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useRunde, type RundeStand } from '../lib/rundeApi'
+import { useRunde, type RundeOptionen, type RundeStand } from '../lib/rundeApi'
 import { Ladeschirm } from './Ladeschirm'
 
 /**
@@ -25,6 +25,8 @@ interface RundeTorWert {
   oeffnen: () => void
   /** Sofort starten, ohne Rückfrage (der „Jetzt aktualisieren"-Weg). */
   jetztLaden: () => void
+  /** Gezielt starten, z. B. „noch 20 Erstnachrichten" (`nur` + `anzahl`), mit Fortschrittsschirm. */
+  starteMit: (optionen: RundeOptionen) => void
 }
 
 const Kontext = createContext<RundeTorWert>({
@@ -32,6 +34,7 @@ const Kontext = createContext<RundeTorWert>({
   runnerWeg: true,
   oeffnen: () => {},
   jetztLaden: () => {},
+  starteMit: () => {},
 })
 
 export const useRundeTor = () => useContext(Kontext)
@@ -59,9 +62,18 @@ export function RundeTor({ children }: { children: ReactNode }) {
     void starten()
   }, [starten])
 
+  const starteMit = useCallback(
+    (optionen: RundeOptionen) => {
+      setOffen(true)
+      setGefragt(true)
+      void starten(optionen)
+    },
+    [starten],
+  )
+
   const wert = useMemo<RundeTorWert>(
-    () => ({ stand, runnerWeg, oeffnen, jetztLaden }),
-    [stand, runnerWeg, oeffnen, jetztLaden],
+    () => ({ stand, runnerWeg, oeffnen, jetztLaden, starteMit }),
+    [stand, runnerWeg, oeffnen, jetztLaden, starteMit],
   )
 
   return (

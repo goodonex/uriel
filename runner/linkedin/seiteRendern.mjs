@@ -310,6 +310,8 @@ async function geschaeftsfuehrungAusImpressum(browser, links, basis, { ordner, k
     gelesen: seite.erreichbar === 'ja' && text.length > 50,
     // Der Kopf des Impressums für den Namensabgleich, wenn keine GF-Namen erkennbar sind („NBI-Natascha Borkowski Immobilien").
     kopf: text.slice(0, 1500),
+    // Für das Lead-Profil (22.09.2026): Rechtsform aus dem Kopf, Handelsregister weiter unten.
+    text: text.slice(0, 5000),
   }
 }
 
@@ -389,6 +391,10 @@ export function gfNamenAusImpressum(text) {
 
 /**
  * ---- Meta-Werbebibliothek (22.09.2026) ----
+ *
+ * Seit dem Abend des 22.09. für JEDEN Lead mit Website, zusammen mit Google
+ * (`googleAds.mjs`) — die Meta-Bibliothek zeigt keine Google-Anzeigen und
+ * umgekehrt, ein Befund braucht beide Quellen.
  *
  * Bei einer starken Website ist die Seite nicht der Hebel — dann ist die
  * Frage, ob die Firma schon Werbung schaltet. Kevin schaut dafür in die
@@ -486,6 +492,7 @@ export async function rendereKandidat(browser, url, { ordner, kuerzel }) {
     impressum_gf: impressum?.namen ?? [],
     impressum_gelesen: impressum?.gelesen ?? false,
     impressum_kopf: impressum?.kopf ?? '',
+    impressum_text: impressum?.text ?? '',
   }
   await mkdir(ordner, { recursive: true })
   await writeFile(join(ordner, `${kuerzel}.json`), JSON.stringify(mappe, null, 2))

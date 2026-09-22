@@ -3,6 +3,7 @@ import { useIsMobile } from '../../hooks/useViewport'
 import { nachrichtStand, type Posten } from '../lib/prioritaet'
 import type { ArbeitsmodusErgebnis } from './Arbeitsmodus'
 import { ListenZeile } from './home/ListenZeile'
+import { KlassenBadge } from './KlassenBadge'
 import { inZwischenablage as textInDieAblage } from '../lib/zwischenablage'
 
 /**
@@ -233,6 +234,8 @@ export function Arbeitsliste({
                     // Die Rückmeldung steht vorn, damit sie den Blick trifft —
                     // am Handy gibt es neben dem Titel keinen Platz dafür.
                     nameKopiertId === p.id ? '✓ Name kopiert' : null,
+                    // Am Handy kein Platz für ein Badge neben dem Titel — die Klasse steht vorn in der Meta-Zeile.
+                    p.klasse ? `Klasse ${p.klasse}` : null,
                     // Wann kam die letzte Nachricht — bei Looms die Zusage,
                     // auf die der Lead gerade wartet (19.08.2026).
                     nachrichtStand(p.timestamp) || null,
@@ -324,6 +327,8 @@ export function Arbeitsliste({
                 >
                   {p.name}
                 </span>
+                {/* Klasse A/B/C aus dem Lead-Profil (22.09.2026), Grund im Tooltip. */}
+                <KlassenBadge klasse={p.klasse} grund={p.klasseGrund} />
                 {/* Die Rückmeldung sitzt am Namen, nicht in einer Ecke: dort
                     schaut Kevin beim Tippen ohnehin hin. */}
                 {nameKopiertId === p.id ? (

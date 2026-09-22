@@ -11,6 +11,41 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **FERTIG 22.09.2026 (abends) — Google-Anzeigen, Lead-Profil mit Klasse A/B/C, Runde von 20** (Branch `feat/lead-profil-ads`, Migration 0092)
+
+Anlass: Amoreal schaltet seit Mai Google-Anzeigen — geprüft wurde bis dahin nur
+die Meta-Werbebibliothek und nur bei starken Seiten. Eine Nachricht „ihr
+schaltet keine Anzeigen" wäre falsch gewesen.
+
+| Baustein | Wo |
+|---|---|
+| Google-Anzeigen je Lead mit Website über DataForSEO (`ads_search/live/advanced`, Domain ohne www, DE): `google_ads_aktiv` ja/nein/unbekannt, `google_ads_seit`, `google_ads_zuletzt`, `google_ads_anzahl`. „ja" = zuletzt in den letzten 45 Tagen gesehen | `runner/linkedin/googleAds.mjs` |
+| Meta UND Google für **jeden** Lead mit Website (auch offline-Seiten), parallel | `leadRecherche.mjs` (`pruefeWerbung`) |
+| Lead-Profil `{gf, website_stufe, meta/google, rechtsform, handelsregister, gruendungsjahr (+Quelle, Beleg), jahre_am_markt, team_personen, groesse, bilanz_hinweis}` + Klasse A/B/C mit Grund — im Code, Modell nur für Teamzahl und (mit wörtlichem Beleg) Gründungsjahr | `runner/linkedin/leadProfil.mjs`, Spalten `leads.profil/klasse/klasse_grund/profil_at` (0092) |
+| Follow-ups: A → B → ungeprüft → C, innerhalb wie bisher; Badge A/B/C mit Grund im Tooltip neben dem Namen | `arbeitsmodusQuellen.ts` (`followupPosten`), `prioritaet.ts`, `KlassenBadge.tsx`, `useLeadKlassen.ts` |
+| Erstnachrichten-Runde 20 statt 50 (Tages-Soll im Cockpit ebenfalls 20, Versand-Deckel bleibt 50); Knopf „Noch 20 vorbereiten" in der Erstnachrichten-Liste (LinkedIn) startet nur diese Etappe mit `anzahl: 20` | `runner/index.mjs` (`ERSTNACHRICHTEN_RUNDE`), `tagesFlow.ts`, `ErstnachrichtenListe.tsx` |
+
+Klassen (Kevins Vorgabe vom 17.09.): **A** zahlt für Anzeigen + solide Firma
+(2 von 3: feste Rechtsform, ≥ 3 Jahre, Team ≥ 3) + schwache Seite · **B** solide
+ohne Anzeigen oder Anzeigen + ordentliche Seite · **C** Einzelkämpfer, neu (< 2
+Jahre) oder unklar. Kontakt laut Impressum angestellt → höchstens B.
+
+Am 22.09. an echten Seiten gemessen (ohne Modell): amoreal.de → Google ja seit
+2026-05-07, GmbH, HRB 157221; meissler-co.de → Google nein, GmbH & Co. KG, HRA
+96140, „über 30 Jahren" → 1996. Drift-Wache: `scripts/verify-lead-profil.ts`.
+
+**Zugangsdaten:** `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` in `runner/.env`
+(Vorlage `.env.example`), sonst liest der Runner `~/.seo-skill/.env`. Fehlen
+beide auf dem Mini, bleibt Google „unbekannt" — der Runner schreibt das ins Log.
+
+**Bewusst nicht gebaut:** Bilanzen (North Data/Handelsregister blocken
+automatisierte Abfragen — nicht umgehen) und ein Nachtjob, der Profile für
+bestehende Leads nachträgt: ohne Befund-Modell fehlt die Website-Stufe (A wäre
+unerreichbar), mit Modell kostet er ~0,60 $ je Lead (≈ 30 $ je Nacht bei 50).
+Die Profile füllen sich mit jeder neuen Erstnachrichten-Runde.
+
+---
+
 ## **FERTIG 22.09.2026 — Tiefere Lead-Recherche und „Entscheider zuerst"** (Branch `feat/entscheider-zuerst`, Migration 0091)
 
 Kevins Feedback zu den Erstnachrichten: Struktur gut, Recherche zu flach — und

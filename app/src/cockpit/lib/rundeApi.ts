@@ -106,7 +106,18 @@ export async function fetchRunde(): Promise<RundeStand> {
   }
 }
 
-export async function startRunde(optionen: { nur?: string[]; tief?: boolean } = {}): Promise<RundeStand> {
+/**
+ * `anzahl` (22.09.2026): eine ausdrückliche Stückzahl Erstnachrichten für
+ * diesen Lauf — „noch 20" aus der Erstnachrichten-Liste. Ohne sie gilt das
+ * Tagesbudget des Runners (20).
+ */
+export interface RundeOptionen {
+  nur?: string[]
+  tief?: boolean
+  anzahl?: number
+}
+
+export async function startRunde(optionen: RundeOptionen = {}): Promise<RundeStand> {
   if (runnerDirekt()) {
     return hole('/runde/start', {
       method: 'POST',
@@ -173,7 +184,7 @@ export function useRunde() {
   }, [laden])
 
   const starten = useCallback(
-    async (optionen: { nur?: string[]; tief?: boolean } = {}) => {
+    async (optionen: RundeOptionen = {}) => {
       try {
         const s = await startRunde(optionen)
         setStand(s)

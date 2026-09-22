@@ -23,6 +23,8 @@ import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } f
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
+import { speichereProfile } from './linkedin/leadProfil.mjs'
+import { dataforseoZugang } from './linkedin/googleAds.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
 import { laufGrund } from './laufGrund.mjs'
@@ -2005,7 +2007,7 @@ async function fuehreJobAus(job) {
       ausloeser: 'handy',
       nur: Array.isArray(job.payload?.nur) && job.payload.nur.length ? job.payload.nur : null,
       tief: typeof job.payload?.tief === 'boolean' ? job.payload.tief : null,
-      anzahl: Number.isInteger(job.payload?.anzahl) ? job.payload.anzahl : null,
+      anzahl: Number.isInteger(job.payload?.anzahl) && job.payload.anzahl > 0 ? Math.min(job.payload.anzahl, ERSTNACHRICHTEN_NACHSCHUB_MAX) : null,
     })
     await new Promise((r) => setTimeout(r, 200))
     return { gestartet: true, ...rundeStand() }
@@ -2471,6 +2473,7 @@ const server = createServer(async (req, res) => {
         ausloeser: koerper?.ausloeser ?? 'kevin',
         nur: Array.isArray(koerper?.nur) && koerper.nur.length ? koerper.nur : null,
         tief: typeof koerper?.tief === 'boolean' ? koerper.tief : null,
+        anzahl: Number.isInteger(koerper?.anzahl) && koerper.anzahl > 0 ? Math.min(koerper.anzahl, ERSTNACHRICHTEN_NACHSCHUB_MAX) : null,
       })
       // Ein Tick, damit der erste GET nicht in die Lücke vor dem Aufsetzen fällt.
       await new Promise((r) => setTimeout(r, 50))
@@ -3097,6 +3100,14 @@ const ROUTINEN_AUTOMATIK = process.env.ROUTINEN_AUTOMATIK === '1'
  * einmal am Tag — und zusätzlich gegen ein Tagesbudget, siehe dort.
  */
 const RUNDE_AUTOMATIK = process.env.RUNDE_AUTOMATIK === '1'
+/**
+ * Erstnachrichten je Runde (22.09.2026): 20 — Kevin arbeitet sie am Tag ab.
+ * Muss mit `ERSTNACHRICHTEN_RUNDE` in `app/src/cockpit/lib/tagesFlow.ts`
+ * übereinstimmen (`scripts/verify-lead-profil.ts` hält beide zusammen).
+ */
+const ERSTNACHRICHTEN_RUNDE = 20
+/** Obergrenze für eine ausdrückliche Stückzahl aus dem Cockpit/Handy — Notbremse gegen Tippfehler. */
+const ERSTNACHRICHTEN_NACHSCHUB_MAX = 50
 const RUNDE_NACHT_STUNDE = Number(process.env.RUNDE_NACHT_STUNDE ?? 3)
 /** Leere Liste = keine Tag-Slots. Sonst Stunden als „8,11,14,17,20". */
 const RUNDE_TAG_STUNDEN = String(process.env.RUNDE_TAG_STUNDEN ?? '8,11,14,17,20')
@@ -4411,11 +4422,21 @@ const ETAPPEN_ARBEIT = {
      * bitte nur 36") ersetzt das Resttagesbudget für DIESEN Lauf. Der Knopf
      * ohne Zahl bleibt beim Tagesziel.
      */
+    /**
+     * **20 statt 50** (22.09.2026, Kevin: *„Wir machen jetzt nur 20, die
+     * arbeite ich jeden Tag ab; wenn ich Zeit und Lust habe, schieße ich
+     * nochmal 20 hinterher."*). Die Nacht-Runde bereitet 20 vor; „noch 20"
+     * ist ein eigener Knopf in der Erstnachrichten-Liste, der mit
+     * `anzahl: ERSTNACHRICHTEN_NACHSCHUB` kommt und das Tagesbudget nicht fragt.
+     */
     const TAGESZIEL =
       Number.isInteger(anzahl) && anzahl > 0
         ? anzahl
-        : Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? 50) - schonHeute)
+        : Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? ERSTNACHRICHTEN_RUNDE) - schonHeute)
     if (TAGESZIEL === 0) return { text: `Tagesbudget erreicht (${schonHeute} heute)` }
+    if (!dataforseoZugang()) {
+      console.warn('[runner] Erstnachrichten: DATAFORSEO_LOGIN/DATAFORSEO_PASSWORD fehlen (runner/.env oder ~/.seo-skill/.env) — Google-Anzeigen bleiben „unbekannt"')
+    }
     const BATCH = 13
     let vorbereitet = 0
     let zuletztGesamt = 0
@@ -4472,6 +4493,28 @@ const ETAPPEN_ARBEIT = {
           )
         }
         leads = leads.filter((l) => l.recherche)
+      }
+      /**
+       * Lead-Profil + Klasse an den Lead (22.09.2026, Migration 0092) — für
+       * JEDEN recherchierten Lead, auch die, die gleich gesperrt oder
+       * zurückgestellt werden: Die Klasse steuert später die Follow-up-
+       * Reihenfolge, und die fragt nicht, ob die Erstnachricht vom Agenten kam.
+       */
+      if (SNAPSHOT_ENABLED && leads.length) {
+        try {
+          const br = await fetch(
+            `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+            { headers: supabaseHeaders() },
+          )
+          const [brand] = br.ok ? await br.json() : []
+          if (brand?.id) {
+            const n = await speichereProfile({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, leads })
+            const klassen = leads.map((l) => l.recherche?.klasse).filter(Boolean)
+            console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${n} Profile gespeichert (A ${klassen.filter((k) => k === 'A').length} · B ${klassen.filter((k) => k === 'B').length} · C ${klassen.filter((k) => k === 'C').length})`)
+          }
+        } catch (e) {
+          console.error('[runner] Lead-Profile nicht gespeichert:', e?.message ?? e)
+        }
       }
       /**
        * Segment-Sperre (21.09.2026): Hausverwaltungen, Investoren, Banken,
@@ -4534,7 +4577,11 @@ const ETAPPEN_ARBEIT = {
         if (l.recherche?.rolle === 'angestellt') angestellteVorgemerkt.add(String(l.name).toLowerCase())
       }
       if (leads.length) {
-        const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads })
+        // Profil und Klasse bleiben draußen: Der Schreib-Agent braucht sie nicht, und jede Zeile im Input kostet je Lead.
+        const fuerAgent = leads.map((l) =>
+          l.recherche ? { ...l, recherche: Object.fromEntries(Object.entries(l.recherche).filter(([k]) => !['profil', 'klasse', 'klasse_grund'].includes(k))) } : l,
+        )
+        const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: fuerAgent })
         // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
         // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
         await schreiblauf.fertig

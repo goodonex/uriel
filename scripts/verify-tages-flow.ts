@@ -21,6 +21,7 @@ import {
   ANTWORT_FRISCHE_STUNDEN,
   ARBEITSTAGE_WOCHE,
   ERSTNACHRICHTEN_LIMIT_TAG,
+  ERSTNACHRICHTEN_RUNDE,
   FOLLOWUP_PORTION_TAG,
   PORTION_STUFEN,
   TAGES_FLOW,
@@ -118,19 +119,29 @@ check(
 )
 check('die InMail-Stufe ist raus (21.09.2026, kein Sales Navigator)', TAGES_FLOW.every((s) => s.id !== 'reaktivierung'))
 check(
-  'Erstnachrichten: nie mehr als 50 am Tag, auch wenn mehr warten',
-  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98 })) === ERSTNACHRICHTEN_LIMIT_TAG &&
+  'Erstnachrichten: das Tages-Soll ist die Runde von 20 (22.09.2026), der Deckel bleibt 50',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98 })) === ERSTNACHRICHTEN_RUNDE &&
+    ERSTNACHRICHTEN_RUNDE === 20 &&
     ERSTNACHRICHTEN_LIMIT_TAG === 50,
 )
 check(
-  'Erstnachrichten: der Deckel greift auch auf eine schon eingefrorene 98',
-  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 98 } })) ===
-    50,
+  'Erstnachrichten: eine schon eingefrorene 98 (oder 50) wird auf die 20 gezogen',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 98 } })) === 20 &&
+    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 50 } })) === 20,
 )
 check(
-  'Erstnachrichten: ein eigenes Ziel drosselt, hebt aber nicht über 50',
+  'Erstnachrichten: nachgeschossene 20 machen die Zeile nicht rot (40 von 20 ist erledigt)',
+  (() => {
+    const e = eingabe({ erstnachrichtenOffen: 300, erstnachrichtenTexte: 5, today: { li_nachrichten: 40 } })
+    const stand = stufenStaende(e)[ERSTNACHRICHTEN]
+    return stand.soll === 20 && stand.wert === 40 && stand.erledigt
+  })(),
+)
+check(
+  'Erstnachrichten: ein eigenes Ziel sticht die 20, hebt aber nicht über 50',
   sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 80 } })) === 50 &&
-    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 20 } })) === 20,
+    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 40 } })) === 40 &&
+    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, ziele: { erstnachrichten: 10 } })) === 10,
 )
 check(
   'Erstnachrichten: nach 50 gesendeten steht die Stufe, obwohl noch 48 warten',

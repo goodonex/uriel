@@ -99,6 +99,20 @@ export const FOLLOWUP_PORTION_TAG = 20
 export const ERSTNACHRICHTEN_LIMIT_TAG = 50
 
 /**
+ * **Das Tages-Soll sind 20** (22.09.2026, Kevins Diktat): *„Wir machen jetzt
+ * nur 20, die arbeite ich jeden Tag ab; wenn ich Zeit und Lust habe, schieße
+ * ich nochmal 20 hinterher."*
+ *
+ * Die Nacht-Runde bereitet 20 vor (`ERSTNACHRICHTEN_RUNDE` im Runner, muss
+ * gleich sein — `scripts/verify-lead-profil.ts`). Das Soll der Stufe folgt
+ * dem: Mit 50 stünde die Zeile nach 20 gesendeten ewig auf „20 von 50" rot,
+ * obwohl nur 20 Texte da sind. Wer „noch 20" nachschießt, zählt darüber
+ * hinaus (40 von 20 ist grün) — der Deckel von 50 bleibt der Account-Schutz.
+ * Ein eigenes Ziel aus `ui_settings` sticht weiter, bis höchstens 50.
+ */
+export const ERSTNACHRICHTEN_RUNDE = 20
+
+/**
  * Ab wann eine wartende Antwort die Frische-Stufe rot macht. Bei Antworten
  * zählt Reaktionszeit, nicht Vollständigkeit — 43 können warten, solange
  * keine davon von vorgestern ist.
@@ -367,7 +381,8 @@ export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
   if (portion === 0 && (offenLive ?? 0) > 0) {
     // durchfallen zur Live-Rechnung
   } else if (gueltigesZiel(portion)) {
-    return stufe.id === 'erstnachrichten' ? Math.min(portion, ERSTNACHRICHTEN_LIMIT_TAG) : portion
+    // Eine vor dem 22.09. eingefrorene 50 wird auf das neue Soll gezogen (eigenes Ziel sticht).
+    return stufe.id === 'erstnachrichten' ? Math.min(portion, erstnachrichtenDeckel(eingabe.ziele?.[stufe.id])) : portion
   }
 
   const eigen = eingabe.ziele?.[stufe.id]
@@ -379,10 +394,7 @@ export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
       // beim Abhaken stehen bleibt und die Zeile nicht über den Tag lügt.
       // Ein eigenes Ziel aus `ui_settings` sticht weiterhin, falls Kevin doch
       // einmal drosseln will.
-      return Math.min(
-        gueltigesZiel(eigen) ? Math.min(eigen, ERSTNACHRICHTEN_LIMIT_TAG) : ERSTNACHRICHTEN_LIMIT_TAG,
-        anzahl(eingabe.erstnachrichtenOffen) + wert,
-      )
+      return Math.min(erstnachrichtenDeckel(eigen), anzahl(eingabe.erstnachrichtenOffen) + wert)
     case 'antworten':
       /**
        * Wer wartet, wird beantwortet — alle, nicht eine Portion. Anders als
@@ -421,6 +433,11 @@ export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
     default:
       return gueltigesZiel(eigen) ? eigen : (stufe.standardZiel ?? 0)
   }
+}
+
+/** Das Tages-Soll der Erstnachrichten: eigenes Ziel (bis 50) oder die Runde von 20. */
+function erstnachrichtenDeckel(eigen: number | undefined): number {
+  return gueltigesZiel(eigen) ? Math.min(eigen, ERSTNACHRICHTEN_LIMIT_TAG) : ERSTNACHRICHTEN_RUNDE
 }
 
 /** Die Live-Zahl der Quelle einer Stufe — `null`, wo es keine gibt. */

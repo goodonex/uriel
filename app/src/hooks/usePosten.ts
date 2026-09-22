@@ -14,6 +14,7 @@ import { useDeliverProjects } from './useDeliverProjects'
 import { useErstnachrichten } from './useErstnachrichten'
 import { useLinkedinNetzwerk } from './useLinkedinNetzwerk'
 import { useLinkedinThreads } from './useLinkedinThreads'
+import { useLeadKlassen } from './useLeadKlassen'
 import { useLoomGesichtet } from './useLoomGesichtet'
 import { useTasks } from './useTasks'
 
@@ -63,6 +64,8 @@ export function usePosten(slug: string | undefined): UsePostenResult {
   // Wer sein Loom nachweislich gesehen hat, wird enger nachgefasst und anders
   // angesprochen (15.09.2026).
   const loomGesichtet = useLoomGesichtet(slug)
+  // Klasse A/B/C je Lead — ordnet die Follow-ups (22.09.2026, Migration 0092).
+  const leadKlassen = useLeadKlassen(slug)
 
   // Minutentakt statt Date.now() bei jedem Render — sonst rechnen die useMemos
   // unten bei jedem Tastendruck neu.
@@ -107,8 +110,8 @@ export function usePosten(slug: string | undefined): UsePostenResult {
   }, [linkedinThreads.items, loomGesichtet.leadIds])
 
   const followupListe = useMemo(
-    () => followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads),
-    [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads],
+    () => followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen),
+    [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen],
   )
   // Threads gegenrechnen: eine verschickte Nachricht bleibt sonst ewig „offen",
   // wenn Kevin sie vom Handy geschickt und den Haken nicht gesetzt hat (17.08.).

@@ -16,6 +16,7 @@ import { bucketOf } from './linkedinFollowups'
 import { verlaufVon } from './linkedinVerlauf'
 import type { Posten, PostenEntwurf } from './prioritaet'
 import { followupVorlage, loomZusageVorlage } from './followupVorlagen'
+import { klassenRang, type LeadKlassenInfo } from './leadKlasse'
 
 /**
  * Entwurf des Nacht-Agenten am Thread (Migration 0065), sofern einer anliegt.
@@ -237,6 +238,11 @@ export function followupPosten(
    * als hätte jemand NICHT geschaut.
    */
   gesichteteThreads: ReadonlySet<string> = new Set(),
+  /**
+   * Klasse je `lead_id` (22.09.2026, Migration 0092, `useLeadKlassen`). Leer
+   * heißt „nichts bekannt" — dann kein Badge und die alte Reihenfolge.
+   */
+  klassen: ReadonlyMap<string, LeadKlassenInfo> = new Map(),
 ): Posten[] {
   const kunden = kundenSchluessel(kontakte)
   return threads
@@ -274,7 +280,20 @@ export function followupPosten(
        * individuell eingehen könnte.
        */
       entwurf: entwurfVon(t) ?? followupVorlage(t, gesichteteThreads.has(t.id)),
+      ...klasseVon(t.lead_id, klassen),
     }))
+    /**
+     * A zuerst, dann B, dann ungeprüft, dann C — stabil, also innerhalb der
+     * Klasse in der bisherigen Reihenfolge. Hier an der Quelle und nicht erst
+     * in `ordnePosten`: Die Sales-Tagesliste schneidet ihre 20 direkt aus
+     * `quellen.followup`, ohne die Rangfolge zu durchlaufen.
+     */
+    .sort((a, b) => klassenRang(a.klasse) - klassenRang(b.klasse))
+}
+
+function klasseVon(leadId: string | null | undefined, klassen: ReadonlyMap<string, LeadKlassenInfo>): Pick<Posten, 'klasse' | 'klasseGrund'> {
+  const k = leadId ? klassen.get(leadId) : undefined
+  return k ? { klasse: k.klasse, klasseGrund: k.grund } : {}
 }
 
 /**

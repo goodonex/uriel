@@ -9,6 +9,8 @@
  * die Oberfläche kürzt selbst mit „weitere anzeigen".
  */
 
+import { klassenRang, type LeadKlasse } from './leadKlasse'
+
 export type Spur =
   | 'kundenaufgabe'
   | 'kunde_liegt'
@@ -87,10 +89,26 @@ export interface Posten {
    * sagt.
    */
   nurZaehler?: true
+  /**
+   * Klasse des Leads A/B/C aus dem Lead-Profil (22.09.2026, Migration 0092),
+   * mit dem kurzen Grund für den Tooltip. Ordnet die Follow-ups: A zuerst.
+   */
+  klasse?: LeadKlasse
+  klasseGrund?: string
 }
 
 /** Rohquellen je Spur — fehlt eine (Tabelle nicht migriert), fehlt nur diese Spur. */
 export type PostenQuellen = Partial<Record<Spur, Posten[]>>
+
+/**
+ * Follow-ups nach Klasse, dann wie bisher (22.09.2026). Kevin will zuerst bei
+ * denen nachfassen, die schon für Anzeigen zahlen und eine schwache Seite
+ * haben — dort ist der Hebel am größten. Innerhalb der Klasse bleibt die
+ * alte Ordnung (Stern, dann Alter).
+ */
+function klasseDannDringlichkeit(a: Posten, b: Posten): number {
+  return klassenRang(a.klasse) - klassenRang(b.klasse) || dringlichkeit(a, b)
+}
 
 function dringlichkeit(a: Posten, b: Posten): number {
   const sternDiff = Number(b.starred ?? false) - Number(a.starred ?? false)
@@ -110,7 +128,7 @@ export function ordnePosten(quellen: PostenQuellen, _heute: Date): Posten[] {
   const out: Posten[] = []
   for (const spur of RANGFOLGE) {
     const bucket = quellen[spur] ?? []
-    out.push(...[...bucket].sort(spur === 'loom' ? frischeZuerst : dringlichkeit))
+    out.push(...[...bucket].sort(spur === 'loom' ? frischeZuerst : spur === 'followup' ? klasseDannDringlichkeit : dringlichkeit))
   }
   return out
 }
