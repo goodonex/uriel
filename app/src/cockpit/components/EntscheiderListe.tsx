@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useEntscheiderKandidaten } from '../../hooks/useEntscheiderKandidaten'
-import { heuteAnfragen, linkedinZiel } from '../lib/entscheider'
+import { heuteAnfragen, linkedinZiel, type EntscheiderKandidat, type EntscheiderStatus } from '../lib/entscheider'
 import { useActiveBrandOptional } from '../lib/activeBrand'
 
 /**
@@ -19,10 +19,23 @@ import { useActiveBrandOptional } from '../lib/activeBrand'
 export function EntscheiderListe({ brandSlug }: { brandSlug?: string }) {
   const aktiv = useActiveBrandOptional()
   const q = useEntscheiderKandidaten(brandSlug ?? aktiv?.activeBrand?.slug)
-  const [anzahl, setAnzahl] = useState(5)
-  const offen = useMemo(() => heuteAnfragen(q.items), [q.items])
+  if (q.tableMissing || q.loading) return null
+  return <EntscheiderListeAnsicht items={q.items} error={q.error} onStatus={(id, s) => void q.setzeStatus(id, s)} />
+}
 
-  if (q.tableMissing || q.loading || !offen.length) return null
+/** Die reine Ansicht — ohne Datenbank, damit sie sich mit Beispieldaten ansehen lässt. */
+export function EntscheiderListeAnsicht({
+  items,
+  error,
+  onStatus,
+}: {
+  items: EntscheiderKandidat[]
+  error?: string | null
+  onStatus: (id: string, status: EntscheiderStatus) => void
+}) {
+  const [anzahl, setAnzahl] = useState(5)
+  const offen = useMemo(() => heuteAnfragen(items), [items])
+  if (!offen.length) return null
   const sichtbar = offen.slice(0, anzahl)
 
   return (
@@ -37,7 +50,7 @@ export function EntscheiderListe({ brandSlug }: { brandSlug?: string }) {
         Geschäftsführer aus dem Impressum. Die Nachricht an ihre Mitarbeiter wartet, bis du hier entschieden hast.
       </p>
 
-      {q.error ? <div style={{ fontSize: 11, color: 'var(--ck-warn)' }}>{q.error}</div> : null}
+      {error ? <div style={{ fontSize: 11, color: 'var(--ck-warn)' }}>{error}</div> : null}
 
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {sichtbar.map((k) => (
@@ -73,7 +86,7 @@ export function EntscheiderListe({ brandSlug }: { brandSlug?: string }) {
                 type="button"
                 className="ck-btn"
                 style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }}
-                onClick={() => void q.setzeStatus(k.id, 'angefragt')}
+                onClick={() => onStatus(k.id, 'angefragt')}
               >
                 Angefragt
               </button>
@@ -82,7 +95,7 @@ export function EntscheiderListe({ brandSlug }: { brandSlug?: string }) {
                 className="ck-btn"
                 style={{ fontSize: 11, minHeight: 40, marginLeft: 'auto', color: 'var(--ck-text-3)' }}
                 title="Kommt nicht in Frage — neue Mitarbeiter dieser Firma werden dann wieder normal angeschrieben"
-                onClick={() => void q.setzeStatus(k.id, 'verworfen')}
+                onClick={() => onStatus(k.id, 'verworfen')}
               >
                 Verwerfen
               </button>

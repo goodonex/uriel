@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { AnimatePresence, MotionConfig } from 'framer-motion'
 import { AnfragenZaehler } from '../cockpit/components/AnfragenZaehler'
+import { EntscheiderListeAnsicht } from '../cockpit/components/EntscheiderListe'
+import type { EntscheiderKandidat } from '../cockpit/lib/entscheider'
 import { Arbeitsliste, type LoomSkriptAktionen } from '../cockpit/components/Arbeitsliste'
 import { HeuteDeck } from '../cockpit/components/HeuteDeck'
 import { FlowZeile, KachelFenster, type FlowZeileDef } from '../cockpit/pages/SalesDashboard'
@@ -118,7 +120,14 @@ const KARTEN_NAMEN: KartenLead[] = [
   { leadId: 'l4', name: 'Sabine Roth', headline: '', faelligAm: null, naechsterSchritt: 'Kein Anfrage-Datum bekannt', faellig: false },
 ]
 
+/** „Heute anfragen" (22.09.2026): GF aus dem Impressum, deren Mitarbeiter schon in der Liste stehen. */
+const ENTSCHEIDER: EntscheiderKandidat[] = [
+  { id: 'gf:1', gf_name: 'Jan Paegel', firma: 'Paegel Real Estate GmbH', website: 'https://paegel.de/', quelle_name: 'Charlotte Rostek', grund: 'Charlotte Rostek (Maklerin) ist schon in deiner Liste', linkedin_url: null, status: 'offen', status_at: null, created_at: '2026-09-22T08:00:00Z' },
+  { id: 'gf:2', gf_name: 'Klaus Maus', firma: 'MAUS Immobilien', website: 'https://maus-immobilien.de/', quelle_name: 'Philipp Hilgeland', grund: 'Philipp Hilgeland (Makler) ist schon in deiner Liste', linkedin_url: null, status: 'offen', status_at: null, created_at: '2026-09-22T08:05:00Z' },
+]
+
 export function SalesVorschau() {
+  const [entscheider, setEntscheider] = useState(ENTSCHEIDER)
   const [offen, setOffen] = useState<string | null>(null)
   const [anfragen, setAnfragen] = useState(12)
   const [vollbild, setVollbild] = useState(false)
@@ -152,12 +161,19 @@ export function SalesVorschau() {
       unterzeile: 'Zähler — das Ritual läuft direkt auf LinkedIn.',
       streak: { laenge: 6, heuteOffen: anfragen < 30 },
       inhalt: () => (
-        <AnfragenZaehler
-          heute={anfragen}
-          limit={30}
-          onPlus={() => setAnfragen((n) => n + 1)}
-          onMinus={() => setAnfragen((n) => Math.max(0, n - 1))}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <AnfragenZaehler
+            heute={anfragen}
+            limit={30}
+            onPlus={() => setAnfragen((n) => n + 1)}
+            onMinus={() => setAnfragen((n) => Math.max(0, n - 1))}
+          />
+          {/* Ohne Login bleibt die echte Liste im Zähler leer — hier dieselbe Ansicht mit Beispieldaten. */}
+          <EntscheiderListeAnsicht
+            items={entscheider}
+            onStatus={(id, status) => setEntscheider((cur) => cur.map((k) => (k.id === id ? { ...k, status } : k)))}
+          />
+        </div>
       ),
     },
     {
