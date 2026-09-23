@@ -118,7 +118,7 @@ console.log('\n5) Das Tagesbudget der Erstnachrichten')
 {
   check('das Budget rechnet gegen den heutigen Tag', /const schonHeute = markeLies\('erstnachrichten-tag'\) === heuteZahl \? markeLies\('erstnachrichten-heute'\) : 0/.test(kern))
   check('das Tagesziel ist das Ziel MINUS was heute schon lief', /ERSTNACHRICHTEN_TAGESZIEL \?\? ERSTNACHRICHTEN_RUNDE\) - schonHeute/.test(kern))
-  check('die Runde sind 20 Erstnachrichten (22.09.2026)', /const ERSTNACHRICHTEN_RUNDE = 20\n/.test(kern))
+  check('die Runde sind 30 Erstnachrichten (23.09.2026)', /const ERSTNACHRICHTEN_RUNDE = 30\n/.test(kern))
   check('ist das Budget weg, kostet die Etappe nichts mehr', /if \(TAGESZIEL === 0\) return \{ text: `Tagesbudget erreicht/.test(kern))
   // Nach jedem Batch, nicht erst am Ende: Ein Abbruch in Batch 3 darf die
   // bezahlten Batches 1 und 2 nicht vergessen.

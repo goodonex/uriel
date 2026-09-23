@@ -8,10 +8,10 @@ import { ERSTNACHRICHTEN_RUNDE } from '../lib/tagesFlow'
 
 /**
  * „Noch 20" (22.09.2026, Kevin: *„wenn ich Zeit und Lust habe, schieße ich
- * nochmal 20 hinterher"*). Die Nacht-Runde bereitet 20 vor; dieser Knopf
+ * nochmal 20 hinterher"*, seit 23.09. sind es 30). Die Nacht-Runde bereitet 30 vor; dieser Knopf
  * startet nur die Erstnachrichten-Etappe mit einer ausdrücklichen Stückzahl —
  * das Tagesbudget des Runners fragt er nicht, der Knopf „Jetzt aktualisieren"
- * dagegen schon (sonst kostete jedes Aktualisieren 20 Recherchen).
+ * dagegen schon (sonst kostete jedes Aktualisieren 30 Recherchen).
  */
 function NachschubKnopf() {
   const { stand, runnerWeg, starteMit } = useRundeTor()

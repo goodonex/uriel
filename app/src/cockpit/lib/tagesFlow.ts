@@ -103,14 +103,14 @@ export const ERSTNACHRICHTEN_LIMIT_TAG = 50
  * nur 20, die arbeite ich jeden Tag ab; wenn ich Zeit und Lust habe, schieße
  * ich nochmal 20 hinterher."*
  *
- * Die Nacht-Runde bereitet 20 vor (`ERSTNACHRICHTEN_RUNDE` im Runner, muss
+ * Die Nacht-Runde bereitet 30 vor (`ERSTNACHRICHTEN_RUNDE` im Runner, muss
  * gleich sein — `scripts/verify-lead-profil.ts`). Das Soll der Stufe folgt
  * dem: Mit 50 stünde die Zeile nach 20 gesendeten ewig auf „20 von 50" rot,
  * obwohl nur 20 Texte da sind. Wer „noch 20" nachschießt, zählt darüber
  * hinaus (40 von 20 ist grün) — der Deckel von 50 bleibt der Account-Schutz.
  * Ein eigenes Ziel aus `ui_settings` sticht weiter, bis höchstens 50.
  */
-export const ERSTNACHRICHTEN_RUNDE = 20
+export const ERSTNACHRICHTEN_RUNDE = 30
 
 /**
  * Ab wann eine wartende Antwort die Frische-Stufe rot macht. Bei Antworten

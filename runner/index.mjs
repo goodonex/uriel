@@ -3101,11 +3101,11 @@ const ROUTINEN_AUTOMATIK = process.env.ROUTINEN_AUTOMATIK === '1'
  */
 const RUNDE_AUTOMATIK = process.env.RUNDE_AUTOMATIK === '1'
 /**
- * Erstnachrichten je Runde (22.09.2026): 20 — Kevin arbeitet sie am Tag ab.
+ * Erstnachrichten je Runde (23.09.2026): 30 — Kevin: „lass lieber 30 laufen".
  * Muss mit `ERSTNACHRICHTEN_RUNDE` in `app/src/cockpit/lib/tagesFlow.ts`
  * übereinstimmen (`scripts/verify-lead-profil.ts` hält beide zusammen).
  */
-const ERSTNACHRICHTEN_RUNDE = 20
+const ERSTNACHRICHTEN_RUNDE = 30
 /** Obergrenze für eine ausdrückliche Stückzahl aus dem Cockpit/Handy — Notbremse gegen Tippfehler. */
 const ERSTNACHRICHTEN_NACHSCHUB_MAX = 50
 const RUNDE_NACHT_STUNDE = Number(process.env.RUNDE_NACHT_STUNDE ?? 3)
@@ -4425,7 +4425,7 @@ const ETAPPEN_ARBEIT = {
     /**
      * **20 statt 50** (22.09.2026, Kevin: *„Wir machen jetzt nur 20, die
      * arbeite ich jeden Tag ab; wenn ich Zeit und Lust habe, schieße ich
-     * nochmal 20 hinterher."*). Die Nacht-Runde bereitet 20 vor; „noch 20"
+     * nochmal 20 hinterher."*, seit 23.09. 30). Die Nacht-Runde bereitet 30 vor; „noch 30"
      * ist ein eigener Knopf in der Erstnachrichten-Liste, der mit
      * `anzahl: ERSTNACHRICHTEN_NACHSCHUB` kommt und das Tagesbudget nicht fragt.
      */

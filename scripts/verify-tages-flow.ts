@@ -121,20 +121,20 @@ check('die InMail-Stufe ist raus (21.09.2026, kein Sales Navigator)', TAGES_FLOW
 check(
   'Erstnachrichten: das Tages-Soll ist die Runde von 20 (22.09.2026), der Deckel bleibt 50',
   sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98 })) === ERSTNACHRICHTEN_RUNDE &&
-    ERSTNACHRICHTEN_RUNDE === 20 &&
+    ERSTNACHRICHTEN_RUNDE === 30 &&
     ERSTNACHRICHTEN_LIMIT_TAG === 50,
 )
 check(
-  'Erstnachrichten: eine schon eingefrorene 98 (oder 50) wird auf die 20 gezogen',
-  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 98 } })) === 20 &&
-    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 50 } })) === 20,
+  'Erstnachrichten: eine schon eingefrorene 98 (oder 50) wird auf die 30 gezogen',
+  sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 98 } })) === 30 &&
+    sollFuer(TAGES_FLOW[ERSTNACHRICHTEN], eingabe({ erstnachrichtenOffen: 98, portionen: { erstnachrichten: 50 } })) === 30,
 )
 check(
-  'Erstnachrichten: nachgeschossene 20 machen die Zeile nicht rot (40 von 20 ist erledigt)',
+  'Erstnachrichten: nachgeschossene 30 machen die Zeile nicht rot (40 von 30 ist erledigt)',
   (() => {
     const e = eingabe({ erstnachrichtenOffen: 300, erstnachrichtenTexte: 5, today: { li_nachrichten: 40 } })
     const stand = stufenStaende(e)[ERSTNACHRICHTEN]
-    return stand.soll === 20 && stand.wert === 40 && stand.erledigt
+    return stand.soll === 30 && stand.wert === 40 && stand.erledigt
   })(),
 )
 check(
