@@ -181,6 +181,8 @@ Antworte mit NICHTS als diesem JSON-Block:
   "elefant_typ": "",
   "elefant": "",
   "website_stufe": "",
+  "wow_potenzial": "",
+  "wow_grund": "",
   "gruendungsjahr": null,
   "gruendung_beleg": "",
   "team_personen": null,
@@ -204,9 +206,11 @@ Feldregeln:
 - "optik": "modern", "veraltet", "baukasten-schlicht" oder "unklar".
 - "inhalt": "duenn", "normal" oder "reich".
 - "staerke": EINE echte, konkrete Stärke, die der Inhaber gern hört und die stimmt (etwa „eigene Seite für Verkäufer mit Ablauf in sechs Schritten", „ihr zeigt euch mit Foto und Namen", „Kundenstimmen direkt auf der Startseite"). Nie Slogans, Überschriften, Eigenlob-Zahlen. Gibt es ehrlich nichts: leer lassen.
-- "elefant_typ": genau einer von (**nie leer, nie „keiner"** — auch eine starke Seite hat einen größten Hebel; dann ist er eben kleiner und wird freundlicher formuliert) "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "bewertung-ohne-ergebnis", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "feinschliff" (Seite stark — der größte verbleibende Hebel, etwa kein Sofort-Wert, keine Stimmen auf der Startseite, Eigentümer-Seite versteckt).
+- "elefant_typ": genau einer von (**nie leer, nie „keiner"** — auch eine starke Seite hat einen größten Hebel; dann ist er eben kleiner und wird freundlicher formuliert) "optik-veraltet" (Seite wirkt alt/amateurhaft — sticht alles andere), "kaum-inhalt" (Seite sagt fast nichts), "kein-vertrauen" (NUR wenn Menschen, Kundenstimmen UND Referenzen alle drei fehlen — fehlende Kundenstimmen allein sind fast überall so und nie der Elefant), "zielgruppe-verfehlt" (spricht die Leute, die anfragen sollen, nicht an), "kein-eigentuemer-weg", "anfrage-weg-schwach" (Kontakt versteckt, kein klarer nächster Schritt), "feinschliff" (Seite stark — der größte verbleibende Hebel, etwa keine Stimmen auf der Startseite, Eigentümer-Seite versteckt). **Nie der Wertrechner/das Bewertungstool** (Kevin, 23.09.2026): Ein Tool im Menü oder eines, das am Ende eine E-Mail verlangt, ist in Ordnung — *„würde ich vielleicht sogar genauso anbieten"*. „Bewertung nur per Formular" ist nie der Elefant.
 - "elefant": ein bis zwei Sätze: was das ist und warum es ANFRAGEN kostet. Konkret an dieser Seite, in Geld-/Anfragen-Logik, nicht in Technik. **Nie** Code, Quelltext, Ladezeiten, Meta-Tags, Tippfehler, Copyright-Jahre oder Barrierefreiheit — das macht niemanden zum Kunden.
 - "website_stufe": genau einer von "schwach" (wirkt veraltet, alt, amateurhaft oder leer), "solide" (zeitgemäß und ordentlich, aber Standard) oder "stark" (so gut, dass eine Agentur sie kaum besser bauen könnte: eigene Wege für Eigentümer/Verkäufer UND weitere Zielgruppen wie Bauträger, Käufer oder Tippgeber, ein Bewertungstool, viele Unterseiten, eigene Fotos, Vertrauen sichtbar). "stark" ist selten — im Zweifel "solide".
+- "wow_potenzial": Könnte eine gute Agentur hier eine Seite bauen, bei der der Inhaber beim Vorher-Nachher-Vergleich sofort „wow" sagt? "ja" (deutlich sichtbar besser möglich: alt, amateurhaft, leer, Stock-Bilder, kein Vertrauen, kein Weg für die Zielgruppe), "knapp" (ordentlich, besser ginge nur in Details) oder "nein" (so gut, dass wir sie nicht spürbar besser bauen würden). Kevin, 23.09.2026, zu zwei ordentlichen Seiten: *„Die Seite ist zu gut, eine Analyse wird dann nicht so viel bringen."* Streng urteilen: Ein Wertrechner, ein Eigentümer-Bereich, eigene Fotos und ein zeitgemäßes Layout zusammen heißen fast immer "nein".
+- "wow_grund": ein Satz, warum.
 - "gruendungsjahr": Gründungsjahr der Firma als Zahl, NUR wenn es im Text steht („gegründet 2005", „seit 1998", „Gründung 2011"). Sonst null. Nie aus dem Copyright schätzen.
 - "gruendung_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen), in der das Jahr steht. Ohne Beleg bleibt das Jahr leer — wird maschinell geprüft.
 - "team_personen": Wie viele Personen zeigt die Team-/Über-uns-Seite (oder die Startseite) mit Namen oder Foto? Zahl, nur gezählt, nicht geschätzt. Keine Personen erkennbar: null.
@@ -583,6 +587,12 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       stationen,
       groesse,
       website_stufe: stufe,
+      /**
+       * Wow-Potenzial (23.09.2026): Kann Kevin eine sichtbar bessere Seite
+       * bauen? Ohne „ja" gibt es keine Analyse (`ansatzFuer`).
+       */
+      wow_potenzial: ['ja', 'knapp', 'nein'].includes(b.json.wow_potenzial) ? b.json.wow_potenzial : 'unklar',
+      wow_grund: String(b.json.wow_grund ?? '').slice(0, 200),
       ...werbung,
       mangel,
       befund: String(b.json.befund ?? ''),

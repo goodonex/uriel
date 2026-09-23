@@ -30,6 +30,8 @@
  * lässt sich hier nicht importieren; `scripts/verify-erstnachrichten-cta.ts`
  * hält beide zusammen).
  */
+import { QUELLE_PRAEFIX, istVeraltet } from '../regeln/fassung.mjs'
+
 export const ANALYSE_CTA = 'Hast du was dagegen, wenn ich sie dir einmal rüberschicke?'
 
 /**
@@ -41,8 +43,11 @@ export const ANALYSE_CTA = 'Hast du was dagegen, wenn ich sie dir einmal rübers
  * sie wieder, was für den Analyse-CTA galt: Variiert er, misst die Antwortquote
  * ihn mit.
  *
- * `mandate` kommt bewusst ohne „eure"/„deine" aus, damit ein Satz für geduzte
- * Einzelmakler und gesiezte Firmen gleichermaßen passt.
+ * **Die Mandate-Frage ist raus** (23.09.2026, Regelwerk
+ * `runner/regeln/erstnachrichten/schreiben.md`): Kevin hatte sie am 17.09.
+ * abgeschafft (*„bekommen die bestimmt von jedem"*), der Code hängte sie als
+ * Ersatz trotzdem weiter an. An ihre Stelle rückt die Hauptfokus-Frage, die
+ * Kevin am 22.09. für Leute mit Nebenfirma gelobt hat.
  */
 export const CTA_KATALOG = Object.freeze({
   analyse: ANALYSE_CTA,
@@ -52,8 +57,10 @@ export const CTA_KATALOG = Object.freeze({
   seiteTot: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?',
   /** Ohne Seite ist ein Video sinnlos — der nächste Schritt ist ein Gespräch. */
   telefon: 'Hast du was dagegen, wenn wir zehn Minuten telefonieren?',
-  /** Bewusst noch kein Angebot: erst verstehen, wie die Mandate reinkommen. */
-  mandate: 'Wie kommen die Mandate aktuell rein?',
+  /** Nicht Entscheider, aber eigene Firma nebenher — Rapport statt Analyse (22.09.2026). */
+  hauptfokus: 'Wo liegt bei dir gerade der Hauptfokus?',
+  /** Frisch gegründet, keine Seite gefunden — erst Rapport (22.09.2026). */
+  inPlanung: 'Ist die noch in Planung, oder hab ich sie übersehen?',
 })
 
 /**
@@ -81,7 +88,8 @@ export const ALTE_GF_FRAGE = 'Kümmerst du dich bei euch um Website und Marketin
  * `ALTE_GF_FRAGE`). Wer als Angestellter überhaupt noch geschrieben wird, hat
  * eine eigene Firma nebenher oder verantwortet im Konzern das Marketing — dem
  * stellt man keine Zuständigkeitsfrage. Endet der Rest nicht auf eine Frage,
- * kommt die neutrale Mandats-Frage aus dem Katalog dran.
+ * kommt die Hauptfokus-Frage aus dem Katalog dran (seit 23.09. statt der
+ * abgeschafften Mandats-Frage).
  */
 export function ohneAnalyseFuerAngestellte(text) {
   const absaetze = String(text ?? '').split(/\n\s*\n/)
@@ -89,14 +97,14 @@ export function ohneAnalyseFuerAngestellte(text) {
     (a) => !/analyse/i.test(a) && a.trim() !== ANALYSE_CTA && a.trim() !== ALTE_GF_FRAGE && !Object.values(CTA_KATALOG).includes(a.trim()),
   )
   const letzter = String(rest[rest.length - 1] ?? '').trimEnd()
-  return (letzter.endsWith('?') ? rest : [...rest, CTA_KATALOG.mandate]).join('\n\n')
+  return (letzter.endsWith('?') ? rest : [...rest, CTA_KATALOG.hauptfokus]).join('\n\n')
 }
 
 /**
  * Die abgeschaffte GF-Frage aus JEDEM Entwurf nehmen (22.09.2026) — auch bei
  * Inhabern: Dort ist sie genau die Peinlichkeit, die Kevin gefunden hat.
- * Was davor steht, bleibt; fehlt danach die Schlussfrage, kommt die neutrale
- * Mandats-Frage dran.
+ * Was davor steht, bleibt; fehlt danach die Schlussfrage, kommt die
+ * Hauptfokus-Frage dran.
  *
  * @returns {{ text: string, korrigiert: boolean }}
  */
@@ -104,7 +112,7 @@ export function ohneAlteGfFrage(text) {
   const roh = String(text ?? '')
   if (!roh.includes(ALTE_GF_FRAGE)) return { text: roh, korrigiert: false }
   const rest = roh.replace(ALTE_GF_FRAGE, '').replace(/\n{3,}/g, '\n\n').trimEnd()
-  return { text: rest.endsWith('?') ? rest : `${rest}\n\n${CTA_KATALOG.mandate}`.trimStart(), korrigiert: true }
+  return { text: rest.endsWith('?') ? rest : `${rest}\n\n${CTA_KATALOG.hauptfokus}`.trimStart(), korrigiert: true }
 }
 
 /** Endet der Text auf einen der erlaubten CTAs? */
@@ -258,6 +266,11 @@ export function parseErstnachrichtenRoh(content) {
  * und prüft VORHER, ob die Person schon eine Zeile hat: Kevins `status` und
  * `sent_at` dürfen unter keinen Umständen überschrieben werden — genau das war
  * der Fehler vom 14.08., als Roland Wettstein als frischer Lead wieder auftauchte.
+ *
+ * **Eine Ausnahme seit 23.09.2026: veraltete offene Texte.** Trägt eine offene
+ * Zeile eine ältere Regel-Fassung (`runner/regeln/fassung.mjs`), hat die Runde
+ * sie absichtlich neu geschrieben — dann wird genau diese Zeile ersetzt.
+ * Gesendete und von Hand angelegte Zeilen bleiben weiter unberührt.
  */
 export async function schreibeErstnachrichten({
   supabaseUrl,
@@ -266,35 +279,49 @@ export async function schreibeErstnachrichten({
   nachrichten,
   uebersprungen,
   gruppe = 'Von Uriel vorbereitet',
+  quelle = QUELLE_PRAEFIX,
 }) {
   const at = new Date().toISOString()
   let geschrieben = 0
   let uebersprungenGeschrieben = 0
   let schonDa = 0
+  let ersetzt = 0
 
-  /** Wer schon eine Zeile hat — egal in welchem Status —, wird nicht angefasst. */
-  const vorhanden = new Set()
+  /** Wer schon eine Zeile hat — egal in welchem Status —, wird nicht angefasst (außer veraltet, s. o.). */
+  const vorhanden = new Map()
   for (let off = 0; off < 20_000; off += 1000) {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/linkedin_erstnachrichten?brand_id=eq.${brandId}&select=name&limit=1000&offset=${off}`,
+      `${supabaseUrl}/rest/v1/linkedin_erstnachrichten?brand_id=eq.${brandId}&select=id,name,status,quelle_datei&limit=1000&offset=${off}`,
       { headers },
     )
     if (!res.ok) break
     const zeilen = await res.json()
-    for (const z of zeilen) vorhanden.add(String(z.name ?? '').trim().toLowerCase())
+    for (const z of zeilen) vorhanden.set(String(z.name ?? '').trim().toLowerCase(), z)
     if (zeilen.length < 1000) break
   }
 
   const neu = []
+  const ersetzen = []
   let sortIndex = Date.now() % 100_000
 
-  for (const n of nachrichten) {
-    if (vorhanden.has(n.name.toLowerCase())) {
-      schonDa++
-      continue
+  /** Veraltete offene Zeile → ersetzen; sonst neu, wenn es keine gibt. @returns {boolean} ob geschrieben wird */
+  const einreihen = (name, zeile) => {
+    const alt = vorhanden.get(name.toLowerCase())
+    if (alt && istVeraltet(alt, quelle)) {
+      const { brand_id: _b, gruppe: _g, name: _n, sort_index: _s, ...felder } = zeile
+      ersetzen.push({ id: alt.id, felder })
+      vorhanden.set(name.toLowerCase(), { ...alt, quelle_datei: quelle, status: zeile.status })
+      ersetzt++
+      return true
     }
-    vorhanden.add(n.name.toLowerCase())
-    neu.push({
+    if (alt) return false
+    vorhanden.set(name.toLowerCase(), { status: zeile.status, quelle_datei: quelle })
+    neu.push(zeile)
+    return true
+  }
+
+  for (const n of nachrichten) {
+    const zeile = {
       brand_id: brandId,
       gruppe,
       name: n.name,
@@ -305,19 +332,19 @@ export async function schreibeErstnachrichten({
       nachricht: n.nachricht,
       sort_index: sortIndex++,
       status: 'offen',
-      quelle_datei: 'agent:linkedin-erstnachrichten',
+      quelle_datei: quelle,
       last_synced_at: at,
-    })
-    geschrieben++
+    }
+    if (einreihen(n.name, zeile)) geschrieben++
+    else schonDa++
   }
 
   for (const u of uebersprungen) {
-    if (!u.name || vorhanden.has(u.name.toLowerCase())) {
+    if (!u.name) {
       schonDa++
       continue
     }
-    vorhanden.add(u.name.toLowerCase())
-    neu.push({
+    const zeile = {
       brand_id: brandId,
       gruppe,
       name: u.name,
@@ -330,10 +357,21 @@ export async function schreibeErstnachrichten({
       nachricht: /^\[/.test(String(u.grund ?? '')) ? u.grund : `[übersprungen] ${u.grund}`,
       sort_index: sortIndex++,
       status: 'uebersprungen',
-      quelle_datei: 'agent:linkedin-erstnachrichten',
+      quelle_datei: quelle,
       last_synced_at: at,
+    }
+    if (einreihen(u.name, zeile)) uebersprungenGeschrieben++
+    else schonDa++
+  }
+
+  for (const { id, felder } of ersetzen) {
+    // `status=eq.offen` als zweite Sicherung: Hat Kevin den Text inzwischen gesendet, bleibt er.
+    const res = await fetch(`${supabaseUrl}/rest/v1/linkedin_erstnachrichten?id=eq.${id}&status=eq.offen`, {
+      method: 'PATCH',
+      headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify(felder),
     })
-    uebersprungenGeschrieben++
+    if (!res.ok) throw new Error(`Erstnachrichten-PATCH HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`)
   }
 
   if (neu.length) {
@@ -350,7 +388,7 @@ export async function schreibeErstnachrichten({
     }
   }
 
-  return { geschrieben, uebersprungen: uebersprungenGeschrieben, schonDa }
+  return { geschrieben, uebersprungen: uebersprungenGeschrieben, schonDa, ersetzt }
 }
 
 /**

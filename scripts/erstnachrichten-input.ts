@@ -24,6 +24,8 @@
 import { readFileSync } from 'node:fs'
 import { ERSTNACHRICHT_STICHTAG, angenommenOhneErstnachricht, nachStichtag } from '../app/src/cockpit/lib/funnelStufen'
 import { icpUrteil, istArbeitsVorrat } from '../app/src/cockpit/lib/icp'
+// @ts-expect-error — .mjs ohne Typen, dieselbe Fassung wie im Runner
+import { istVeraltet, regelwerk } from '../runner/regeln/fassung.mjs'
 
 /**
  * Wie viele Leads ein Lauf höchstens bearbeitet.
@@ -80,7 +82,7 @@ async function main() {
       `linkedin_netzwerk?brand_id=eq.${bid}&select=name,profil_key,profile_url,status,headline,angenommen_at&order=profil_key`,
     ),
     alle<any>(`linkedin_threads?brand_id=eq.${bid}&select=name,profile_url&order=id`),
-    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status&order=id`),
+    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei&order=id`),
   ])
 
   /**
@@ -94,7 +96,19 @@ async function main() {
    * das Schreiben waren bezahlt und für die Tonne. Bei Kevins Tagesziel von 50
    * wäre das die halbe Arbeit.
    */
-  const schonImTopf = new Set(erst.map((e: { name: string }) => String(e.name).trim().toLowerCase()))
+  /**
+   * **Ausnahme: offen und mit einer älteren Regel-Fassung geschrieben**
+   * (23.09.2026, `runner/regeln/fassung.mjs`). Die gehören wieder in den
+   * Vorrat — und zwar nach vorn: Kevin will, dass eine Regeländerung für
+   * alles gilt, was noch nicht rausgegangen ist.
+   */
+  const { quelle } = regelwerk()
+  const veraltet = new Set(
+    erst.filter((e: any) => istVeraltet(e, quelle)).map((e: { name: string }) => String(e.name).trim().toLowerCase()),
+  )
+  const schonImTopf = new Set(
+    erst.map((e: { name: string }) => String(e.name).trim().toLowerCase()).filter((n: string) => !veraltet.has(n)),
+  )
   const wartend = angenommenOhneErstnachricht(netzwerk, threads, erst, new Date()).filter(
     (p) => !schonImTopf.has(p.name.trim().toLowerCase()),
   )
@@ -127,6 +141,9 @@ async function main() {
    */
   const rang = { kern: 0, rand: 1, unklar: 2, off: 3 } as const
   const sortiert = [...vorrat].sort((a, b) => {
+    const va = veraltet.has(a.name.trim().toLowerCase()) ? 0 : 1
+    const vb = veraltet.has(b.name.trim().toLowerCase()) ? 0 : 1
+    if (va !== vb) return va - vb
     const ra = rang[icpUrteil(a.info ?? '', a.name).urteil] ?? 9
     const rb = rang[icpUrteil(b.info ?? '', b.name).urteil] ?? 9
     if (ra !== rb) return ra - rb

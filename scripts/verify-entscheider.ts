@@ -174,7 +174,7 @@ check('Namensschlüssel ohne Titel/Zusatz', namensSchluessel('Dr. Jan Pägel, MR
 /* ── Die abgeschaffte GF-Frage ─────────────────────────────────────────── */
 check('GF-Frage steht nicht mehr im CTA-Katalog', !Object.values(CTA_KATALOG).includes(ALTE_GF_FRAGE))
 const alt = ohneAlteGfFrage(`Moin Jan,\n\neure Seite ist stark.\n\n${ALTE_GF_FRAGE}`)
-check('GF-Frage wird aus Entwürfen entfernt, Mandats-Frage rückt nach', alt.korrigiert && !alt.text.includes('Geschäftsführung') && alt.text.endsWith(CTA_KATALOG.mandate), alt.text)
+check('GF-Frage wird aus Entwürfen entfernt, Hauptfokus-Frage rückt nach', alt.korrigiert && !alt.text.includes('Geschäftsführung') && alt.text.endsWith(CTA_KATALOG.hauptfokus), alt.text)
 const ang = ohneAnalyseFuerAngestellte('Moin Philipp,\n\nMakler bei Maus, dazu CheckOut. Wo liegt bei dir gerade der Hauptfokus?\n\nIch hab dir eine Analyse gemacht. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?')
 check('Angestellte: Analyse raus, eigene Schlussfrage bleibt, keine GF-Frage', !/analyse|Geschäftsführung/i.test(ang) && ang.endsWith('Hauptfokus?'), ang)
 

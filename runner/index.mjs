@@ -22,6 +22,8 @@ import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
+import { ansatzFuer, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
+import { regelwerk } from './regeln/fassung.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { speichereProfile } from './linkedin/leadProfil.mjs'
 import { dataforseoZugang } from './linkedin/googleAds.mjs'
@@ -332,6 +334,9 @@ const AGENT_CATALOG = [
     modell: 'claude-opus-5',
     effort: 'high',
     tools: 'Read,Glob,Grep',
+    // Das Regelwerk kommt aus dem Code, nicht mehr aus dem Vault-Skill (23.09.2026) —
+    // der Vault kam auf dem Mini nicht an. Siehe `runner/regeln/fassung.mjs`.
+    regelwerk: true,
     // Gemessen am 07.09.: $0,82 für drei Leads, der Sockel verteilt sich bei
     // dreizehn besser. Vier Dollar lassen den vollen Batch durch und fangen
     // trotzdem den Lauf, der sich verrannt hat.
@@ -605,7 +610,8 @@ function agentConfig(agent, input = null) {
   // sind je Agent optional — ohne Angabe bleibt es beim CLI-Standard.
   return {
     cwd: VAULT,
-    buildPrompt: (inputBlock) => `/${agent}${inputBlock}`,
+    // Mit Regelwerk: der Text aus `runner/regeln/`, frisch von der Platte gelesen — kein Slash-Command.
+    buildPrompt: (inputBlock) => (a.regelwerk ? `${regelwerk().schreiben}\n\n---\n${inputBlock}` : `/${agent}${inputBlock}`),
     extraArgs: [
       ...(a.modell ? ['--model', a.modell] : []),
       ...(a.effort ? ['--effort', a.effort] : []),
@@ -884,23 +890,74 @@ async function erstnachrichtenInput(limit = 12) {
  */
 /** Namen, die die Recherche als angestellt erkannt hat — gesetzt vor dem Schreiblauf. */
 const angestellteVorgemerkt = new Set()
+/** Die Leads des laufenden Batches samt Recherche und Ansatz — für den Prüfer (23.09.2026). */
+const erstnachrichtLeadsVorgemerkt = new Map()
 
 async function erstnachrichtenAnListe(runId, markdown) {
   if (!SNAPSHOT_ENABLED) return
   try {
-    const { nachrichten: roh, uebersprungen } = parseErstnachrichtenRoh(markdown)
-    const nachrichten = roh.map((n) => {
-      const ohneGf = ohneAlteGfFrage(n.nachricht)
-      if (ohneGf.korrigiert) console.log(`[runner] Erstnachrichten: ${n.name} — abgeschaffte GF-Frage entfernt`)
-      const m = { ...n, nachricht: ohneGf.text }
-      if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(m.nachricht)) return m
-      console.log(`[runner] Erstnachrichten: ${n.name} ist angestellt — Analyse-Angebot entfernt`)
-      return { ...m, nachricht: ohneAnalyseFuerAngestellte(m.nachricht) }
-    })
-    if (!nachrichten.length && !uebersprungen.length) {
+    const { quelle, fassung } = regelwerk()
+    /** Die festen Wachen im Code — nach jedem Schreiblauf, auch nach dem zweiten Versuch. */
+    const nachbearbeiten = (liste) =>
+      liste.map((n) => {
+        const ohneGf = ohneAlteGfFrage(n.nachricht)
+        if (ohneGf.korrigiert) console.log(`[runner] Erstnachrichten: ${n.name} — abgeschaffte GF-Frage entfernt`)
+        const m = { ...n, nachricht: ohneGf.text }
+        if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(m.nachricht)) return m
+        console.log(`[runner] Erstnachrichten: ${n.name} ist angestellt — Analyse-Angebot entfernt`)
+        return { ...m, nachricht: ohneAnalyseFuerAngestellte(m.nachricht) }
+      })
+    const { nachrichten: roh, uebersprungen: schreiberRaus } = parseErstnachrichtenRoh(markdown)
+    const erster = nachbearbeiten(roh)
+    if (!erster.length && !schreiberRaus.length) {
       console.warn(`[runner] ${runId}: kein verwertbarer json-Block — keine Erstnachrichten angelegt`)
       return
     }
+
+    /**
+     * Der Prüfer vor Kevins Liste (23.09.2026, `erstnachrichtenAblauf.mjs`).
+     * Durchgefallene werden einmal mit dem Hinweis neu geschrieben und erneut
+     * geprüft. Fällt der Prüfer selbst aus, wird NICHTS geschrieben — die
+     * Leads bleiben im Vorrat, statt ungeprüft in der Liste zu landen.
+     */
+    const lauf = { cliPath: CLI_PATH, cwd: VAULT }
+    const ok = []
+    const raus = [...schreiberRaus]
+    let kosten = 0
+    const p1 = await pruefeEntwuerfe(erster, erstnachrichtLeadsVorgemerkt, lauf)
+    kosten += p1.kosten
+    if (!p1.urteile) {
+      console.error(`[runner] Erstnachrichten: Prüfer ohne Ergebnis — ${erster.length} Texte bleiben ungeschrieben im Vorrat`)
+      return
+    }
+    const nochmal = []
+    for (const n of erster) {
+      const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
+      if (u.urteil === 'ok') ok.push(n)
+      else if (u.urteil === 'zurueck') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
+      else {
+        const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
+        if (lead) nochmal.push({ ...lead, hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
+        else raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
+      }
+    }
+    if (nochmal.length) {
+      const zweit = await schreibeNeu(nochmal, lauf)
+      kosten += zweit.kosten
+      raus.push(...zweit.uebersprungen)
+      const zweiter = nachbearbeiten(zweit.nachrichten)
+      const p2 = await pruefeEntwuerfe(zweiter, erstnachrichtLeadsVorgemerkt, lauf)
+      kosten += p2.kosten
+      const bekommen = new Set([...zweiter.map((n) => String(n.name).toLowerCase()), ...zweit.uebersprungen.map((u) => String(u.name).toLowerCase())])
+      for (const n of zweiter) {
+        const u = p2.urteile?.get(String(n.name).toLowerCase())
+        if (u?.urteil === 'ok') ok.push(n)
+        else raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer, zweiter Versuch: ${u?.hinweis || 'ohne Urteil'}` })
+      }
+      // Wen der zweite Versuch gar nicht zurückgab, bleibt ohne Zeile im Vorrat.
+      for (const l of nochmal) if (!bekommen.has(String(l.name).toLowerCase())) console.warn(`[runner] Erstnachrichten: ${l.name} — zweiter Versuch ohne Text, bleibt im Vorrat`)
+    }
+
     const brandSlug = process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann'
     const br = await fetch(
       `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(brandSlug)}&select=id&limit=1`,
@@ -912,13 +969,16 @@ async function erstnachrichtenAnListe(runId, markdown) {
       supabaseUrl: SUPABASE_URL,
       headers: supabaseHeaders(),
       brandId: brand.id,
-      nachrichten,
-      uebersprungen,
+      nachrichten: ok,
+      uebersprungen: raus,
+      quelle,
     })
     console.log(
-      `[runner] Erstnachrichten: ${r.geschrieben} Texte angelegt` +
-        (r.uebersprungen ? ` · ${r.uebersprungen} aussortiert` : '') +
-        (r.schonDa ? ` · ${r.schonDa} hatten schon eine Zeile` : ''),
+      `[runner] Erstnachrichten (Regeln ${fassung}): ${r.geschrieben} Texte durch den Prüfer` +
+        (r.ersetzt ? ` · ${r.ersetzt} veraltete ersetzt` : '') +
+        (r.uebersprungen ? ` · ${r.uebersprungen} zurückgestellt/aussortiert` : '') +
+        (r.schonDa ? ` · ${r.schonDa} hatten schon eine Zeile` : '') +
+        ` · Prüfer $${kosten.toFixed(2)}`,
     )
   } catch (e) {
     console.error('[runner] Erstnachrichten konnten nicht angelegt werden:', e?.message ?? e)
@@ -4537,7 +4597,7 @@ const ETAPPEN_ARBEIT = {
           )
           const [brand] = br.ok ? await br.json() : []
           if (brand?.id) {
-            await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: gesperrt })
+            await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: gesperrt, quelle: regelwerk().quelle })
           }
           console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${gesperrt.length} ohne Text — ` + gesperrt.map((g) => `${g.name} (${g.grund.slice(0, 60)})`).join('; '))
         } catch (e) {
@@ -4562,7 +4622,7 @@ const ETAPPEN_ARBEIT = {
           if (brand?.id) {
             const e = await entscheiderZuerst(leads, { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id })
             if (e.zurueck.length) {
-              await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: e.zurueck })
+              await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: e.zurueck, quelle: regelwerk().quelle })
             }
             if (e.angelegt || e.zurueck.length) {
               console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${e.angelegt} GF auf die Anfrageliste, ${e.zurueck.length} Angestellte zurückgestellt`)
@@ -4573,8 +4633,43 @@ const ETAPPEN_ARBEIT = {
           console.error('[runner] Entscheider zuerst übersprungen:', e?.message ?? e)
         }
       }
+      /**
+       * Der Ansatz, bevor geschrieben wird (23.09.2026, `ansatzFuer`): Der Code
+       * entscheidet, welche Art Nachricht jemand bekommt — und wer gar keine.
+       * Starke Seiten ohne Wow-Potenzial warten auf einen eigenen Ansatz
+       * (Kevin: *„Die Seite ist zu gut, eine Analyse wird dann nicht so viel
+       * bringen"*), statt mit einer Kritik am Wertrechner angeschrieben zu werden.
+       */
+      const zurueckAnsatz = []
+      leads = leads
+        .map((l) => {
+          const a = ansatzFuer(l)
+          if ('zurueck' in a) {
+            zurueckAnsatz.push({ profil_key: l.profil_key, name: l.name, firma: l.recherche?.firma ?? '', website: l.recherche?.website ?? '', grund: a.zurueck })
+            return null
+          }
+          return { ...l, ansatz: a.ansatz }
+        })
+        .filter(Boolean)
+      if (zurueckAnsatz.length && SNAPSHOT_ENABLED) {
+        try {
+          const br = await fetch(
+            `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+            { headers: supabaseHeaders() },
+          )
+          const [brand] = br.ok ? await br.json() : []
+          if (brand?.id) {
+            await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: zurueckAnsatz, quelle: regelwerk().quelle })
+          }
+          console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${zurueckAnsatz.length} ohne Text (Ansatz) — ` + zurueckAnsatz.map((z) => `${z.name} (${z.grund.slice(0, 50)})`).join('; '))
+        } catch (e) {
+          console.error('[runner] Ansatz-Zurückstellung nicht gespeichert:', e?.message ?? e)
+        }
+      }
+      erstnachrichtLeadsVorgemerkt.clear()
       for (const l of leads) {
         if (l.recherche?.rolle === 'angestellt') angestellteVorgemerkt.add(String(l.name).toLowerCase())
+        erstnachrichtLeadsVorgemerkt.set(String(l.name).toLowerCase(), l)
       }
       if (leads.length) {
         // Profil und Klasse bleiben draußen: Der Schreib-Agent braucht sie nicht, und jede Zeile im Input kostet je Lead.

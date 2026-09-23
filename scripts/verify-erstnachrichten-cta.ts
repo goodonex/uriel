@@ -38,8 +38,10 @@ check('der CTA ist eine Frage', RUNNER_CTA.trimEnd().endsWith('?'), RUNNER_CTA)
 
 // Die Skills schreiben den Satz, der Code erzwingt ihn — laufen sie
 // auseinander, produziert der Agent brav den falschen Wortlaut.
+// Seit 23.09.2026 schreibt der Agent nach dem Regelwerk im Code, nicht mehr nach dem Vault-Skill.
+const REGELWERK = fileURLToPath(new URL('../runner/regeln/erstnachrichten/schreiben.md', import.meta.url))
 for (const skill of [
-  join(process.env.HOME!, 'Second Brain/.claude/skills/linkedin-erstnachrichten/SKILL.md'),
+  REGELWERK,
   join(process.env.HOME!, '.claude/skills/herrmann-outreach/SKILL.md'),
   join(process.env.HOME!, '.claude/skills/linkedin-leads/SKILL.md'),
 ]) {
@@ -54,7 +56,7 @@ for (const skill of [
   // Die Nicht-Analyse-Typen stehen nur im Skill — der Runner warnt dort bloß.
   // Läuft der Katalog auseinander, schreibt der Agent brav einen Satz, den die
   // Wache anschließend als unbekannt meldet.
-  if (skill.includes('herrmann-outreach') || skill.includes('linkedin-erstnachrichten')) {
+  if (skill === REGELWERK) {
     for (const [typ, satz] of Object.entries(CTA_KATALOG)) {
       check(`${skill.split('/').slice(-2)[0]} kennt den CTA „${typ}"`, text.includes(satz), satz)
     }
@@ -156,9 +158,8 @@ function ANALYSE_CTA_ERWARTET() {
     check(`„${typ}" endet auf ein Fragezeichen`, satz.trimEnd().endsWith('?'), satz)
     check(`„${typ}" bittet nicht um Erlaubnis`, !/^(darf|soll|kann) ich/i.test(satz), satz)
   }
-  // `mandate` muss ohne Possessivpronomen auskommen, damit ein Satz für
-  // geduzte Einzelmakler und für Firmen gleichermaßen passt.
-  check('der Mandate-CTA legt sich nicht auf du/ihr fest', !/\b(deine|eure|Ihre)\b/i.test(CTA_KATALOG.mandate), CTA_KATALOG.mandate)
+  // Kevin am 17.09.: „bekommen die bestimmt von jedem" — der Code hängte sie trotzdem bis 23.09. an.
+  check('die abgeschaffte Mandate-Frage steht nicht mehr im Katalog (23.09.2026)', !Object.values(CTA_KATALOG).some((c) => /mandate/i.test(c)))
 
   check('hatFestenCta erkennt jeden Katalog-Satz', werte.every((c) => hatFestenCta(`Moin Jan,\n\nIrgendein Befund. ${c}`)))
   check('hatFestenCta lehnt einen freien Schlusssatz ab', !hatFestenCta('Moin Jan,\n\nMelde dich gerne mal.'))

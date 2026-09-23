@@ -196,12 +196,29 @@ export async function rendereSeite(browser, url, { ordner, kuerzel }) {
     const status = antwort?.status() ?? 0
     if (status >= 400) return { url, erreichbar: 'offline', grund: `HTTP ${status}` }
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
-    // Cookie-Banner verdecken sonst den halben Screenshot — ablehnen, wenn der Knopf eindeutig ist.
-    await page
-      .getByRole('button', { name: /^(ablehnen|alle ablehnen|nur notwendige|nur essenzielle|decline|reject all)$/i })
-      .first()
-      .click({ timeout: 1500 })
-      .catch(() => {})
+    /**
+     * Cookie-Banner: ZUSTIMMEN, nicht ablehnen (23.09.2026).
+     *
+     * Bis heute lehnte der Prüf-Browser ab. Wertrechner und eingebettete
+     * Tools laden aber oft erst nach der Zustimmung — der Browser sah bei
+     * meissler-co.de und amoreal.de nur eine Überschrift und ein Formular, und
+     * Purschke bekam einen „leeren" Wertrechner vorgehalten. Kevin: *„Müll,
+     * weil es einfach nicht stimmt … das ist ein ordentliches Tool."* Ein
+     * Eigentümer, der die Seite besucht, stimmt fast immer zu — so soll sie
+     * auch geprüft werden.
+     */
+    const zustimmen = /^(alle akzeptieren|akzeptieren|alle cookies akzeptieren|alle zulassen|zulassen|zustimmen|allen zustimmen|einverstanden|ich stimme zu|verstanden|ok|accept|accept all|allow all|agree)$/i
+    let zugestimmt = false
+    for (const rahmen of [page, ...page.frames().filter((f) => f !== page.mainFrame())]) {
+      if (zugestimmt) break
+      zugestimmt = await rahmen
+        .getByRole('button', { name: zustimmen })
+        .first()
+        .click({ timeout: 1500 })
+        .then(() => true)
+        .catch(() => false)
+    }
+    if (zugestimmt) await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {})
     await durchscrollen(page)
     /**
      * Scroll-Einblendungen sichtbar machen, bevor fotografiert wird (16.09.):
