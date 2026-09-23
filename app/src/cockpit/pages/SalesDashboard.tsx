@@ -33,6 +33,7 @@ import { bereiteDatenVor, salesSerie, type SalesStreak } from '../lib/salesStrea
 import {
   ANTWORT_FRISCHE_STUNDEN,
   ERSTNACHRICHTEN_LIMIT_TAG,
+  ERSTNACHRICHTEN_RUNDE,
   TAGES_FLOW,
   ersteOffeneStufe,
   flowFortschritt,
@@ -908,13 +909,20 @@ export function SalesDashboard() {
   /**
    * Der Tagesdeckel auf der Liste selbst (21.09.2026): Es liegen oft mehr Texte
    * bereit als rausdürfen („da steht jetzt gerade 98"). Heute zeigt die Zeile
-   * nur so viele, wie bis 50 noch fehlen — der Rest bleibt für morgen liegen.
-   * Der Bestand im Canvas zeigt weiter alle.
+   * nur so viele, wie bis zum Tages-Soll noch fehlen — der Rest bleibt für
+   * morgen liegen. Der Bestand im Canvas zeigt weiter alle.
+   *
+   * Seit 23.09.2026 das Soll der Stufe (die Runde von 30), nicht mehr der
+   * Account-Deckel von 50 — Kevin sah „0 von 50", obwohl er 30 eingestellt hatte.
    */
   const erstnachrichtenGesendet = erstnachrichtStand?.wert ?? 0
+  const erstnachrichtenTagesSoll = Math.min(
+    ERSTNACHRICHTEN_LIMIT_TAG,
+    erstnachrichtStand?.soll || ERSTNACHRICHTEN_RUNDE,
+  )
   const erstnachrichtHeute = useMemo(
-    () => erstnachrichtListe.slice(0, Math.max(0, ERSTNACHRICHTEN_LIMIT_TAG - erstnachrichtenGesendet)),
-    [erstnachrichtListe, erstnachrichtenGesendet],
+    () => erstnachrichtListe.slice(0, Math.max(0, erstnachrichtenTagesSoll - erstnachrichtenGesendet)),
+    [erstnachrichtListe, erstnachrichtenGesendet, erstnachrichtenTagesSoll],
   )
   const erstnachrichtMorgen = erstnachrichtListe.length - erstnachrichtHeute.length
 
@@ -1024,7 +1032,7 @@ export function SalesDashboard() {
           unterzeile: blockiert
             ? `${wartend.length} warten · kein Text bereit`
             : erstnachrichtMorgen > 0
-              ? `Tageslimit ${ERSTNACHRICHTEN_LIMIT_TAG} · ${erstnachrichtMorgen} weitere Texte liegen für morgen bereit`
+              ? `Tagesziel ${erstnachrichtenTagesSoll} · ${erstnachrichtMorgen} weitere Texte liegen für morgen bereit`
               : wartend.length > 0
                 ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · ${wartend.length} warten insgesamt, der Mini schreibt nach`
                 : (zuerst(erstnachrichtListe) ?? 'Wer angenommen hat, bekommt seine Nachricht.'),
