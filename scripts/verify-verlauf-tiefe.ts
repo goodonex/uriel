@@ -63,6 +63,12 @@ console.log('\nDas Skript darf den syncToken nicht wieder einbauen')
   )
   check('die strenge Kodierung wird benutzt', /strengKodiert/.test(quelle))
   check('eine Pause zwischen den Anfragen', /setTimeout\(r, \d{3,}\)/.test(quelle))
+
+  // 23.09.2026: Der Lauf brach mit Code 1 ab, weil das Sync-Chrome auf dem
+  // Feed stand — 350 von 358 Threads hatten deshalb keinen echten Verlauf.
+  check('die Messaging-Seite wird bevorzugt', /url\.includes\('\/messaging'\)/.test(quelle))
+  check('notfalls wird selbst ins Postfach navigiert', /Page\.navigate/.test(quelle) && /linkedin\.com\/messaging/.test(quelle))
+  check('Rueckfall fuer die mailboxUrn ueber \/voyager\/api\/me', /voyager\/api\/me/.test(quelle))
 }
 
 console.log(`\nverify-verlauf-tiefe: ${pass} ok, ${fail} fehlgeschlagen`)

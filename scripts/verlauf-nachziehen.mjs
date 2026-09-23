@@ -35,7 +35,13 @@ if (!offen.length) process.exit(0)
 
 // --- Chrome-Verbindung ---------------------------------------------------
 const tabs = await (await fetch(`${CDP}/json/list`)).json().catch(() => null) ?? []
-const seite = tabs.find((t) => t.type === 'page' && t.url.includes('linkedin'))
+const seiten = tabs.filter((t) => t.type === 'page' && t.url.includes('linkedin'))
+// Die Messaging-Seite zuerst: `mailboxUrn` wird unten aus IHREN Requests
+// gelesen. Steht das Sync-Chrome auf dem Feed, fand der Lauf nichts und brach
+// mit Code 1 ab - genau daran hingen am 23.09.2026 350 von 358 Threads ohne
+// echten Verlauf. Deshalb wird jetzt notfalls selbst zur Messaging-Seite
+// navigiert, statt aufzugeben.
+const seite = seiten.find((t) => t.url.includes('/messaging')) ?? seiten[0]
 if (!seite) { console.error('Keine LinkedIn-Seite im Sync-Chrome offen. `chrome-sync` starten und linkedin.com/messaging aufrufen.'); process.exit(1) }
 const ws = new WebSocket(seite.webSocketDebuggerUrl)
 await new Promise((r) => (ws.onopen = r))
@@ -46,6 +52,20 @@ const cmd = (method, params = {}) => new Promise((res) => {
   ws.addEventListener('message', h); ws.send(JSON.stringify({ id: k, method, params }))
 })
 
+// --- Notfalls zur Messaging-Seite navigieren -----------------------------
+if (!seite.url.includes('/messaging')) {
+  sag('Sync-Chrome steht nicht im Postfach - navigiere zu linkedin.com/messaging ...')
+  await cmd('Page.navigate', { url: 'https://www.linkedin.com/messaging/' })
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 1000))
+    const da = await cmd('Runtime.evaluate', {
+      expression: `performance.getEntriesByType('resource').some(e => /messengerConversations\\./.test(e.name))`,
+      returnByValue: true,
+    })
+    if (da?.result?.value === true) break
+  }
+}
+
 // --- Im Seitenkontext: Verlaeufe holen -----------------------------------
 // verlaufAusMessages wandert als Quelltext mit, wie in sync.mjs: im Browser
 // gibt es keine Module.
@@ -55,7 +75,22 @@ const ausdruck = `(async () => {
   if (!csrf) return JSON.stringify({ fehler: 'kein JSESSIONID-Cookie' })
   const convUrl = performance.getEntriesByType('resource').map(e => e.name)
     .find(u => /messengerConversations\\./.test(u))
-  const mailbox = decodeURIComponent((convUrl?.match(/mailboxUrn:([^),&]+)/) || [])[1] || '')
+  let mailbox = decodeURIComponent((convUrl?.match(/mailboxUrn:([^),&]+)/) || [])[1] || '')
+  // Rueckfall (23.09.2026): Hat die Seite gerade keine Postfach-Anfrage
+  // gefeuert (frisch geladen, lange offen), steht die eigene Profil-URN auch
+  // in /voyager/api/me - die IST die mailboxUrn.
+  if (!mailbox) {
+    try {
+      const me = await fetch('/voyager/api/me', { credentials: 'include',
+        headers: { 'csrf-token': csrf, accept: 'application/vnd.linkedin.normalized+json+2.1' } })
+      if (me.status === 200) {
+        const mj = await me.json()
+        const urn = (mj.data && (mj.data['*miniProfile'] || mj.data.entityUrn)) || ''
+        const id = String(urn).split(':').pop()
+        if (id) mailbox = 'urn:li:fsd_profile:' + id
+      }
+    } catch (e) {}
+  }
   if (!mailbox) return JSON.stringify({ fehler: 'mailboxUrn nicht ableitbar - Messaging-Seite offen?' })
 
   const gefunden = performance.getEntriesByType('resource').map(e => e.name)
