@@ -19,6 +19,7 @@
 // die echte Adresse noch steht.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { findeLeads } from './leadZuordnung.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -155,20 +156,40 @@ Deno.serve(async (req) => {
     .eq('id', angebot.contact_id)
   if (kontaktFehler) console.error('[angebot] Kontakt nicht auf deal gesetzt:', kontaktFehler.message)
 
-  if (angebot.lead_id) {
+  /**
+   * Der LinkedIn-Lead wird mitgenommen (24.09.2026). Bis heute nur, wenn das
+   * Angebot ihn schon kannte — das kam nie vor, weil das Panel am Kontakt
+   * keinen Lead kennt. Jetzt sucht die Unterschrift ihn selbst, über den
+   * Gesprächsverlauf und notfalls den eindeutigen Namen (leadZuordnung.ts).
+   */
+  let zuordnung = { leadIds: [] as string[], angebotLeadId: null as string | null, weg: null as string | null }
+  try {
+    zuordnung = await findeLeads(db, { brandId: angebot.brand_id, contactId: angebot.contact_id, angebotLeadId: angebot.lead_id })
+  } catch (e) {
+    console.error('[angebot] Lead-Zuordnung gescheitert:', e instanceof Error ? e.message : e)
+  }
+  if (!zuordnung.leadIds.length) console.warn(`[angebot] ${angebot.id}: kein LinkedIn-Lead zum Kontakt gefunden`)
+
+  // Am Angebot festhalten, welcher Lead es war — `lead_id` sperrt der Endstations-Trigger bewusst nicht.
+  if (zuordnung.angebotLeadId && !angebot.lead_id) {
+    const { error } = await db.from('angebote').update({ lead_id: zuordnung.angebotLeadId }).eq('id', angebot.id)
+    if (error) console.error('[angebot] Lead nicht am Angebot gespeichert:', error.message)
+  }
+
+  for (const leadId of zuordnung.leadIds) {
     const { error: leadFehler } = await db
       .from('leads')
       .update({ lead_status: 'kunde', updated_at: jetzt })
-      .eq('id', angebot.lead_id)
+      .eq('id', leadId)
     if (leadFehler) console.error('[angebot] Lead nicht auf kunde gesetzt:', leadFehler.message)
 
     const { error: ereignisFehler } = await db.from('lead_ereignisse').insert({
       brand_id: angebot.brand_id,
-      lead_id: angebot.lead_id,
+      lead_id: leadId,
       typ: 'angebot_signiert',
       at: jetzt,
       quelle: 'ui',
-      details: { angebot_id: angebot.id, betrag: Number(angebot.betrag), name },
+      details: { angebot_id: angebot.id, betrag: Number(angebot.betrag), name, zuordnung: zuordnung.weg },
     })
     if (ereignisFehler) console.error('[angebot] Ereignis nicht geschrieben:', ereignisFehler.message)
   }

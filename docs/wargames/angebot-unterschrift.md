@@ -280,6 +280,11 @@ Zeile, nie aus der Anfrage. *Hält.*
    Kontakt (`pipeline_stage = 'deal'`), nicht den LinkedIn-Lead. Der Weg dorthin
    ist offen und im Code als solcher markiert — er gehört in eine eigene Runde,
    weil er die Verheiratung der beiden Welten braucht, nicht ein weiteres Feld.
+   **Nachgezogen am 24.09.2026:** Die Unterschrift sucht den Lead jetzt selbst
+   (`supabase/functions/angebot/leadZuordnung.ts`) — zuerst über den
+   Gesprächsverlauf, der Kontakt und Lead schon verbindet, bei Firmen auch über
+   ihre Ansprechpartner, notfalls über den eindeutigen Namen. Gefundene Leads
+   werden „Kunde" und bekommen das Ereignis `angebot_signiert`.
 2. **Zwei Design-Tokens im Nachbar-Panel gab es nie.** `RechnungPanel` stylte
    seine Felder mit `--ck-surface-2` und `--ck-line`; beide stehen in keiner
    CSS-Datei, die Felder hatten dadurch weder Fläche noch Rahmen. Mitrepariert,

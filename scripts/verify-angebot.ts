@@ -15,6 +15,8 @@
  * Start: npx tsx scripts/verify-angebot.ts
  */
 import type { Angebot, AngebotStatus } from '../app/src/types/db'
+import { readFileSync } from 'node:fs'
+import { waehleLeads } from '../supabase/functions/angebot/leadZuordnung'
 import {
   ANGEBOT_STATUS_TITEL,
   angebotsSumme,
@@ -130,6 +132,23 @@ function angebot(teil: Partial<Angebot> = {}): Angebot {
     'Eine Summe aus einmalig und monatlich gaebe es in der Wirklichkeit nicht.')
   check('ohne Retainer ist die monatliche Zahl leer, nicht null Euro',
     angebotsSumme(angebot()).monatlich === null)
+}
+
+// Der LinkedIn-Lead zum Kontakt (24.09.2026): Beim Unterschreiben wurde nur der
+// Kontakt „Deal", der Lead lief in der Nachfass-Kadenz weiter.
+{
+  const leer = { angebotLeadId: null, verlaufLeadIds: [] as string[], namensTreffer: [] as string[] }
+  check('ein Lead am Angebot geht vor', waehleLeads({ ...leer, angebotLeadId: 'a', verlaufLeadIds: ['b'] }).leadIds.join() === 'a')
+  const v = waehleLeads({ ...leer, verlaufLeadIds: ['b', 'b'], namensTreffer: ['c'] })
+  check('der Verlauf schlägt den Namen', v.weg === 'verlauf' && v.leadIds.join() === 'b' && v.angebotLeadId === 'b')
+  const firma = waehleLeads({ ...leer, verlaufLeadIds: ['b', 'c'] })
+  check('eine Firma mit zwei Ansprechpartnern: beide Kunde, am Angebot keiner', firma.leadIds.length === 2 && firma.angebotLeadId === null)
+  check('der Name allein reicht, wenn er eindeutig war', waehleLeads({ ...leer, namensTreffer: ['c'] }).angebotLeadId === 'c')
+  check('nichts gefunden heißt: kein Lead wird angefasst', waehleLeads(leer).leadIds.length === 0)
+  const fn = readFileSync(new URL('../supabase/functions/angebot/index.ts', import.meta.url), 'utf8')
+  check('die Unterschrift sucht den Lead selbst', /await findeLeads\(db,/.test(fn) && /for \(const leadId of zuordnung\.leadIds\)/.test(fn))
+  const regel = readFileSync(new URL('../supabase/functions/angebot/leadZuordnung.ts', import.meta.url), 'utf8')
+  check('mehrdeutige Namen zählen nicht', /if \(treffer\?\.length === 1\)/.test(regel))
 }
 
 console.log(`\nverify-angebot: ${pass} ok, ${fail} fehlgeschlagen`)
