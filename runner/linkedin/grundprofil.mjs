@@ -41,14 +41,15 @@ const ABRUF_TIMEOUT_MS = 12_000
  * Fassung der Stufe 1. Steigt, wenn sich das Finden der Website verbessert —
  * dann werden Kontakte, bei denen eine ältere Fassung keine Seite fand, von
  * selbst noch einmal bewertet (`bewertungLauf.mjs`). 2 = 24.09.2026, Werbesätze
- * in der Headline sind keine Firma mehr.
+ * in der Headline sind keine Firma mehr. 3 = 24.09.2026, erst die Firma allein
+ * suchen, Firma aus dem LinkedIn-Suchtitel.
  */
-export const STUFE1_FASSUNG = 2
+export const STUFE1_FASSUNG = 3
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'
 
 /** Portale und Netzwerke sind keine eigene Website (dieselbe Liste wie in `leadRecherche.mjs`, ergänzt um Suchtreffer-Typisches). */
 const PORTAL =
-  /linkedin\.|xing\.|facebook\.|instagram\.|immobilienscout|immowelt|immonet|kleinanzeigen|openpr|pflumm|stilpunkte|northdata|firmenwissen|gelbeseiten|11880|google\.|provenexpert|homeday|wikipedia|youtube\.|tiktok\.|kununu|stepstone|indeed|dasoertliche|meinestadt|golocal|yelp|wlw\.|unternehmensregister|handelsregister|bundesanzeiger|companyhouse|moneyhouse|firmenabc|creditreform|immobilienmakler\.de|maklerempfehlung|immoverkauf24|makler-empfehlung/i
+  /linkedin\.|xing\.|facebook\.|instagram\.|immobilienscout|immowelt|immonet|kleinanzeigen|openpr|pflumm|stilpunkte|northdata|firmenwissen|gelbeseiten|11880|google\.|provenexpert|homeday|wikipedia|youtube\.|tiktok\.|kununu|stepstone|indeed|dasoertliche|meinestadt|golocal|yelp|wlw\.|unternehmensregister|handelsregister|bundesanzeiger|companyhouse|moneyhouse|firmenabc|creditreform|immobilienmakler\.de|maklerempfehlung|immoverkauf24|makler-empfehlung|magazin|zeitung|news|presse|branchenbuch|fusionbase|investmentcheck|ecovis|dealmagazin|property-magazine|immobilien-zeitung|thomas-daily|haufe|focus\.de|spiegel|welt\.de|faz\.net|sueddeutsche|handelsblatt|xing-news|firmeneintrag|cylex|hotfrog|auskunft|telefonbuch/i
 
 // ---------- Firma aus der Headline ----------
 
@@ -73,6 +74,8 @@ function siehtAusWieFirma(t) {
   if (w.split(/\s+/).length > 6) return false
   if (!/^[A-ZÄÖÜ0-9&]/.test(w)) return false
   if (/^(immobilien|real estate|makler|diplom|geprüft|zertifiziert|mehr|ich|wir|dein|ihr|gerne)\b/i.test(w)) return false
+  // Berufsbezeichnungen in Großbuchstaben sind keine Firma („IMMOBILIENINVESTOR", Hallas, 24.09.).
+  if (/^(immobilien)?(investor|makler|berater|experte|entwickler|gutachter|sachverst(ä|ae)ndiger)(in)?$/i.test(w)) return false
   return true
 }
 
@@ -91,6 +94,24 @@ export function firmaAusHeadline(headline) {
       .replace(/\s+/g, ' ')
       .trim()
     if (siehtAusWieFirma(ohneRolle)) return ohneRolle
+  }
+  return ''
+}
+
+/**
+ * Die Firma aus dem Titel eines LinkedIn-Suchtreffers: „Uwe Hallas – PRIMONO
+ * Unternehmensgruppe" (24.09.2026). Google zeigt dort die aktuelle Station —
+ * ohne dass jemand das Profil aufruft.
+ */
+export function firmaAusLinkedinTreffer(treffer, name) {
+  const nachname = ohneAkzent(name).split(/\s+/).pop() ?? ''
+  for (const t of treffer) {
+    if (!/linkedin\./i.test(t.domain)) continue
+    const titel = String(t.titel ?? '').replace(/\s*[|·]\s*LinkedIn.*$/i, '')
+    if (!ohneAkzent(titel).includes(nachname)) continue
+    const m = titel.match(/\s[–-]\s+(.+)$/)
+    const kandidat = m?.[1]?.split(/\s[|·]\s|\s[–-]\s/)[0]?.replace(/^[^\p{L}\p{N}]+/u, '').trim()
+    if (kandidat && siehtAusWieFirma(kandidat)) return kandidat
   }
   return ''
 }
@@ -128,7 +149,18 @@ async function googleSuche(suchbegriff, { zugang = dataforseoZugang(), fetchFn =
 }
 
 const ohneAkzent = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-const woerter = (t) => ohneAkzent(t).replace(/ß/g, 'ss').split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !/^(immobilien|gmbh|real|estate|makler|group|gruppe|consulting|partner)$/.test(w))
+const UNWICHTIG = /^(immobilien|gmbh|real|estate|makler|group|gruppe|consulting|partner)$/
+/**
+ * Wörter für den Domain-Abgleich — mit beiden Umlaut-Schreibweisen
+ * (24.09.2026: „Möllerherm" steht als moellerherm.de im Netz).
+ */
+const woerter = (t) => {
+  const roh = String(t ?? '').toLowerCase().replace(/ß/g, 'ss')
+  const mitE = roh.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+  const out = new Set()
+  for (const v of [ohneAkzent(roh), ohneAkzent(mitE)]) for (const w of v.split(/[^a-z0-9]+/)) if (w.length >= 4 && !UNWICHTIG.test(w)) out.add(w)
+  return [...out]
+}
 
 /**
  * Welche Domains aus den Treffern kommen in Frage — und wie stark passen sie?
@@ -283,16 +315,35 @@ export function marktFuer(ort, plz = '') {
  * @returns {Promise<{ profil: object, kosten: number }>}
  */
 export async function grundprofil(kontakt, { browser, cliPath, cwd }) {
-  let kosten = 0.002 // Google-Suche
-  const firmaHinweis = firmaAusHeadline(kontakt.headline)
-  const suchbegriff = firmaHinweis ? `"${kontakt.name}" ${firmaHinweis}` : `"${kontakt.name}" Immobilien`
-  const { treffer, grund: suchGrund } = await googleSuche(suchbegriff)
-  let kandidaten = kandidatenAus(treffer, { name: kontakt.name, firma: firmaHinweis })
-  // Nur Portale gefunden? Dann einmal nach der Firma allein suchen (Hanika/HAKO, 24.09.).
-  if (!kandidaten.length && firmaHinweis) {
-    const zweit = await googleSuche(`${firmaHinweis} Impressum`)
+  /**
+   * Suchreihenfolge (24.09.2026, zweiter Lauf auf dem Mini: 20 von 30 ohne
+   * Seite). „Name + Firma" liefert Zeitungsartikel und LinkedIn, die
+   * Firmenseite kaum („Max Beyer" Beyer Real Estate → deal-magazin,
+   * property-magazine). Deshalb zuerst die Firma allein. Ist keine Firma
+   * bekannt, erst nach der Person suchen und die Firma aus dem Titel des
+   * LinkedIn-Treffers lesen, dann nach ihr.
+   */
+  let kosten = 0
+  let firmaHinweis = firmaAusHeadline(kontakt.headline)
+  let suchGrund = ''
+  let kandidaten = []
+  const suche = async (begriff) => {
+    const r = await googleSuche(begriff)
     kosten += 0.002
-    kandidaten = kandidatenAus(zweit.treffer, { name: kontakt.name, firma: firmaHinweis })
+    suchGrund ||= r.grund
+    return r.treffer
+  }
+  if (!firmaHinweis) {
+    const personTreffer = await suche(`"${kontakt.name}" Immobilien`)
+    firmaHinweis = firmaAusLinkedinTreffer(personTreffer, kontakt.name)
+    if (!firmaHinweis) kandidaten = kandidatenAus(personTreffer, { name: kontakt.name, firma: '' })
+  }
+  if (firmaHinweis) {
+    kandidaten = kandidatenAus(await suche(firmaHinweis), { name: kontakt.name, firma: firmaHinweis })
+    if (!kandidaten.some((k) => k.passt >= 2)) {
+      const mitName = kandidatenAus(await suche(`"${kontakt.name}" ${firmaHinweis}`), { name: kontakt.name, firma: firmaHinweis })
+      kandidaten = [...kandidaten, ...mitName.filter((m) => !kandidaten.some((k) => k.domain === m.domain))]
+    }
   }
 
   let wahl = null

@@ -5,7 +5,7 @@
  *   node node_modules/tsx/dist/cli.mjs scripts/verify-lead-bewertung.ts
  */
 // @ts-expect-error — .mjs ohne Typen
-import { firmaAusHeadline, kandidatenAus, ortAus, marktFuer, impressumLink } from '../runner/linkedin/grundprofil.mjs'
+import { firmaAusHeadline, firmaAusLinkedinTreffer, kandidatenAus, ortAus, marktFuer, impressumLink } from '../runner/linkedin/grundprofil.mjs'
 // @ts-expect-error — .mjs ohne Typen
 import { bewerte } from '../runner/linkedin/leadProfil.mjs'
 // @ts-expect-error — .mjs ohne Typen
@@ -27,6 +27,12 @@ check('Werbesatz ist keine Firma (Wackwitz, 24.09.)', firmaAusHeadline('Interess
 check('Satzfetzen ist keine Firma (Botti)', firmaAusHeadline('Berater für Eigentümer-Leadgenerierung | Mehr exklusive Verkaufsaufträge durch Meta Ads als Immobilienmakler') === '')
 check('Titel ist keine Firma (Körting)', firmaAusHeadline('Diplom-Immobilienökonom (ADI) Vermittlung von Residential Real Estate und Commercial Real Estate, gerne auch Off-Market.') === '')
 check('„CEO Wang Immobilien (gegr. 1996)" → Wang Immobilien', firmaAusHeadline('CEO Wang Immobilien (gegr. 1996) | Geprüfte Immobilienmaklerin § 34c GewO') === 'Wang Immobilien', firmaAusHeadline('CEO Wang Immobilien (gegr. 1996) | Geprüfte Immobilienmaklerin § 34c GewO'))
+
+check('Berufsbezeichnung in Großbuchstaben ist keine Firma (Hallas)', firmaAusHeadline('PRIMONO® | ÖKOBILIE® | IMMOBILIENINVESTOR') !== 'IMMOBILIENINVESTOR', firmaAusHeadline('PRIMONO® | ÖKOBILIE® | IMMOBILIENINVESTOR'))
+check('Firma aus dem LinkedIn-Suchtitel', firmaAusLinkedinTreffer([{ domain: 'de.linkedin.com', titel: 'Uwe Hallas – PRIMONO Unternehmensgruppe' }], 'Uwe Hallas') === 'PRIMONO Unternehmensgruppe')
+check('LinkedIn-Titel einer anderen Person zählt nicht', firmaAusLinkedinTreffer([{ domain: 'de.linkedin.com', titel: 'Henning Koch – Commerz Real AG' }], 'Uwe Hallas') === '')
+check('Umlaut in der Firma trifft die oe-Domain (Möllerherm)', kandidatenAus([{ url: 'https://moellerherm.de/', domain: 'moellerherm.de', titel: '', text: '' }], { name: 'Tom Giesler', firma: 'Möllerherm Immobilien GmbH & Co.KG' })[0]?.passt >= 2)
+check('Zeitungen sind keine Firmenseite (Beyer)', kandidatenAus([{ url: 'https://www.deal-magazin.com/x', domain: 'deal-magazin.com', titel: '', text: '' }], { name: 'Max Beyer', firma: 'Beyer Real Estate' }).length === 0)
 
 /* ── Kandidaten ──────────────────────────────────────────────────────── */
 {
