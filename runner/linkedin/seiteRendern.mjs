@@ -218,7 +218,11 @@ export async function rendereSeite(browser, url, { ordner, kuerzel }) {
         .then(() => true)
         .catch(() => false)
     }
-    if (zugestimmt) await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {})
+    // Manche Seiten laden nach der Zustimmung neu — erst die neue Seite abwarten, sonst zerfällt das nächste `evaluate`.
+    if (zugestimmt) {
+      await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {})
+      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {})
+    }
     await durchscrollen(page)
     /**
      * Scroll-Einblendungen sichtbar machen, bevor fotografiert wird (16.09.):

@@ -47,6 +47,8 @@ import { pruefeGoogleAds } from './googleAds.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
+/** Alles zusammen je Lead: Finden, Rendern, Befund, Anzeigen — siehe `arbeiter`. */
+const LEAD_GESAMT_MS = Number(process.env.RECHERCHE_GESAMT_TIMEOUT_MS ?? 9 * 60 * 1000)
 
 /** Drei gleichzeitig: jeder Lauf ist ein eigener `claude`-Prozess, dazu ein Chrome-Tab. */
 const GLEICHZEITIG = Number(process.env.RECHERCHE_PARALLEL ?? 3)
@@ -626,7 +628,19 @@ export async function rechercheLeads(leads, { melde = () => {}, cliPath = proces
       const i = naechster++
       let r
       try {
-        r = await rechercheEinen(leads[i], { cliPath, cwd, browser, ordner })
+        /**
+         * Harte Obergrenze je Lead (24.09.2026). Am 23.09. blieb eine Runde um
+         * 16:44 in einer Seite hängen und blockierte den Mini bis zum nächsten
+         * Mittag — alle Zeitplan-Runden fielen aus. Ein `page.evaluate` hat
+         * kein eigenes Zeitlimit; lädt eine Seite nach der Cookie-Zustimmung
+         * neu oder hängt ihr Skript, wartet er ewig. Der Lead zählt dann als
+         * „ohne Ergebnis" und bleibt für die nächste Runde im Vorrat.
+         */
+        let uhr
+        r = await Promise.race([
+          rechercheEinen(leads[i], { cliPath, cwd, browser, ordner }),
+          new Promise((_, nein) => (uhr = setTimeout(() => nein(new Error(`Recherche nach ${Math.round(LEAD_GESAMT_MS / 60000)} Minuten abgebrochen`)), LEAD_GESAMT_MS))),
+        ]).finally(() => clearTimeout(uhr))
       } catch (e) {
         r = { lead: leads[i], destillat: null, kosten: 0, token: 0, grund: String(e?.message ?? e).slice(0, 160) }
       }
