@@ -312,6 +312,11 @@ const AGENT_CATALOG = [
     modell: 'claude-opus-5',
     effort: 'high',
     tools: 'Read,Glob,Grep,WebFetch,WebSearch',
+    // 24.09.2026: Kevins Stimme kommt aus dem Code, nicht aus
+    // ~/.claude/skills/herrmann-outreach — der Ordner wird nicht auf den Mini
+    // abgeglichen, der Agent schrieb mit der Fassung vom 24.08.
+    kontextDatei: fileURLToPath(new URL('./regeln/stimme/herrmann-outreach.md', import.meta.url)),
+    kontextLabel: 'KEVINS STIMME (herrmann-outreach)',
   },
   {
     id: 'linkedin-erstnachrichten',
@@ -571,20 +576,22 @@ function agentConfig(agent, input = null) {
     }
   }
 
-  if (a.kind === 'write') {
-    // Kontext-Datei (z. B. die Sprechfassung im Vault) direkt in den Prompt
-    // legen. Fehlt sie, läuft der Agent trotzdem — mit ehrlichem Hinweis, statt
-    // sich still etwas auszudenken.
-    const kontext = () => {
-      if (!a.kontextDatei) return ''
-      try {
-        const txt = readFileSync(a.kontextDatei, 'utf8')
-        return `\n\n===== ${a.kontextLabel ?? 'KONTEXT'} (Quelle: ${a.kontextDatei}) =====\n${txt}\n===== ENDE ${a.kontextLabel ?? 'KONTEXT'} =====\n`
-      } catch (e) {
-        console.error('[runner] Kontext-Datei nicht lesbar:', a.kontextDatei, e?.message ?? e)
-        return `\n\n[WARNUNG: ${a.kontextLabel ?? 'KONTEXT'} konnte nicht geladen werden. Brich ab und melde das, statt den Inhalt zu erfinden.]\n`
-      }
+  // Kontext-Datei (z. B. die Sprechfassung im Vault, Kevins Stimme aus
+  // runner/regeln/stimme/) direkt in den Prompt legen — bei jedem Lauf frisch
+  // von der Platte. Fehlt sie, läuft der Agent trotzdem — mit ehrlichem
+  // Hinweis, statt sich still etwas auszudenken.
+  const kontext = () => {
+    if (!a.kontextDatei) return ''
+    try {
+      const txt = readFileSync(a.kontextDatei, 'utf8')
+      return `\n\n===== ${a.kontextLabel ?? 'KONTEXT'} (Quelle: ${a.kontextDatei}) =====\n${txt}\n===== ENDE ${a.kontextLabel ?? 'KONTEXT'} =====\n`
+    } catch (e) {
+      console.error('[runner] Kontext-Datei nicht lesbar:', a.kontextDatei, e?.message ?? e)
+      return `\n\n[WARNUNG: ${a.kontextLabel ?? 'KONTEXT'} konnte nicht geladen werden. Brich ab und melde das, statt den Inhalt zu erfinden.]\n`
     }
+  }
+
+  if (a.kind === 'write') {
     return {
       cwd: a.cwd,
       buildPrompt: (inputBlock) => `${a.prompt}${inputBlock}${kontext()}`,
@@ -611,7 +618,7 @@ function agentConfig(agent, input = null) {
   return {
     cwd: VAULT,
     // Mit Regelwerk: der Text aus `runner/regeln/`, frisch von der Platte gelesen — kein Slash-Command.
-    buildPrompt: (inputBlock) => (a.regelwerk ? `${regelwerk().schreiben}\n\n---\n${inputBlock}` : `/${agent}${inputBlock}`),
+    buildPrompt: (inputBlock) => (a.regelwerk ? `${regelwerk().schreiben}\n\n---\n${inputBlock}` : `/${agent}${inputBlock}${kontext()}`),
     extraArgs: [
       ...(a.modell ? ['--model', a.modell] : []),
       ...(a.effort ? ['--effort', a.effort] : []),

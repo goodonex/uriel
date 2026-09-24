@@ -42,7 +42,8 @@ check('der CTA ist eine Frage', RUNNER_CTA.trimEnd().endsWith('?'), RUNNER_CTA)
 const REGELWERK = fileURLToPath(new URL('../runner/regeln/erstnachrichten/schreiben.md', import.meta.url))
 for (const skill of [
   REGELWERK,
-  join(process.env.HOME!, '.claude/skills/herrmann-outreach/SKILL.md'),
+  // Seit 24.09.2026 liegt Kevins Stimme im Code, der globale Skill verweist nur noch hierher.
+  fileURLToPath(new URL('../runner/regeln/stimme/herrmann-outreach.md', import.meta.url)),
   join(process.env.HOME!, '.claude/skills/linkedin-leads/SKILL.md'),
 ]) {
   let text = ''
