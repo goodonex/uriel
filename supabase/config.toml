@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.morgen-push]
 verify_jwt = false
+
+# Der Makler ist nicht angemeldet, wenn er seinen Link öffnet. Die Function
+# prüft stattdessen das Token und gibt genau eine Zeile heraus — siehe Kopf von
+# supabase/functions/angebot/index.ts.
+[functions.angebot]
+verify_jwt = false

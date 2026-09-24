@@ -38,9 +38,17 @@ type Felder = Pick<
 export function RechnungPanel({
   contact,
   onSpeichern,
+  vorauswahlPaket,
 }: {
   contact: Contact
   onSpeichern: (patch: Partial<Contact>) => void
+  /**
+   * Das Paket aus dem zuletzt unterschriebenen Angebot (0090). Es setzt die
+   * Auswahl nur, solange niemand sie angefasst hat — eine Vorbelegung, die
+   * eine Handeingabe ueberschreibt, ist keine Hilfe, sondern ein Fehler, der
+   * eine Rechnungsnummer kostet.
+   */
+  vorauswahlPaket?: string | null
 }) {
   const [pakete, setPakete] = useState<RechnungsPaket[]>([])
   const [bereit, setBereit] = useState<boolean | null>(null)
@@ -93,6 +101,15 @@ export function RechnungPanel({
     }
   }, [])
 
+  // Greift genau einmal: sobald `gewaehlt` einen Wert traegt, ruehrt sie nichts
+  // mehr an — auch nicht, wenn spaeter ein zweites Angebot unterschrieben wird.
+  const [beruehrt, setBeruehrt] = useState(false)
+  useEffect(() => {
+    if (beruehrt || !vorauswahlPaket) return
+    if (!pakete.some((p) => p.schluessel === vorauswahlPaket)) return
+    setGewaehlt(vorauswahlPaket)
+  }, [beruehrt, pakete, vorauswahlPaket])
+
   const paket = useMemo(() => pakete.find((p) => p.schluessel === gewaehlt) ?? null, [pakete, gewaehlt])
   /* Die Mailadresse fehlt hier bewusst: §14 UStG verlangt die Anschrift, nicht
      die Mail. Sie zur Pflicht zu machen wuerde den Knopf im Call sperren. */
@@ -142,12 +159,16 @@ export function RechnungPanel({
 
   const feldStil: React.CSSProperties = {
     width: '100%',
-    background: 'var(--ck-surface-2)',
-    border: '1px solid var(--ck-line)',
-    borderRadius: 6,
+    // 20.09.2026: Standen hier bis eben als --ck-surface-2 / --ck-line, die es
+    // in den Tokens nie gab — die Felder hatten dadurch weder Flaeche noch
+    // Rahmen. Jetzt dieselben Werte wie im Angebots-Panel daneben.
+    minHeight: 40,
+    background: 'var(--ck-panel-2)',
+    border: '1px solid var(--ck-border)',
+    borderRadius: 8,
     color: 'var(--ck-text-1)',
-    fontSize: 12.5,
-    padding: '7px 9px',
+    fontSize: 13,
+    padding: '8px 10px',
   }
 
   return (
@@ -200,7 +221,14 @@ export function RechnungPanel({
           onChange={(e) => setEntwurf((v) => ({ ...v, rechnung_email: e.target.value }))}
           onBlur={() => feldFertig('rechnung_email')}
         />
-        <select style={feldStil} value={gewaehlt} onChange={(e) => setGewaehlt(e.target.value)}>
+        <select
+          style={feldStil}
+          value={gewaehlt}
+          onChange={(e) => {
+            setBeruehrt(true)
+            setGewaehlt(e.target.value)
+          }}
+        >
           {pakete.map((p) => (
             <option key={p.schluessel} value={p.schluessel}>
               {p.titel} · {p.einzelpreis.toLocaleString('de-DE')} €

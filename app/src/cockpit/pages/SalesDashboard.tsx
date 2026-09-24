@@ -11,6 +11,7 @@ import { Arbeitsliste, type LoomSkriptAktionen } from '../components/Arbeitslist
 import { Arbeitsmodus, type ArbeitsmodusErgebnis } from '../components/Arbeitsmodus'
 import { InmailPanel } from '../components/InmailPanel'
 import { FunnelCanvas } from '../components/sales/FunnelCanvas'
+import { PhasenRing } from '../components/sales/PhasenRing'
 import { KartenNamen } from '../components/sales/KartenNamen'
 import { TagesListe } from '../components/sales/TagesListe'
 import { PipelineBoard } from '../components/sales/PipelineBoard'
@@ -1692,6 +1693,24 @@ export function SalesDashboard() {
             : `Tag ${tagesFortschritt.erledigt} von ${tagesFortschritt.gesamt}`}
         </span>
       </div>
+      {/* Der Ring vor den Karten: EIN Blick auf die Verteilung, bevor die
+          Liste ins Detail geht (20.09.2026, Kevins Auftrag). Er rechnet nichts
+          nach — `funnelPhasen` summiert genau die `karten`, die zwei Zeilen
+          weiter unten einzeln stehen, und die Summe seiner Stuecke ist deren
+          Bestand. Steht ueber BEIDEN Ansichten, weil er die Frage „wer steckt
+          wo" unabhaengig davon beantwortet, ob darunter Karten oder Board
+          liegen.
+
+          Ohne `layoutId`: Die Ring-Zeilen sind keine Kacheln, aus denen ein
+          Fenster waechst. Ein erfundener Morph-Name haette das Fenster aus dem
+          Nichts aufgehen lassen — lieber gar kein Morph als ein falscher. */}
+      {leadsQuery.tableMissing || leadsQuery.loading ? null : (
+        <PhasenRing
+          karten={karten}
+          onKarteOeffnen={(k) => oeffneKachel(ALT_KACHEL[k.id] ?? k.id)}
+          oeffenbar={(k) => k.bestand > 0 || listeJeKarte.has(k.id)}
+        />
+      )}
       {/* Das Canvas: der Funnel als Karten (mobil und in der Listen-Ansicht),
           oder der Baum mit der Conversion an den Kanten. */}
       {leadsQuery.tableMissing ? null : leadsQuery.loading ? (

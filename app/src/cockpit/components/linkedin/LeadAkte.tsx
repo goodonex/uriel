@@ -36,6 +36,8 @@ const EREIGNIS_TITEL: Record<LeadEreignisTyp, string> = {
   // Bewusst als Korrektur benannt, nicht als Vorgang: Die Zeile darf sich in
   // sechs Wochen nicht wie ein verschickter Kanal lesen (0080).
   uebersprungen: 'Stufe übersprungen (Handkorrektur)',
+  angebot_gesendet: 'Angebot verschickt',
+  angebot_signiert: 'Angebot angenommen',
   wiedervorlage_gesetzt: 'Wiedervorlage gesetzt',
   disqualifiziert: 'Aussortiert',
   reaktiviert: 'Wieder aufgenommen',

@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ContactPage } from '../../../pages/sales/ContactPage'
 import { readContactsLocal, useContacts } from '../../../hooks/useContacts'
 import { useCurrentBrandSlug } from '../../../hooks/useCurrentBrandSlug'
 import { STAGE_LABEL } from '../../../lib/salesPipelineFilters'
 import { RessourcenPanel } from '../../components/sales/RessourcenPanel'
+import { AngebotPanel } from '../../components/sales/AngebotPanel'
+import { ladeAngebote } from '../../lib/angebotApi'
+import { letztesSigniertes } from '../../lib/angebotRegeln'
 import { RechnungPanel } from '../../components/sales/RechnungPanel'
 
 /**
@@ -42,6 +45,32 @@ export function LeadDetail() {
     return readContactsLocal(slug).find((c) => c.id === contactId) ?? null
   }, [contacts.items, contactId, slug])
 
+  /**
+   * Das zuletzt unterschriebene Angebot — es belegt die Rechnung vor (0090).
+   *
+   * Geladen wird hier und nicht im Angebots-Panel nebenan, obwohl das dieselbe
+   * Abfrage ist: Das Panel laedt nach jeder eigenen Aenderung neu, diese
+   * Vorbelegung braucht nur den Stand beim Oeffnen. Die beiden zu verheiraten
+   * hiesse, das Panel von aussen zu steuern — fuer eine Abfrage auf eine
+   * Tabelle mit einer Handvoll Zeilen je Kontakt ist das der teurere Handel.
+   */
+  const [vorauswahlPaket, setVorauswahlPaket] = useState<string | null>(null)
+  useEffect(() => {
+    if (!contact?.id) return
+    let weg = false
+    ladeAngebote(contact.id)
+      .then((liste) => {
+        if (!weg) setVorauswahlPaket(letztesSigniertes(liste)?.paket ?? null)
+      })
+      .catch(() => {
+        // Keine Vorbelegung ist kein Fehler, der jemanden interessiert —
+        // Kevin waehlt dann von Hand, wie vorher auch.
+      })
+    return () => {
+      weg = true
+    }
+  }, [contact?.id])
+
   return (
     <div className="ck-lead" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -57,7 +86,13 @@ export function LeadDetail() {
       {contact ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           <RessourcenPanel contact={contact} />
-          <RechnungPanel contact={contact} onSpeichern={(patch) => void contacts.update(contact.id, patch)} />
+          {/* Die Reihenfolge ist die Reihenfolge im Verkauf: erst das Ja, dann das Geld. */}
+          <AngebotPanel contact={contact} />
+          <RechnungPanel
+            contact={contact}
+            onSpeichern={(patch) => void contacts.update(contact.id, patch)}
+            vorauswahlPaket={vorauswahlPaket}
+          />
         </div>
       ) : null}
 

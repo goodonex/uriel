@@ -17,6 +17,7 @@ import { PortalRoute } from './pages/portal/PortalRoute'
 import { PortalSetupPage } from './pages/portal/PortalSetupPage'
 import { BookingPublicPage } from './pages/public/BookingPublicPage'
 import { LeadIntakePage } from './pages/public/LeadIntakePage'
+import { AngebotPublicPage } from './pages/public/AngebotPublicPage'
 import { useViewport } from './hooks/useViewport'
 import { LegacySalesRedirect } from './cockpit/lib/LegacySalesRedirect'
 import { LegacyBrandRedirect, LegacyDeliverRedirect } from './cockpit/lib/LegacyBrandRedirect'
@@ -45,6 +46,7 @@ import { RundeVorschau } from './dev/RundeVorschau'
 import { IdentitaetVorschau } from './dev/IdentitaetVorschau'
 import { PosteingangVorschau } from './dev/PosteingangVorschau'
 import { RechnungVorschau } from './dev/RechnungVorschau'
+import { AngebotVorschau } from './dev/AngebotVorschau'
 import { CoachVorschau } from './dev/CoachVorschau'
 import { AmbientVorschau } from './dev/AmbientVorschau'
 
@@ -238,9 +240,14 @@ function App() {
             <Route path="/portal/:projectId" element={<PortalRoute />} />
             <Route path="/book/:brandSlug/:linkSlug" element={<BookingPublicPage />} />
             <Route path="/leads/:brandSlug" element={<LeadIntakePage />} />
+            {/* Das Angebot des Maklers — vor jedem Login, wie /book und /leads.
+                Landet die Route hinter der Owner-Shell, schickt der Link den
+                Makler auf die Anmeldung und das Angebot ist tot. */}
+            <Route path="/angebot/:token" element={<AngebotPublicPage />} />
             {/* Dev-only: Sales-Bausteine mit Fixtures, ohne Login prüfbar */}
             {import.meta.env.DEV ? <Route path="/dev/sales-vorschau" element={<SalesVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/rechnung-vorschau" element={<RechnungVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/angebot-vorschau" element={<AngebotVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/coach-vorschau" element={<CoachVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/ziel-vorschau" element={<ZielVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/nav-vorschau" element={<NavVorschau />} /> : null}

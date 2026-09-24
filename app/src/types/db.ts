@@ -1236,6 +1236,13 @@ export type LeadEreignisTyp =
    * `grund`; `funnelRaten` zählt ihn nirgends als Kontakt mit.
    */
   | 'uebersprungen'
+  /**
+   * 0090: Das Angebot als eigener Vorgang. `angebot_signiert` ist der Moment,
+   * in dem aus dem Lead ein Kunde wird — bis dahin stand dieser Übergang
+   * nirgends geschrieben, er passierte nur im Kopf.
+   */
+  | 'angebot_gesendet'
+  | 'angebot_signiert'
   | 'wiedervorlage_gesetzt'
   | 'disqualifiziert'
   | 'reaktiviert'
@@ -1253,4 +1260,41 @@ export interface LeadEreignis {
   quelle: LeadEreignisQuelle
   details: Record<string, unknown>
   erstellt_at: string
+}
+
+/* --- Angebot (0090) --- */
+
+/**
+ * Der Lebenslauf eines Angebots. `signiert` ist Endstation und in der Datenbank
+ * per Trigger gegen Änderungen gesperrt — ein Beleg, der sich nachträglich
+ * ändern lässt, ist keiner.
+ */
+export type AngebotStatus = 'entwurf' | 'versendet' | 'signiert' | 'abgelehnt' | 'abgelaufen'
+
+export interface Angebot {
+  id: string
+  brand_id: string
+  contact_id: string
+  lead_id: string | null
+  /** Das Geheimnis im Link. Verlässt das Cockpit nur als Teil der Adresse. */
+  token: string
+  /** Schlüssel aus `pakete.json` — für die Rechnung danach. */
+  paket: string
+  /** Beim Anlegen eingefroren: Ein Angebot von gestern darf sich nicht mit den Preisen von heute ändern. */
+  titel: string
+  beschreibung: string
+  betrag: number
+  retainer_paket: string | null
+  retainer_betrag: number | null
+  status: AngebotStatus
+  gueltig_bis: string
+  versendet_am: string | null
+  signiert_am: string | null
+  /** Der getippte Name — die einfache elektronische Signatur. */
+  signiert_name: string | null
+  signiert_ip: string | null
+  signiert_ua: string | null
+  notiz: string
+  erstellt_at: string
+  updated_at: string
 }
