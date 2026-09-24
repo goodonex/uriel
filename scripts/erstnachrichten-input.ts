@@ -140,10 +140,30 @@ async function main() {
    * eine Randnotiz.
    */
   const rang = { kern: 0, rand: 1, unklar: 2, off: 3 } as const
+  /**
+   * **Die Lead-Bewertung zuerst** (24.09.2026, `runner/linkedin/grundprofil.mjs`):
+   * Wer „jetzt angehen" ist, kommt vor allen anderen, innerhalb davon die
+   * höchsten Punkte. Noch nicht Bewertete stehen zwischen „jetzt" und
+   * „später" — unter ihnen können die Besten sein.
+   */
+  const bewertet = await alle<{ profil_key: string; punkte: number | null; topf: string | null }>(
+    `leads?brand_id=eq.${bid}&profil=not.is.null&select=profil_key,punkte:profil->punkte,topf:profil->>topf&order=id`,
+  )
+  const bewertung = new Map(bewertet.map((l) => [l.profil_key, l]))
+  const TOPF_RANG: Record<string, number> = { jetzt: 0, spaeter: 2, 'starke-seite': 3, 'vermutlich-inaktiv': 4 }
+  const topfRang = (key: string) => {
+    const t = bewertung.get(key)?.topf
+    return t ? (TOPF_RANG[t] ?? 2) : 1
+  }
+  const punkte = (key: string) => Number(bewertung.get(key)?.punkte ?? 0)
   const sortiert = [...vorrat].sort((a, b) => {
     const va = veraltet.has(a.name.trim().toLowerCase()) ? 0 : 1
     const vb = veraltet.has(b.name.trim().toLowerCase()) ? 0 : 1
     if (va !== vb) return va - vb
+    const ta = topfRang(a.key)
+    const tb = topfRang(b.key)
+    if (ta !== tb) return ta - tb
+    if (punkte(a.key) !== punkte(b.key)) return punkte(b.key) - punkte(a.key)
     const ra = rang[icpUrteil(a.info ?? '', a.name).urteil] ?? 9
     const rb = rang[icpUrteil(b.info ?? '', b.name).urteil] ?? 9
     if (ra !== rb) return ra - rb

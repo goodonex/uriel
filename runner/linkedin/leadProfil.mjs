@@ -135,6 +135,8 @@ export function baueProfil(d, quellen = {}, jetzt = new Date()) {
     gf: String(r.rolle_impressum ?? 'unklar') || 'unklar',
     impressum_gf: Array.isArray(r.impressum_gf) ? r.impressum_gf.slice(0, 6) : [],
     website_stufe: String(r.website_stufe ?? ''),
+    wow_potenzial: String(r.wow_potenzial ?? ''),
+    erreichbar: String(r.erreichbar ?? ''),
     erreichbar: String(r.erreichbar ?? ''),
     meta_ads_aktiv: String(r.meta_ads_aktiv ?? 'unbekannt') || 'unbekannt',
     google_ads_aktiv: String(r.google_ads_aktiv ?? 'unbekannt') || 'unbekannt',
@@ -212,6 +214,100 @@ export function klasseFuer(p) {
   return { klasse, grund: liste ? `${kern} — ${liste}` : kern }
 }
 
+/**
+ * ---- Punkte und Topf (24.09.2026, Lead-Bewertung) ----
+ *
+ * Gemeinsam für Stufe 1 (`grundprofil.mjs`, jeder Kontakt) und Stufe 2 (die
+ * Recherche vor der Erstnachricht): Beide schreiben in dasselbe Profil, und
+ * `bewerte` rechnet mit allem, was bis dahin belegt ist.
+ */
+
+const tageSeit = (tag, jetzt) => (/^\d{4}-\d{2}-\d{2}/.test(tag ?? '') ? (jetzt - new Date(tag)) / 86_400_000 : null)
+
+/**
+ * Punkte (0–100), Topf und Klasse aus dem Profil — Stufe 1 und Stufe 2
+ * zusammen. Rein, damit sie sich prüfen und von Kevin ändern lässt.
+ *
+ * - **Zahlt schon für Kunden** (bis 35): Google-Anzeigen 20 (+5 seit über
+ *   einem halben Jahr, +5 ab zehn Anzeigen), Meta-Anzeigen 15.
+ * - **Unser Hebel** (bis 20): Wow-Potenzial der Seite aus Stufe 2 — ja 20,
+ *   knapp 5, nein 0; noch nicht angesehen 10.
+ * - **Feste Firma** (bis 20): Rechtsform 10, Handelsregister 5, Team ab drei
+ *   oder drei Jahre am Markt 5.
+ * - **Markt** (bis 15): Metropole 15, Großstadt 10, sonst 5.
+ * - **Entscheider** (bis 10): im Impressum als Geschäftsführer 10, unklar 5.
+ *
+ * Töpfe: `vermutlich-inaktiv` (keine erreichbare Seite, keine Anzeigen, keine
+ * feste Firma — Kevin: *„vielleicht gibt es die auch gar nicht mehr"*),
+ * `starke-seite` (Stufe 2 sagt: wir bauen keine sichtbar bessere),
+ * `jetzt` ab 55 Punkten, sonst `spaeter`.
+ */
+export function bewerte(p, jetzt = new Date()) {
+  const profil = p ?? {}
+  const google = profil.google_ads_aktiv === 'ja'
+  const meta = profil.meta_ads_aktiv === 'ja'
+  let anzeigen = 0
+  if (google) {
+    anzeigen += 20
+    const seit = tageSeit(profil.google_ads_seit, jetzt)
+    if (seit != null && seit > 180) anzeigen += 5
+    if (Number(profil.google_ads_anzahl) >= 10) anzeigen += 5
+  }
+  if (meta) anzeigen += 15
+  anzeigen = Math.min(35, anzeigen)
+
+  const wow = String(profil.wow_potenzial ?? '')
+  const hebel = wow === 'ja' ? 20 : wow === 'knapp' ? 5 : wow === 'nein' || profil.website_stufe === 'stark' ? 0 : 10
+
+  const fest = FESTE_RECHTSFORM.has(String(profil.rechtsform ?? ''))
+  const team = Number(profil.team_personen) >= 3 || Number(profil.jahre_am_markt) >= 3
+  const firma = (fest ? 10 : 0) + (profil.handelsregister ? 5 : 0) + (team ? 5 : 0)
+
+  const markt = { metropole: 15, grossstadt: 10 }[profil.markt] ?? 5
+  const entscheider = profil.gf === 'gf' ? 10 : profil.gf === 'angestellt' ? 0 : 5
+
+  const punkte = anzeigen + hebel + firma + markt + entscheider
+  const keineSeite = !profil.website || profil.erreichbar === 'offline'
+  /**
+   * „Vermutlich inaktiv" nur mit Beleg, nicht aus einer erfolglosen Suche
+   * (24.09.2026, Probelauf: HAKO Immobilien fand die Suche nicht, die Firma
+   * gibt es). Beleg ist: die Seite existiert, lädt aber nicht — oder die
+   * Anfrage liegt seit über 60 Tagen unbeantwortet und es ist nichts zu finden.
+   * Kevin: *„nie angenommen, absolute Müllseite, vielleicht gibt es die auch
+   * gar nicht mehr"*.
+   */
+  const alteAnfrage = profil.linkedin_status === 'offen' && (tageSeit(profil.eingeladen_at, jetzt) ?? 0) > 60
+  const toteSeite = Boolean(profil.website) && profil.erreichbar === 'offline'
+
+  let topf
+  if (!google && !meta && !fest && (toteSeite || (keineSeite && alteAnfrage))) topf = 'vermutlich-inaktiv'
+  else if (wow === 'nein' || wow === 'knapp' || profil.website_stufe === 'stark') topf = 'starke-seite'
+  else if (punkte >= 55) topf = 'jetzt'
+  else topf = 'spaeter'
+
+  const teile = []
+  if (google) teile.push(`Google-Anzeigen${profil.google_ads_seit ? ` seit ${profil.google_ads_seit.slice(0, 7)}` : ''}`)
+  if (meta) teile.push('Meta-Anzeigen')
+  if (profil.rechtsform) teile.push(profil.rechtsform)
+  if (profil.ort) teile.push(profil.ort)
+  if (profil.gf === 'gf') teile.push('selbst GF')
+  if (profil.gf === 'angestellt') teile.push('nicht GF')
+  if (wow) teile.push(`Wow ${wow}`)
+  if (toteSeite) teile.push('Seite lädt nicht')
+  else if (!profil.website) teile.push('keine Seite gefunden')
+
+  const TOPF_TEXT = { jetzt: 'Jetzt angehen', spaeter: 'Später', 'starke-seite': 'Starke Seite, eigener Ansatz', 'vermutlich-inaktiv': 'Vermutlich inaktiv' }
+  const { klasse: k } = klasseFuer(profil)
+  const klasse = topf === 'vermutlich-inaktiv' ? 'C' : k
+  return {
+    punkte,
+    topf,
+    klasse,
+    grund: `${TOPF_TEXT[topf]} · ${punkte} Punkte${teile.length ? ` — ${teile.join(' · ')}` : ''}`,
+    teile: { anzeigen, hebel, firma, markt, entscheider },
+  }
+}
+
 /** Rang für die Sortierung: A, B, dann ohne Klasse (noch nicht geprüft), dann C. */
 export function klassenRang(klasse) {
   return klasse === 'A' ? 0 : klasse === 'B' ? 1 : klasse === 'C' ? 3 : 2
@@ -230,17 +326,25 @@ export async function speichereProfile({ supabaseUrl, headers, brandId, leads })
   let gespeichert = 0
   for (const l of leads) {
     const key = String(l?.profil_key ?? '').trim()
-    const profil = l?.recherche?.profil
-    if (!key || !profil) continue
+    const neu = l?.recherche?.profil
+    if (!key || !neu) continue
     try {
-      const res = await fetch(
-        `${supabaseUrl}/rest/v1/leads?brand_id=eq.${brandId}&profil_key=eq.${encodeURIComponent(key)}`,
-        {
-          method: 'PATCH',
-          headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-          body: JSON.stringify({ profil, klasse: l.recherche.klasse ?? null, klasse_grund: l.recherche.klasse_grund ?? '', profil_at: new Date().toISOString() }),
-        },
-      )
+      const ziel = `${supabaseUrl}/rest/v1/leads?brand_id=eq.${brandId}&profil_key=eq.${encodeURIComponent(key)}`
+      /**
+       * Zusammenführen statt ersetzen (24.09.2026): Stufe 1 hat vielleicht
+       * schon Ort, Markt und Anzeigen-Verlauf abgelegt. Die Recherche
+       * überschreibt, was sie selbst belegt hat — leere Felder nicht.
+       */
+      const altRes = await fetch(`${ziel}&select=profil`, { headers })
+      const alt = (altRes.ok ? (await altRes.json())[0]?.profil : null) ?? {}
+      const belegt = Object.fromEntries(Object.entries(neu).filter(([, v]) => v !== '' && v != null && !(Array.isArray(v) && !v.length)))
+      const profil = { ...alt, ...belegt, stufe2_at: new Date().toISOString() }
+      const b = bewerte(profil)
+      const res = await fetch(ziel, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ profil: { ...profil, punkte: b.punkte, topf: b.topf }, klasse: b.klasse, klasse_grund: b.grund, profil_at: new Date().toISOString() }),
+      })
       if (res.ok) gespeichert += (await res.json().catch(() => [])).length
       else console.error(`[runner] Lead-Profil ${l.name}: HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 120)}`)
     } catch (e) {

@@ -95,6 +95,8 @@ export interface Posten {
    */
   klasse?: LeadKlasse
   klasseGrund?: string
+  /** Punkte aus der Lead-Bewertung (24.09.2026) — innerhalb der Klasse die höchsten zuerst. */
+  klassePunkte?: number
 }
 
 /** Rohquellen je Spur — fehlt eine (Tabelle nicht migriert), fehlt nur diese Spur. */
@@ -107,7 +109,7 @@ export type PostenQuellen = Partial<Record<Spur, Posten[]>>
  * alte Ordnung (Stern, dann Alter).
  */
 function klasseDannDringlichkeit(a: Posten, b: Posten): number {
-  return klassenRang(a.klasse) - klassenRang(b.klasse) || dringlichkeit(a, b)
+  return klassenRang(a.klasse) - klassenRang(b.klasse) || (b.klassePunkte ?? -1) - (a.klassePunkte ?? -1) || dringlichkeit(a, b)
 }
 
 function dringlichkeit(a: Posten, b: Posten): number {

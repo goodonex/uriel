@@ -14,6 +14,8 @@ export type LeadKlasse = 'A' | 'B' | 'C'
 export interface LeadKlassenInfo {
   klasse: LeadKlasse
   grund: string
+  /** Punkte 0–100 aus der Lead-Bewertung (24.09.2026, `bewerte` im Runner) — ordnet innerhalb der Klasse. */
+  punkte?: number
 }
 
 export function istLeadKlasse(x: unknown): x is LeadKlasse {

@@ -23,6 +23,7 @@ import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } f
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { ansatzFuer, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
+import { bewerteStapel } from './linkedin/bewertungLauf.mjs'
 import { regelwerk } from './regeln/fassung.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { speichereProfile } from './linkedin/leadProfil.mjs'
@@ -4004,6 +4005,58 @@ async function merkeNetzwerkLauf(stempel) {
   }
 }
 
+/**
+ * ---- Lead-Bewertung Stufe 1 (24.09.2026) ----
+ *
+ * Jeder Kontakt — auch offene Anfragen — bekommt ein Grundprofil, Punkte und
+ * einen Topf (`grundprofil.mjs`), damit Erstnachrichten, Follow-ups und
+ * Anrufe immer in der richtigen Reihenfolge stehen. Kevin: *„dass wir immer
+ * in der richtigen Reihenfolge immer die heißesten angehen."*
+ *
+ * Kleine Stapel im Hintergrund statt einer Etappe der Runde: Der Altbestand
+ * (rund 2.100 Kontakte) ist in wenigen Tagen durch, danach kommen nur noch die
+ * neuen Anfragen dazu. Kein Stapel, solange eine Runde läuft — beide nutzen
+ * dasselbe Chrome. Tagesdeckel gegen einen Lauf, der sich verrennt.
+ */
+const BEWERTUNG_AUTOMATIK = process.env.BEWERTUNG_AUTOMATIK !== '0'
+const BEWERTUNG_STAPEL = Number(process.env.BEWERTUNG_STAPEL ?? 30)
+const BEWERTUNG_TAG_MAX = Number(process.env.BEWERTUNG_TAG_MAX ?? 600)
+let bewertungLaeuft = false
+
+async function maybeBewertung() {
+  if (!SNAPSHOT_ENABLED || bewertungLaeuft || laufendeRunde?.status === 'laeuft') return
+  const heute = Number(nowStamp().slice(0, 10).replace(/-/g, ''))
+  const schonHeute = markeLies('bewertung-tag') === heute ? markeLies('bewertung-heute') : 0
+  if (schonHeute >= BEWERTUNG_TAG_MAX) return
+  bewertungLaeuft = true
+  try {
+    const br = await fetch(
+      `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+      { headers: supabaseHeaders() },
+    )
+    const [brand] = br.ok ? await br.json() : []
+    if (!brand?.id) return
+    const r = await bewerteStapel({
+      supabaseUrl: SUPABASE_URL,
+      headers: supabaseHeaders(),
+      brandId: brand.id,
+      limit: Math.min(BEWERTUNG_STAPEL, BEWERTUNG_TAG_MAX - schonHeute),
+      cliPath: CLI_PATH,
+      cwd: VAULT,
+    })
+    if (!r.bewertet && !r.rest) return
+    markeSchreib('bewertung-tag', heute)
+    markeSchreib('bewertung-heute', schonHeute + r.bewertet)
+    console.log(
+      `[runner] Lead-Bewertung: ${r.bewertet} bewertet (${Object.entries(r.toepfe).map(([t, n]) => `${t} ${n}`).join(' · ') || '—'}) · ${r.rest} warten · $${r.kosten.toFixed(2)}`,
+    )
+  } catch (e) {
+    console.error('[runner] Lead-Bewertung übersprungen:', e?.message ?? e)
+  } finally {
+    bewertungLaeuft = false
+  }
+}
+
 async function maybeNetzwerkSync() {
   try {
     const jetzt = new Date()
@@ -5083,6 +5136,12 @@ server.listen(PORT, '127.0.0.1', () => {
     setTimeout(() => void maybeMorgenbrief(), 10_000)
     const mb = setInterval(() => void maybeMorgenbrief(), MORGENBRIEF_CHECK_MS)
     mb.unref?.()
+
+    // Lead-Bewertung Stufe 1 (24.09.2026): alle 10 Minuten ein Stapel, solange Kontakte ohne Profil warten.
+    if (BEWERTUNG_AUTOMATIK) {
+      const bw = setInterval(() => void maybeBewertung(), 10 * 60 * 1000)
+      bw.unref?.()
+    }
 
     /**
      * Die acht Einzel-Routinen laufen NUR, wenn die Runde den Zeitplan nicht

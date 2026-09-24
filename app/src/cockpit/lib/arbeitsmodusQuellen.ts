@@ -288,12 +288,13 @@ export function followupPosten(
      * in `ordnePosten`: Die Sales-Tagesliste schneidet ihre 20 direkt aus
      * `quellen.followup`, ohne die Rangfolge zu durchlaufen.
      */
-    .sort((a, b) => klassenRang(a.klasse) - klassenRang(b.klasse))
+    // Innerhalb der Klasse die höchsten Punkte zuerst (Lead-Bewertung, 24.09.2026).
+    .sort((a, b) => klassenRang(a.klasse) - klassenRang(b.klasse) || (b.klassePunkte ?? -1) - (a.klassePunkte ?? -1))
 }
 
-function klasseVon(leadId: string | null | undefined, klassen: ReadonlyMap<string, LeadKlassenInfo>): Pick<Posten, 'klasse' | 'klasseGrund'> {
+function klasseVon(leadId: string | null | undefined, klassen: ReadonlyMap<string, LeadKlassenInfo>): Pick<Posten, 'klasse' | 'klasseGrund' | 'klassePunkte'> {
   const k = leadId ? klassen.get(leadId) : undefined
-  return k ? { klasse: k.klasse, klasseGrund: k.grund } : {}
+  return k ? { klasse: k.klasse, klasseGrund: k.grund, klassePunkte: k.punkte } : {}
 }
 
 /**

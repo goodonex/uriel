@@ -37,7 +37,7 @@ export function useLeadKlassen(brandSlug: string | undefined): UseLeadKlassenRes
     for (let von = 0; von < 20_000; von += 1000) {
       const { data, error } = await supabase
         .from('leads')
-        .select('id,klasse,klasse_grund')
+        .select('id,klasse,klasse_grund,punkte:profil->punkte')
         .eq('brand_id', brandId)
         .not('klasse', 'is', null)
         .range(von, von + 999)
@@ -45,8 +45,10 @@ export function useLeadKlassen(brandSlug: string | undefined): UseLeadKlassenRes
         console.warn('lead-klassen:', error.message)
         break
       }
-      for (const z of (data ?? []) as { id: string; klasse: unknown; klasse_grund: string | null }[]) {
-        if (istLeadKlasse(z.klasse)) karte.set(z.id, { klasse: z.klasse, grund: z.klasse_grund ?? '' })
+      for (const z of (data ?? []) as { id: string; klasse: unknown; klasse_grund: string | null; punkte: unknown }[]) {
+        if (istLeadKlasse(z.klasse)) {
+          karte.set(z.id, { klasse: z.klasse, grund: z.klasse_grund ?? '', punkte: typeof z.punkte === 'number' ? z.punkte : undefined })
+        }
       }
       if ((data ?? []).length < 1000) break
     }
