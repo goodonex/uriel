@@ -13,7 +13,7 @@
  * seit 2025-03 · GmbH · München · selbst GF").
  */
 import { starteBrowser } from './seiteRendern.mjs'
-import { bewerte, grundprofil } from './grundprofil.mjs'
+import { STUFE1_FASSUNG, bewerte, grundprofil } from './grundprofil.mjs'
 
 const GLEICHZEITIG = Number(process.env.BEWERTUNG_PARALLEL ?? 3)
 /** Wie beim Recherche-Lauf: ein hängender Kontakt darf nie den Stapel blockieren. */
@@ -29,6 +29,15 @@ async function alle(supabaseUrl, headers, pfad) {
     if (zeilen.length < 1000) break
   }
   return out
+}
+
+/**
+ * Eine ältere Stufe-1-Fassung, die keine Seite fand und nie von Stufe 2
+ * ergänzt wurde, wird noch einmal bewertet. Stufe 2 erkennt man an
+ * `stufe2_at` (ab 24.09.) oder `stand` (Profile der Recherche vom 22./23.09.).
+ */
+export function brauchtNeueFassung(l) {
+  return !l.stufe2 && !l.stand && !l.website && (Number(l.fassung) || 1) < STUFE1_FASSUNG
 }
 
 /** Wer ist dran? Reine Auswahl, getrennt vom Abruf, damit sie sich prüfen lässt. */
@@ -47,10 +56,11 @@ export function naechsteKontakte(netzwerk, mitProfil, limit) {
 export async function bewerteStapel({ supabaseUrl, headers, brandId, limit = 40, cliPath, cwd, melde = () => {} }) {
   const [netzwerk, mitProfil] = await Promise.all([
     alle(supabaseUrl, headers, `linkedin_netzwerk?brand_id=eq.${brandId}&select=name,headline,status,lead_id,angenommen_at,eingeladen_at&status=in.(offen,angenommen)&order=id`),
-    alle(supabaseUrl, headers, `leads?brand_id=eq.${brandId}&profil=not.is.null&select=id&order=id`),
+    alle(supabaseUrl, headers, `leads?brand_id=eq.${brandId}&profil=not.is.null&select=id,fassung:profil->stufe1_fassung,website:profil->>website,stufe2:profil->>stufe2_at,stand:profil->>stand&order=id`),
   ])
-  const dran = naechsteKontakte(netzwerk, mitProfil.map((l) => l.id), limit)
-  const rest = naechsteKontakte(netzwerk, mitProfil.map((l) => l.id), 1e9).length - dran.length
+  const fertig = mitProfil.filter((l) => !brauchtNeueFassung(l)).map((l) => l.id)
+  const dran = naechsteKontakte(netzwerk, fertig, limit)
+  const rest = naechsteKontakte(netzwerk, fertig, 1e9).length - dran.length
   if (!dran.length) return { bewertet: 0, rest: 0, kosten: 0, toepfe: {} }
 
   const browser = await starteBrowser().catch(() => null)
@@ -69,7 +79,8 @@ export async function bewerteStapel({ supabaseUrl, headers, brandId, limit = 40,
         ]).finally(() => clearTimeout(uhr))
         kosten += k$
         const b = bewerte(profil)
-        const res = await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${k.lead_id}&profil=is.null`, {
+        // Nie über ein Profil der Stufe 2 schreiben — die Recherche weiß mehr.
+        const res = await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${k.lead_id}&or=(profil.is.null,and(profil->>stufe2_at.is.null,profil->>stand.is.null))`, {
           method: 'PATCH',
           headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({ profil: { ...profil, punkte: b.punkte, topf: b.topf }, klasse: b.klasse, klasse_grund: b.grund, profil_at: new Date().toISOString() }),

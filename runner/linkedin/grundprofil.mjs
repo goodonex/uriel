@@ -37,6 +37,13 @@ import { personGleich } from './entscheider.mjs'
 import { rechtsformAus, handelsregisterAus, bewerte } from './leadProfil.mjs'
 
 const ABRUF_TIMEOUT_MS = 12_000
+/**
+ * Fassung der Stufe 1. Steigt, wenn sich das Finden der Website verbessert —
+ * dann werden Kontakte, bei denen eine ältere Fassung keine Seite fand, von
+ * selbst noch einmal bewertet (`bewertungLauf.mjs`). 2 = 24.09.2026, Werbesätze
+ * in der Headline sind keine Firma mehr.
+ */
+export const STUFE1_FASSUNG = 2
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'
 
 /** Portale und Netzwerke sind keine eigene Website (dieselbe Liste wie in `leadRecherche.mjs`, ergänzt um Suchtreffer-Typisches). */
@@ -54,16 +61,36 @@ const FIRMA_ZEICHEN = /immobilien|real estate|gmbh|makler|immo|estate|property|p
  * Headline."* Deshalb nur, was eindeutig nach Firma aussieht; im Zweifel
  * sucht Google mit dem Namen allein.
  */
+/**
+ * Ein Firmenname ist kurz und beginnt groß — kein Satz (24.09.2026, erster
+ * Lauf auf dem Mini: „Interessierst du dich für Immobilien? Gerne tausche ich
+ * mich …" und „Mehr exklusive Verkaufsaufträge durch Meta Ads als" wurden als
+ * Firma gesucht, und die Hälfte der Kontakte blieb ohne Seite).
+ */
+function siehtAusWieFirma(t) {
+  const w = String(t ?? '').trim()
+  if (w.length < 3 || w.length > 60 || /[?!:]/.test(w)) return false
+  if (w.split(/\s+/).length > 6) return false
+  if (!/^[A-ZÄÖÜ0-9&]/.test(w)) return false
+  if (/^(immobilien|real estate|makler|diplom|geprüft|zertifiziert|mehr|ich|wir|dein|ihr|gerne)\b/i.test(w)) return false
+  return true
+}
+
 export function firmaAusHeadline(headline) {
   const h = String(headline ?? '').replace(/\s+/g, ' ').trim()
   if (!h) return ''
   const bei = h.match(/(?:\bbei\b|@|\bat\b)\s+([^|,·•/]+)/i)
   // Nur wenn danach ein Name kommt (Großbuchstabe/Ziffer) — „be great at what you do“ ist keine Firma.
-  if (bei && /^[A-ZÄÖÜ0-9]/.test(bei[1].trim()) && bei[1].trim().length > 2) return bei[1].trim().replace(/[.\s]+$/, '')
+  if (bei && siehtAusWieFirma(bei[1].replace(/\([^)]*\)/g, ' ').trim())) return bei[1].replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.\s]+$/, '')
   for (const teil of h.split(/\s*[|·•/]\s*|\s+[–-]\s+/)) {
     if (!FIRMA_ZEICHEN.test(teil)) continue
-    const ohneRolle = teil.replace(ROLLEN, '').replace(/^\s*(der|die|des|von|für|fuer|&)\s+/i, '').replace(/\s+/g, ' ').trim()
-    if (ohneRolle.length > 2 && !/^(immobilien|real estate|makler)$/i.test(ohneRolle)) return ohneRolle
+    const ohneRolle = teil
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(ROLLEN, '')
+      .replace(/^\s*(der|die|des|von|für|fuer|&)\s+/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (siehtAusWieFirma(ohneRolle)) return ohneRolle
   }
   return ''
 }
@@ -291,6 +318,7 @@ export async function grundprofil(kontakt, { browser, cliPath, cwd }) {
 
   const profil = {
     stufe1_at: new Date().toISOString(),
+    stufe1_fassung: STUFE1_FASSUNG,
     linkedin_status: kontakt.status ?? '',
     eingeladen_at: kontakt.eingeladen_at ?? '',
     firma_hinweis: firmaHinweis,

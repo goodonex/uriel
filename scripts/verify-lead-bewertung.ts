@@ -9,7 +9,7 @@ import { firmaAusHeadline, kandidatenAus, ortAus, marktFuer, impressumLink } fro
 // @ts-expect-error — .mjs ohne Typen
 import { bewerte } from '../runner/linkedin/leadProfil.mjs'
 // @ts-expect-error — .mjs ohne Typen
-import { naechsteKontakte } from '../runner/linkedin/bewertungLauf.mjs'
+import { brauchtNeueFassung, naechsteKontakte } from '../runner/linkedin/bewertungLauf.mjs'
 
 let fehler = 0
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -23,6 +23,10 @@ check('„Geschäftsführer bei GED Wohnbau"', firmaAusHeadline('Geschäftsführ
 check('„… bei HAKO Immobilien GmbH // Co-Founder …" endet vor den Strichen', firmaAusHeadline('Geschäftsführender Gesellschafter bei HAKO Immobilien GmbH // Co-Founder XY') === 'HAKO Immobilien GmbH')
 check('Segment mit Firmenzeichen, Rolle entfernt', firmaAusHeadline('Geschäftsführer VANDERBERG Immobilien | Gründer FollowerX') === 'VANDERBERG Immobilien', firmaAusHeadline('Geschäftsführer VANDERBERG Immobilien | Gründer FollowerX'))
 check('Spruch ohne Firma bleibt leer', firmaAusHeadline('be great at what you do') === '')
+check('Werbesatz ist keine Firma (Wackwitz, 24.09.)', firmaAusHeadline('Interessierst du dich für Immobilien? Gerne tausche ich mich mit dir darüber aus!') === '')
+check('Satzfetzen ist keine Firma (Botti)', firmaAusHeadline('Berater für Eigentümer-Leadgenerierung | Mehr exklusive Verkaufsaufträge durch Meta Ads als Immobilienmakler') === '')
+check('Titel ist keine Firma (Körting)', firmaAusHeadline('Diplom-Immobilienökonom (ADI) Vermittlung von Residential Real Estate und Commercial Real Estate, gerne auch Off-Market.') === '')
+check('„CEO Wang Immobilien (gegr. 1996)" → Wang Immobilien', firmaAusHeadline('CEO Wang Immobilien (gegr. 1996) | Geprüfte Immobilienmaklerin § 34c GewO') === 'Wang Immobilien', firmaAusHeadline('CEO Wang Immobilien (gegr. 1996) | Geprüfte Immobilienmaklerin § 34c GewO'))
 
 /* ── Kandidaten ──────────────────────────────────────────────────────── */
 {
@@ -84,6 +88,11 @@ check('ohne Ort unbekannt', marktFuer('', '') === 'unbekannt')
   const dran = naechsteKontakte(netz, ['d'], 10).map((n: any) => n.lead_id)
   check('Angenommene zuerst, die Jüngsten vorn, Bewertete und Leads ohne Zeile raus', JSON.stringify(dran) === JSON.stringify(['c', 'b', 'a']), dran)
 }
+
+check('alte Fassung ohne Seite wird neu bewertet', brauchtNeueFassung({ fassung: null, website: '', stufe2: null }))
+check('alte Fassung MIT Seite bleibt', !brauchtNeueFassung({ fassung: null, website: 'https://x.de/', stufe2: null }))
+check('Stufe 2 wird nie überschrieben', !brauchtNeueFassung({ fassung: 1, website: '', stufe2: '2026-09-24' }))
+check('ältere Recherche-Profile (nur „stand") werden nie überschrieben', !brauchtNeueFassung({ fassung: null, website: '', stufe2: null, stand: '2026-09-23' }))
 
 console.log(fehler ? `\n${fehler} Prüfung(en) fehlgeschlagen` : '\nAlles grün.')
 process.exit(fehler ? 1 : 0)
