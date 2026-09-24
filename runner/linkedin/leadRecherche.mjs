@@ -613,18 +613,27 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
  * fällt nicht raus: „keine Website gefunden" ist ein Aufhänger, kein Grund zum
  * Überspringen.
  */
-export async function rechercheLeads(leads, { melde = () => {}, cliPath = process.env.PATH ?? '', cwd } = {}) {
+export async function rechercheLeads(leads, { melde = () => {}, cliPath = process.env.PATH ?? '', cwd, signal } = {}) {
   const ergebnisse = new Array(leads.length)
   const ordner = join(tmpdir(), 'uriel-recherche', new Date().toISOString().slice(0, 10))
   await mkdir(ordner, { recursive: true })
   const browser = await starteBrowser()
+  /**
+   * Bricht die Runde ab (Zeitgrenze oder Kevin), geht der Recherche-Chrome
+   * sofort zu (24.09.2026). Das ist der Hebel gegen den Hänger vom 23.09.: Ein
+   * `page.evaluate`, das auf nichts mehr wartet, wirft erst, wenn sein Browser
+   * weg ist. Wer noch in der Schlange steht, wird nicht mehr angefangen.
+   */
+  const schliessen = () => void browser.close().catch(() => {})
+  if (signal?.aborted) schliessen()
+  else signal?.addEventListener('abort', schliessen, { once: true })
   let naechster = 0
   let fertig = 0
   let token = 0
   let kosten = 0
 
   async function arbeiter() {
-    while (naechster < leads.length) {
+    while (naechster < leads.length && !signal?.aborted) {
       const i = naechster++
       let r
       try {
@@ -655,6 +664,7 @@ export async function rechercheLeads(leads, { melde = () => {}, cliPath = proces
   try {
     await Promise.all(Array.from({ length: Math.min(GLEICHZEITIG, leads.length) }, arbeiter))
   } finally {
+    signal?.removeEventListener('abort', schliessen)
     await browser.close().catch(() => {})
   }
 

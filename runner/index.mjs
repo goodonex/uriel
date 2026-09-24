@@ -39,6 +39,8 @@ import { WACH_KARENZ_MS, bewerteWachheit, chromeErreichbar, netzErreichbar, star
 import { beurteileWache, meldungsText } from './chromeWache.mjs'
 import {
   ETAPPEN,
+  RUNDE_LIMIT_MIN,
+  etappenFrist,
   faelligerSlot,
   frageBeimOeffnen,
   kopfText,
@@ -184,6 +186,23 @@ function beendeBaum(proc, id, karenzMs = KILL_KARENZ_MS) {
     }
   }, karenzMs)
   nachlegen.unref?.()
+}
+
+/**
+ * Ein Kindprozess einer Etappe stirbt mit, wenn die Runde abbricht (24.09.2026).
+ * Ohne das liefe `verlauf-nachziehen` nach einem Abbruch weiter und hielte
+ * `verlaufLaeuft` besetzt — die nächste Runde meldete dann „läuft bereits".
+ */
+function beendeBeiAbbruch(proc, signal, name) {
+  if (!signal) return
+  const beiAbbruch = () => {
+    if (proc.exitCode !== null || proc.signalCode !== null) return
+    console.warn(`[runner] ${name}: Runde abgebrochen — Prozess wird beendet`)
+    beendeBaum(proc, name)
+  }
+  if (signal.aborted) beiAbbruch()
+  else signal.addEventListener('abort', beiAbbruch, { once: true })
+  proc.once('close', () => signal.removeEventListener('abort', beiAbbruch))
 }
 
 // OS-Map-Snapshot → Supabase, damit die HTTPS-Live-Domain (frameworkos.de) den
@@ -1111,7 +1130,7 @@ const CLI_PATH = [
   .join(':')
 
 // ---------- Agent starten ----------
-async function startRun(agent, input) {
+async function startRun(agent, input, { signal } = {}) {
   const id = `${nowStamp()}-${agent}`
   const startedAt = new Date().toISOString()
 
@@ -1208,6 +1227,21 @@ async function startRun(agent, input) {
   }, TIMEOUT_MS)
 
   running.set(id, { id, agent, startedAt, proc, lauf })
+
+  /**
+   * Bricht die Runde ab (Zeitgrenze oder Kevin), stirbt ihr Agent mit
+   * (24.09.2026). Sonst liefe er nach dem Abbruch weiter, hielte `running`
+   * besetzt und damit den Code-Check auf — bis zu seinem eigenen Zeitlimit.
+   */
+  if (signal) {
+    const beiAbbruch = () => {
+      console.warn(`[runner] ${id}: Runde abgebrochen — beende den Prozessbaum`)
+      beendeBaum(proc, id)
+    }
+    if (signal.aborted) beiAbbruch()
+    else signal.addEventListener('abort', beiAbbruch, { once: true })
+    proc.once('close', () => signal.removeEventListener('abort', beiAbbruch))
+  }
 
   /**
    * Das Ende des Laufs als Promise (16.09.2026).
@@ -2081,7 +2115,7 @@ async function fuehreJobAus(job) {
   }
 
   if (job.kind === 'runde_abbrechen') {
-    rundeAbbruch = true
+    brecheRundeAb('von Hand')
     await spiegleRunde({ sofort: true })
     return rundeStand()
   }
@@ -2548,7 +2582,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/runde/abbrechen') {
-      rundeAbbruch = true
+      brecheRundeAb('von Hand')
       return json(res, 200, rundeStand())
     }
 
@@ -3740,7 +3774,7 @@ const REPO_WURZEL = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * stünde ihre Etappe auf „fertig", während der Kindprozess noch minutenlang
  * durch die Threads geht.
  */
-function verlaufNachziehen({ melde = () => {} } = {}) {
+function verlaufNachziehen({ melde = () => {}, signal } = {}) {
   if (verlaufLaeuft) return Promise.resolve({ uebersprungen: 'läuft bereits' })
   verlaufLaeuft = true
   return new Promise((fertig) => {
@@ -3750,6 +3784,7 @@ function verlaufNachziehen({ melde = () => {} } = {}) {
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       })
+      beendeBeiAbbruch(p, signal, 'verlauf-nachziehen')
       let letzteZeile = ''
       p.stdout.on('data', (d) => {
         const t = String(d).trim()
@@ -4038,7 +4073,7 @@ async function maybeLeadsSync() {
  * und ein zweiter Codepfad für dieselbe Fachlogik wäre genau die Doppelung,
  * die dieses Repo bei den Erstnachrichten schon einmal teuer bezahlt hat (0071).
  */
-async function tueLeadsSync({ melde = () => {} } = {}) {
+async function tueLeadsSync({ melde = () => {}, signal } = {}) {
   {
     // `fileURLToPath`, nicht `.pathname`: Der Repo-Pfad enthält ein Leerzeichen
     // („Kevin OS"), und `.pathname` liefert es prozentkodiert zurück. spawn
@@ -4055,6 +4090,7 @@ async function tueLeadsSync({ melde = () => {} } = {}) {
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       })
+      beendeBeiAbbruch(proc, signal, 'leads-sync')
       let letzte = ''
       proc.stdout.on('data', (d) => {
         const text = String(d).trim()
@@ -4147,6 +4183,53 @@ async function tueWaechter() {
 let laufendeRunde = null
 /** Wird auf true gesetzt, wenn Kevin abbricht — die Etappen sehen zwischen den Schritten nach. */
 let rundeAbbruch = false
+/** Warum abgebrochen wurde — steht hinterher in der Kopfzeile („Abgebrochen — Zeitgrenze"). */
+let rundeAbbruchGrund = null
+/**
+ * Der Draht in die laufende Etappe (24.09.2026). `rundeAbbruch` allein wird
+ * nur ZWISCHEN den Etappen gelesen — eine Etappe, die hängt, erreicht diese
+ * Stelle nie. Das Signal dagegen schließt den Recherche-Browser und beendet
+ * Kindprozesse und Agenten sofort.
+ */
+let rundeSteuerung = null
+
+function brecheRundeAb(grund) {
+  if (laufendeRunde?.status !== 'laeuft') return
+  rundeAbbruch = true
+  rundeAbbruchGrund ??= grund
+  rundeSteuerung?.abort(new Error(`Runde abgebrochen (${grund})`))
+}
+
+/**
+ * Eine Etappe mit harter Frist ausführen (24.09.2026).
+ *
+ * Die Frist ist ein Wettlauf, kein höflicher Hinweis: Läuft sie ab, bekommt
+ * die Etappe ihr Abbruch-Signal UND die Runde geht weiter, auch wenn die
+ * Etappe darauf nicht reagiert. Ein `page.evaluate` ohne Zeitlimit hält damit
+ * höchstens noch sich selbst auf, nicht mehr den Mini.
+ */
+async function mitFrist(arbeit, { ms, text }) {
+  const steuerung = new AbortController()
+  const weiterreichen = () => steuerung.abort(rundeSteuerung?.signal.reason)
+  const rundenSignal = rundeSteuerung?.signal
+  if (rundenSignal?.aborted) weiterreichen()
+  else rundenSignal?.addEventListener('abort', weiterreichen, { once: true })
+  let uhr
+  const ablauf = new Promise((_, nein) => {
+    uhr = setTimeout(() => steuerung.abort(new Error(text)), ms)
+    steuerung.signal.addEventListener('abort', () => nein(steuerung.signal.reason), { once: true })
+  })
+  // Die Etappe kann nach dem Abbruch noch mit einem Fehler zurückkommen — der
+  // interessiert niemanden mehr, darf aber nicht als „unhandled" den Runner kippen.
+  const lauf = Promise.resolve().then(() => arbeit(steuerung.signal))
+  lauf.catch(() => {})
+  try {
+    return await Promise.race([lauf, ablauf])
+  } finally {
+    clearTimeout(uhr)
+    rundenSignal?.removeEventListener('abort', weiterreichen)
+  }
+}
 /** Überlebt den Runner-Neustart, damit die Frage beim Öffnen nicht jedes Mal kommt. */
 /**
  * ---- Neuen Code selbst holen und neu starten (10.09.2026) ----
@@ -4414,8 +4497,8 @@ const ETAPPEN_ARBEIT = {
     }
   },
 
-  verlauf: async ({ melde }) => {
-    const r = await verlaufNachziehen({ melde: (t) => melde(t) })
+  verlauf: async ({ melde, signal }) => {
+    const r = await verlaufNachziehen({ melde: (t) => melde(t), signal })
     if (r?.fehler) throw new Error(r.fehler)
     return { text: r?.text ?? r?.uebersprungen ?? 'nachgezogen' }
   },
@@ -4424,8 +4507,8 @@ const ETAPPEN_ARBEIT = {
 
   kontakte: async ({ melde, tief }) => tueNetzwerkListe('kontakte', { melde, kurz: !tief }),
 
-  leads: async ({ melde }) => {
-    const r = await tueLeadsSync({ melde: (t) => melde(t) })
+  leads: async ({ melde, signal }) => {
+    const r = await tueLeadsSync({ melde: (t) => melde(t), signal })
     if (r?.fehler) throw new Error(r.fehler)
     letzterLeadsLauf = Date.now()
     return { text: r?.text ?? 'verbucht' }
@@ -4438,7 +4521,7 @@ const ETAPPEN_ARBEIT = {
     return { text: r?.text ?? 'geprüft' }
   },
 
-  sortierer: async ({ melde }) => {
+  sortierer: async ({ melde, signal }) => {
     const { threads } = await holeSortierThreads({
       supabaseUrl: SUPABASE_URL,
       headers: supabaseHeaders(),
@@ -4448,7 +4531,7 @@ const ETAPPEN_ARBEIT = {
     const gebaut = baueSortierInput(threads)
     if (!gebaut.input.threads.length) return { text: 'nichts zu sortieren' }
     melde(`${gebaut.input.threads.length} Kontakte werden beurteilt`)
-    await startRun('linkedin-sortierer', gebaut.input)
+    await startRun('linkedin-sortierer', gebaut.input, { signal })
     return {
       text:
         `${gebaut.input.threads.length} beurteilt` +
@@ -4456,7 +4539,7 @@ const ETAPPEN_ARBEIT = {
     }
   },
 
-  erstnachrichten: async ({ melde, anzahl }) => {
+  erstnachrichten: async ({ melde, anzahl, signal }) => {
     /**
      * Kevins Tagesziel (01.09.2026): *„Bei den Erstnachrichten will ich
      * fünfzig pro Tag machen."*
@@ -4509,7 +4592,7 @@ const ETAPPEN_ARBEIT = {
     let zuletztGesamt = 0
     let kostenRecherche = 0
     for (let runde = 0; vorbereitet < TAGESZIEL; runde++) {
-      if (rundeAbbruch) break
+      if (rundeAbbruch || signal?.aborted) break
       const gebaut = await erstnachrichtenInput(Math.min(BATCH, TAGESZIEL - vorbereitet))
       if (!gebaut) break
       zuletztGesamt = gebaut.gesamt
@@ -4524,8 +4607,13 @@ const ETAPPEN_ARBEIT = {
         melde: (t, a) => melde(`Batch ${runde + 1}: ${t}`, a == null ? null : Math.min(1, (vorbereitet + a * gebaut.leads.length) / TAGESZIEL)),
         cliPath: CLI_PATH,
         cwd: VAULT,
+        signal,
       })
       kostenRecherche += recherchiert.kosten
+      // Nach einem Abbruch nicht weiterarbeiten: Die Etappe gilt schon als
+      // abgebrochen, ein zweiter Recherche-Versuch oder ein Schreiblauf wäre
+      // bezahlte Arbeit, die niemand mehr abwartet (24.09.2026).
+      if (signal?.aborted) break
       /**
        * Gescheiterte Recherche ist NICHT „keine Website" (18.09.2026).
        *
@@ -4547,7 +4635,7 @@ const ETAPPEN_ARBEIT = {
         )
         const nochmal = await rechercheLeads(
           ohne.map(({ recherche: _r, recherche_fehler: _f, ...rest }) => rest),
-          { cliPath: CLI_PATH, cwd: VAULT },
+          { cliPath: CLI_PATH, cwd: VAULT, signal },
         )
         kostenRecherche += nochmal.kosten
         const neu = new Map(nochmal.leads.map((l) => [l.name, l]))
@@ -4678,12 +4766,13 @@ const ETAPPEN_ARBEIT = {
         if (l.recherche?.rolle === 'angestellt') angestellteVorgemerkt.add(String(l.name).toLowerCase())
         erstnachrichtLeadsVorgemerkt.set(String(l.name).toLowerCase(), l)
       }
+      if (signal?.aborted) break
       if (leads.length) {
         // Profil und Klasse bleiben draußen: Der Schreib-Agent braucht sie nicht, und jede Zeile im Input kostet je Lead.
         const fuerAgent = leads.map((l) =>
           l.recherche ? { ...l, recherche: Object.fromEntries(Object.entries(l.recherche).filter(([k]) => !['profil', 'klasse', 'klasse_grund'].includes(k))) } : l,
         )
-        const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: fuerAgent })
+        const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: fuerAgent }, { signal })
         // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
         // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
         await schreiblauf.fertig
@@ -4711,11 +4800,11 @@ const ETAPPEN_ARBEIT = {
     }
   },
 
-  entwuerfe: async ({ melde }) => {
+  entwuerfe: async ({ melde, signal }) => {
     const gebaut = await antwortEntwuerfeInput(new Date())
     if (!gebaut) return { text: 'niemand wartet auf eine Antwort' }
     melde(`${gebaut.input.threads.length} Entwürfe werden geschrieben`)
-    await startRun('linkedin-antwort-entwuerfe', gebaut.input)
+    await startRun('linkedin-antwort-entwuerfe', gebaut.input, { signal })
     return {
       text:
         `${gebaut.input.threads.length} Entwürfe` +
@@ -4736,69 +4825,119 @@ const ETAPPEN_ARBEIT = {
 async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzahl = null } = {}) {
   if (laufendeRunde?.status === 'laeuft') return rundeStand()
   rundeAbbruch = false
+  rundeAbbruchGrund = null
+  rundeSteuerung = new AbortController()
   laufendeRunde = neueRunde({ jetzt: Date.now(), ausloeser, nur })
-
-  const chromeDa = await chromeErreichbar()
+  const dieseRunde = laufendeRunde.id
+  /** Hat die Notbremse diese Runde schon geschlossen (oder läuft längst eine neue)? Dann nichts mehr anfassen. */
+  const verwaist = () => laufendeRunde?.id !== dieseRunde || laufendeRunde.status !== 'laeuft'
   /**
-   * Wie oft muss die Liste WIRKLICH ganz durch? (31.08.2026)
-   *
-   * Bis heute: einmal täglich. Das waren vierzehn Minuten durch Kevins Konto
-   * für eine Erkenntnis, die sich fast nie ändert — sein Einwand war richtig.
-   * Der kurze Lauf holt alles Neue (beide Listen sind chronologisch), er kann
-   * nur eines nicht: bemerken, dass jemand aus der Liste VERSCHWUNDEN ist.
-   *
-   * Und selbst das ist meist ableitbar: Wer aus den Einladungen verschwindet,
-   * hat angenommen — und steht dann oben in den Kontakten, wo der kurze Lauf
-   * ihn ohnehin findet. Ganz durch muss es nur für den Rest (zurückgezogene
-   * Einladungen, entfernte Kontakte) und für die Gesamtzahl, an der der
-   * Wächter die Erntelücke misst. Einmal pro Woche genügt dafür.
+   * Letzte Sicherung (24.09.2026): Kommt die Schleife aus welchem Grund auch
+   * immer nicht zum Abschluss, schließt diese Uhr die Runde von außen — zehn
+   * Minuten nach der Rundengrenze. Danach laufen Zeitplan, Routinen und
+   * Code-Check wieder, egal was drinnen hängt.
    */
-  const vollNoetig = tief === null ? Date.now() - markeLies('letzter-netzwerk-voll') > NETZWERK_VOLL_ABSTAND_MS : tief
+  const notbremse = setTimeout(() => {
+    if (verwaist()) return
+    console.error('[runner] Runde hängt über die Zeitgrenze hinaus — wird von außen geschlossen')
+    brecheRundeAb('Zeitgrenze')
+    laufendeRunde = schliesseRunde(laufendeRunde, { jetzt: Date.now(), abgebrochen: true, grund: rundeAbbruchGrund })
+    void spiegleRunde({ sofort: true })
+  }, (RUNDE_LIMIT_MIN + 10) * 60_000)
+  notbremse.unref?.()
+  let vollNoetig = false
+  try {
+    const chromeDa = await chromeErreichbar()
+    /**
+     * Wie oft muss die Liste WIRKLICH ganz durch? (31.08.2026)
+     *
+     * Bis heute: einmal täglich. Das waren vierzehn Minuten durch Kevins Konto
+     * für eine Erkenntnis, die sich fast nie ändert — sein Einwand war richtig.
+     * Der kurze Lauf holt alles Neue (beide Listen sind chronologisch), er kann
+     * nur eines nicht: bemerken, dass jemand aus der Liste VERSCHWUNDEN ist.
+     *
+     * Und selbst das ist meist ableitbar: Wer aus den Einladungen verschwindet,
+     * hat angenommen — und steht dann oben in den Kontakten, wo der kurze Lauf
+     * ihn ohnehin findet. Ganz durch muss es nur für den Rest (zurückgezogene
+     * Einladungen, entfernte Kontakte) und für die Gesamtzahl, an der der
+     * Wächter die Erntelücke misst. Einmal pro Woche genügt dafür.
+     */
+    vollNoetig = tief === null ? Date.now() - markeLies('letzter-netzwerk-voll') > NETZWERK_VOLL_ABSTAND_MS : tief
 
-  console.log(`[runner] Runde gestartet (${ausloeser}${chromeDa ? '' : ', ohne Chrome'}${vollNoetig ? ', volle Listen' : ''})`)
+    console.log(`[runner] Runde gestartet (${ausloeser}${chromeDa ? '' : ', ohne Chrome'}${vollNoetig ? ', volle Listen' : ''})`)
 
-  for (const etappe of laufendeRunde.etappen) {
-    if (rundeAbbruch) break
-    const def = ETAPPEN.find((e) => e.schluessel === etappe.schluessel)
-    if (def?.brauchtChrome && !chromeDa) {
-      laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
-        status: 'uebersprungen',
-        text: 'Sync-Chrome läuft nicht',
-      })
-      continue
+    for (const etappe of laufendeRunde.etappen) {
+      if (rundeAbbruch || verwaist()) break
+      const def = ETAPPEN.find((e) => e.schluessel === etappe.schluessel)
+      if (def?.brauchtChrome && !chromeDa) {
+        laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
+          status: 'uebersprungen',
+          text: 'Sync-Chrome läuft nicht',
+        })
+        continue
+      }
+      laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, { status: 'laeuft', anteil: 0, text: '' })
+      await spiegleRunde({ sofort: true })
+      const frist = etappenFrist({ schluessel: etappe.schluessel, rundeGestartet: laufendeRunde.gestartet, jetzt: Date.now() })
+      const fristText =
+        frist.grenze === 'runde'
+          ? `Runde nach ${RUNDE_LIMIT_MIN} Minuten abgebrochen (Zeitgrenze)`
+          : `nach ${Math.round(frist.ms / 60_000)} Minuten abgebrochen (Zeitgrenze)`
+      if (frist.ms <= 0) {
+        laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, { status: 'fehler', text: fristText })
+        brecheRundeAb('Zeitgrenze')
+        break
+      }
+      try {
+        const r = await mitFrist((signal) => ETAPPEN_ARBEIT[etappe.schluessel]({
+          tief: vollNoetig,
+          anzahl,
+          signal,
+          melde: (text, anteil = null) => {
+            // Nach dem Abbruch schreibt eine verwaiste Etappe nicht mehr in die Runde.
+            if (signal.aborted || verwaist()) return
+            laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
+              text: String(text ?? '').slice(0, 120),
+              ...(typeof anteil === 'number' ? { anteil } : {}),
+            })
+            void spiegleRunde()
+          },
+        }), { ms: frist.ms, text: fristText })
+        if (verwaist()) break
+        laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
+          status: 'fertig',
+          anteil: 1,
+          text: r?.text ?? 'fertig',
+          von: r?.von ?? null,
+          bis: r?.bis ?? null,
+          ...(typeof r?.vollstaendig === 'boolean' ? { vollstaendig: r.vollstaendig } : {}),
+        })
+      } catch (e) {
+        console.error(`[runner] Runde — Etappe ${etappe.schluessel}:`, e?.message ?? e)
+        if (verwaist()) break
+        laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
+          status: 'fehler',
+          text: String(e?.message ?? e).slice(0, 160),
+        })
+        // Die Rundengrenze beendet die ganze Runde, nicht nur diese Etappe.
+        if (frist.grenze === 'runde' && Date.now() - new Date(laufendeRunde.gestartet).getTime() >= RUNDE_LIMIT_MIN * 60_000) {
+          brecheRundeAb('Zeitgrenze')
+        }
+      }
     }
-    laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, { status: 'laeuft', anteil: 0, text: '' })
-    await spiegleRunde({ sofort: true })
-    try {
-      const r = await ETAPPEN_ARBEIT[etappe.schluessel]({
-        tief: vollNoetig,
-        anzahl,
-        melde: (text, anteil = null) => {
-          laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
-            text: String(text ?? '').slice(0, 120),
-            ...(typeof anteil === 'number' ? { anteil } : {}),
-          })
-          void spiegleRunde()
-        },
-      })
-      laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
-        status: 'fertig',
-        anteil: 1,
-        text: r?.text ?? 'fertig',
-        von: r?.von ?? null,
-        bis: r?.bis ?? null,
-        ...(typeof r?.vollstaendig === 'boolean' ? { vollstaendig: r.vollstaendig } : {}),
-      })
-    } catch (e) {
-      console.error(`[runner] Runde — Etappe ${etappe.schluessel}:`, e?.message ?? e)
-      laufendeRunde = setzeEtappe(laufendeRunde, etappe.schluessel, {
-        status: 'fehler',
-        text: String(e?.message ?? e).slice(0, 160),
-      })
-    }
+  } catch (e) {
+    // Was hier landet, ist ein Fehler AUSSERHALB der Etappen (Chrome-Prüfung,
+    // Spiegel). Er darf die Runde nicht auf „läuft" stehen lassen.
+    console.error('[runner] Runde unerwartet abgebrochen:', e?.message ?? e)
+    rundeAbbruch = true
+    rundeAbbruchGrund ??= 'Fehler im Runner'
+  } finally {
+    clearTimeout(notbremse)
   }
+  // Hat die Notbremse die Runde schon geschlossen, oder läuft längst eine neue, bleibt es dabei.
+  if (verwaist()) return rundeStand()
 
-  laufendeRunde = schliesseRunde(laufendeRunde, { jetzt: Date.now(), abgebrochen: rundeAbbruch })
+  laufendeRunde = schliesseRunde(laufendeRunde, { jetzt: Date.now(), abgebrochen: rundeAbbruch, grund: rundeAbbruchGrund })
   // Der Stempel steht erst NACH dem Lauf auf der Platte: Ein abgebrochener Lauf
   // darf den Stand nicht auf „frisch" setzen, sonst fragt Uriel morgen nicht mehr.
   if (laufendeRunde.status === 'fertig') {

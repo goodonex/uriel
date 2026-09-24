@@ -23,7 +23,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   ETAPPEN,
+  ETAPPEN_LIMIT_MIN,
   FRAGE_AB_MS,
+  RUNDE_LIMIT_MIN,
+  etappenFrist,
   frageBeimOeffnen,
   kopfText,
   neueRunde,
@@ -365,6 +368,36 @@ console.log('\n8) Live über die Brücke')
   // nicht — dort steht er in einem ck-root mit pointerEvents auto).
   const schirm = readFileSync(join(wurzel, 'app/src/cockpit/components/Ladeschirm.tsx'), 'utf8')
   check('der Ladeschirm meldet sich vom pointer-events-Overlay zurück', /pointerEvents: 'auto'/.test(schirm))
+}
+
+// 5. Zeitgrenzen (24.09.2026): Am 23.09. hing eine Runde von 16:44 bis zum
+// nächsten Mittag in der Website-Recherche. Solange `laufendeRunde` auf
+// „läuft" steht, fallen Zeitplan-Runden und Code-Check aus.
+{
+  check('jede Etappe hat eine eigene Zeitgrenze', ETAPPEN.every((e) => Number(ETAPPEN_LIMIT_MIN[e.schluessel]) > 0))
+  const start = Date.parse('2026-09-23T16:44:22+02:00')
+  const f1 = etappenFrist({ schluessel: 'postfach', rundeGestartet: new Date(start).toISOString(), jetzt: start })
+  check('am Anfang gilt die Etappen-Grenze', f1.grenze === 'etappe' && f1.ms === ETAPPEN_LIMIT_MIN.postfach * 60_000, JSON.stringify(f1))
+  const spaet = start + (RUNDE_LIMIT_MIN - 5) * 60_000
+  const f2 = etappenFrist({ schluessel: 'erstnachrichten', rundeGestartet: new Date(start).toISOString(), jetzt: spaet })
+  check('kurz vor Rundenende gilt der Rest der Runde', f2.grenze === 'runde' && f2.ms === 5 * 60_000, JSON.stringify(f2))
+  const vorbei = etappenFrist({ schluessel: 'waechter', rundeGestartet: new Date(start).toISOString(), jetzt: start + 24 * 3600_000 })
+  check('nach Rundenende ist die Frist null, nie negativ', vorbei.ms === 0, JSON.stringify(vorbei))
+
+  let r = neueRunde({ jetzt: start, nur: ['erstnachrichten'] })
+  r = setzeEtappe(r, 'erstnachrichten', { status: 'fehler', text: 'Runde nach 120 Minuten abgebrochen (Zeitgrenze)' })
+  const zu = schliesseRunde(r, { jetzt: start + RUNDE_LIMIT_MIN * 60_000, abgebrochen: true, grund: 'Zeitgrenze' })
+  check('eine abgebrochene Runde läuft nicht mehr', zu.status === 'abgebrochen' && zu.aktuell === null)
+  check('die Kopfzeile nennt den Grund', kopfText(zu) === 'Abgebrochen — Zeitgrenze', kopfText(zu))
+  check('ohne Grund bleibt es beim alten Satz', kopfText(schliesseRunde(neueRunde({ jetzt: start }), { jetzt: start, abgebrochen: true })) === 'Abgebrochen')
+
+  const kern = readFileSync(join(wurzel, 'runner/index.mjs'), 'utf8')
+  check('jede Etappe läuft unter Frist', /await mitFrist\(\(signal\) => ETAPPEN_ARBEIT\[etappe\.schluessel\]\(/.test(kern))
+  check('die Notbremse schließt eine hängende Runde von außen', /const notbremse = setTimeout\(/.test(kern) && /clearTimeout\(notbremse\)/.test(kern))
+  check('Abbrechen von Hand erreicht die laufende Etappe', (kern.match(/brecheRundeAb\('von Hand'\)/g) ?? []).length === 2 && !/\n\s*rundeAbbruch = true\n\s*(await spiegleRunde|return json)/.test(kern))
+  check('die Erstnachrichten reichen das Signal an die Recherche weiter', /cwd: VAULT,\n\s*signal,\n\s*\}\)/.test(kern))
+  const recherche = readFileSync(join(wurzel, 'runner/linkedin/leadRecherche.mjs'), 'utf8')
+  check('der Recherche-Chrome geht beim Abbruch zu', /signal\?\.addEventListener\('abort', schliessen/.test(recherche))
 }
 
 console.log(`\nverify-runde: ${pass} ok, ${fail} fehlgeschlagen`)

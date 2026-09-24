@@ -61,6 +61,47 @@ export const ETAPPEN = [
 
 const GEWICHT_SUMME = ETAPPEN.reduce((s, e) => s + e.gewicht, 0)
 
+/**
+ * Harte Zeitgrenzen je Etappe und je Runde, in Minuten (24.09.2026).
+ *
+ * **Der Anlass.** Am 23.09. um 16:44 blieb eine Runde in der Website-Recherche
+ * der Erstnachrichten stehen: ein `page.evaluate` im Recherche-Chrome, das
+ * nach einer Cookie-Zustimmung auf eine Seite wartete, die neu geladen hatte.
+ * `laufendeRunde` blieb auf „läuft" — und daran hängt alles: Die Zeitplan-
+ * Runden um 03:00, 08:00 und 11:00 fielen aus, der Code-Check holte keinen
+ * neuen Stand, und erst ein Neustart von Hand am 24.09. um 13:08 löste es.
+ *
+ * Die Grenzen liegen bewusst weit über dem Gemessenen (siehe `wieLange`):
+ * Sie sollen einen HÄNGER beenden, keinen langsamen Lauf. Die volle
+ * Kontaktliste brauchte am 01.09. knapp vierzehn Minuten; Erstnachrichten
+ * laufen in bis zu drei Batches à sieben bis vierzehn Minuten.
+ */
+export const ETAPPEN_LIMIT_MIN = {
+  postfach: 10,
+  verlauf: 15,
+  einladungen: 30,
+  kontakte: 30,
+  leads: 10,
+  waechter: 5,
+  sortierer: 20,
+  entwuerfe: 20,
+  erstnachrichten: 60,
+}
+
+/** Die ganze Runde. Die Summe der Etappen-Grenzen ist größer — das ist Absicht, sie deckt den Fall „alles langsam". */
+export const RUNDE_LIMIT_MIN = 120
+
+/**
+ * Wie lange darf diese Etappe JETZT noch laufen? Die kleinere von zwei Zahlen:
+ * ihre eigene Grenze und das, was von der Runde übrig ist. Nie negativ.
+ */
+export function etappenFrist({ schluessel, rundeGestartet, jetzt, rundeLimitMin = RUNDE_LIMIT_MIN }) {
+  const eigene = (ETAPPEN_LIMIT_MIN[schluessel] ?? 15) * 60_000
+  const rest = new Date(rundeGestartet).getTime() + rundeLimitMin * 60_000 - new Date(jetzt).getTime()
+  const frist = Math.min(eigene, Number.isFinite(rest) ? rest : eigene)
+  return { ms: Math.max(0, frist), grenze: frist === eigene ? 'etappe' : 'runde' }
+}
+
 /** Welche Etappen ohne das Sync-Chrome nichts tun können — nachschlagbar für den Kopftext. */
 const CHROME_ETAPPEN = new Set(ETAPPEN.filter((e) => e.brauchtChrome).map((e) => e.schluessel))
 
@@ -163,7 +204,7 @@ export function setzeEtappe(runde, schluessel, aenderung) {
  * nur, wenn NICHTS durchlief; sonst steht der Fehler an seiner Etappe, wo er
  * hingehört, und die Runde heißt „fertig, mit Lücke".
  */
-export function schliesseRunde(runde, { jetzt, abgebrochen = false } = {}) {
+export function schliesseRunde(runde, { jetzt, abgebrochen = false, grund = null } = {}) {
   if (!runde) return runde
   const echt = runde.etappen.filter((e) => e.status !== 'uebersprungen')
   const gelungen = echt.filter((e) => e.status === 'fertig').length
@@ -171,6 +212,7 @@ export function schliesseRunde(runde, { jetzt, abgebrochen = false } = {}) {
   return {
     ...runde,
     status,
+    ...(abgebrochen && grund ? { grund } : {}),
     beendet: new Date(jetzt).toISOString(),
     aktuell: null,
     etappen: runde.etappen.map((e) =>
@@ -198,7 +240,7 @@ export function kopfText(runde) {
     const e = runde.etappen.find((x) => x.status === 'laeuft')
     return e ? e.titel : 'Wird vorbereitet'
   }
-  if (runde.status === 'abgebrochen') return 'Abgebrochen'
+  if (runde.status === 'abgebrochen') return runde.grund ? `Abgebrochen — ${runde.grund}` : 'Abgebrochen'
   if (runde.status === 'fehler') return 'Nichts geladen'
   /**
    * **Übersprungen ist auch eine Lücke** (07.09.). Bis heute zählte hier nur
