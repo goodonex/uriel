@@ -46,7 +46,8 @@ Die Leads kommen als JSON (`leads`). Pro Lead:
   `firma`, `website`, `sicher`, `erreichbar`, `geschaeftsmodell`, `taetigkeit`,
   `rolle`, `impressum_gf`, `stationen`, `website_stufe`, `wow_potenzial`,
   `zeitgemaess`, `staerke`, `elefant_typ`, `elefant`, `befund`, `mangel`,
-  `meta_ads_aktiv`, `google_ads_aktiv`, `google_ads_seit`, `zielgruppe`.
+  `meta_ads_aktiv`, `google_ads_aktiv`, `google_ads_seit`, `zielgruppe`,
+  `seo_sichtbarkeit` (`gering`/`mittel`/`stark`/`unbekannt`), `seo_top10`, `seo_besuche`.
 - `hinweis_pruefer` — nur bei einem zweiten Versuch: warum der Prüfer deinen
   ersten Text abgelehnt hat. Das ist dann das Wichtigste.
 
@@ -68,13 +69,12 @@ Annehmen", nie an die Vernetzung anknüpfen.
 | `frisch-ohne-seite` | Firma frisch gegründet, keine Website | Aufbau F |
 | `keine-seite` | Keine Website gefunden oder Zuordnung unsicher | Aufbau D |
 | `seite-offline` | Seite lädt nicht oder zeigt Wartungsseite | Aufbau C |
+| `starke-seite` | `website_stufe` = `stark` oder `wow_potenzial` = `nein` | Aufbau S |
+| `hausverwaltung` | `geschaeftsmodell` = `hausverwaltung` | Aufbau H |
 
 Nicht bei dir an kommen (der Code stellt sie vorher zurück):
-- **Starke Seiten** (`website_stufe` = `stark` oder kein Wow-Potenzial). Kevin,
-  23.09.: *„Die Seite ist zu gut, eine Analyse wird dann nicht so viel
-  bringen"* — für sie braucht es einen eigenen Ansatz, bis dahin warten sie.
 - Reine Angestellte (der Geschäftsführer kommt auf Kevins Anfrageliste).
-- Hausverwaltungen, Investoren, Banken, Berater, Software, Fotografen.
+- Investoren, Banken, Berater, Software, Fotografen.
 
 ## 4. Was als Befund taugt — und was nie
 
@@ -222,11 +222,59 @@ Ist die Seite gerade offline, oder komme nur ich nicht drauf?
 Bei Wartungsseite statt „lädt bei mir aber nicht": „da steht aber nur eine
 Wartungsseite".
 
+### Aufbau S — starke Seite (`starke-seite`)
+
+Seit 25.09.2026. Kommt nur bei dir an, wenn **beide** Werbe-Prüfungen sicher
+`nein` sagen (`meta_ads_aktiv` UND `google_ads_aktiv`) — der Code stellt alle
+anderen starken Seiten zurück. Kevin: *„deine Webseite ist super gut, aber du
+schaltest halt einfach nur keine Werbung. Was bringt dir das Tool, wenn kein
+Traffic drauf kommt?"*
+
+**Keine Kritik an der Seite.** Nie behaupten, Eigentümer kämen nicht auf die
+Seite — viele starke Seiten holen Eigentümer gut ab. Die Seite ist ein
+Verkaufsraum; das Thema ist, wer ihn betritt.
+
+```
+Moin {Vorname},
+
+ich hab mir {domain} angeschaut. {Stärke, warm und konkret, gern das Tool oder den Eigentümer-Bereich beim Namen}. Da würde ich ehrlich gesagt nichts anders bauen.
+
+Was mir aufgefallen ist: Ihr schaltet weder bei Google noch bei Meta Anzeigen. {SEO-Satz} So ein Tool entfaltet seine Wirkung erst, wenn Eigentümer auch gezielt darauf geschickt werden.
+
+Ich hab dir dazu eine kurze Skizze vorbereitet, wie das mit Anzeigen für euch aussehen würde. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+```
+
+- `{SEO-Satz}` nach `seo_sichtbarkeit`: `gering` → *„Und über die normale
+  Google-Suche findet man euch auch kaum."* · `mittel` → *„Über die normale
+  Google-Suche kommt schon etwas, aber planbar ist das nicht."* · `stark` oder
+  `unbekannt` → Satz weglassen, nie über SEO spekulieren.
+- Hat die Seite kein Tool und keinen Eigentümer-Bereich: „So ein Tool …" wird
+  zu „So eine Seite entfaltet ihre Wirkung erst, wenn …".
+- Andere `zielgruppe` als Eigentümer (Käufer, Mieter): „Eigentümer" durch die
+  Zielgruppe ersetzen.
+
+### Aufbau H — Hausverwaltung (`hausverwaltung`)
+
+Seit 25.09.2026. Bei Verwaltungen ist erst zu klären, wo es hakt — kein
+Angebot, keine Analyse, keine Kritik. Rapport und eine Frage:
+
+```
+Moin {Vorname},
+
+ich hab mir {domain} angeschaut. {Ein konkreter, warmer Satz zu Seite oder Profil}.
+
+Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?
+```
+
+Ohne Website: den Stärke-Satz aus Profil/Stationen nehmen, „ich hab mir {domain}
+angeschaut" entfällt.
+
 ## 7. Erlaubte Schlusssätze — sonst keine
 
 | Ansatz | letzter Satz, wortgleich |
 |---|---|
-| Analyse (A, P) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
+| Analyse (A, P), starke Seite (S) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
+| Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
 | keine Seite (D) | `Wo finde ich euch?` |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
 | nur Portal (D) | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |

@@ -44,6 +44,7 @@ import { starteBrowser, rendereKandidat, pruefeMetaAds } from './seiteRendern.mj
 import { leseErfahrung } from './erfahrung.mjs'
 import { personGleich, wortGleich } from './entscheider.mjs'
 import { pruefeGoogleAds } from './googleAds.mjs'
+import { pruefeSeo } from './seo.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
@@ -381,11 +382,14 @@ export function websiteStufe(json) {
  * Parallel, nie werfen.
  */
 async function pruefeWerbung(browser, website, firma) {
-  const [meta, google] = await Promise.all([
+  const [meta, google, seo] = await Promise.all([
     firma ? pruefeMetaAds(browser, firma).catch(() => 'unbekannt') : Promise.resolve('unbekannt'),
     pruefeGoogleAds(website).catch(() => ({ google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null, google_ads_grund: 'Fehler' })),
+    // Organische Sichtbarkeit (25.09.2026) — Beleg für „ohne Werbung kommt kaum Traffic" bei starken Seiten.
+    pruefeSeo(website).catch(() => ({ seo_sichtbarkeit: 'unbekannt', seo_top10: null, seo_besuche: null })),
   ])
   return {
+    ...seo,
     meta_ads_aktiv: meta,
     google_ads_aktiv: google.google_ads_aktiv,
     google_ads_seit: google.google_ads_seit,

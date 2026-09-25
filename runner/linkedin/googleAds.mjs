@@ -60,6 +60,18 @@ export function domainAus(website) {
   }
 }
 
+/**
+ * Land der Abfrage aus der Domain (25.09.2026): Schweizer und österreichische
+ * Makler schalten in ihrem Land — eine Abfrage für Deutschland sähe ihre
+ * Anzeigen nicht und meldete fälschlich „nein".
+ */
+export function landFuerDomain(domain) {
+  const d = String(domain ?? '').toLowerCase()
+  if (d.endsWith('.ch') || d.endsWith('.li')) return 2756
+  if (d.endsWith('.at')) return 2040
+  return 2276
+}
+
 const tagVon = (zeit) => (typeof zeit === 'string' && /^\d{4}-\d{2}-\d{2}/.test(zeit) ? zeit.slice(0, 10) : '')
 
 /**
@@ -104,7 +116,7 @@ export async function pruefeGoogleAds(website, { zugang = dataforseoZugang(), fe
         Authorization: `Basic ${Buffer.from(`${zugang.login}:${zugang.passwort}`).toString('base64')}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify([{ target: domain, location_code: 2276, platform: 'all', depth: 40 }]),
+      body: JSON.stringify([{ target: domain, location_code: landFuerDomain(domain), platform: 'all', depth: 40 }]),
       signal: steuerung.signal,
     })
     if (!res.ok) return { ...googleAdsAuswerten(null), google_ads_grund: `HTTP ${res.status}` }

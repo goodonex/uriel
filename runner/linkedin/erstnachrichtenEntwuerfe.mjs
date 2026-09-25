@@ -61,6 +61,8 @@ export const CTA_KATALOG = Object.freeze({
   hauptfokus: 'Wo liegt bei dir gerade der Hauptfokus?',
   /** Frisch gegründet, keine Seite gefunden — erst Rapport (22.09.2026). */
   inPlanung: 'Ist die noch in Planung, oder hab ich sie übersehen?',
+  /** Hausverwaltung — erst den Engpass erfragen, kein Angebot (Aufbau H, 25.09.2026). */
+  verwaltung: 'Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?',
 })
 
 /**
@@ -416,9 +418,7 @@ export function segmentUrteil(recherche) {
   const r = recherche ?? {}
   const modell = String(r.geschaeftsmodell ?? '').toLowerCase()
   const was = String(r.taetigkeit ?? '').slice(0, 120)
-  if (modell === 'hausverwaltung') {
-    return { aktion: 'zurueckstellen', grund: `[zurückgestellt] Hausverwaltung — erst Pain klären. ${was}`.trim() }
-  }
+  // Hausverwaltungen werden seit 25.09.2026 geschrieben (Aufbau H, Frage nach dem Engpass).
   if (modell === 'investor' || modell === 'sonstiges') {
     return { aktion: 'ueberspringen', grund: `${modell === 'investor' ? 'Investor/Bestandshalter' : 'kein Makler'}: ${was || r.firma || 'Tätigkeit unklar'}` }
   }

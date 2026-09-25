@@ -24,7 +24,15 @@ Urteile je Nachricht genau eins:
 2. **Lohnt der Aufhänger?** Würde der Inhaber denken *„stimmt, das kostet mich
    Anfragen"* — oder *„dafür hab ich doch gerade Geld bezahlt"* / *„ja, und?"*?
    Ist die Seite so gut, dass Kevins Analyse sie nicht spürbar besser machen
-   kann, ist das `zurueck`.
+   kann, ist eine Analyse `zurueck`. **Ausnahme `starke-seite` (Aufbau S):**
+   Dort ist die starke Seite gewollt — die Nachricht darf die Seite nicht
+   kritisieren und nicht behaupten, Eigentümer kämen nicht auf die Seite
+   (sonst `neu`). Ihr Thema: keine Werbung, also kein gezielter Traffic aufs
+   Tool. Das trägt nur, wenn `meta_ads_aktiv` UND `google_ads_aktiv` im
+   Destillat `nein` sind — sonst `zurueck`. Ein SEO-Satz nur passend zu
+   `seo_sichtbarkeit` (`gering`/`mittel`), sonst `neu`.
+   **`hausverwaltung` (Aufbau H)** ist kein „kein Makler"-Fall: Rapport plus die
+   feste Frage, kein Angebot — sonst `neu`.
 3. **Ist es der richtige Elefant?** Nie der Wertrechner/das Bewertungstool
    (auch nicht „nur Formular", „erst nach E-Mail", „hinter Cookie-Knopf"). Nie
    Kleinkram. Bei alter Seite ist die Seite selbst das Thema, nicht ein Detail.

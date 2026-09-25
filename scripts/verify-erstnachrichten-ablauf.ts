@@ -13,6 +13,10 @@
 // @ts-expect-error — .mjs ohne Typen
 import { ansatzFuer } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
 // @ts-expect-error — .mjs ohne Typen
+import { landFuerDomain } from '../runner/linkedin/googleAds.mjs'
+// @ts-expect-error — .mjs ohne Typen
+import { seoAuswerten } from '../runner/linkedin/seo.mjs'
+// @ts-expect-error — .mjs ohne Typen
 import { istVeraltet, regelwerk, QUELLE_PRAEFIX } from '../runner/regeln/fassung.mjs'
 
 let fehler = 0
@@ -27,13 +31,24 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
 /* ── Kevins Fälle vom 23.09. ─────────────────────────────────────────── */
 {
   // Amoreal / Assetnow: „Die Seite ist zu gut" — keine Nachricht, eigener Ansatz offen.
-  const kraus = ansatzFuer(lead({ website: 'https://amoreal.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'nein', rolle: 'inhaber' }), heute)
-  check('Kraus (Amoreal): gute Seite → zurückgestellt, keine Analyse', 'zurueck' in kraus, kraus)
-  const stark = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'stark', wow_potenzial: 'ja' }), heute)
-  check('Stufe „stark" sticht jedes Wow-Urteil', 'zurueck' in stark, stark)
+  // Amoreal schaltet Google-Anzeigen → kein „ihr schaltet keine Werbung"-Aufhänger.
+  const kraus = ansatzFuer(lead({ website: 'https://amoreal.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'nein', rolle: 'inhaber', meta_ads_aktiv: 'nein', google_ads_aktiv: 'ja' }), heute)
+  check('Kraus (Amoreal): gute Seite mit Google-Anzeigen → zurückgestellt', 'zurueck' in kraus && /schaltet schon Werbung/.test(kraus.zurueck), kraus)
+  const ohneWerbung = { website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'stark', wow_potenzial: 'ja', meta_ads_aktiv: 'nein', google_ads_aktiv: 'nein' }
+  const stark = ansatzFuer(lead(ohneWerbung), heute)
+  check('starke Seite, beide Werbe-Prüfungen „nein" → Aufbau S (25.09.2026)', 'ansatz' in stark && stark.ansatz === 'starke-seite', stark)
+  const halb = ansatzFuer(lead({ ...ohneWerbung, meta_ads_aktiv: 'unbekannt' }), heute)
+  check('starke Seite, Meta ungeprüft → prüfen statt Werbe-Aufhänger', 'zurueck' in halb && /prüfen/.test(halb.zurueck), halb)
   const knapp = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'knapp' }), heute)
+  const hv = ansatzFuer(lead({ website: 'https://hv.de/', erreichbar: 'ja', geschaeftsmodell: 'hausverwaltung', website_stufe: 'stark', wow_potenzial: 'nein' }), heute)
+  check('Hausverwaltung → Aufbau H, auch bei starker Seite', 'ansatz' in hv && hv.ansatz === 'hausverwaltung', hv)
   check('„knapp" bekommt die Analyse (25.09.2026)', 'ansatz' in knapp && knapp.ansatz === 'analyse', knapp)
   const alt = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide' }), heute)
+  check('landFuerDomain: .ch → Schweiz, .at → Österreich, sonst Deutschland', landFuerDomain('x.ch') === 2756 && landFuerDomain('x.at') === 2040 && landFuerDomain('x.de') === 2276)
+  const seoOk = (organic: unknown) => seoAuswerten({ tasks: [{ status_code: 20000, result: [{ items: organic ? [{ metrics: { organic } }] : [] }] }] })
+  check('SEO: nichts gerankt → gering', seoOk(null).seo_sichtbarkeit === 'gering')
+  check('SEO: Amoreal (27 Top-10, 538 Besuche) → mittel', seoOk({ pos_1: 2, pos_2_3: 1, pos_4_10: 24, etv: 537.5 }).seo_sichtbarkeit === 'mittel')
+  check('SEO: kaputter Abruf → unbekannt, nie gering', seoAuswerten({ tasks: [{ status_code: 40000 }] }).seo_sichtbarkeit === 'unbekannt')
   check('Recherche ohne Wow-Urteil (vor dem 23.09.) → prüfen statt raten', 'zurueck' in alt && /prüfen/.test(alt.zurueck), alt)
 
   // Hilgeland: laut Impressum nicht Entscheider, eigene Firmen nebenher → Rapport.

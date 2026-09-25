@@ -56,6 +56,9 @@ export function ansatzFuer(lead, heute = new Date()) {
     // Reine Angestellte hat `entscheiderZuerst` schon zurückgestellt; wer hier ankommt, ist Konzern-Marketing.
   }
 
+  // Hausverwaltungen: erst den Engpass erfragen (Aufbau H, 25.09.2026).
+  if (String(r.geschaeftsmodell ?? '') === 'hausverwaltung') return { ansatz: 'hausverwaltung' }
+
   const website = String(r.website ?? '').trim()
   if (r.erreichbar === 'offline' || r.erreichbar === 'umbau') return { ansatz: 'seite-offline' }
   if (!website || r.sicher === false) {
@@ -72,10 +75,21 @@ export function ansatzFuer(lead, heute = new Date()) {
    * schwache Seiten. Kevin: *„das von dreißig zwei, drei übrig bleiben, macht
    * überhaupt gar keinen Sinn."* Knapp heißt jetzt Analyse-Ansatz.
    */
+  /**
+   * Starke Seiten (25.09.2026, Aufbau S): Die Seite ist nicht das Thema, der
+   * Traffic ist es — aber nur mit lückenloser Werbe-Prüfung. Kevin: *„es muss
+   * wirklich im Meta und im Google geguckt worden sein, ob die schon Werbung
+   * schalten."* Nur wenn BEIDE sicher „nein" sagen, trägt der Satz „deine Seite
+   * ist super, aber du schaltest keine Werbung".
+   */
   if (stufe === 'stark' || wow === 'nein') {
-    return {
-      zurueck: `[zurückgestellt] Seite stark — wir bauen keine sichtbar bessere (Stufe ${stufe || '?'}, Wow ${wow || '?'}). Eigener Ansatz offen.`,
+    const meta = String(r.meta_ads_aktiv ?? 'unbekannt')
+    const google = String(r.google_ads_aktiv ?? 'unbekannt')
+    if (meta === 'nein' && google === 'nein') return { ansatz: 'starke-seite' }
+    if (meta === 'ja' || google === 'ja') {
+      return { zurueck: `[zurückgestellt] Seite stark und schaltet schon Werbung (Meta ${meta}, Google ${google}) — Aufhänger offen.` }
     }
+    return { zurueck: `[prüfen] Seite stark, Werbung nicht vollständig geprüft (Meta ${meta}, Google ${google}).` }
   }
   if (wow !== 'ja' && wow !== 'knapp') {
     return { zurueck: `[prüfen] Wow-Potenzial der Seite nicht beurteilt — Recherche vor dem 23.09. oder unvollständig` }
