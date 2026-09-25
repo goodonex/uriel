@@ -4,7 +4,6 @@ import { useContacts } from '../../hooks/useContacts'
 import { useTaskBuckets, useTasks } from '../../hooks/useTasks'
 import { useIsMobile } from '../../hooks/useViewport'
 import type { Task, TaskPriority, TaskSource } from '../../types/db'
-import { HeuteTabs } from '../components/HeuteTabs'
 import { ListenZeile } from '../components/home/ListenZeile'
 import { useActiveBrand } from '../lib/activeBrand'
 
@@ -253,10 +252,8 @@ export function AufgabenArea() {
     buckets.overdue.length + buckets.today.length + buckets.week.length + buckets.later.length
 
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <HeuteTabs />
+    <div style={{ maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--ck-text-1)', margin: 0 }}>Aufgaben</h1>
         <span className="ck-label">
           {totalOpen} offen{buckets.done.length ? ` · ${buckets.done.length} erledigt` : ''}
         </span>

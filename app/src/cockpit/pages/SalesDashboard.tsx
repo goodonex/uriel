@@ -17,6 +17,7 @@ import { TagesListe } from '../components/sales/TagesListe'
 import { PipelineBoard } from '../components/sales/PipelineBoard'
 import { KadenzPanel } from '../components/sales/KadenzPanel'
 import { GebauteSeiten } from '../components/sales/GebauteSeiten'
+import { KlappAbschnitt } from '../components/KlappAbschnitt'
 import { VorlagenKopf } from '../components/sales/VorlagenKopf'
 import { useActiveBrand } from '../lib/activeBrand'
 import { antwortPostenAusgeblendet, zeilenId } from '../lib/arbeitsmodusQuellen'
@@ -1825,15 +1826,18 @@ export function SalesDashboard() {
             Kartenspalte: Ihr Raster ist `auto-fill` und macht aus jedem
             zusaetzlichen Pixel eine weitere Vorschau. Genau hier hatte Kevin
             das leere rechte Viertel bemaengelt. */}
-        <div>
+        <div style={{ marginTop: 6 }}>
           {/* Die gebauten Seiten: Ergebnisse, keine Aufgaben. Sie stehen bewusst
               NICHT im Funnel — ein Jophiel-Projekt ist ein Artefakt, kein Mensch,
               und würde als Karte den Lead doppelt zählen, der oben schon unter
-              „Loom offen" steht. */}
-          <div className="ck-label" style={{ marginTop: 10, paddingInline: 4 }}>
-            Gebaute Seiten
-          </div>
-          <GebauteSeiten projekte={gebauteSeiten} erreichbar={jophiel.jophielErreichbar} />
+              „Loom offen" steht. Seit 25.09. einklappbar (Kevin), Vorgabe zu. */}
+          <KlappAbschnitt
+            schluessel="sales.gebauteSeitenOffen"
+            titel="Gebaute Seiten"
+            zusatz={gebauteSeiten.length || undefined}
+          >
+            <GebauteSeiten projekte={gebauteSeiten} erreichbar={jophiel.jophielErreichbar} />
+          </KlappAbschnitt>
         </div>
       </div>
 

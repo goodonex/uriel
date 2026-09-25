@@ -27,6 +27,8 @@ export type BereichIconName =
   | 'balken'
   | 'horizont'
   | 'mehr'
+  | 'fenster'
+  | 'kurve'
 
 /** Die Pfade. Ein Eintrag = ein Zeichen, gezeichnet auf 24×24. */
 const PFADE: Record<BereichIconName, React.ReactNode> = {
@@ -98,6 +100,21 @@ const PFADE: Record<BereichIconName, React.ReactNode> = {
       <circle cx="6" cy="12" r="1.4" />
       <circle cx="12" cy="12" r="1.4" />
       <circle cx="18" cy="12" r="1.4" />
+    </>
+  ),
+  // Jophiel — Browserfenster (gebaute Websites)
+  fenster: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+      <path d="M3.5 9h17" />
+      <path d="M6.5 7h.01M8.7 7h.01" />
+    </>
+  ),
+  // Laplace — Kursverlauf
+  kurve: (
+    <>
+      <path d="M4 19.5h16" />
+      <path d="m5 15 4-4.5 3.5 3L19 6.5" />
     </>
   ),
 }

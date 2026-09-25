@@ -80,8 +80,10 @@ export function ContactListsContent({
 }) {
   const { go, navigate } = useBrandNavigate(slug)
   const { show } = useToast()
-  const listsBase = `/brand/${slug}/sales/lists`
-  const overviewBackTo = embedded ? `/brand/${slug}/sales?tab=listen` : `/brand/${slug}/sales`
+  // Direkt die Cockpit-Adressen (25.09.2026) statt über die Legacy-Weiche
+  // `/brand/:slug/…` — die Listen sind ein Reiter der Cold-Call-Leads.
+  const listsBase = '/sales/lists'
+  const overviewBackTo = embedded ? `/brand/${slug}/sales?tab=listen` : '/sales/lists'
 
   const {
     lists,

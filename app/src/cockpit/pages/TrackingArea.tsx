@@ -3,7 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { ConversionPanel } from '../components/ConversionPanel'
 import { MonthCurve } from '../components/MonthCurve'
 import { VitalsPanel } from '../components/VitalsPanel'
-import { channelRates, funnelKpis, sumField, termineAttribution, weekVitals } from '../lib/metricsAggregate'
+import {
+  channelRatesMitLinkedin,
+  funnelKpis,
+  linkedinAntwortenImZeitraum,
+  sumField,
+  termineAttribution,
+  weekVitals,
+} from '../lib/metricsAggregate'
+import { useLeads } from '../../hooks/useLeads'
 import type { MetricField } from '../lib/useDailyMetrics'
 import { toIsoDate, useDailyMetrics } from '../lib/useDailyMetrics'
 import { useMetrikTag } from '../lib/useMetrikTag'
@@ -64,12 +72,15 @@ function Stepper({
   value,
   onBump,
   auto = false,
+  autoHinweis = 'zählt beim Abhaken im Arbeitsmodus mit',
 }: {
   label: string
   value: number
-  onBump: (delta: number) => void
+  /** Ohne `onBump` ist der Wert nur Anzeige — er kommt aus einer echten Quelle. */
+  onBump?: (delta: number) => void
   /** Feld, das der Arbeitsmodus beim Abhaken selbst hochzählt (O13). */
   auto?: boolean
+  autoHinweis?: string
 }) {
   return (
     <div
@@ -114,20 +125,24 @@ function Stepper({
               border: '1px solid var(--ck-border)',
               color: 'var(--ck-text-3)',
             }}
-            title="zählt beim Abhaken im Arbeitsmodus mit"
+            title={autoHinweis}
           >
             auto
           </span>
         ) : null}
       </span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(-1)} aria-label={`${label} minus 1`}>
-          −
-        </button>
+        {onBump ? (
+          <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(-1)} aria-label={`${label} minus 1`}>
+            −
+          </button>
+        ) : null}
         <span style={{ fontSize: 15, fontWeight: 600, minWidth: 26, textAlign: 'center' }}>{value}</span>
-        <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(1)} aria-label={`${label} plus 1`}>
-          +
-        </button>
+        {onBump ? (
+          <button className="ck-btn ck-counter-btn" style={{ padding: '2px 9px' }} onClick={() => onBump(1)} aria-label={`${label} plus 1`}>
+            +
+          </button>
+        ) : null}
       </span>
     </div>
   )
@@ -171,7 +186,7 @@ function UmsatzInput({ value, onSet }: { value: number; onSet: (v: number) => vo
   )
 }
 
-function RatesTable({ rates }: { rates: ReturnType<typeof channelRates> }) {
+function RatesTable({ rates }: { rates: ReturnType<typeof channelRatesMitLinkedin> }) {
   const fmt = (r: number | null) => (r == null ? '—' : `${(r * 100).toFixed(1)}%`)
   return (
     <div className="ck-table-scroll">
@@ -232,7 +247,18 @@ export function TrackingArea() {
     () => weekVitals(metrics.weekRows, metrics.windowRows),
     [metrics.weekRows, metrics.windowRows],
   )
-  const rates = useMemo(() => channelRates(metrics.monthRows), [metrics.monthRows])
+  /**
+   * Echte LinkedIn-Antworten aus den Lead-Ereignissen (25.09.2026). Der
+   * Handzähler `antworten_li` stand den ganzen September auf 0, obwohl 15
+   * Leads geantwortet hatten — die Antworten schreibt der Postfach-Abgleich,
+   * nicht Kevins Daumen.
+   */
+  const { ereignisse } = useLeads(activeBrand?.slug)
+  const monatsStart = useMetrikTag().slice(0, 8) + '01'
+  const rates = useMemo(
+    () => channelRatesMitLinkedin(metrics.monthRows, ereignisse, monatsStart, '9999-12-31'),
+    [metrics.monthRows, ereignisse, monatsStart],
+  )
   const termine = useMemo(() => termineAttribution(metrics.monthRows), [metrics.monthRows])
   const monthRevenue = useMemo(() => sumField(metrics.monthRows, 'umsatz'), [metrics.monthRows])
   const funnel = useMemo(
@@ -401,15 +427,25 @@ export function TrackingArea() {
           </div>
           <div className="ck-label" style={{ margin: '12px 0 6px', color: 'var(--ck-text-3)' }}>Weitere Ergebnisse (nachlaufend)</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8, paddingBottom: 10 }}>
-            {RESULT_FIELDS.map((f) => (
-              <Stepper
-                key={f.field}
-                label={f.label}
-                auto={AUTO_METRIK_FELDER.has(f.field)}
-                value={row[f.field]}
-                onBump={(d) => metrics.bumpOn(selectedDate, f.field, d)}
-              />
-            ))}
+            {RESULT_FIELDS.map((f) =>
+              f.field === 'antworten_li' ? (
+                <Stepper
+                  key={f.field}
+                  label={f.label}
+                  auto
+                  autoHinweis="kommt aus dem LinkedIn-Postfach — nichts zu zählen"
+                  value={Math.max(row.antworten_li, linkedinAntwortenImZeitraum(ereignisse, selectedDate, selectedDate))}
+                />
+              ) : (
+                <Stepper
+                  key={f.field}
+                  label={f.label}
+                  auto={AUTO_METRIK_FELDER.has(f.field)}
+                  value={row[f.field]}
+                  onBump={(d) => metrics.bumpOn(selectedDate, f.field, d)}
+                />
+              ),
+            )}
             <UmsatzInput key={selectedDate} value={row.umsatz} onSet={(v) => metrics.setUmsatzOn(selectedDate, v)} />
           </div>
         </div>

@@ -15,7 +15,7 @@ export function SalesNewLeadPage() {
   return (
     <NewLeadWizardModal
       open
-      onClose={() => navigate(`/brand/${slug}/sales`)}
+      onClose={() => navigate('/sales/leads')}
       existingContacts={contacts.items}
       onSubmit={async ({ company, person, initialNote }, options) => {
         const r1 = await contacts.create(company, {

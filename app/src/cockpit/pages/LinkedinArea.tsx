@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { useErstnachrichten } from '../../hooks/useErstnachrichten'
 import { useLinkedinNetzwerk } from '../../hooks/useLinkedinNetzwerk'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import type { LinkedinThread } from '../../types/db'
-import { HeuteTabs } from '../components/HeuteTabs'
 import { ErstnachrichtenListe } from '../components/ErstnachrichtenListe'
 import { FunnelStufen } from '../components/linkedin/FunnelStufen'
 import { LeadAkte } from '../components/linkedin/LeadAkte'
-import { LeadPipeline } from '../components/linkedin/LeadPipeline'
+import { KlappAbschnitt } from '../components/KlappAbschnitt'
 import { leadStation } from '../lib/leadStation'
 import { Tagesjournal } from '../components/linkedin/Tagesjournal'
 import { useLeads } from '../../hooks/useLeads'
@@ -386,7 +386,22 @@ function ThreadSection({
 }
 
 /** /linkedin — vierter Heute-Tab (Wargame Zug 7, docs/wargames/linkedin-followups.md). */
-export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } = {}) {
+/**
+ * Die LinkedIn-Tagesarbeit (seit 25.09.2026 zweiter Reiter von „LinkedIn-Leads",
+ * `/sales/linkedin/arbeit`). Die Frage „wer steckt wo" beantworten jetzt die
+ * Listen daneben — deshalb ist die Pipeline-Sicht hier entfallen, und die
+ * Zahlenkacheln über den Follow-ups auch. Kevin: *„super viele Zahlen, das ist
+ * viel zu viel Load."* Trichter und Abdeckung sind nicht weg, nur eingeklappt.
+ */
+type Ansicht = 'erst' | 'followup' | 'journal'
+
+const ANSICHTEN: [Ansicht, string][] = [
+  ['erst', 'Erstnachrichten'],
+  ['followup', 'Follow-ups'],
+  ['journal', 'Heute raus'],
+]
+
+export function LinkedinArea() {
   const { activeBrand } = useActiveBrand()
   const slug = activeBrand?.slug
   const threadsQuery = useLinkedinThreads(slug)
@@ -400,7 +415,14 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
   // den Auftrag über Supabase (0059), den der Runner abholen muss. `direkt`
   // entscheidet nur, WELCHER Weg — ob überhaupt einer trägt, sagt `runnerState`.
   const direkt = runnerDirekt()
-  const [ansicht, setAnsicht] = useState<'erst' | 'followup' | 'pipeline' | 'journal'>('erst')
+  const [params, setParams] = useSearchParams()
+  const ansichtRoh = params.get('ansicht')
+  const ansicht: Ansicht = ansichtRoh === 'followup' || ansichtRoh === 'journal' ? ansichtRoh : 'erst'
+  const setAnsicht = (a: Ansicht) => {
+    const neu = new URLSearchParams(params)
+    neu.set('ansicht', a)
+    setParams(neu, { replace: true })
+  }
   /** Welche Lead-Akte offen ist — aus Pipeline UND Journal heraus erreichbar. */
   const [offenerLead, setOffenerLead] = useState<string | null>(null)
   const leadsQuery = useLeads(slug)
@@ -557,26 +579,17 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
   }
 
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {eingebettet ? null : <HeuteTabs />}
+    <div style={{ maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        {(
-          [
-            ['erst', 'Erstnachrichten'],
-            ['followup', 'Follow-ups'],
-            ['pipeline', 'Pipeline'],
-            ['journal', 'Heute raus'],
-          ] as const
-        ).map(([wert, label]) => (
+      <div className="ck-segmente" role="tablist" aria-label="Tagesarbeit">
+        {ANSICHTEN.map(([wert, label]) => (
           <button
             key={wert}
             type="button"
+            role="tab"
+            aria-selected={ansicht === wert}
             onClick={() => setAnsicht(wert)}
-            // Das inline gesetzte minHeight 36 stach die Daumen-Grenze aus
-            // (Zug C5, Pruefung Punkt 3) — der Knopf nimmt sie jetzt aus .ck-btn.
-            className={`ck-btn${ansicht === wert ? ' ck-btn--primary' : ''}`}
-            style={{ paddingInline: 16 }}
+            className="ck-segment"
           >
             {label}
           </button>
@@ -589,7 +602,7 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
           von denselben Leads und Ereignissen — deshalb ein Hook, zwei Sichten:
           die Pipeline fragt „wer steckt wo", das Journal „was ist heute
           rausgegangen". */}
-      {ansicht === 'pipeline' || ansicht === 'journal' ? (
+      {ansicht === 'journal' ? (
         leadsQuery.tableMissing ? (
           <div className="ck-panel" style={{ padding: '28px 14px', textAlign: 'center', fontSize: 13, color: 'var(--ck-text-3)' }}>
             Noch keine Leads — Migration 0076 muss zuerst gepusht werden (supabase db push).
@@ -598,20 +611,11 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
           <div style={{ fontSize: 12, color: 'var(--ck-text-3)', padding: 12 }}>Lädt …</div>
         ) : (
           <div className="ck-panel" style={{ padding: 14 }}>
-            {ansicht === 'pipeline' ? (
-              <LeadPipeline
-                leads={leadsQuery.leads}
-                ereignisseJeLead={leadsQuery.ereignisseJeLead}
-                threadsJeLead={threadsJeLead}
-                onLeadOeffnen={setOffenerLead}
-              />
-            ) : (
-              <Tagesjournal
-                leads={leadsQuery.leads}
-                ereignisse={leadsQuery.ereignisse}
-                onLeadOeffnen={setOffenerLead}
-              />
-            )}
+            <Tagesjournal
+              leads={leadsQuery.leads}
+              ereignisse={leadsQuery.ereignisse}
+              onLeadOeffnen={setOffenerLead}
+            />
           </div>
         )
       ) : null}
@@ -651,42 +655,19 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
         <div style={{ fontSize: 12, color: 'var(--ck-text-3)', padding: 12 }}>Lädt …</div>
       ) : (
         <>
-          {/* Der Trichter (12.08.): wer steckt wo? Steht ÜBER den Buckets —
-              die Buckets sagen, was heute fällig ist, der Trichter, wer
-              insgesamt wartet. */}
-          <FunnelStufen
-            netzwerk={netzwerk.items}
-            threads={threadsQuery.items}
-            erstnachrichten={erstnachrichten.items}
-            letzterVollerEinladungsLauf={netzwerk.letzterVollerEinladungsLauf}
-            netzwerkLaedt={netzwerk.loading}
-            onNeuLaden={() => void netzwerk.reload()}
-          />
-
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <div className="ck-panel" style={{ padding: '10px 14px', flex: 1, minWidth: 140 }}>
-              <div className="ck-label" style={{ fontSize: 9 }}>Du bist dran</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: buckets.duBistDran.length ? 'var(--ck-warn)' : 'var(--ck-text-1)' }}>
-                {buckets.duBistDran.length}
-              </div>
-            </div>
-            <div className="ck-panel" style={{ padding: '10px 14px', flex: 1, minWidth: 140 }}>
-              <div className="ck-label" style={{ fontSize: 9 }}>Fällig</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--ck-text-1)' }}>{buckets.faellig.length}</div>
-            </div>
-            <div className="ck-panel" style={{ padding: '10px 14px', flex: 1, minWidth: 140 }}>
-              <div className="ck-label" style={{ fontSize: 9 }}>davon Altlasten</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: cov.altlast ? 'var(--ck-warn)' : 'var(--ck-text-1)' }}>
-                {cov.altlast}
-              </div>
-            </div>
-            <div className="ck-panel" style={{ padding: '10px 14px', flex: 1, minWidth: 140 }}>
-              <div className="ck-label" style={{ fontSize: 9 }}>★ Loom zugesagt</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--ck-accent)' }}>
-                {threadsQuery.items.filter((t) => t.starred).length}
-              </div>
-            </div>
-          </div>
+          {/* Der Trichter (12.08.) — seit 25.09. eingeklappt: „wer steckt wo"
+              beantworten die Listen; die Kacheln „Du bist dran / Fällig / …"
+              sind entfallen, die Abschnitte darunter tragen ihre Zahl selbst. */}
+          <KlappAbschnitt schluessel="linkedin.trichterOffen" titel="Trichter">
+            <FunnelStufen
+              netzwerk={netzwerk.items}
+              threads={threadsQuery.items}
+              erstnachrichten={erstnachrichten.items}
+              letzterVollerEinladungsLauf={netzwerk.letzterVollerEinladungsLauf}
+              netzwerkLaedt={netzwerk.loading}
+              onNeuLaden={() => void netzwerk.reload()}
+            />
+          </KlappAbschnitt>
 
           {/* RECON-1: der letzte Sync hat eine volle Seite (20 Konversationen)
               geliefert — solange Blättern ungeklärt ist, darf die Seite das nicht
@@ -752,8 +733,8 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
             onWake={(th) => void threadsQuery.wake(th.id)}
           />
 
+          <KlappAbschnitt schluessel="linkedin.abdeckungOffen" titel="Abdeckung">
           <section className="ck-panel" style={{ padding: 12 }}>
-            <div className="ck-label" style={{ marginBottom: 8 }}>Abdeckung</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, fontSize: 12 }}>
               <div>Fällig: {cov.faellig}</div>
               <div>Du bist dran: {cov.du_bist_dran}</div>
@@ -773,6 +754,7 @@ export function LinkedinArea({ eingebettet = false }: { eingebettet?: boolean } 
               Follow-up-Schwellen: {FOLLOWUP_THRESHOLDS_DAYS.join(' / ')} Tage (Stufe 0/1/2)
             </div>
           </section>
+          </KlappAbschnitt>
 
           {buckets.pruefen.length > 0 ? (
             <section className="ck-panel" style={{ overflow: 'hidden' }}>

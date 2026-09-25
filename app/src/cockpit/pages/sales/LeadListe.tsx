@@ -142,7 +142,7 @@ export function LeadListe() {
       {/* Kopf: was da ist, und was es wert ist. */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontSize: 17, fontWeight: 600 }}>Leads</span>
+          <span style={{ fontSize: 17, fontWeight: 600 }}>Cold-Call-Leads</span>
           <span className="ck-zahl" style={{ fontSize: 12, color: 'var(--ck-text-2)' }}>
             {gefiltert.length} von {contacts.items.length}
             {wert > 0 ? ` · ${formatEuroDe(wert)}` : ''}
@@ -151,9 +151,6 @@ export function LeadListe() {
         <span style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="ck-btn" onClick={() => setImportOffen(true)}>
             Importieren
-          </button>
-          <button type="button" className="ck-btn ck-btn--primary" onClick={() => navigate('/sales/new')}>
-            Neuer Lead
           </button>
         </span>
       </div>

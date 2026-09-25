@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import type { Contact } from '../../types/db'
 import { sendEmail } from '../../lib/emailService'
-import { HeuteTabs } from '../components/HeuteTabs'
 import { KundenPosteingang } from '../components/KundenPosteingang'
 import { useKundenPosteingang } from '../lib/useKundenPosteingang'
 import { useActiveBrand } from '../lib/activeBrand'
@@ -297,12 +296,10 @@ export function FreigabenArea() {
   const openCount = sichtbareCards.filter((c) => c.status === 'pending' || c.status === 'sending').length
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <HeuteTabs />
+    <div style={{ maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--ck-text-1)', margin: 0 }}>Freigaben</h1>
-          <div className="ck-label" style={{ marginTop: 2 }}>
+          <div className="ck-label">
             {posteingang.eintraege.length > 0
               ? `${posteingang.eintraege.length} von Kunden · ${openCount} Entwürfe`
               : `${openCount} offen · Agent bereitet vor, du gibst frei`}

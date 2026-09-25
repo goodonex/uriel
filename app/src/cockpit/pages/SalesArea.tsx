@@ -1,166 +1,123 @@
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { useUiSetting } from '../lib/uiSettings'
+import { Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { CallModePage } from '../../pages/sales/CallModePage'
 import { ContactListsPage } from '../../pages/sales/ContactListsPage'
 import { SalesMode } from '../../pages/sales/SalesMode'
 import { SalesNewLeadPage } from '../../pages/sales/SalesNewLeadPage'
 import { SalesBibliothek } from './SalesBibliothek'
 import { SalesDashboard } from './SalesDashboard'
+import { ColdCallLeads } from './sales/ColdCallLeads'
 import { LeadListe } from './sales/LeadListe'
 import { LeadDetail } from './sales/LeadDetail'
-import { KontakteListe } from './sales/KontakteListe'
+import { LinkedinListen } from './sales/LinkedinListen'
 import { LinkedinArea } from './LinkedinArea'
 
-interface SubNavItem {
+/**
+ * Sales — vier Reiter statt neun (25.09.2026).
+ *
+ * Kevin: *„dann stört mich hier diese ganzen Reiter da oben. Das ist alles
+ * extrem unsinnig."* Vorher standen LinkedIn, Leads, LinkedIn-Kontakte,
+ * Listen, Call-Mode, Neuer Lead, Ressourcen und die klassische Pipeline
+ * gleichrangig nebeneinander (seit 28.08. einklappbar — das Problem war aber
+ * nicht der Platz, sondern die fehlende Ordnung). Jetzt:
+ *
+ * - **Dashboard** — das Ritual, unverändert.
+ * - **LinkedIn-Leads** — Listen (Stand + Bewertung) und Tagesarbeit.
+ * - **Cold-Call-Leads** — Leads, Listen, Pipeline, Call-Mode, Neuer Lead.
+ * - **Ressourcen** — Skripte und Vorlagen in der Reihenfolge des Ablaufs.
+ *
+ * Alle alten Adressen bleiben gültig; sie gehören jetzt nur einem Reiter an.
+ */
+interface Reiter {
   to: string
   label: string
-  end: boolean
+  /** Pfad-Anfänge, unter denen dieser Reiter aktiv ist. */
+  unter: string[]
 }
 
-/**
- * Kevins Ritual laeuft auf dem Dashboard. Die sieben anderen Ziele sind
- * Nachschlagewerk — und standen bis zum 28.08.2026 trotzdem permanent als
- * Reihe darueber. Kevins Wort: *„Mach mal bitte dieses ganze LinkedIn, Leads,
- * Listen, Call-Mode, neuer Lead, Ressourcen, Pipeline — kannst du das
- * einklappbar machen?"*
- *
- * Zugeklappt bleibt genau EIN Eintrag stehen: der, auf dem man gerade ist.
- * Eine Leiste, die verraet, wo man steht, ist Orientierung; eine, die
- * ausserdem sieben Orte anbietet, an denen man nicht ist, ist Rauschen.
- */
-const SUB_NAV: SubNavItem[] = [
-  { to: '/sales', label: 'Dashboard', end: true },
-  // LinkedIn-Akquise ist Vertriebsarbeit — sie gehört hierher, nicht nur unter „Heute".
-  { to: '/sales/linkedin', label: 'LinkedIn', end: false },
-  { to: '/sales/leads', label: 'Leads', end: false },
-  { to: '/sales/kontakte', label: 'LinkedIn-Kontakte', end: false },
-  { to: '/sales/lists', label: 'Listen', end: false },
-  { to: '/sales/call-mode', label: 'Call-Mode', end: false },
-  { to: '/sales/new', label: 'Neuer Lead', end: false },
-  { to: '/sales/bibliothek', label: 'Ressourcen', end: false },
-  // Die Glass-Pipeline bleibt erreichbar, bis die Paritaets-Karte
-  // (docs/phase2/sales-paritaet.md) abgehakt ist — sie kann neun Dinge,
-  // die der Neubau (noch) nicht kann.
-  { to: '/sales/pipeline', label: 'Pipeline (klassisch)', end: false },
+const REITER: Reiter[] = [
+  { to: '/sales', label: 'Dashboard', unter: [] },
+  { to: '/sales/linkedin', label: 'LinkedIn-Leads', unter: ['/sales/linkedin', '/sales/kontakte'] },
+  {
+    to: '/sales/leads',
+    label: 'Cold-Call-Leads',
+    unter: ['/sales/leads', '/sales/lists', '/sales/pipeline', '/sales/call-mode', '/sales/new'],
+  },
+  { to: '/sales/bibliothek', label: 'Ressourcen', unter: ['/sales/bibliothek'] },
 ]
 
-/** Auf welchem Eintrag steht man gerade? Laengster Treffer gewinnt. */
-function aktiverEintrag(pathname: string): SubNavItem {
-  let treffer = SUB_NAV[0]
-  for (const i of SUB_NAV) {
-    const passt = i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(`${i.to}/`)
-    if (passt && i.to.length >= treffer.to.length) treffer = i
+function aktiverReiter(pathname: string): string {
+  const pfad = pathname.replace(/\/+$/, '')
+  if (pfad === '/sales') return '/sales'
+  for (const r of REITER) {
+    if (r.unter.some((u) => pfad === u || pfad.startsWith(`${u}/`))) return r.to
   }
-  return treffer
+  // `/sales/:contactId` — die Akte eines Cold-Call-Kontakts.
+  return '/sales/leads'
 }
 
-function SalesSubNav() {
+function SalesReiter() {
   const loc = useLocation()
-  /**
-   * Zustand in `ui_settings` (0068) — er ueberlebt damit das Loeschen-und-neu-
-   * Hinzufuegen der PWA. **`=== true` statt Truthiness:** Der Wert kommt aus
-   * einer Key-Value-Tabelle und war dort schon alles Moegliche.
-   *
-   * Vorgabe ist ZU. Kevin arbeitet den Tag ueber auf dem Dashboard; die Leiste
-   * aufgeklappt zu zeigen hiesse, ihm bei jedem Aufruf sieben Ziele
-   * anzubieten, die er an neun von zehn Tagen nicht braucht.
-   */
-  const { wert: offenRoh, setzen: setzeOffen } = useUiSetting<boolean>('salesSubNavOffen', false)
-  const offen = offenRoh === true
-  const aktiv = aktiverEintrag(loc.pathname)
-  const sichtbar = offen ? SUB_NAV : [aktiv]
-
+  const aktiv = aktiverReiter(loc.pathname)
   return (
-    <nav
-      aria-label="Sales-Unterbereiche"
-      style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', flexWrap: 'nowrap', alignItems: 'center' }}
-    >
-      {/**
-       * Der Knopf steht RECHTS neben den Einträgen (31.08.2026).
-       *
-       * Kevin: *„die ausklappen butten ist links neben übersicht und nicht
-       * rechts, da wo sich alles ausklappt. dann wäre auch übersicht nach links
-       * bündig, was harmonischer aussieht."* Genau so: Der Pfeil sitzt an der
-       * Kante, an der die weiteren Einträge erscheinen, und „Dashboard" fängt
-       * bündig mit allem darunter an.
-       */}
-      <span id="ck-sales-subnav" style={{ display: 'flex', gap: 6, minWidth: 0 }}>
-        {sichtbar.map((i) => (
-          <NavLink
-            key={i.to}
-            to={i.to}
-            end={i.end}
-            className={({ isActive }) => `ck-nav-item${isActive ? ' active' : ''}`}
-            style={{ padding: '6px 10px', whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            {i.label}
-          </NavLink>
-        ))}
-      </span>
-      <button
-        type="button"
-        className="ck-nav-item"
-        style={{ padding: '6px 9px', flexShrink: 0, background: 'none', minHeight: 34 }}
-        aria-expanded={offen}
-        aria-controls="ck-sales-subnav"
-        title={offen ? 'Bereiche einklappen' : 'Alle Sales-Bereiche zeigen'}
-        onClick={() => setzeOffen(!offen)}
-      >
-        <span aria-hidden>{offen ? '◂' : '▸'}</span>
-        <span className="ck-nur-vorlesen">{offen ? 'Bereiche einklappen' : 'Alle Sales-Bereiche zeigen'}</span>
-      </button>
+    <nav className="ck-segmente" aria-label="Sales" style={{ marginBottom: 16 }}>
+      {REITER.map((r) => (
+        <NavLink
+          key={r.to}
+          to={r.to}
+          className={`ck-segment${r.to === aktiv ? ' active' : ''}`}
+          aria-current={r.to === aktiv ? 'page' : undefined}
+        >
+          {r.label}
+        </NavLink>
+      ))}
     </nav>
   )
 }
 
-/**
- * Die Glass-Pipeline mit ihrem Schild (Phase 2, Zug B7).
- *
- * B7 sah den Abriss der Altwelt vor — die Paritäts-Karte
- * (`docs/phase2/sales-paritaet.md`) sagt aber: neun Funktionen haben im Neubau
- * keinen Ersatz. Damit greift die Regel „Abbruch statt Abriss": nichts wird
- * gelöscht, und dieses Banner sagt dem, der hier landet, warum es die Seite
- * noch gibt und was nur hier liegt.
- */
-function KlassischePipeline() {
+/** LinkedIn-Leads: zwei Bereiche — die Listen und das Operative. */
+function LinkedinLeads({ bereich }: { bereich: 'listen' | 'arbeit' }) {
   return (
-    <div>
-      <div
-        className="ck-panel"
-        style={{ padding: '11px 14px', marginBottom: 10, fontSize: 12.5, lineHeight: 1.55, color: 'var(--ck-text-2)' }}
-      >
-        <strong style={{ color: 'var(--ck-text-1)', fontWeight: 600 }}>Die alte Pipeline.</strong>{' '}
-        Der Neubau steht unter „Leads“. Hier liegt, was dort (noch) fehlt:
-        Kanban zum Ziehen, die fünf Ansichts-Modi, Mehrfachauswahl mit
-        Bulk-Aktionen, E-Mail-Vorlagen, Meeting-Links und der
-        Pipeline-Umschalter.
-      </div>
-      <SalesMode panel="full" scrollEmbed />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <nav className="ck-segmente" aria-label="LinkedIn-Leads">
+        <NavLink to="/sales/linkedin" className={`ck-segment${bereich === 'listen' ? ' active' : ''}`}>
+          Listen
+        </NavLink>
+        <NavLink to="/sales/linkedin/arbeit" className={`ck-segment${bereich === 'arbeit' ? ' active' : ''}`}>
+          Tagesarbeit
+        </NavLink>
+      </nav>
+      {bereich === 'listen' ? <LinkedinListen /> : <LinkedinArea />}
     </div>
   )
 }
 
-/**
- * Sales (ehem. CRM, Home-Refactor Juli 2026): Dashboard (Agenten + Funnel +
- * Ressourcen-Schnellzugriff) + die bestehenden Sales-Seiten in der
- * Cockpit-Shell. CRM-Logik unangetastet — Brand kommt über
- * useCurrentBrandSlug aus dem ActiveBrand-Context statt aus der URL.
- */
+/** Alte Adresse der Kontaktliste (17.09.) → dieselbe Akte in den Listen. */
+function KontaktWeiche() {
+  const { leadId } = useParams<{ leadId: string }>()
+  return <Navigate to={leadId ? `/sales/linkedin/lead/${leadId}` : '/sales/linkedin'} replace />
+}
+
 export function SalesArea() {
   return (
     <div>
-      <SalesSubNav />
+      <SalesReiter />
       <Routes>
         <Route index element={<SalesDashboard />} />
-        <Route path="linkedin" element={<LinkedinArea eingebettet />} />
-        <Route path="leads" element={<LeadListe />} />
-        <Route path="kontakte" element={<KontakteListe />} />
-        <Route path="kontakte/:leadId" element={<KontakteListe />} />
-        <Route path="pipeline" element={<KlassischePipeline />} />
-        <Route path="lists" element={<ContactListsPage />} />
-        <Route path="lists/:listId" element={<ContactListsPage />} />
-        <Route path="call-mode" element={<CallModePage />} />
-        <Route path="new" element={<SalesNewLeadPage />} />
+        <Route path="linkedin" element={<LinkedinLeads bereich="listen" />} />
+        <Route path="linkedin/lead/:leadId" element={<LinkedinLeads bereich="listen" />} />
+        <Route path="linkedin/arbeit" element={<LinkedinLeads bereich="arbeit" />} />
+        <Route path="kontakte" element={<KontaktWeiche />} />
+        <Route path="kontakte/:leadId" element={<KontaktWeiche />} />
+        <Route path="leads" element={<ColdCallLeads><LeadListe /></ColdCallLeads>} />
+        <Route path="lists" element={<ColdCallLeads><ContactListsPage /></ColdCallLeads>} />
+        <Route path="lists/:listId" element={<ColdCallLeads><ContactListsPage /></ColdCallLeads>} />
+        {/* Die klassische Pipeline bleibt, bis die Paritäts-Karte
+            (docs/phase2/sales-paritaet.md) abgehakt ist — sie kann Kanban,
+            Bulk-Aktionen, E-Mail-Vorlagen und Meeting-Links, die der Neubau
+            (noch) nicht kann. */}
+        <Route path="pipeline" element={<ColdCallLeads><SalesMode panel="full" scrollEmbed /></ColdCallLeads>} />
+        <Route path="call-mode" element={<ColdCallLeads><CallModePage /></ColdCallLeads>} />
+        <Route path="new" element={<ColdCallLeads><SalesNewLeadPage /></ColdCallLeads>} />
         <Route path="bibliothek" element={<SalesBibliothek />} />
         <Route path=":contactId" element={<LeadDetail />} />
       </Routes>

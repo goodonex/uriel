@@ -8,6 +8,7 @@ import { useSocialUnread } from '../lib/socialApi'
 import { MOBILE_MEDIA_QUERY } from '../../hooks/useViewport'
 import { Benachrichtigungen } from './Benachrichtigungen'
 import { useUiSetting } from '../lib/uiSettings'
+import { PROGRAMME, type Programm } from '../lib/programme'
 
 interface NavItem {
   to: string
@@ -17,37 +18,54 @@ interface NavItem {
 }
 
 /**
- * Warteschlange vorn, Nachschlagewerk hinten (Leitprinzip Klick-Ökonomie):
- * die vier Bereiche, in denen Kevin morgens arbeitet, stehen am Daumen —
- * Ads/Content/Agenten/Tracking sind Nachschlagen und liegen mobil hinter „Mehr".
- * Am Desktop ist Platz, dort steht weiter alles untereinander.
+ * Die Leiste (Umbau 25.09.2026, Kevins Diktat):
  *
- * O18, Zug 1: Hier stehen nur noch **Auswahl, Reihenfolge und Beschriftung**.
- * Die Zeichen kommen aus der Bereichs-Registry (`bereiche.ts`) — dort steht
- * auch die O13-Regel gegen bunte Emoji auf iOS. Sonst hätte das App-Grid des
- * Homescreens seine eigenen Icons, und die zweite Bereichs-Wahrheit, die
- * Etappe 4 gerade zugenäht hat, wäre zurück.
+ * - **Arbeit** — Cockpit · Sales · Projekte · Tracking. „Heute" und Agenten
+ *   sind Reiter im Cockpit geworden („die Heute-Seite benutze ich fast gar
+ *   nicht"). Das ist zugleich die mobile Dock-Belegung (vier Zeichen + Mehr).
+ * - **Programme** — Gabriel, Jophiel, Laplace: ein Klick, neuer Tab. Gabriel
+ *   steht dort, wo vorher Content und Ads standen.
+ * - **Identität** ganz unten, durch eine Linie abgesetzt: nichts Operatives.
+ *
+ * Die Zeichen kommen weiter aus der Bereichs-Registry (`bereiche.ts`, O18).
  */
 const ARBEIT: NavItem[] = [
-  { to: '/cockpit', label: 'Cockpit', icon: bereichIcon('/cockpit') },
-  // „Heute" fasst die täglichen Operativ-Bereiche zusammen (Sub-Tabs: HeuteTabs) —
-  // deshalb hier ein anderes Label als in der Registry, aber dasselbe Zeichen.
-  { to: '/aufgaben', label: 'Heute', icon: bereichIcon('/aufgaben'), paths: ['/aufgaben', '/termine', '/freigaben'] },
-  { to: '/sales', label: 'Sales', icon: bereichIcon('/sales') },
+  {
+    to: '/cockpit',
+    label: 'Cockpit',
+    icon: bereichIcon('/cockpit'),
+    paths: ['/cockpit', '/aufgaben', '/termine', '/freigaben', '/agenten'],
+  },
+  { to: '/sales', label: 'Sales', icon: bereichIcon('/sales'), paths: ['/sales', '/linkedin'] },
   { to: '/projekte', label: 'Projekte', icon: bereichIcon('/projekte') },
-]
-
-const NACHSCHLAGEN: NavItem[] = [
-  // Identität steht am Desktop hier, nicht in ARBEIT: die Morgenlese wird am
-  // Handy gelesen, und ARBEIT ist zugleich die mobile Dock-Belegung — ein
-  // fünfter Eintrag dort hätte Sales aus dem Daumenbereich gedrängt. Mobil
-  // führen der Homescreen (Kachel, morgens vorn) und „Mehr" hierher.
-  { to: '/identitaet', label: 'Identität', icon: bereichIcon('/identitaet') },
-  { to: '/ads', label: 'Ads', icon: bereichIcon('/ads') },
-  { to: '/content', label: 'Content', icon: bereichIcon('/content') },
-  { to: '/agenten', label: 'Agenten', icon: bereichIcon('/agenten') },
   { to: '/tracking', label: 'Tracking', icon: bereichIcon('/tracking') },
 ]
+
+const IDENTITAET: NavItem = { to: '/identitaet', label: 'Identität', icon: bereichIcon('/identitaet') }
+
+/** Ein Schwester-Programm: echter Link, neuer Tab — kein Router-Ziel. */
+function ProgrammEintrag({ p, nurZeichen }: { p: Programm; nurZeichen: boolean }) {
+  return (
+    <a
+      href={p.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="ck-nav-item"
+      title={`${p.label} — ${p.zweck} (öffnet einen neuen Tab)`}
+    >
+      <span aria-hidden className="ck-nav-icon">
+        <BereichIcon name={p.icon} />
+      </span>
+      <span className={`ck-nav-label${nurZeichen ? ' ck-nur-vorlesen' : ''}`}>
+        {p.label}
+        <span className="ck-nur-vorlesen"> (öffnet einen neuen Tab)</span>
+      </span>
+      <span aria-hidden className="ck-nav-extern-pfeil">
+        ↗
+      </span>
+    </a>
+  )
+}
 
 /**
  * Bottom-Bar oder Rail? Eine Grenze für alle (O10): `MOBILE_MEDIA_QUERY` ist
@@ -181,6 +199,22 @@ function MehrSheet({ onClose, badgeFuer }: { onClose: () => void; badgeFuer: (to
           />
         </div>
 
+        {/* Die Schwester-Programme auch am Handy (25.09.2026) — ein Tipp, neuer Tab. */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 10, flexShrink: 0 }}>
+          {PROGRAMME.map((p) => (
+            <a
+              key={p.id}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ck-btn"
+              style={{ flex: 1, justifyContent: 'center', textDecoration: 'none', minHeight: 44 }}
+            >
+              {p.label} <span aria-hidden>↗</span>
+            </a>
+          ))}
+        </div>
+
         {/* O3, Zug 5: Der Schalter fuer Benachrichtigungen gehoert dorthin, wo
             man ihn sucht, wenn der Morgen-Push mal ausbleibt — und nicht nur
             auf /morgen, das man ohne Push gar nicht erst aufmacht. */}
@@ -221,13 +255,14 @@ export function NavRail() {
   const [mehrOffenBei, setMehrOffenBei] = useState<string | null>(null)
   const mehrOffen = mehrOffenBei === loc.pathname
 
+  // Der Content-Badge (ungelesene Social-Nachrichten) hängt seit dem Umzug
+  // nach Gabriel am „Mehr"-Knopf bzw. an der Content-Kachel der Bibliothek.
   const badgeFuer = (to: string) => (to === '/content' ? socialUnread : 0)
 
-  const sichtbar = bottomBar ? ARBEIT : [...ARBEIT, ...NACHSCHLAGEN]
-  // Der Content-Badge darf mobil nicht verschwinden, nur weil Content hinter
-  // „Mehr" liegt — er wandert auf den Mehr-Knopf.
-  const mehrBadge = bottomBar ? NACHSCHLAGEN.reduce((s, i) => s + badgeFuer(i.to), 0) : 0
-  const mehrAktiv = bottomBar && NACHSCHLAGEN.some((i) => istAktiv(i, loc.pathname))
+  const mehrBadge = bottomBar ? socialUnread : 0
+  const mehrAktiv =
+    bottomBar && !ARBEIT.some((i) => istAktiv(i, loc.pathname)) && loc.pathname !== '/'
+  const nurZeichen = bottomBar || eingeklappt
 
   return (
     <>
@@ -237,21 +272,35 @@ export function NavRail() {
         className="ck-nav-rail"
         data-eingeklappt={eingeklappt ? 'true' : undefined}
       >
-        {sichtbar.map((item) => (
+        {ARBEIT.map((item) => (
           <NavEintrag
             key={item.to}
             item={item}
             badge={badgeFuer(item.to)}
             /* Eingeklappt bleibt der Bereichsname im Baum stehen (`ck-nur-vorlesen`),
                statt ersatzlos zu verschwinden — dieselbe Regel wie im Dock. */
-            nurZeichen={bottomBar || eingeklappt}
+            nurZeichen={nurZeichen}
           />
         ))}
+        {!bottomBar ? (
+          <>
+            <div className="ck-nav-trenner" role="presentation" />
+            <div className="ck-nav-gruppe" aria-hidden>
+              Programme
+            </div>
+            {PROGRAMME.map((p) => (
+              <ProgrammEintrag key={p.id} p={p} nurZeichen={nurZeichen} />
+            ))}
+            {/* Identität steht ganz unten, abgesetzt: nichts Operatives. */}
+            <div className="ck-nav-trenner" role="presentation" style={{ marginTop: 'auto' }} />
+            <NavEintrag item={IDENTITAET} badge={0} nurZeichen={nurZeichen} />
+          </>
+        ) : null}
         {!bottomBar ? (
           <button
             type="button"
             className="ck-nav-item"
-            style={{ background: 'none', marginTop: 'auto' }}
+            style={{ background: 'none' }}
             aria-expanded={!eingeklappt}
             aria-controls="ck-nav-rail"
             title={eingeklappt ? 'Seitenleiste ausklappen' : 'Seitenleiste einklappen'}

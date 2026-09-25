@@ -32,15 +32,12 @@ import { ZaehlModus } from './cockpit/pages/ZaehlModus'
 import { TrackingArea } from './cockpit/pages/TrackingArea'
 import { AdsArea } from './cockpit/pages/AdsArea'
 import { SocialArea } from './cockpit/pages/SocialArea'
-import { AgentsArea } from './cockpit/pages/AgentsArea'
-import { AufgabenArea } from './cockpit/pages/AufgabenArea'
 import { AmbientPage } from './cockpit/pages/AmbientPage'
-import { TermineArea } from './cockpit/pages/TermineArea'
-import { FreigabenArea } from './cockpit/pages/FreigabenArea'
-import { LinkedinArea } from './cockpit/pages/LinkedinArea'
+import { ZumCockpitReiter } from './cockpit/components/CockpitReiter'
 import { SalesVorschau } from './dev/SalesVorschau'
 import { ZielVorschau } from './dev/ZielVorschau'
 import { NavVorschau } from './dev/NavVorschau'
+import { UmbauVorschau } from './dev/UmbauVorschau'
 import { ShellVorschau } from './dev/ShellVorschau'
 import { RundeVorschau } from './dev/RundeVorschau'
 import { IdentitaetVorschau } from './dev/IdentitaetVorschau'
@@ -253,6 +250,7 @@ function App() {
             {import.meta.env.DEV ? <Route path="/dev/coach-vorschau" element={<CoachVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/ziel-vorschau" element={<ZielVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/nav-vorschau" element={<NavVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/umbau-vorschau" element={<UmbauVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/shell-vorschau" element={<ShellVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/runde-vorschau" element={<RundeVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/identitaet-vorschau" element={<IdentitaetVorschau />} /> : null}
@@ -265,16 +263,19 @@ function App() {
                 {/* O3: Ziel des Morgen-Push. Am Desktop leitet die Seite selbst
                     auf /cockpit um — Vollbild ist ein Handy-Konzept. */}
                 <Route path="/morgen" element={<MorgenArea />} />
-                <Route path="/aufgaben" element={<AufgabenArea />} />
-                <Route path="/termine" element={<TermineArea />} />
-                <Route path="/freigaben" element={<FreigabenArea />} />
-                <Route path="/linkedin" element={<LinkedinArea />} />
+                {/* 25.09.2026: „Heute" und Agenten sind Reiter im Cockpit, das
+                    LinkedIn-Postfach lebt unter Sales. Die alten Adressen
+                    bleiben — Push-Links, Kacheln und Lesezeichen zeigen darauf. */}
+                <Route path="/aufgaben" element={<ZumCockpitReiter reiter="aufgaben" />} />
+                <Route path="/termine" element={<ZumCockpitReiter reiter="termine" />} />
+                <Route path="/freigaben" element={<ZumCockpitReiter reiter="freigaben" />} />
+                <Route path="/linkedin" element={<Navigate to="/sales/linkedin/arbeit" replace />} />
                 <Route path="/sales/*" element={<SalesArea />} />
                 <Route path="/crm/*" element={<CrmRedirect />} />
                 <Route path="/projekte/*" element={<ProjekteArea />} />
                 <Route path="/ads/*" element={<AdsArea />} />
               <Route path="/content/*" element={<SocialArea />} />
-              <Route path="/agenten" element={<AgentsArea />} />
+              <Route path="/agenten" element={<ZumCockpitReiter reiter="agenten" />} />
                 <Route path="/tracking" element={<TrackingArea />} />
                 {/* Zähl-Modus (11.08.): Raster und Vollbild teilen sich eine
                     Komponente — mit :feld ist es das Vollbild, ohne das Raster. */}

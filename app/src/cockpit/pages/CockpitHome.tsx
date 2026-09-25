@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { AgentsPanel } from '../components/AgentsPanel'
+import { CockpitReiter } from '../components/CockpitReiter'
+import { istReiter } from '../lib/cockpitReiter'
+import { KlappAbschnitt } from '../components/KlappAbschnitt'
 import { GoalCard } from '../components/GoalCard'
 import { HeuteDeck } from '../components/HeuteDeck'
 import { OsDetailPanel } from '../components/OsDetailPanel'
-import { QuickTrack } from '../components/QuickTrack'
 import { RunDrawer } from '../components/RunDrawer'
 import { VitalsPanel } from '../components/VitalsPanel'
 import { OsNebula } from '../graph/OsNebula'
@@ -27,6 +29,7 @@ import { useDailyMetrics } from '../lib/useDailyMetrics'
 import { useOsMap } from '../lib/useOsMap'
 import { useRunnerData } from '../lib/useRunnerData'
 import { MOBILE_MAX_WIDTH, useIsMobile } from '../../hooks/useViewport'
+import { AgentsArea } from './AgentsArea'
 import { UrielHome } from './UrielHome'
 
 /** Graph-Höhe: nur auf schmalen (Mobile) Viewports deckeln — am Desktop frei ziehbar. */
@@ -169,13 +172,21 @@ function RowDivider({
  */
 export function CockpitHome() {
   const isMobile = useIsMobile()
-  return isMobile ? <UrielHome /> : <CockpitHomeDesktop />
+  const [params] = useSearchParams()
+  if (!isMobile) return <CockpitHomeDesktop />
+  // Mobil bleibt `/cockpit` der Homescreen. Kommt man über eine alte Adresse
+  // (`/aufgaben`, `/termine` …) oder einen Push, steht `?heute=` in der
+  // Adresse — dann zeigt das Handy genau diesen Reiter statt des Homescreens.
+  return istReiter(params.get('heute')) ? <CockpitReiter agenten={<AgentsArea />} /> : <UrielHome />
 }
 
 /**
- * Cockpit-Home (vereinfacht Juli 2026) — Hauptfläche ist der Agentic-OS-Graph
- * (OsNebula). Links schlanke Spalte: Ziel-Karte, Quick-Track, Vitals.
- * Unter dem Graph das Agenten-Panel (Deck + Dream + letzte Runs).
+ * Cockpit-Home (Umbau 25.09.2026, Kevin: *„auf dem Cockpit ist mir das zu viel
+ * Rauschen"*). Oben das Heute-Deck (was als Nächstes dran ist). Links schmal
+ * Ziel und Wochenwerte, rechts die Arbeit: Reiter Aufgaben · Termine ·
+ * Freigaben · Agenten (vorher eigene Seiten). Der OS-Graph ist nicht weg,
+ * sondern eingeklappt — er ist Überblick, keine Tagesarbeit. Quick-Track ist
+ * raus: Gezählt wird auf Tracking bzw. automatisch beim Abhaken.
  */
 function CockpitHomeDesktop() {
   const navigate = useNavigate()
@@ -334,51 +345,58 @@ function CockpitHomeDesktop() {
       className="ck-home-grid"
       style={{ ['--ck-sidebar-w' as string]: `${layout.sidebarPx}px` } as React.CSSProperties}
     >
-      {/* Links (schmal): Ziel-Karte → Quick-Track → Vitals */}
+      {/* Links (schmal): Ziel-Karte → Wochenwerte */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <GoalCard
           monthRevenue={monthRevenue}
           monthRows={metrics.monthRows}
           contacts={contacts.items}
         />
-        <QuickTrack
-          today={metrics.today}
-          onBump={(f, d) => void metrics.bump(f, d)}
-          onAddUmsatz={(amount) => void metrics.setUmsatz(metrics.today.umsatz + amount)}
-        />
         <VitalsPanel vitals={vitals} />
       </div>
 
       <GridDivider gridRef={gridRef} onLive={resizeSidebar} onCommit={commitLayout} />
 
-      {/* Haupt (breit): großer OS-Graph, darunter das Agenten-Panel */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-        <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
-          <OsNebula
-            map={osMap}
-            contacts={leadContacts}
-            runs={runs}
-            onNodeClick={onNodeClick}
-            onRefresh={() => refreshOsMap(true)}
-            height={graphHeight}
-            focus={layout.preset}
-            onFocus={setFocus}
+      {/* Haupt (breit): die Reiter, darunter eingeklappt die OS-Karte */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+        <CockpitReiter
+          agenten={
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <AgentsPanel
+                runnerState={runner.state}
+                activeAgents={activeAgents}
+                runs={runs}
+                onRun={onRun}
+                onOpenRun={setOpenRunId}
+              />
+              <KlappAbschnitt schluessel="cockpit.alleAgentenOffen" titel="Alle Agenten, Aufträge & Nutzung">
+                <AgentsArea />
+              </KlappAbschnitt>
+            </div>
+          }
+        />
+
+        <KlappAbschnitt schluessel="cockpit.osKarteOffen" titel="OS-Karte">
+          <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
+            <OsNebula
+              map={osMap}
+              contacts={leadContacts}
+              runs={runs}
+              onNodeClick={onNodeClick}
+              onRefresh={() => refreshOsMap(true)}
+              height={graphHeight}
+              focus={layout.preset}
+              onFocus={setFocus}
+            />
+          </div>
+          <RowDivider
+            value={layout.graphHeight}
+            min={LAYOUT_LIMITS.graph.min}
+            max={LAYOUT_LIMITS.graph.max}
+            onLive={(px) => setLayout((l) => ({ ...l, graphHeight: px }))}
+            onCommit={commitLayout}
           />
-        </div>
-        <RowDivider
-          value={layout.graphHeight}
-          min={LAYOUT_LIMITS.graph.min}
-          max={LAYOUT_LIMITS.graph.max}
-          onLive={(px) => setLayout((l) => ({ ...l, graphHeight: px }))}
-          onCommit={commitLayout}
-        />
-        <AgentsPanel
-          runnerState={runner.state}
-          activeAgents={activeAgents}
-          runs={runs}
-          onRun={onRun}
-          onOpenRun={setOpenRunId}
-        />
+        </KlappAbschnitt>
       </div>
 
       {selNode ? <OsDetailPanel node={selNode} onClose={() => setSelNode(null)} /> : null}

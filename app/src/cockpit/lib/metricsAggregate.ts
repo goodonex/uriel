@@ -233,3 +233,66 @@ export function cumulativeRevenue(monthRows: DailyMetricsRow[]): Array<{ datum: 
     return { datum: r.datum, kumuliert: acc }
   })
 }
+
+/**
+ * Wie viele verschiedene Leads im Zeitraum auf LinkedIn geantwortet haben —
+ * gezählt aus den Lead-Ereignissen `antwort_erhalten` (25.09.2026).
+ *
+ * Anlass: Tracking zeigte „keine Antworten auf LinkedIn", obwohl im September
+ * 15 Leads geantwortet hatten. Das Feld `antworten_li` in `daily_metrics` ist
+ * ein Handzähler, den niemand mehr drückt — die echten Antworten schreibt der
+ * Postfach-Abgleich als Ereignis. Ein Lead, der am selben Tag zweimal
+ * schreibt, zählt einmal. `vonIso`/`bisIso` sind lokale Tage (inklusiv).
+ */
+export function linkedinAntwortenImZeitraum(
+  ereignisse: ReadonlyArray<{ lead_id: string; typ: string; at: string }>,
+  vonIso: string,
+  bisIso: string,
+): number {
+  const leads = new Set<string>()
+  for (const e of ereignisse) {
+    if (e.typ !== 'antwort_erhalten') continue
+    const tag = toIsoDate(new Date(e.at))
+    if (tag >= vonIso && tag <= bisIso) leads.add(e.lead_id)
+  }
+  return leads.size
+}
+
+/** Verschickte Erstnachrichten im Zeitraum, aus den Lead-Ereignissen (ein Lead = eine). */
+export function linkedinErstnachrichtenImZeitraum(
+  ereignisse: ReadonlyArray<{ lead_id: string; typ: string; at: string }>,
+  vonIso: string,
+  bisIso: string,
+): number {
+  const leads = new Set<string>()
+  for (const e of ereignisse) {
+    if (e.typ !== 'erstnachricht') continue
+    const tag = toIsoDate(new Date(e.at))
+    if (tag >= vonIso && tag <= bisIso) leads.add(e.lead_id)
+  }
+  return leads.size
+}
+
+/**
+ * Die Kanal-Raten mit den echten LinkedIn-Zahlen.
+ *
+ * LinkedIn rechnet seitdem **Antworten ÷ Erstnachrichten** — geantwortet wird
+ * auf eine Nachricht, nicht auf eine Vernetzungsanfrage. Vorher stand die
+ * Summe aus Anfragen und Nachrichten im Nenner (September: 571), womit selbst
+ * echte 15 Antworten als 2,6 % unter dem Benchmark erschienen wären. Beide
+ * Zahlen nehmen das Größere aus Handzähler und Ereignissen — so zählt auch,
+ * was jemand von Hand nachgetragen hat.
+ */
+export function channelRatesMitLinkedin(
+  rows: DailyMetricsRow[],
+  ereignisse: ReadonlyArray<{ lead_id: string; typ: string; at: string }>,
+  vonIso: string,
+  bisIso: string,
+): ChannelRate[] {
+  return channelRates(rows).map((r) => {
+    if (r.key !== 'li') return r
+    const anfragen = Math.max(sumField(rows, 'li_nachrichten'), linkedinErstnachrichtenImZeitraum(ereignisse, vonIso, bisIso))
+    const antworten = Math.max(sumField(rows, 'antworten_li'), linkedinAntwortenImZeitraum(ereignisse, vonIso, bisIso))
+    return { ...r, label: 'LinkedIn (auf Erstnachricht)', anfragen, antworten, rate: anfragen > 0 ? antworten / anfragen : null }
+  })
+}

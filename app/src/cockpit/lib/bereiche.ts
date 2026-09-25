@@ -40,17 +40,38 @@ export interface CockpitBereich {
 export type BereichMitIcon = CockpitBereich & { icon: BereichIconName }
 
 export const COCKPIT_BEREICHE: CockpitBereich[] = [
-  { path: '/cockpit', label: 'Cockpit', icon: 'home', keywords: ['home', 'start', 'übersicht', 'graph', 'heute-deck'] },
+  {
+    path: '/cockpit',
+    label: 'Cockpit',
+    icon: 'home',
+    keywords: ['home', 'start', 'übersicht', 'graph', 'heute', 'heute-deck', 'agenten'],
+  },
+  // Seit 25.09.2026 Reiter IM Cockpit (Kevin: „Die Heute-Seite benutze ich fast
+  // gar nicht … das könnte viel eher ins Cockpit rein"). Die Adressen bleiben
+  // als Sprungziel — sie leiten auf den passenden Reiter.
   { path: '/aufgaben', label: 'Aufgaben', icon: 'haken', keywords: ['todo', 'tasks', 'heute'] },
   { path: '/termine', label: 'Termine', icon: 'uhr', keywords: ['kalender', 'calls', 'buchungen'] },
   { path: '/freigaben', label: 'Freigaben', icon: 'eingang', keywords: ['entwürfe', 'approval', 'queue'] },
-  { path: '/linkedin', label: 'LinkedIn', icon: 'postfach', keywords: ['postfach', 'threads', 'follow-up', 'dm'] },
   { path: '/sales', label: 'Sales', icon: 'liste', keywords: ['crm', 'pipeline', 'kontakte', 'leads', 'jetzt dran'] },
+  {
+    path: '/sales/linkedin',
+    label: 'LinkedIn-Leads',
+    icon: 'postfach',
+    keywords: ['linkedin', 'postfach', 'follow-up', 'erstnachricht', 'listen', 'kontakte', 'loom'],
+  },
+  {
+    path: '/sales/leads',
+    label: 'Cold-Call-Leads',
+    icon: 'liste',
+    keywords: ['cold call', 'anrufen', 'call-mode', 'listen', 'pipeline', 'neuer lead', 'whales'],
+  },
   { path: '/projekte', label: 'Projekte', icon: 'raute', keywords: ['kunden', 'deliver', 'lieferung'] },
-  { path: '/ads', label: 'Ads', icon: 'megafon', keywords: ['werbung', 'kampagnen', 'meta'] },
-  { path: '/content', label: 'Content', icon: 'bild', keywords: ['social', 'instagram', 'posts', 'batch'] },
-  { path: '/agenten', label: 'Agenten', icon: 'agent', keywords: ['runs', 'automation', 'runner'] },
   { path: '/tracking', label: 'Tracking', icon: 'balken', keywords: ['kpi', 'zahlen', 'umsatz', 'ziele', 'vitals'] },
+  // Ads und Content stehen nicht mehr in der Leiste — dort steht Gabriel.
+  // Erreichbar bleiben sie hier, bis Ads nach Gabriel umgezogen ist.
+  { path: '/ads', label: 'Ads', icon: 'megafon', keywords: ['werbung', 'kampagnen', 'meta', 'gabriel'] },
+  { path: '/content', label: 'Content', icon: 'bild', keywords: ['social', 'instagram', 'posts', 'batch', 'gabriel'] },
+  { path: '/agenten', label: 'Agenten', icon: 'agent', keywords: ['runs', 'automation', 'runner'] },
   {
     path: '/identitaet',
     label: 'Identität',
@@ -59,6 +80,8 @@ export const COCKPIT_BEREICHE: CockpitBereich[] = [
   },
   // Redirect auf /sales — als Bereich gäbe es ihn zweimal in der Liste.
   { path: '/crm', label: 'CRM', keywords: [], nurRoute: true },
+  // Alte Adresse des LinkedIn-Postfachs, leitet nach /sales/linkedin.
+  { path: '/linkedin', label: 'LinkedIn', keywords: [], nurRoute: true },
 ]
 
 /** Routen-Präfixe der Cockpit-Shell (App.tsx: Background-Gate). */

@@ -3,8 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import { fetchOsFile, obsidianUrl, openInObsidian } from '../lib/runnerApi'
 import { fetchSalesLibrary, salesFileUrl, type SalesLibrary } from '../lib/salesLibraryApi'
 import { useRunnerStatus } from '../lib/useRunnerStatus'
+import { KlappAbschnitt } from '../components/KlappAbschnitt'
+import { ordneRessourcen as ordne, type RessourcenWahl } from '../lib/ressourcenOrdnung'
 
-type SelectionKey = { group: 'vault'; path: string } | { group: 'skripte'; rel: string; kind: 'md' | 'html' | 'pdf' }
+type SelectionKey = RessourcenWahl
 
 function selectionKeyToParam(sel: SelectionKey): string {
   return sel.group === 'vault' ? sel.path : sel.rel
@@ -194,11 +196,9 @@ export function SalesBibliothek() {
           if (vaultHit) setSelection({ group: 'vault', path: vaultHit.path })
           else if (skriptHit) setSelection({ group: 'skripte', rel: skriptHit.rel, kind: skriptHit.kind })
         } else {
-          const newest = [...lib.vault, ...lib.skripte].sort((a, b) => (a.mtime < b.mtime ? 1 : -1))[0]
-          if (newest) {
-            if ('path' in newest) setSelection({ group: 'vault', path: newest.path })
-            else setSelection({ group: 'skripte', rel: newest.rel, kind: newest.kind })
-          }
+          // Ohne Wunsch: der erste Schritt des Tages, nicht die jüngste Datei.
+          const erster = ordne(lib)[0]?.eintraege[0]
+          if (erster) setSelection(erster.sel)
         }
       })
       .catch((e: Error) => setError(e.message))
@@ -216,8 +216,7 @@ export function SalesBibliothek() {
   const isSelected = (key: string) =>
     selection != null && selectionKeyToParam(selection) === key
 
-  const vaultEntries = library?.vault ?? []
-  const skripteEntries = library?.skripte ?? []
+  const geordnet = library ? ordne(library) : []
 
   if (runner.state !== 'online') {
     return (
@@ -242,65 +241,56 @@ export function SalesBibliothek() {
     // Spalten stehen in cockpit.css (.ck-sales-bibliothek-grid). Als
     // Inline-Style schlugen sie die Stapel-Regel des Mobil-Blocks.
     <div className="ck-sales-bibliothek-grid">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <section className="ck-panel">
-          <div className="ck-label" style={{ padding: '10px 12px 4px' }}>Nachrichten &amp; Skripte (Vault)</div>
-          {vaultEntries.length === 0 ? (
-            <p style={{ padding: '0 12px 10px', margin: 0, fontSize: 12, color: 'var(--ck-text-3)' }}>Keine Dateien.</p>
-          ) : (
-            vaultEntries.map((f) => (
-              <button
-                key={f.path}
-                onClick={() => select({ group: 'vault', path: f.path })}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  background: isSelected(f.path) ? 'color-mix(in srgb, var(--ck-accent) 14%, transparent)' : 'none',
-                  border: 'none',
-                  borderTop: '1px solid var(--ck-border)',
-                  color: isSelected(f.path) ? 'var(--ck-accent)' : 'var(--ck-text-1)',
-                  fontFamily: 'var(--ck-font)',
-                  fontSize: 12.5,
-                  cursor: 'pointer',
-                }}
+      <nav aria-label="Ressourcen" className="ck-ressourcen">
+        {geordnet.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ck-text-3)' }}>{library ? 'Keine Dateien.' : 'Lädt …'}</p>
+        ) : null}
+        {geordnet.map(({ schritt, eintraege }, i) => {
+          const liste = (
+            <ol className="ck-ressourcen-liste">
+              {eintraege.map((e) => (
+                <li key={e.key}>
+                  <button
+                    type="button"
+                    className="ck-li-liste"
+                    aria-current={isSelected(e.key) ? 'true' : undefined}
+                    onClick={() => select(e.sel)}
+                  >
+                    <span className="ck-li-liste-name" style={{ whiteSpace: 'normal' }}>
+                      {e.titel}
+                    </span>
+                    {e.art !== 'md' ? <span className="ck-chip">{e.art.toUpperCase()}</span> : null}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )
+          if (schritt.id === 'hintergrund') {
+            return (
+              <KlappAbschnitt
+                key={schritt.id}
+                schluessel="sales.ressourcenHintergrundOffen"
+                titel={schritt.titel}
+                zusatz={eintraege.length}
               >
-                {f.name}
-              </button>
-            ))
-          )}
-        </section>
-        <section className="ck-panel">
-          <div className="ck-label" style={{ padding: '10px 12px 4px' }}>Vorlagen &amp; PDFs</div>
-          {skripteEntries.length === 0 ? (
-            <p style={{ padding: '0 12px 10px', margin: 0, fontSize: 12, color: 'var(--ck-text-3)' }}>Keine Dateien.</p>
-          ) : (
-            skripteEntries.map((f) => (
-              <button
-                key={f.rel}
-                onClick={() => select({ group: 'skripte', rel: f.rel, kind: f.kind })}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  background: isSelected(f.rel) ? 'color-mix(in srgb, var(--ck-accent) 14%, transparent)' : 'none',
-                  border: 'none',
-                  borderTop: '1px solid var(--ck-border)',
-                  color: isSelected(f.rel) ? 'var(--ck-accent)' : 'var(--ck-text-1)',
-                  fontFamily: 'var(--ck-font)',
-                  fontSize: 12.5,
-                  cursor: 'pointer',
-                }}
-              >
-                {f.name}
-                <span className="ck-label" style={{ marginLeft: 6 }}>{f.kind}</span>
-              </button>
-            ))
-          )}
-        </section>
-      </div>
+                {liste}
+              </KlappAbschnitt>
+            )
+          }
+          return (
+            <section key={schritt.id} className="ck-ressourcen-schritt">
+              <div className="ck-ressourcen-kopf">
+                <span className="ck-ressourcen-nr" aria-hidden>
+                  {i + 1}
+                </span>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ck-text-1)' }}>{schritt.titel}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--ck-text-3)' }}>{schritt.wann}</span>
+              </div>
+              {liste}
+            </section>
+          )
+        })}
+      </nav>
       <div style={{ minWidth: 0 }}>
         {!selection ? (
           <p style={{ color: 'var(--ck-text-3)', fontSize: 12.5 }}>Links einen Eintrag wählen.</p>

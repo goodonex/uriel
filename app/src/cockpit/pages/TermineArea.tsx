@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { useContentPieces } from '../../hooks/useContentPieces'
 import { useBookings } from '../../hooks/useSalesPro'
-import { HeuteTabs } from '../components/HeuteTabs'
 import { useActiveBrand } from '../lib/activeBrand'
 import { runnerDirekt } from '../lib/runnerBridge'
 import {
@@ -105,7 +104,6 @@ export function TermineArea() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <HeuteTabs />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--ck-text-1)', margin: 0 }}>
