@@ -17,16 +17,29 @@
  * (`"titel": "laplace A12"` im Eingabeblock des Prompts), und das zweite Wort
  * ist die Phase, wenn es wie eine aussieht.
  *
+ * **Wofür (25.09.2026).** Jede Antwort bekommt eine Art:
+ * - `bauen` — Kevins Sitzungen in einem Programm-Ordner (einer mit
+ *   `package.json`) und die Mini-Aufträge, die ein Programm weiterbauen.
+ * - `betrieb` — was ein Programm von selbst verbraucht: nicht-interaktive
+ *   `claude -p`-Läufe ohne Auftragstitel. Liegen sie in einem Programm-Ordner
+ *   (jophiel, gabriel), gehören sie dem; alles andere startet Uriels Runner
+ *   (Routinen im Vault, in `Herrmann & Co`) und gehört Uriel.
+ * - `arbeit` — Kevins Sitzungen außerhalb der Programme: Vault, Kundenordner.
+ *
  * **Inkrementell.** Beim ersten Durchgang liest es alle Protokolle der
  * letzten Tage einmal ganz (hunderte MB), danach je Datei nur das, was seit
  * dem letzten Mal angehängt wurde.
  */
 import { createReadStream } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
+import { hostname } from 'node:os'
 import { join, sep } from 'node:path'
 
-/** Nur Sitzungen, die in diesem Fenster noch geschrieben wurden. */
-export const FENSTER_TAGE = 21
+/** Nur Sitzungen, die in diesem Fenster noch geschrieben wurden (30 Tage Nutzung + Puffer). */
+export const FENSTER_TAGE = 31
+
+/** Sammelzeile für Sitzungen, die zu keinem Projektordner gehören (Vault, Scratch). */
+export const OHNE_PROJEKT = 'Vault & Sonstiges'
 
 /** Preise je 1 Mio. Tokens (Eingabe, Ausgabe). Unbekanntes Modell → kein Dollarwert. */
 const PREISE = [
@@ -45,7 +58,9 @@ export function neuesBuch() {
     dateien: new Map(),
     /** Sitzung → Auftragstitel (aus dem ersten Prompt), für Subagenten-Dateien. */
     titel: new Map(),
-    /** `projekt|phase|tag` → Summen. */
+    /** Sitzung → entrypoint, für Subagenten-Dateien ohne eigenen. */
+    einstieg: new Map(),
+    /** `projekt|phase|tag|art` → Summen. */
     posten: new Map(),
     /** Bereits gezählte Antworten (Streaming wiederholt dieselbe id). */
     gezaehlt: new Set(),
@@ -100,6 +115,59 @@ export function projektAusCwd(cwd, projekteWurzel) {
   return rest.split(sep)[0] || null
 }
 
+/**
+ * Projekt, Phase und Art einer Antwort. `kontext.programme` sind die Ordner
+ * mit Code (`package.json`); `einstieg` ist der `entrypoint` der Sitzung —
+ * `sdk-…` heißt nicht-interaktiv (`claude -p`), alles andere hat Kevin getippt.
+ */
+export function zuordnen({ cwd, titel, einstieg }, kontext) {
+  const programme = kontext.programme ?? new Set()
+  const ausCwd = projektAusCwd(cwd, kontext.projekteWurzel)
+  const ausTitel = titelZerlegen(titel, kontext.projekte ?? [])
+  if (ausTitel.projekt) {
+    const projekt = ausCwd ?? ausTitel.projekt
+    // Die Phase gilt nur, wenn der Titel zum selben Projekt gehört.
+    return { projekt, phase: ausTitel.projekt === projekt ? ausTitel.phase : null, art: 'bauen' }
+  }
+  const interaktiv = !/^sdk/.test(String(einstieg ?? ''))
+  if (interaktiv) {
+    const projekt = ausCwd ?? OHNE_PROJEKT
+    return { projekt, phase: null, art: programme.has(projekt) ? 'bauen' : 'arbeit' }
+  }
+  return { projekt: ausCwd && programme.has(ausCwd) ? ausCwd : 'uriel', phase: null, art: 'betrieb' }
+}
+
+/**
+ * Die Nutzung der letzten `tage` Tage je Projekt, getrennt nach Art.
+ * `rechner` sagt, woher die Zahlen stammen — der Laptop meldet seine eigenen.
+ */
+export function nutzung(buch, { tage = 30, jetzt = Date.now(), rechner = null, programme = new Set() } = {}) {
+  const ab = new Date(jetzt - (tage - 1) * 86_400_000).toISOString().slice(0, 10)
+  const leer = () => ({ tokens: 0, usd: 0 })
+  const zeilen = new Map()
+  for (const p of buch.posten.values()) {
+    if (p.tag < ab) continue
+    const z = zeilen.get(p.projekt) ?? {
+      projekt: p.projekt,
+      programm: programme.has(p.projekt) || p.projekt === 'uriel',
+      bauen: leer(),
+      betrieb: leer(),
+      arbeit: leer(),
+      letzte: null,
+    }
+    const art = z[p.art] ? p.art : 'arbeit'
+    z[art].tokens += tokensVon(p)
+    z[art].usd += p.usd
+    if (p.letzte && (!z.letzte || p.letzte > z.letzte)) z.letzte = p.letzte
+    zeilen.set(p.projekt, z)
+  }
+  const runde = (w) => ({ tokens: w.tokens, usd: Math.round(w.usd * 100) / 100 })
+  const liste = [...zeilen.values()]
+    .map((z) => ({ ...z, bauen: runde(z.bauen), betrieb: runde(z.betrieb), arbeit: runde(z.arbeit) }))
+    .sort((a, b) => b.bauen.tokens + b.betrieb.tokens + b.arbeit.tokens - (a.bauen.tokens + a.betrieb.tokens + a.arbeit.tokens))
+  return { rechner, tage, ab, projekte: liste }
+}
+
 function tagVon(iso) {
   return typeof iso === 'string' && iso.length >= 10 ? iso.slice(0, 10) : 'unbekannt'
 }
@@ -150,16 +218,17 @@ export function nimmZeile(buch, datei, zeile, kontext) {
   }
   const u = d.message.usage
   const titel = datei.titel ?? (d.sessionId ? buch.titel.get(d.sessionId) : null) ?? null
-  const ausTitel = titelZerlegen(titel, kontext.projekte)
-  const projekt = projektAusCwd(d.cwd, kontext.projekteWurzel) ?? ausTitel.projekt ?? null
-  if (!projekt) return
-  // Die Phase gilt nur, wenn der Titel zum selben Projekt gehört.
-  const phase = ausTitel.projekt === projekt ? ausTitel.phase : null
+  if (d.entrypoint && !datei.einstieg) {
+    datei.einstieg = d.entrypoint
+    if (d.sessionId) buch.einstieg.set(d.sessionId, d.entrypoint)
+  }
+  const einstieg = d.entrypoint ?? datei.einstieg ?? (d.sessionId ? buch.einstieg.get(d.sessionId) : null) ?? ''
+  const { projekt, phase, art } = zuordnen({ cwd: d.cwd, titel, einstieg }, kontext)
   const tag = tagVon(d.timestamp)
-  const schluessel = `${projekt}|${phase ?? ''}|${tag}`
+  const schluessel = `${projekt}|${phase ?? ''}|${tag}|${art}`
   const p =
     buch.posten.get(schluessel) ??
-    { projekt, phase, tag, ein: 0, aus: 0, cacheSchreiben: 0, cacheLesen: 0, usd: 0, letzte: null }
+    { projekt, phase, tag, art, ein: 0, aus: 0, cacheSchreiben: 0, cacheLesen: 0, usd: 0, letzte: null }
   p.ein += Number(u.input_tokens ?? 0)
   p.aus += Number(u.output_tokens ?? 0)
   p.cacheSchreiben += Number(u.cache_creation_input_tokens ?? 0)
@@ -172,6 +241,33 @@ export function nimmZeile(buch, datei, zeile, kontext) {
 /** Alle Tokens eines Postens — Eingabe, Ausgabe und beide Cache-Arten. */
 export function tokensVon(p) {
   return p.ein + p.aus + p.cacheSchreiben + p.cacheLesen
+}
+
+/** „Air.local" → „Air". Schlüssel des Nutzungs-Spiegels je Rechner. */
+export function rechnerName() {
+  return (process.env.RECHNER_NAME || hostname().split('.')[0] || 'rechner').replace(/[^\w-]/g, '_')
+}
+
+/** Projektordner unter `02 Projekte` und welche davon Programme sind (mit `package.json`). */
+export async function projektOrdner(projekteWurzel) {
+  let namen = []
+  try {
+    namen = (await readdir(projekteWurzel, { withFileTypes: true }))
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => e.name)
+  } catch {
+    /* ohne Projektordner bleibt nur die cwd-Zuordnung */
+  }
+  const programme = new Set()
+  for (const n of namen) {
+    try {
+      await stat(join(projekteWurzel, n, 'package.json'))
+      programme.add(n)
+    } catch {
+      /* kein Programm */
+    }
+  }
+  return { projekte: namen, programme }
 }
 
 async function sammleDateien(wurzel, tiefe = 0, aus = []) {
@@ -212,8 +308,8 @@ function leseAb(pfad, start, datei, buch, kontext) {
  * Bringt das Buch auf den Stand der Platte. Nur geänderte Dateien werden
  * gelesen, und von denen nur der neue Teil.
  */
-export async function aktualisiereBuch(buch, { protokollWurzel, projekteWurzel, projekte, jetzt = Date.now() }) {
-  const kontext = { projekteWurzel, projekte }
+export async function aktualisiereBuch(buch, { protokollWurzel, projekteWurzel, projekte, programme = new Set(), jetzt = Date.now() }) {
+  const kontext = { projekteWurzel, projekte, programme }
   const grenze = jetzt - FENSTER_TAGE * 86_400_000
   const dateien = await sammleDateien(protokollWurzel)
   // Hauptsitzungen vor Subagenten: deren Titel kommt aus der Hauptsitzung.
@@ -226,7 +322,7 @@ export async function aktualisiereBuch(buch, { protokollWurzel, projekteWurzel, 
       continue
     }
     if (st.mtimeMs < grenze) continue
-    const datei = buch.dateien.get(pfad) ?? { offset: 0, rest: '', titel: null, titelGeprueft: false, sitzung: null }
+    const datei = buch.dateien.get(pfad) ?? { offset: 0, rest: '', titel: null, titelGeprueft: false, sitzung: null, einstieg: null }
     if (st.size < datei.offset) {
       // Datei wurde ersetzt — von vorn. Bereits gezählte Antworten bleiben
       // über `gezaehlt` ausgeschlossen.

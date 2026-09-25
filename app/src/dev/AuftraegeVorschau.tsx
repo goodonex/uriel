@@ -1,5 +1,6 @@
 import { AuftraegePanel } from '../cockpit/components/AuftraegePanel'
-import type { Auftrag, AuftraegeStand, AuftragPhase } from '../cockpit/lib/auftraegeApi'
+import { NutzungPanel } from '../cockpit/components/NutzungPanel'
+import type { Auftrag, AuftraegeStand, AuftragPhase, NutzungsStand } from '../cockpit/lib/auftraegeApi'
 
 /**
  * Dev-Vorschau (nur DEV, ohne Login): die Auftrags-Übersicht unter /agenten.
@@ -77,13 +78,39 @@ const brach: Auftrag = {
   waechter: null,
 }
 
+/** laplace, wie es heute auf dem Mini steht: Kette 4 am 21.09. abgeschlossen. */
+const fertig: Auftrag = {
+  ...lang,
+  zustand: 'fertig',
+  letzteAktivitaet: '2026-09-21T16:12:08.000Z',
+  phasen: lang.phasen.map((p) => ({ ...p, status: 'fertig', prozent: 100, schritt: null })),
+  aktuell: null,
+  gesamtProzent: 100,
+  fertig: true,
+  tokens: { verbraucht: 964 * M, usd: 610, geplant: 964 * M, geplantArt: 'hochrechnung', schnittJePhase: 80 * M },
+  waechter: null,
+}
+
+const wert = (tokens: number, usd: number) => ({ tokens: tokens * M, usd })
+const NUTZUNG: NutzungsStand = {
+  rechner: [
+    { name: 'Mini', stand: vor(3) },
+    { name: 'Air', stand: vor(12) },
+  ],
+  zeilen: [
+    { projekt: 'uriel', programm: true, bauen: wert(532, 402), betrieb: wert(180, 96), arbeit: wert(0, 0), letzte: vor(3) },
+    { projekt: 'laplace', programm: true, bauen: wert(1078, 690), betrieb: wert(0, 0), arbeit: wert(0, 0), letzte: vor(60 * 90) },
+    { projekt: 'jophiel', programm: true, bauen: wert(203, 150), betrieb: wert(41, 22), arbeit: wert(0, 0), letzte: vor(60 * 48) },
+    { projekt: 'gabriel', programm: true, bauen: wert(140, 98), betrieb: wert(6, 3), arbeit: wert(0, 0), letzte: vor(30) },
+    { projekt: 'Vault & Sonstiges', programm: false, bauen: wert(0, 0), betrieb: wert(0, 0), arbeit: wert(1652, 980), letzte: vor(1) },
+    { projekt: 'Herrmann & Co', programm: false, bauen: wert(0, 0), betrieb: wert(0, 0), arbeit: wert(82, 51), letzte: vor(60 * 30) },
+  ],
+}
+
 const STAND: AuftraegeStand = {
   stand: vor(1),
-  auftraege: [beispiel, lang, brach],
-  weitere: [
-    { projekt: 'gabriel', tokens7Tage: 115.5 * M, usd7Tage: 51, letzteAktivitaet: vor(3), laeuft: true },
-    { projekt: 'jophiel', tokens7Tage: 1.4 * M, usd7Tage: 1.2, letzteAktivitaet: vor(60 * 24 * 7), laeuft: false },
-  ],
+  auftraege: [beispiel, lang, brach, fertig],
+  hinweise: [],
 }
 
 export function AuftraegeVorschau() {
@@ -91,6 +118,7 @@ export function AuftraegeVorschau() {
     <div style={{ minHeight: '100vh', background: 'var(--ck-bg)', color: 'var(--ck-text-1)', padding: 24 }}>
       <div style={{ maxWidth: 1000 }}>
         <AuftraegePanel vorgabe={STAND} />
+        <NutzungPanel vorgabe={NUTZUNG} />
       </div>
     </div>
   )

@@ -145,6 +145,12 @@ Skill-Änderungen brauchen das nicht (`claude -p` liest `SKILL.md` frisch).
   Tokens aus den Sitzungsprotokollen unter `~/.claude/projects` (auch rückwirkend,
   21 Tage), Mini-Aufträge über ihren Titel `<projekt> <phase>` zugeordnet. Prüfung:
   `npx tsx scripts/verify-auftraege.ts`. Format der Datei: Skill `mini`.
+- **Nutzung 30 Tage (25.09.):** gleiche Quelle, je Projekt getrennt nach Bauen (Kevins
+  Sitzungen in Programm-Ordnern + Mini-Aufträge), Betrieb (`claude -p` ohne Auftragstitel —
+  Uriels Routinen, jophiels/gabriels eigene Läufe) und Arbeit ohne Programm. Je Rechner ein
+  Spiegel `nutzung_<rechner>`; der Mini schreibt ihn im Runner, der Laptop über
+  `scripts/nutzung-melden.mjs` (dauerhaft: `scripts/install-nutzung-autostart.sh`).
+  Nicht enthalten: direkte API-Aufrufe (Edge Function `uriel`, laplace-News).
 - **Spiegel nach Supabase** (`runner_snapshots`, damit das Handy etwas sieht):
   `runs` · `files_index` · `calendar` · `agents` · `ads_overview` · `social_weeks` ·
   `sales_library` · `erstnachrichten_meta` · `jophiel_projekte`. Aufträge vom Handy laufen über

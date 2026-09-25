@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase'
 import { RUNNER_BASE_URL } from './useRunnerStatus'
 import { leseSpiegel, runnerDirekt } from './runnerBridge'
 
@@ -58,17 +59,15 @@ export interface Auftrag {
   waechter: AuftragWaechter | null
 }
 
-export interface WeitereAktivitaet {
+/** Ein Projekt mit Plan, aus dem sich keine Phasen lesen ließen. */
+export interface AuftragHinweis {
   projekt: string
-  tokens7Tage: number
-  usd7Tage: number
-  letzteAktivitaet: string | null
-  laeuft: boolean
+  grund: string
 }
 
 export interface AuftraegeStand {
   auftraege: Auftrag[]
-  weitere: WeitereAktivitaet[]
+  hinweise: AuftragHinweis[]
   /** Wann der Mini den Stand zuletzt geschrieben hat (nur über den Spiegel bekannt). */
   stand: string | null
 }
@@ -79,7 +78,7 @@ export async function fetchAuftraege(): Promise<AuftraegeStand> {
       const res = await fetch(`${RUNNER_BASE_URL}/auftraege`)
       if (res.ok) {
         const data = (await res.json()) as Omit<AuftraegeStand, 'stand'>
-        return { ...data, stand: new Date().toISOString() }
+        return { ...data, hinweise: data.hinweise ?? [], stand: new Date().toISOString() }
       }
     } catch {
       /* lokal kein Runner — dann der Spiegel */
@@ -87,7 +86,73 @@ export async function fetchAuftraege(): Promise<AuftraegeStand> {
   }
   const spiegel = await leseSpiegel<Omit<AuftraegeStand, 'stand'>>('auftraege')
   if (!spiegel) throw new Error('Der Mini hat noch keinen Auftrags-Stand gemeldet.')
-  return { ...spiegel.data, stand: spiegel.updatedAt }
+  return { ...spiegel.data, hinweise: spiegel.data.hinweise ?? [], stand: spiegel.updatedAt }
+}
+
+// ---------- Nutzung der letzten 30 Tage (25.09.2026) ----------
+
+export interface NutzungsWert {
+  tokens: number
+  usd: number
+}
+
+export interface NutzungsZeile {
+  projekt: string
+  /** Ein Programm (Ordner mit Code) — sonst Arbeit ohne Programm (Vault, Kundenordner). */
+  programm: boolean
+  bauen: NutzungsWert
+  betrieb: NutzungsWert
+  arbeit: NutzungsWert
+  letzte: string | null
+}
+
+export interface NutzungsStand {
+  /** Rechner, die gemeldet haben, mit dem Zeitpunkt ihrer letzten Meldung. */
+  rechner: { name: string; stand: string }[]
+  zeilen: NutzungsZeile[]
+}
+
+interface NutzungsSpiegel {
+  rechner: string
+  tage: number
+  projekte: NutzungsZeile[]
+}
+
+/**
+ * Jeder Rechner meldet seine eigenen Sitzungen (`nutzung_<rechner>`): der Mini
+ * über den Runner, der Laptop über `scripts/nutzung-melden.mjs`. Hier wird
+ * zusammengezählt.
+ */
+export async function fetchNutzung(): Promise<NutzungsStand> {
+  if (!supabase) throw new Error('Keine Supabase-Verbindung')
+  const { data, error } = await supabase.from('runner_snapshots').select('key, data, updated_at').like('key', 'nutzung_%')
+  if (error) throw new Error(error.message)
+  const zeilen = new Map<string, NutzungsZeile>()
+  const plus = (a: NutzungsWert, b: NutzungsWert) => ({ tokens: a.tokens + b.tokens, usd: a.usd + b.usd })
+  const rechner: NutzungsStand['rechner'] = []
+  for (const row of data ?? []) {
+    const d = row.data as NutzungsSpiegel
+    rechner.push({ name: d.rechner ?? String(row.key).slice(8), stand: row.updated_at as string })
+    for (const z of d.projekte ?? []) {
+      const alt = zeilen.get(z.projekt)
+      zeilen.set(
+        z.projekt,
+        alt
+          ? {
+              ...alt,
+              programm: alt.programm || z.programm,
+              bauen: plus(alt.bauen, z.bauen),
+              betrieb: plus(alt.betrieb, z.betrieb),
+              arbeit: plus(alt.arbeit, z.arbeit),
+              letzte: [alt.letzte, z.letzte].filter(Boolean).sort().pop() ?? null,
+            }
+          : z,
+      )
+    }
+  }
+  // Nach Geld sortiert, nicht nach Tokens: Cache-Lesen bläht die Tokenzahl auf, kostet aber ein Zehntel.
+  const summe = (z: NutzungsZeile) => z.bauen.usd + z.betrieb.usd + z.arbeit.usd
+  return { rechner, zeilen: [...zeilen.values()].sort((a, b) => summe(b) - summe(a)) }
 }
 
 const ZAHL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
@@ -128,7 +193,7 @@ export function zustandText(a: Pick<Auftrag, 'zustand' | 'letzteAktivitaet' | 'w
     case 'gestoppt':
       return `gestoppt: ${a.waechter?.beendet ?? 'Wächter aus'}`
     case 'fertig':
-      return 'fertig'
+      return a.letzteAktivitaet ? `fertig seit ${datumText(a.letzteAktivitaet)}` : 'fertig'
   }
 }
 

@@ -11,7 +11,7 @@
 // @ts-expect-error — .mjs ohne Typen; genau die Dateien, die der Runner lädt.
 import { aktiverAbschnitt, bewerteAuftrag, parseFortschritt, parseStand, startAusTitel, zustandVon } from '../runner/auftraege.mjs'
 // @ts-expect-error — .mjs ohne Typen
-import { neuesBuch, nimmZeile, preisUsd, projektAusCwd, titelAusPrompt, titelZerlegen, tokensVon } from '../runner/tokenBuch.mjs'
+import { OHNE_PROJEKT, neuesBuch, nimmZeile, nutzung, preisUsd, projektAusCwd, titelAusPrompt, titelZerlegen, tokensVon, zuordnen } from '../runner/tokenBuch.mjs'
 
 let pass = 0
 let fail = 0
@@ -83,6 +83,7 @@ check('2e ohne fertige Phase mit Tokens keine Hochrechnung', ausStand.tokens.gep
 const M = 1_000_000
 const posten = (phase: string | null, tokens: number) => ({
   projekt: 'laplace',
+  art: 'bauen',
   phase,
   tag: '2026-09-23',
   ein: 0,
@@ -175,8 +176,33 @@ check('7h Mini-Auftrag landet bei Projekt und Phase', p.map((x: { projekt: strin
 check('7i gleiche Antwort zählt einmal', tokensVon(p[0]), 6010)
 // Dieselbe Sitzung wechselt ins Projekt uriel: ab da zählt uriel, ohne laplace-Phase.
 nimmZeile(buch, datei, zeile({ ...antwort, cwd: `${WURZEL}/uriel`, message: { ...antwort.message, id: 'msg_2' } }), kontext)
-check('7j cwd schlägt Titel, Phase nur beim eigenen Projekt', buch.posten.has('uriel||2026-09-24'), true)
+check('7j cwd schlägt Titel, Phase nur beim eigenen Projekt', buch.posten.has('uriel||2026-09-24|bauen'), true)
 check('7k Kaputte Zeile wird übergangen', (nimmZeile(buch, datei, '{kaputt', kontext), buch.posten.size), 2)
+
+// 7l. Wofür: Bauen, Betrieb, Arbeit
+const K = { projekteWurzel: WURZEL, projekte: ['laplace', 'uriel', 'jophiel', 'Herrmann & Co'], programme: new Set(['laplace', 'uriel', 'jophiel']) }
+const VAULT = '/Users/mini/Second Brain'
+check('7l Kevin baut in einem Programm', zuordnen({ cwd: `${WURZEL}/jophiel`, titel: null, einstieg: 'claude-desktop' }, K), { projekt: 'jophiel', phase: null, art: 'bauen' })
+check('7m Mini-Auftrag baut', zuordnen({ cwd: WURZEL, titel: 'laplace A3', einstieg: 'sdk-cli' }, K), { projekt: 'laplace', phase: 'A3', art: 'bauen' })
+check('7n Routine im Vault ist Uriels Betrieb', zuordnen({ cwd: VAULT, titel: null, einstieg: 'sdk-cli' }, K), { projekt: 'uriel', phase: null, art: 'betrieb' })
+check('7o Routine im Kundenordner ist Uriels Betrieb', zuordnen({ cwd: `${WURZEL}/Herrmann & Co/Intern/04_social`, titel: null, einstieg: 'sdk-cli' }, K), { projekt: 'uriel', phase: null, art: 'betrieb' })
+check('7p Jophiels eigene Läufe sind Jophiels Betrieb', zuordnen({ cwd: `${WURZEL}/jophiel/projects/x`, titel: null, einstieg: 'sdk-cli' }, K), { projekt: 'jophiel', phase: null, art: 'betrieb' })
+check('7q Kevin im Kundenordner arbeitet', zuordnen({ cwd: `${WURZEL}/Herrmann & Co`, titel: null, einstieg: 'claude-desktop' }, K), { projekt: 'Herrmann & Co', phase: null, art: 'arbeit' })
+check('7r Kevin im Vault arbeitet', zuordnen({ cwd: VAULT, titel: null, einstieg: 'claude-desktop' }, K), { projekt: OHNE_PROJEKT, phase: null, art: 'arbeit' })
+
+const nb = neuesBuch()
+const nd = { offset: 0, rest: '', titel: null, titelGeprueft: false, sitzung: null, einstieg: null }
+const heute = new Date().toISOString()
+const alt = new Date(Date.now() - 40 * 86_400_000).toISOString()
+const zeileVon = (id: string, cwd: string, einstieg: string, ts: string) =>
+  JSON.stringify({ type: 'assistant', sessionId: id, entrypoint: einstieg, cwd, timestamp: ts, message: { id: `m-${id}-${ts}`, model: 'claude-opus-5', usage: { input_tokens: 0, output_tokens: 1000 } } })
+nimmZeile(nb, { ...nd }, zeileVon('a', `${WURZEL}/uriel`, 'claude-desktop', heute), K)
+nimmZeile(nb, { ...nd }, zeileVon('b', VAULT, 'sdk-cli', heute), K)
+nimmZeile(nb, { ...nd }, zeileVon('c', `${WURZEL}/uriel`, 'claude-desktop', alt), K)
+const n = nutzung(nb, { tage: 30, rechner: 'Mini', programme: K.programme })
+check('7s Nutzung: uriel bauen und betrieb getrennt', [n.projekte[0].projekt, n.projekte[0].bauen.tokens, n.projekte[0].betrieb.tokens], ['uriel', 1000, 1000])
+check('7t Älter als 30 Tage zählt nicht', n.projekte.length, 1)
+check('7u Rechner steht dabei', n.rechner, 'Mini')
 
 // 8. Preise
 check('8 Opus-Preis', Math.round(preisUsd('claude-opus-5', { input_tokens: 1_000_000, output_tokens: 1_000_000 }) * 100) / 100, 30)

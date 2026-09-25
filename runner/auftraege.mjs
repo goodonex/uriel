@@ -24,14 +24,17 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { tokensVon } from './tokenBuch.mjs'
+import { OHNE_PROJEKT, tokensVon } from './tokenBuch.mjs'
 
 /** So lange nach der letzten Antwort gilt ein Auftrag als laufend. */
 export const LAEUFT_MIN = 15
 /** Ab hier liegt ein offener Auftrag brach. */
 export const BRACH_STUNDEN = 24
-/** Fertige Aufträge bleiben so lange sichtbar. */
-export const FERTIG_SICHTBAR_TAGE = 3
+/**
+ * Fertige Aufträge bleiben so lange sichtbar. 30 statt 3 (25.09.2026): Kevin
+ * will laplace auch nach dem Kettenende im Detail sehen, nicht als Zeile.
+ */
+export const FERTIG_SICHTBAR_TAGE = 30
 
 const PHASE_ZEILE = /^- \[( |x|X)\]\s+(?:\*\*)?([A-Z]{1,3}\d{1,3}[a-z]?)\b[.:]?\s*(.*)$/
 const UNTERPUNKT = /^\s{2,}- \[( |x|X)\]/
@@ -268,18 +271,21 @@ export async function sammleAuftraege({ projekteWurzel, buch, jetzt = Date.now()
       .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
       .map((e) => e.name)
   } catch {
-    return { erzeugt: new Date(jetzt).toISOString(), auftraege: [], weitere: [] }
+    return { erzeugt: new Date(jetzt).toISOString(), auftraege: [], hinweise: [] }
   }
 
   const postenJeProjekt = new Map()
   for (const p of buch.posten.values()) {
+    // Was ein Programm im Betrieb selbst verbraucht, gehört nicht zur Bau-Kette.
+    if (p.art === 'betrieb' || p.projekt === OHNE_PROJEKT) continue
     const l = postenJeProjekt.get(p.projekt) ?? []
     l.push(p)
     postenJeProjekt.set(p.projekt, l)
   }
 
   const auftraege = []
-  const mitAuftrag = new Set()
+  /** Projekte, die einen Plan haben, aus dem sich nichts lesen ließ — sonst fehlen sie stumm. */
+  const hinweise = []
 
   for (const name of ordner) {
     const pfad = join(projekteWurzel, name)
@@ -317,7 +323,10 @@ export async function sammleAuftraege({ projekteWurzel, buch, jetzt = Date.now()
         console.error(`[auftraege] ${name}/STAND.md unlesbar:`, e?.message ?? e)
       }
     }
-    if (!quellen.length) continue
+    if (!quellen.length) {
+      if (existsSync(standDatei)) hinweise.push({ projekt: name, grund: 'STAND.md ohne Phasen-Checkliste (- [ ] **A1 …**)' })
+      continue
+    }
 
     const waechter = await leseWaechter(pfad)
     const allePosten = postenJeProjekt.get(name) ?? []
@@ -338,7 +347,6 @@ export async function sammleAuftraege({ projekteWurzel, buch, jetzt = Date.now()
       if (zustand === 'fertig' && letzteAktivitaet && jetzt - new Date(letzteAktivitaet).getTime() > FERTIG_SICHTBAR_TAGE * 86_400_000) {
         continue
       }
-      mitAuftrag.add(name)
       auftraege.push({
         projekt: name,
         titel: q.titel,
@@ -354,29 +362,8 @@ export async function sammleAuftraege({ projekteWurzel, buch, jetzt = Date.now()
     }
   }
 
-  // Aktivität ohne Phasenplan: Projekte, an denen in den letzten sieben Tagen
-  // gearbeitet wurde. Dort steht nur, was verbraucht wurde.
-  const grenzeTag = new Date(jetzt - 7 * 86_400_000).toISOString().slice(0, 10)
-  const weitere = []
-  for (const [projekt, posten] of postenJeProjekt) {
-    if (mitAuftrag.has(projekt)) continue
-    const juengst = posten.filter((p) => p.tag >= grenzeTag)
-    if (!juengst.length) continue
-    const tokens = juengst.reduce((n, p) => n + tokensVon(p), 0)
-    const usd = juengst.reduce((n, p) => n + p.usd, 0)
-    const letzteAktivitaet = juengst.map((p) => p.letzte).filter(Boolean).sort().pop() ?? null
-    weitere.push({
-      projekt,
-      tokens7Tage: tokens,
-      usd7Tage: Math.round(usd * 100) / 100,
-      letzteAktivitaet,
-      laeuft: zustandVon({ fertig: false, letzteAktivitaet, jetzt }) === 'laeuft',
-    })
-  }
-  weitere.sort((a, b) => String(b.letzteAktivitaet).localeCompare(String(a.letzteAktivitaet)))
-
   const RANG = { laeuft: 0, pausiert: 1, gestoppt: 2, brach: 3, fertig: 4 }
   auftraege.sort((a, b) => RANG[a.zustand] - RANG[b.zustand] || String(b.letzteAktivitaet).localeCompare(String(a.letzteAktivitaet)))
 
-  return { erzeugt: new Date(jetzt).toISOString(), auftraege, weitere }
+  return { erzeugt: new Date(jetzt).toISOString(), auftraege, hinweise }
 }

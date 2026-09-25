@@ -95,7 +95,11 @@ export function AuftraegePanel({ vorgabe }: { vorgabe?: AuftraegeStand } = {}) {
         ))}
       </div>
 
-      {stand && stand.weitere.length ? <WeitereListe stand={stand} jetzt={jetzt} /> : null}
+      {stand?.hinweise.length ? (
+        <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 10, lineHeight: 1.5 }}>
+          Ohne lesbare Phasen: {stand.hinweise.map((h) => `${h.projekt} (${h.grund})`).join(' · ')}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -112,7 +116,6 @@ function AuftragKarte({ auftrag: a, jetzt }: { auftrag: Auftrag; jetzt: number }
       style={{
         padding: '14px 15px',
         borderColor: a.zustand === 'brach' || a.zustand === 'gestoppt' ? 'var(--ck-warn)' : undefined,
-        opacity: a.zustand === 'fertig' ? 0.75 : 1,
       }}
     >
       {/* Kopf: Projekt, Kette, Zustand */}
@@ -155,7 +158,10 @@ function AuftragKarte({ auftrag: a, jetzt }: { auftrag: Auftrag; jetzt: number }
           <PhasenLeiste phasen={a.phasen} />
           <div style={{ marginTop: 9, fontSize: 13, lineHeight: 1.45 }}>
             {a.fertig ? (
-              <span>Alle {a.phasen.length} Phasen abgeschlossen.</span>
+              <span>
+                <span style={{ fontWeight: 600 }}>Alle {a.phasen.length} Phasen abgeschlossen.</span>
+                <span style={{ color: 'var(--ck-text-2)' }}> Die nächste Kette ist noch nicht geplant.</span>
+              </span>
             ) : akt ? (
               <>
                 <span style={{ fontWeight: 600 }}>
@@ -256,7 +262,7 @@ function TokenBlock({ auftrag: a }: { auftrag: Auftrag }) {
       <div className="ck-label" style={{ marginBottom: 4 }}>Tokens</div>
       <div style={{ fontSize: 15, fontWeight: 600 }}>
         {tokenText(verbraucht)}
-        {geplant ? (
+        {geplant && !a.fertig ? (
           <span style={{ fontWeight: 400, color: 'var(--ck-text-2)' }}>
             {' '}
             von {geplantArt === 'hochrechnung' ? '~' : ''}
@@ -264,7 +270,7 @@ function TokenBlock({ auftrag: a }: { auftrag: Auftrag }) {
           </span>
         ) : null}
       </div>
-      {anteil != null ? (
+      {anteil != null && !a.fertig ? (
         <div
           aria-hidden
           style={{ marginTop: 6, height: 6, borderRadius: 99, background: 'var(--ck-border)', overflow: 'hidden' }}
@@ -273,7 +279,9 @@ function TokenBlock({ auftrag: a }: { auftrag: Auftrag }) {
         </div>
       ) : null}
       <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 6, lineHeight: 1.45 }}>
-        {geplantArt === 'vorgabe'
+        {a.fertig
+          ? `gesamt für die Kette${a.tokens.schnittJePhase ? ` · Ø ${tokenText(a.tokens.schnittJePhase)} je Phase` : ''}`
+          : geplantArt === 'vorgabe'
           ? 'geplant laut Auftrag'
           : geplantArt === 'hochrechnung'
             ? `hochgerechnet aus ${tokenText(a.tokens.schnittJePhase)} je fertiger Phase`
@@ -296,39 +304,6 @@ function WaechterZeile({ auftrag: a, jetzt }: { auftrag: Auftrag; jetzt: number 
   return (
     <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--ck-border)' }}>
       Wächter: {teile.join(' · ')}
-    </div>
-  )
-}
-
-function WeitereListe({ stand, jetzt }: { stand: AuftraegeStand; jetzt: number }) {
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div className="ck-label" style={{ marginBottom: 6 }}>Weitere Arbeit der letzten 7 Tage (ohne Phasenplan)</div>
-      <div className="ck-panel" style={{ padding: 0, overflow: 'hidden' }}>
-        {stand.weitere.map((w) => (
-          <div
-            key={w.projekt}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '9px 13px',
-              borderBottom: '1px solid var(--ck-border)',
-              fontSize: 12.5,
-            }}
-          >
-            <span
-              aria-hidden
-              style={{ width: 7, height: 7, borderRadius: 99, flexShrink: 0, background: w.laeuft ? 'var(--ck-accent)' : 'var(--ck-idle)' }}
-            />
-            <span style={{ fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.projekt}</span>
-            <span className="ck-label" style={{ textTransform: 'none', letterSpacing: 0 }}>
-              {w.laeuft ? 'läuft' : `zuletzt vor ${alterText(w.letzteAktivitaet, jetzt)}`}
-            </span>
-            <span style={{ marginLeft: 'auto', color: 'var(--ck-text-2)', whiteSpace: 'nowrap' }}>{tokenText(w.tokens7Tage)} Tokens</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

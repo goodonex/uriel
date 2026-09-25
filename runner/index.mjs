@@ -29,7 +29,7 @@ import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { speichereProfile } from './linkedin/leadProfil.mjs'
 import { dataforseoZugang } from './linkedin/googleAds.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
-import { aktualisiereBuch, neuesBuch } from './tokenBuch.mjs'
+import { aktualisiereBuch, neuesBuch, nutzung, projektOrdner, rechnerName } from './tokenBuch.mjs'
 import { sammleAuftraege } from './auftraege.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
 import { laufGrund } from './laufGrund.mjs'
@@ -1958,33 +1958,44 @@ async function spiegleDateien() {
 const PROJEKTE_WURZEL = resolve(join(homedir(), 'Kevin OS', '02 Projekte'))
 const PROTOKOLL_WURZEL = join(homedir(), '.claude', 'projects')
 const tokenBuch = neuesBuch()
-let auftraegeLaeuft = null
+let buchLaeuft = null
+let programmOrdner = new Set()
 
-async function auftraegeStand() {
-  // Zwei Aufrufer gleichzeitig (Spiegel + Endpunkt) teilen sich einen Durchgang.
-  if (!auftraegeLaeuft) {
-    auftraegeLaeuft = (async () => {
-      let projekte = []
-      try {
-        projekte = (await readdir(PROJEKTE_WURZEL, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name)
-      } catch {
-        /* ohne Projektordner bleibt nur die cwd-Zuordnung */
-      }
-      await aktualisiereBuch(tokenBuch, { protokollWurzel: PROTOKOLL_WURZEL, projekteWurzel: PROJEKTE_WURZEL, projekte })
-      const { erzeugt: _erzeugt, ...stand } = await sammleAuftraege({ projekteWurzel: PROJEKTE_WURZEL, buch: tokenBuch })
-      return stand
+/** Token-Buch auf Stand bringen. Zwei Aufrufer gleichzeitig teilen sich einen Durchgang. */
+function aktualisiereTokenBuch() {
+  if (!buchLaeuft) {
+    buchLaeuft = (async () => {
+      const { projekte, programme } = await projektOrdner(PROJEKTE_WURZEL)
+      programmOrdner = programme
+      await aktualisiereBuch(tokenBuch, { protokollWurzel: PROTOKOLL_WURZEL, projekteWurzel: PROJEKTE_WURZEL, projekte, programme })
     })().finally(() => {
-      auftraegeLaeuft = null
+      buchLaeuft = null
     })
   }
-  return auftraegeLaeuft
+  return buchLaeuft
+}
+
+async function auftraegeStand() {
+  await aktualisiereTokenBuch()
+  const { erzeugt: _erzeugt, ...stand } = await sammleAuftraege({ projekteWurzel: PROJEKTE_WURZEL, buch: tokenBuch })
+  return stand
+}
+
+/**
+ * Nutzung der letzten 30 Tage je Programm (25.09.2026): Bauen, Betrieb,
+ * sonstige Arbeit. Je Rechner ein eigener Spiegel `nutzung_<rechner>` — der
+ * Laptop meldet seine Sitzungen über `scripts/nutzung-melden.mjs` selbst.
+ */
+async function nutzungStand() {
+  await aktualisiereTokenBuch()
+  return nutzung(tokenBuch, { tage: 30, rechner: rechnerName(), programme: programmOrdner })
 }
 
 async function mirrorAll() {
   if (!SNAPSHOT_ENABLED) return
   // Nicht abwarten: der erste Durchgang liest die Protokolle ganz und darf
   // die übrigen Spiegel nicht aufhalten. Die Sperre oben verhindert Doppelläufe.
-  void pushSnapshotKey('auftraege', auftraegeStand)
+  void pushSnapshotKey('auftraege', auftraegeStand).then(() => pushSnapshotKey(`nutzung_${rechnerName()}`, nutzungStand))
   await pushSnapshotKey('ads_overview', async () => {
     const kunden = await kundenRegistry()
     const entries = []
@@ -2627,6 +2638,9 @@ const server = createServer(async (req, res) => {
     // Aufträge je Projekt: Phasen, Fortschritt, Tokens (24.09.2026).
     if (req.method === 'GET' && url.pathname === '/auftraege') {
       return json(res, 200, await auftraegeStand())
+    }
+    if (req.method === 'GET' && url.pathname === '/nutzung') {
+      return json(res, 200, await nutzungStand())
     }
 
     // Agenten-Katalog fürs Cockpit (/agenten): Liste + Run-Buttons.
