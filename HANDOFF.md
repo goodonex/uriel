@@ -138,6 +138,13 @@ Skill-Änderungen brauchen das nicht (`claude -p` liest `SKILL.md` frisch).
 - **Zeit-Routinen:** `dream-check` (1×/Tag), `morgenbrief` (erster Werktags-Lauf),
   Antwort-Entwürfe (werktags ab 6:00). Alle laufen **nur, wenn der Mac wach ist** —
   das ist der Grund für den Selbstwecker (`pmset`) und den Heimserver-Plan.
+- **Aufträge auf dem Mini (24.09.):** `runner/auftraege.mjs` + `runner/tokenBuch.mjs`,
+  Endpunkt `/auftraege`, Spiegel `auftraege`, Ansicht oben auf `/agenten`
+  (`components/AuftraegePanel.tsx`, ohne Login: `/dev/auftraege-vorschau`). Phasen aus
+  `FORTSCHRITT.json` im Projektordner, sonst aus der Phasen-Checkliste einer `STAND.md`.
+  Tokens aus den Sitzungsprotokollen unter `~/.claude/projects` (auch rückwirkend,
+  21 Tage), Mini-Aufträge über ihren Titel `<projekt> <phase>` zugeordnet. Prüfung:
+  `npx tsx scripts/verify-auftraege.ts`. Format der Datei: Skill `mini`.
 - **Spiegel nach Supabase** (`runner_snapshots`, damit das Handy etwas sieht):
   `runs` · `files_index` · `calendar` · `agents` · `ads_overview` · `social_weeks` ·
   `sales_library` · `erstnachrichten_meta` · `jophiel_projekte`. Aufträge vom Handy laufen über

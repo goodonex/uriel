@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AuftraegePanel } from '../components/AuftraegePanel'
 import { RunnerHinweis } from '../components/RunnerHinweis'
 import { agentenBefund } from '../lib/agentenGesundheit'
 import {
@@ -106,7 +107,9 @@ export function AgentsArea() {
 
   if (error && !agents) {
     return (
-      <div style={{ maxWidth: 820 }}>
+      <div style={{ maxWidth: 1000 }}>
+        {/* Die Aufträge kommen über den Spiegel — sie brauchen den lokalen Runner nicht. */}
+        <AuftraegePanel />
         <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Agenten</div>
         <RunnerHinweis error={error} was="Die Agenten" />
       </div>
@@ -116,6 +119,7 @@ export function AgentsArea() {
 
   return (
     <div style={{ maxWidth: 1000 }}>
+      <AuftraegePanel />
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 600 }}>Agenten</div>
         <div className="ck-label" style={{ marginTop: 2 }}>

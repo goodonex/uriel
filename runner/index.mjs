@@ -29,6 +29,8 @@ import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { speichereProfile } from './linkedin/leadProfil.mjs'
 import { dataforseoZugang } from './linkedin/googleAds.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
+import { aktualisiereBuch, neuesBuch } from './tokenBuch.mjs'
+import { sammleAuftraege } from './auftraege.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
 import { laufGrund } from './laufGrund.mjs'
 import { leseListe, mitNetzwerkLock } from './linkedin/netzwerk.mjs'
@@ -1946,8 +1948,43 @@ async function spiegleDateien() {
   await pushSnapshotKey('files_index', async () => ({ files: index }))
 }
 
+// ---------- Aufträge auf dem Mini (24.09.2026) ----------
+/**
+ * Phasen, Fortschritt und Tokens je Projekt — die Ansicht „Aufträge" unter
+ * /agenten. Das Token-Buch lebt im Speicher: beim ersten Aufruf liest es die
+ * Sitzungsprotokolle der letzten Wochen einmal ganz, danach nur Angehängtes.
+ * Ein Neustart des Runners kostet also einen vollen Durchgang, sonst nichts.
+ */
+const PROJEKTE_WURZEL = resolve(join(homedir(), 'Kevin OS', '02 Projekte'))
+const PROTOKOLL_WURZEL = join(homedir(), '.claude', 'projects')
+const tokenBuch = neuesBuch()
+let auftraegeLaeuft = null
+
+async function auftraegeStand() {
+  // Zwei Aufrufer gleichzeitig (Spiegel + Endpunkt) teilen sich einen Durchgang.
+  if (!auftraegeLaeuft) {
+    auftraegeLaeuft = (async () => {
+      let projekte = []
+      try {
+        projekte = (await readdir(PROJEKTE_WURZEL, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name)
+      } catch {
+        /* ohne Projektordner bleibt nur die cwd-Zuordnung */
+      }
+      await aktualisiereBuch(tokenBuch, { protokollWurzel: PROTOKOLL_WURZEL, projekteWurzel: PROJEKTE_WURZEL, projekte })
+      const { erzeugt: _erzeugt, ...stand } = await sammleAuftraege({ projekteWurzel: PROJEKTE_WURZEL, buch: tokenBuch })
+      return stand
+    })().finally(() => {
+      auftraegeLaeuft = null
+    })
+  }
+  return auftraegeLaeuft
+}
+
 async function mirrorAll() {
   if (!SNAPSHOT_ENABLED) return
+  // Nicht abwarten: der erste Durchgang liest die Protokolle ganz und darf
+  // die übrigen Spiegel nicht aufhalten. Die Sperre oben verhindert Doppelläufe.
+  void pushSnapshotKey('auftraege', auftraegeStand)
   await pushSnapshotKey('ads_overview', async () => {
     const kunden = await kundenRegistry()
     const entries = []
@@ -2585,6 +2622,11 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/runde/abbrechen') {
       brecheRundeAb('von Hand')
       return json(res, 200, rundeStand())
+    }
+
+    // Aufträge je Projekt: Phasen, Fortschritt, Tokens (24.09.2026).
+    if (req.method === 'GET' && url.pathname === '/auftraege') {
+      return json(res, 200, await auftraegeStand())
     }
 
     // Agenten-Katalog fürs Cockpit (/agenten): Liste + Run-Buttons.
