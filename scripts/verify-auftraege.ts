@@ -13,6 +13,9 @@ import { aktiverAbschnitt, bewerteAuftrag, parseFortschritt, parseStand, startAu
 // @ts-expect-error — .mjs ohne Typen
 import { OHNE_PROJEKT, neuesBuch, nimmZeile, nutzung, preisUsd, projektAusCwd, titelAusPrompt, titelZerlegen, tokensVon, zuordnen } from '../runner/tokenBuch.mjs'
 
+// @ts-expect-error — .mjs ohne Typen
+import { limitsAusAusgabe, limitsAusEreignis, limitsAusUsage, resetAusText } from '../runner/planLimits.mjs'
+
 let pass = 0
 let fail = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -208,6 +211,31 @@ check('7u Rechner steht dabei', n.rechner, 'Mini')
 check('8 Opus-Preis', Math.round(preisUsd('claude-opus-5', { input_tokens: 1_000_000, output_tokens: 1_000_000 }) * 100) / 100, 30)
 check('8b Cache-Lesen kostet ein Zehntel', Math.round(preisUsd('claude-opus-5', { cache_read_input_tokens: 1_000_000 }) * 100) / 100, 0.5)
 check('8c unbekanntes Modell', preisUsd('gpt-9', { input_tokens: 1 }), null)
+
+// 9. Auslastung des Max-Plans aus der CLI-Ausgabe (echte Zeile, 25.09.2026)
+const RL = '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790344800,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.07,"resetsAt":1790344800},"seven_day":{"utilization":0.03,"resetsAt":1790881200}}}}'
+const lim = limitsAusEreignis(JSON.parse(RL), 0)
+check('9 Woche', lim.woche, { anteil: 0.03, resetsAt: new Date(1790881200 * 1000).toISOString() })
+check('9b Fünf Stunden', lim.fuenfStunden.anteil, 0.07)
+check('9c anderes Ereignis', limitsAusEreignis({ type: 'result' }), null)
+check('9d aus ganzer Ausgabe', limitsAusAusgabe(`{"type":"system"}\n${RL}\n{"type":"result"}`, 0)?.woche.anteil, 0.03)
+check('9e ohne Ereignis', limitsAusAusgabe('{"type":"result"}'), null)
+
+// 10. Ausgabe von `claude -p /usage` (echt, 25.09.2026)
+const USAGE = `You are currently using your subscription to power your Claude Code usage
+
+Current session: 9% used · resets Sep 25 at 4pm (Europe/Berlin)
+Current week (all models): 4% used · resets Oct 1 at 9pm (Europe/Berlin)
+Current week (Fable): 0% used · resets Oct 1 at 9pm (Europe/Berlin)`
+const J = new Date(2026, 8, 25, 12, 0).getTime()
+const u = limitsAusUsage(USAGE, J)
+check('10 Woche 4 %', u.woche.anteil, 0.04)
+check('10b Woche neu ab 1.10. 21 Uhr', u.woche.resetsAt, new Date(2026, 9, 1, 21, 0).toISOString())
+check('10c Sitzung 9 %, neu 16 Uhr', [u.fuenfStunden.anteil, u.fuenfStunden.resetsAt], [0.09, new Date(2026, 8, 25, 16, 0).toISOString()])
+check('10d Fable-Zeile zählt nicht als Woche', limitsAusUsage('Current week (Fable): 50% used', J), null)
+check('10e 12am ist Mitternacht', resetAusText('resets Oct 2 at 12am', J), new Date(2026, 9, 2, 0, 0).toISOString())
+check('10f Minuten', resetAusText('resets Sep 25 at 4:30pm', J), new Date(2026, 8, 25, 16, 30).toISOString())
+check('10g Jahreswechsel', resetAusText('resets Jan 2 at 9am', new Date(2026, 11, 30).getTime()), new Date(2027, 0, 2, 9, 0).toISOString())
 
 console.log(`verify-auftraege: ${pass} bestanden, ${fail} fehlgeschlagen`)
 if (fail) process.exit(1)

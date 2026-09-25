@@ -92,7 +92,15 @@ const fertig: Auftrag = {
 }
 
 const wert = (tokens: number, usd: number) => ({ tokens: tokens * M, usd })
+const reset = new Date(Date.now() + 6 * 86_400_000).toISOString()
 const NUTZUNG: NutzungsStand = {
+  plan: {
+    woche: { anteil: 0.18, resetsAt: reset },
+    fuenfStunden: { anteil: 0.07, resetsAt: new Date(Date.now() + 3 * 3_600_000).toISOString() },
+    gemessen: vor(4),
+  },
+  // Seit Wochenstart (vor einem Tag) 180 $ → volle Woche ≈ 1.000 $
+  stunden: Array.from({ length: 24 }, (_, i) => ({ h: new Date(Date.now() - (i + 1) * 3_600_000).toISOString().slice(0, 13), tokens: 5 * M, usd: 7.5 })),
   rechner: [
     { name: 'Mini', stand: vor(3) },
     { name: 'Air', stand: vor(12) },

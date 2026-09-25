@@ -6,6 +6,8 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NODE_BIN="$(command -v node)"
+# Ein LaunchAgent erbt keinen PATH — die Plan-Abfrage braucht `claude`.
+CLAUDE_DIR="$(dirname "$(command -v claude)")"
 PLIST_LABEL="de.uriel.nutzung"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs/kevin-os"
@@ -24,6 +26,10 @@ cat > "$PLIST_PATH" <<PLIST
     <string>$REPO_DIR/scripts/nutzung-melden.mjs</string>
   </array>
   <key>WorkingDirectory</key><string>$REPO_DIR</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>$CLAUDE_DIR:$(dirname "$NODE_BIN"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>1800</integer>
   <key>StandardOutPath</key><string>$LOG_DIR/nutzung-melden.log</string>

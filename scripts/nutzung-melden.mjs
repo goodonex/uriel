@@ -17,19 +17,22 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { aktualisiereBuch, neuesBuch, nutzung, projektOrdner, rechnerName } from '../runner/tokenBuch.mjs'
+import { probe } from '../runner/planLimits.mjs'
 
 const HIER = fileURLToPath(new URL('..', import.meta.url))
 const projekteWurzel = resolve(join(homedir(), 'Kevin OS', '02 Projekte'))
 const { projekte, programme } = await projektOrdner(projekteWurzel)
 const buch = neuesBuch()
 await aktualisiereBuch(buch, { protokollWurzel: join(homedir(), '.claude', 'projects'), projekteWurzel, projekte, programme })
-const stand = nutzung(buch, { tage: 30, rechner: rechnerName(), programme })
+// Auslastung des Max-Plans über `claude -p /usage` — kostet kein Modell.
+const stand = { ...nutzung(buch, { tage: 30, rechner: rechnerName(), programme }), plan: await probe({ cwd: homedir() }) }
 
 if (process.argv.includes('--pruefen')) {
   for (const z of stand.projekte) {
     const mio = (n) => (n / 1e6).toFixed(1).padStart(7)
     console.log(`${z.projekt.padEnd(24)} bauen ${mio(z.bauen.tokens)} · betrieb ${mio(z.betrieb.tokens)} · arbeit ${mio(z.arbeit.tokens)} Mio.`)
   }
+  console.log('Plan:', JSON.stringify(stand.plan))
   process.exit(0)
 }
 

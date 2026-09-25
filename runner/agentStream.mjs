@@ -17,6 +17,8 @@
  * Reine Funktionen, kein Dateisystem — `npx tsx scripts/verify-agent-stream.ts`.
  */
 
+import { limitsAusEreignis } from './planLimits.mjs'
+
 /** Werkzeug-Argument, das den Aufruf erkennbar macht (erste Wahl zuerst). */
 const ARG_FELDER = [
   'file_path',
@@ -136,6 +138,13 @@ export function nimmZeile(lauf, rohZeile, jetztMs) {
       schreibe(lauf, jetztMs, teil.is_error ? `↳ FEHLER (${laenge} Z.)` : `↳ ${laenge} Z.`)
     }
     return
+  }
+
+  // Auslastung des Max-Plans mitnehmen (25.09.2026) — der Runner merkt sich
+  // den letzten Wert für die Nutzungs-Ansicht, ohne extra nachfragen zu müssen.
+  if (ev.type === 'rate_limit_event') {
+    const limits = limitsAusEreignis(ev, jetztMs)
+    if (limits) lauf.limits = limits
   }
 
   // Nur melden, wenn das Limit wirklich greift — „allowed" ist kein Ereignis.

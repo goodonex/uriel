@@ -62,6 +62,8 @@ export function neuesBuch() {
     einstieg: new Map(),
     /** `projekt|phase|tag|art` → Summen. */
     posten: new Map(),
+    /** Stunde (`2026-09-25T10`) → Summe über alles. Für „seit Wochenstart" in der Plan-Rechnung. */
+    stunden: new Map(),
     /** Bereits gezählte Antworten (Streaming wiederholt dieselbe id). */
     gezaehlt: new Set(),
   }
@@ -165,7 +167,13 @@ export function nutzung(buch, { tage = 30, jetzt = Date.now(), rechner = null, p
   const liste = [...zeilen.values()]
     .map((z) => ({ ...z, bauen: runde(z.bauen), betrieb: runde(z.betrieb), arbeit: runde(z.arbeit) }))
     .sort((a, b) => b.bauen.tokens + b.betrieb.tokens + b.arbeit.tokens - (a.bauen.tokens + a.betrieb.tokens + a.arbeit.tokens))
-  return { rechner, tage, ab, projekte: liste }
+  // Stunden der letzten acht Tage: genug, um jeden Wochenstart abzudecken.
+  const abStunde = new Date(jetzt - 8 * 86_400_000).toISOString().slice(0, 13)
+  const stunden = [...buch.stunden.values()]
+    .filter((s) => s.h >= abStunde)
+    .sort((a, b) => a.h.localeCompare(b.h))
+    .map((s) => ({ h: s.h, tokens: s.tokens, usd: Math.round(s.usd * 100) / 100 }))
+  return { rechner, tage, ab, projekte: liste, stunden }
 }
 
 function tagVon(iso) {
@@ -236,6 +244,13 @@ export function nimmZeile(buch, datei, zeile, kontext) {
   p.usd += preisUsd(d.message.model, u) ?? 0
   if (typeof d.timestamp === 'string' && (!p.letzte || d.timestamp > p.letzte)) p.letzte = d.timestamp
   buch.posten.set(schluessel, p)
+  if (typeof d.timestamp === 'string' && d.timestamp.length >= 13) {
+    const h = d.timestamp.slice(0, 13)
+    const st = buch.stunden.get(h) ?? { h, tokens: 0, usd: 0 }
+    st.tokens += Number(u.input_tokens ?? 0) + Number(u.output_tokens ?? 0) + Number(u.cache_creation_input_tokens ?? 0) + Number(u.cache_read_input_tokens ?? 0)
+    st.usd += preisUsd(d.message.model, u) ?? 0
+    buch.stunden.set(h, st)
+  }
 }
 
 /** Alle Tokens eines Postens — Eingabe, Ausgabe und beide Cache-Arten. */

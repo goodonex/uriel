@@ -106,16 +106,42 @@ export interface NutzungsZeile {
   letzte: string | null
 }
 
+export interface PlanFenster {
+  /** 0–1, wie voll das Fenster ist. */
+  anteil: number
+  resetsAt: string | null
+}
+
+/** Auslastung des Max-Plans, wie die CLI sie bei jedem Aufruf meldet (`runner/planLimits.mjs`). */
+export interface PlanLimits {
+  fuenfStunden: PlanFenster | null
+  woche: PlanFenster | null
+  gemessen: string
+}
+
+export interface NutzungsStunde {
+  /** `2026-09-25T10` (UTC) */
+  h: string
+  tokens: number
+  usd: number
+}
+
 export interface NutzungsStand {
   /** Rechner, die gemeldet haben, mit dem Zeitpunkt ihrer letzten Meldung. */
   rechner: { name: string; stand: string }[]
   zeilen: NutzungsZeile[]
+  /** Die jüngste Plan-Messung über alle Rechner. */
+  plan: PlanLimits | null
+  /** Verbrauch je Stunde, über alle Rechner summiert (letzte acht Tage). */
+  stunden: NutzungsStunde[]
 }
 
 interface NutzungsSpiegel {
   rechner: string
   tage: number
   projekte: NutzungsZeile[]
+  stunden?: NutzungsStunde[]
+  plan?: PlanLimits | null
 }
 
 /**
@@ -130,9 +156,16 @@ export async function fetchNutzung(): Promise<NutzungsStand> {
   const zeilen = new Map<string, NutzungsZeile>()
   const plus = (a: NutzungsWert, b: NutzungsWert) => ({ tokens: a.tokens + b.tokens, usd: a.usd + b.usd })
   const rechner: NutzungsStand['rechner'] = []
+  const stunden = new Map<string, NutzungsStunde>()
+  let plan: PlanLimits | null = null
   for (const row of data ?? []) {
     const d = row.data as NutzungsSpiegel
     rechner.push({ name: d.rechner ?? String(row.key).slice(8), stand: row.updated_at as string })
+    if (d.plan && (!plan || d.plan.gemessen > plan.gemessen)) plan = d.plan
+    for (const st of d.stunden ?? []) {
+      const alt = stunden.get(st.h)
+      stunden.set(st.h, alt ? { h: st.h, tokens: alt.tokens + st.tokens, usd: alt.usd + st.usd } : st)
+    }
     for (const z of d.projekte ?? []) {
       const alt = zeilen.get(z.projekt)
       zeilen.set(
@@ -152,7 +185,56 @@ export async function fetchNutzung(): Promise<NutzungsStand> {
   }
   // Nach Geld sortiert, nicht nach Tokens: Cache-Lesen bläht die Tokenzahl auf, kostet aber ein Zehntel.
   const summe = (z: NutzungsZeile) => z.bauen.usd + z.betrieb.usd + z.arbeit.usd
-  return { rechner, zeilen: [...zeilen.values()].sort((a, b) => summe(b) - summe(a)) }
+  return {
+    rechner,
+    zeilen: [...zeilen.values()].sort((a, b) => summe(b) - summe(a)),
+    plan,
+    stunden: [...stunden.values()].sort((a, b) => a.h.localeCompare(b.h)),
+  }
+}
+
+/** Unter diesem Wochenanteil ist die Hochrechnung zu grob (die Anzeige rundet auf ganze Prozent). */
+export const MIN_ANTEIL_HOCHRECHNUNG = 0.02
+
+export interface PlanRechnung {
+  wocheAnteil: number | null
+  wocheReset: string | null
+  fuenfAnteil: number | null
+  fuenfReset: string | null
+  /** Dollar (Listenpreis), seit die laufende Woche begann — über alle Rechner. */
+  wocheVerbrauchtUsd: number | null
+  /** Hochgerechnet: was eine volle Woche hergibt. */
+  wocheKapazitaetUsd: number | null
+  monatKapazitaetUsd: number | null
+  monatGenutztUsd: number
+}
+
+/**
+ * Wie viel Dollar gibt der Plan her? Anthropic nennt keine Grenze, nur die
+ * Prozentanzeige. Verbrauch seit Wochenstart ÷ Wochenanteil = volle Woche;
+ * × 30/7 = 30 Tage. Genau so gut wie beide Messungen — früh in der Woche grob.
+ */
+export function planRechnung(stand: NutzungsStand): PlanRechnung {
+  const woche = stand.plan?.woche ?? null
+  const fuenf = stand.plan?.fuenfStunden ?? null
+  const monatGenutztUsd = stand.zeilen.reduce((n, z) => n + z.bauen.usd + z.betrieb.usd + z.arbeit.usd, 0)
+  let wocheVerbrauchtUsd: number | null = null
+  let wocheKapazitaetUsd: number | null = null
+  if (woche?.resetsAt) {
+    const start = new Date(new Date(woche.resetsAt).getTime() - 7 * 86_400_000).toISOString().slice(0, 13)
+    wocheVerbrauchtUsd = stand.stunden.filter((s) => s.h >= start).reduce((n, s) => n + s.usd, 0)
+    if (woche.anteil >= MIN_ANTEIL_HOCHRECHNUNG && wocheVerbrauchtUsd > 0) wocheKapazitaetUsd = wocheVerbrauchtUsd / woche.anteil
+  }
+  return {
+    wocheAnteil: woche?.anteil ?? null,
+    wocheReset: woche?.resetsAt ?? null,
+    fuenfAnteil: fuenf?.anteil ?? null,
+    fuenfReset: fuenf?.resetsAt ?? null,
+    wocheVerbrauchtUsd,
+    wocheKapazitaetUsd,
+    monatKapazitaetUsd: wocheKapazitaetUsd != null ? (wocheKapazitaetUsd * 30) / 7 : null,
+    monatGenutztUsd,
+  }
 }
 
 const ZAHL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })

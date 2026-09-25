@@ -31,6 +31,7 @@ import { dataforseoZugang } from './linkedin/googleAds.mjs'
 import { neuerLauf, nimmBrocken, protokollText } from './agentStream.mjs'
 import { aktualisiereBuch, neuesBuch, nutzung, projektOrdner, rechnerName } from './tokenBuch.mjs'
 import { sammleAuftraege } from './auftraege.mjs'
+import { LIMITS_FRISCH_MS, probe as limitsProbe } from './planLimits.mjs'
 import { bewerteTagesLaeufe, darfRoutineStarten } from './routineGuard.mjs'
 import { laufGrund } from './laufGrund.mjs'
 import { leseListe, mitNetzwerkLock } from './linkedin/netzwerk.mjs'
@@ -1287,6 +1288,7 @@ async function startRun(agent, input, { signal } = {}) {
     if (liveTimer) clearTimeout(liveTimer)
     if (puffer.trim()) nimmBrocken(lauf, puffer, '\n', Date.now())
     running.delete(id)
+    if (lauf.limits) planLimits = lauf.limits
     const ergebnis = (lauf.ergebnis ?? '').trim()
     try {
       if (code === 0 && ergebnis) {
@@ -1986,9 +1988,30 @@ async function auftraegeStand() {
  * sonstige Arbeit. Je Rechner ein eigener Spiegel `nutzung_<rechner>` — der
  * Laptop meldet seine Sitzungen über `scripts/nutzung-melden.mjs` selbst.
  */
+/** Letzte bekannte Auslastung des Max-Plans (aus Läufen oder eigener Nachfrage). */
+let planLimits = null
+let limitsFrageLaeuft = null
+
+async function frischeLimits() {
+  const alt = planLimits ? Date.now() - new Date(planLimits.gemessen).getTime() : Infinity
+  if (alt < LIMITS_FRISCH_MS) return planLimits
+  if (!limitsFrageLaeuft) {
+    limitsFrageLaeuft = limitsProbe({ env: { ...process.env, PATH: CLI_PATH }, cwd: homedir() })
+      .then((l) => {
+        if (l) planLimits = l
+      })
+      .finally(() => {
+        limitsFrageLaeuft = null
+      })
+  }
+  await limitsFrageLaeuft
+  return planLimits
+}
+
 async function nutzungStand() {
   await aktualisiereTokenBuch()
-  return nutzung(tokenBuch, { tage: 30, rechner: rechnerName(), programme: programmOrdner })
+  const plan = await frischeLimits()
+  return { ...nutzung(tokenBuch, { tage: 30, rechner: rechnerName(), programme: programmOrdner }), plan }
 }
 
 async function mirrorAll() {

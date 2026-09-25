@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { alterText, fetchNutzung, tokenText, usdText, type NutzungsStand, type NutzungsZeile } from '../lib/auftraegeApi'
+import {
+  MIN_ANTEIL_HOCHRECHNUNG,
+  alterText,
+  fetchNutzung,
+  planRechnung,
+  tokenText,
+  usdText,
+  type NutzungsStand,
+  type NutzungsZeile,
+} from '../lib/auftraegeApi'
 
 /**
  * Nutzung der letzten 30 Tage (25.09.2026): wofür die Tokens draufgegangen
@@ -57,7 +66,8 @@ export function NutzungPanel({ vorgabe }: { vorgabe?: NutzungsStand } = {}) {
   const sonst = stand.zeilen.filter((z) => !z.programm)
   const gesamt = (art: 'bauen' | 'betrieb' | 'arbeit') =>
     stand.zeilen.reduce((n, z) => ({ tokens: n.tokens + z[art].tokens, usd: n.usd + z[art].usd }), { tokens: 0, usd: 0 })
-  const max = Math.max(1, ...stand.zeilen.map(summe))
+  // Balken nach Dollar — dieselbe Größe, nach der die Liste sortiert ist.
+  const max = Math.max(1, ...stand.zeilen.map(summeUsd))
   const ohneLaptop = stand.rechner.length < 2
 
   return (
@@ -70,6 +80,8 @@ export function NutzungPanel({ vorgabe }: { vorgabe?: NutzungsStand } = {}) {
           {stand.rechner.map((r) => `${r.name} vor ${alterText(r.stand, jetzt)}`).join(' · ') || 'noch keine Meldung'}
         </span>
       </div>
+
+      <PlanBlock stand={stand} />
 
       <div className="ck-panel" style={{ padding: '14px 15px' }}>
         {/* Drei Summen: wofür insgesamt */}
@@ -144,11 +156,86 @@ function Zeile({ zeile: z, max }: { zeile: NutzungsZeile; max: number }) {
         style={{ display: 'flex', height: 6, marginTop: 6, borderRadius: 99, overflow: 'hidden', background: 'var(--ck-border)' }}
       >
         {teile.map((art) => (
-          <div key={art} style={{ width: `${(z[art].tokens / max) * 100}%`, background: FARBE[art] }} />
+          <div key={art} style={{ width: `${(z[art].usd / max) * 100}%`, background: FARBE[art] }} />
         ))}
       </div>
       <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 4 }}>
         {beschreibung}
+      </div>
+    </div>
+  )
+}
+
+const RESET = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const UHR = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
+const DOLLAR = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
+const dollar = (n: number | null) => (n == null ? '–' : `${DOLLAR.format(n)} $`)
+
+/**
+ * Was der Max-Plan hergibt (25.09.2026). Die Prozente kommen von Anthropic,
+ * die Dollar sind hochgerechnet: Verbrauch seit Wochenstart ÷ Wochenanteil.
+ */
+function PlanBlock({ stand }: { stand: NutzungsStand }) {
+  const r = planRechnung(stand)
+  if (r.wocheAnteil == null) {
+    return (
+      <div className="ck-panel" style={{ padding: '11px 13px', marginBottom: 10, fontSize: 12.5, color: 'var(--ck-text-2)' }}>
+        Max-Plan: noch keine Messung. Sie kommt mit dem nächsten Lauf auf dem Mini.
+      </div>
+    )
+  }
+  const woche = Math.round(r.wocheAnteil * 100)
+  const fuenf = r.fuenfAnteil != null ? Math.round(r.fuenfAnteil * 100) : null
+  const monatAnteil = r.monatKapazitaetUsd ? Math.round((r.monatGenutztUsd / r.monatKapazitaetUsd) * 100) : null
+  return (
+    <div className="ck-panel" style={{ padding: '14px 15px', marginBottom: 10 }}>
+      <div className="ck-label" style={{ marginBottom: 10 }}>Max-Plan · was zur Verfügung steht</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px 22px' }}>
+        <Fenster
+          titel="Diese Woche"
+          anteil={r.wocheAnteil}
+          gross={r.wocheKapazitaetUsd != null ? `${dollar(r.wocheVerbrauchtUsd)} von ≈ ${dollar(r.wocheKapazitaetUsd)}` : `${woche} % verbraucht`}
+          klein={`${woche} % · frei ≈ ${r.wocheKapazitaetUsd != null ? dollar(r.wocheKapazitaetUsd - (r.wocheVerbrauchtUsd ?? 0)) : '–'} · neu ab ${r.wocheReset ? RESET.format(new Date(r.wocheReset)) : '–'}`}
+        />
+        <Fenster
+          titel="30 Tage"
+          anteil={monatAnteil != null ? monatAnteil / 100 : null}
+          gross={r.monatKapazitaetUsd != null ? `${dollar(r.monatGenutztUsd)} von ≈ ${dollar(r.monatKapazitaetUsd)}` : `${dollar(r.monatGenutztUsd)} genutzt`}
+          klein={monatAnteil != null ? `≈ ${monatAnteil} % des Möglichen ausgeschöpft` : 'Hochrechnung folgt'}
+        />
+        {fuenf != null ? (
+          <Fenster
+            titel="5-Stunden-Fenster"
+            anteil={r.fuenfAnteil}
+            gross={`${fuenf} % verbraucht`}
+            klein={`neu ab ${r.fuenfReset ? UHR.format(new Date(r.fuenfReset)) : '–'} Uhr`}
+          />
+        ) : null}
+      </div>
+      <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 12, lineHeight: 1.5 }}>
+        Die Prozente meldet Anthropic, eine Dollar-Grenze nennt es nicht. Die Dollar sind hochgerechnet: Verbrauch
+        seit Wochenstart geteilt durch den Wochenanteil, zum API-Listenpreis.
+        {r.wocheKapazitaetUsd == null
+          ? ` Die Hochrechnung startet ab ${Math.round(MIN_ANTEIL_HOCHRECHNUNG * 100)} % Wochenverbrauch — darunter wäre sie Raten.`
+          : ' Früh in der Woche ist sie grob, sie wird mit jedem Tag genauer.'}
+      </div>
+    </div>
+  )
+}
+
+function Fenster({ titel, anteil, gross, klein }: { titel: string; anteil: number | null; gross: string; klein: string }) {
+  const voll = anteil != null && anteil >= 0.8
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div className="ck-label">{titel}</div>
+      <div style={{ fontSize: 17, fontWeight: 600, marginTop: 3 }}>{gross}</div>
+      {anteil != null ? (
+        <div aria-hidden style={{ marginTop: 6, height: 6, borderRadius: 99, background: 'var(--ck-border)', overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, Math.round(anteil * 100))}%`, height: '100%', background: voll ? 'var(--ck-warn)' : 'var(--ck-accent)' }} />
+        </div>
+      ) : null}
+      <div className="ck-label" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 5 }}>
+        {klein}
       </div>
     </div>
   )
