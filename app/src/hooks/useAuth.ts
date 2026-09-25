@@ -17,11 +17,12 @@ export interface UseAuthResult {
   signOut: () => Promise<void>
 }
 
+/** `undefined` = Lesefehler (Netz o. ä.), `null` = Konto hat keine Rolle. */
 async function fetchRoleRow(userId: string): Promise<{
   role: AppUserRole
   client_slug: string | null
   project_id: string | null
-} | null> {
+} | null | undefined> {
   if (!supabase) return null
   const { data, error } = await supabase
     .from('user_roles')
@@ -32,7 +33,8 @@ async function fetchRoleRow(userId: string): Promise<{
     if (isMissingSupabaseTableError(error.message)) {
       return { role: 'owner' as const, client_slug: null, project_id: null }
     }
-    return null
+    console.warn('[useAuth] Rolle nicht lesbar:', error.message)
+    return undefined
   }
   if (!data) return null
   return {
@@ -42,22 +44,12 @@ async function fetchRoleRow(userId: string): Promise<{
   }
 }
 
-/** Erste Session ohne Zeile: als Owner anlegen (nur wenn Tabelle noch ohne RLS-Schreibschutz). */
-async function ensureOwnerRow(userId: string): Promise<void> {
-  if (!supabase) return
-  const existing = await fetchRoleRow(userId)
-  if (existing) return
-  const { error } = await supabase.from('user_roles').insert({
-    user_id: userId,
-    role: 'owner',
-    client_slug: null,
-    project_id: null,
-  })
-  if (error && !isMissingSupabaseTableError(error.message)) {
-    console.warn('[useAuth] user_roles Insert (owner) übersprungen:', error.message)
-  }
-}
-
+/**
+ * Rollen legt nur der Server an (Migration 0093, 25.09.2026): Owner per Hand,
+ * Portal-Kunden über die Function invite-client. Früher schrieb der Browser
+ * jedem Konto ohne Zeile `role = 'owner'` — bei offener Registrierung wurde so
+ * jeder Fremde zum Agentur-Owner. Konto ohne Zeile = kein Zugang.
+ */
 export function useAuth(): UseAuthResult {
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<AppUserRole | null>(null)
@@ -73,11 +65,9 @@ export function useAuth(): UseAuthResult {
       setClientProjectId(null)
       return
     }
-    let row = await fetchRoleRow(u.id)
-    if (!row) {
-      await ensureOwnerRow(u.id)
-      row = await fetchRoleRow(u.id)
-    }
+    const row = await fetchRoleRow(u.id)
+    // Lesefehler beim Token-Refresh sperrt niemanden aus: letzte Rolle bleibt.
+    if (row === undefined) return
     if (row) {
       setRole(row.role)
       setClientSlug(row.client_slug)

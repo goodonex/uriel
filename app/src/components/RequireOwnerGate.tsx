@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { KeinZugang } from './KeinZugang'
 
 /** Workspace nur für eingeloggte Owner (nicht Client-Rolle). */
 export function RequireOwnerGate({ children }: { children: ReactNode }) {
@@ -44,6 +45,10 @@ export function RequireOwnerGate({ children }: { children: ReactNode }) {
       )
     }
     return <Navigate to={`/portal/${clientProjectId}`} replace />
+  }
+
+  if (role !== 'owner') {
+    return <KeinZugang />
   }
 
   return <>{children}</>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { KeinZugang } from '../../components/KeinZugang'
 import { RequireAuthShell } from '../../components/RequireAuthShell'
 import { useAuth } from '../../hooks/useAuth'
 import { ClientPortal } from './ClientPortal'
@@ -35,6 +36,10 @@ function RequireClientPortalGate({
 
   if (!user) {
     return <Navigate to="/portal/login" replace state={{ from: location.pathname }} />
+  }
+
+  if (role !== 'owner' && role !== 'client') {
+    return <KeinZugang />
   }
 
   if (role === 'owner' && !ownerView) {
