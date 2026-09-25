@@ -109,8 +109,11 @@ export const ERSTNACHRICHTEN_LIMIT_TAG = 50
  * obwohl nur 20 Texte da sind. Wer „noch 20" nachschießt, zählt darüber
  * hinaus (40 von 20 ist grün) — der Deckel von 50 bleibt der Account-Schutz.
  * Ein eigenes Ziel aus `ui_settings` sticht weiter, bis höchstens 50.
+ *
+ * **Seit 25.09.2026: 50 fertige Texte** (Kevin: *„jeden Morgen ordentliche
+ * fünfzig Nachrichten"*). Die Runde zählt jetzt Texte, nicht geprüfte Leads.
  */
-export const ERSTNACHRICHTEN_RUNDE = 30
+export const ERSTNACHRICHTEN_RUNDE = 50
 
 /**
  * Ab wann eine wartende Antwort die Frische-Stufe rot macht. Bei Antworten

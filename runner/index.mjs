@@ -922,6 +922,12 @@ async function erstnachrichtenInput(limit = 12) {
 const angestellteVorgemerkt = new Set()
 /** Die Leads des laufenden Batches samt Recherche und Ansatz — für den Prüfer (23.09.2026). */
 const erstnachrichtLeadsVorgemerkt = new Map()
+/**
+ * Texte, die seit dem Runner-Start wirklich in Kevins Liste gelandet sind
+ * (25.09.2026). Die Etappe liest die Differenz vor/nach jedem Schreiblauf —
+ * nur das zählt aufs Tagesziel, nicht die bloß geprüften Leads.
+ */
+let erstnachrichtenGeschrieben = 0
 
 async function erstnachrichtenAnListe(runId, markdown) {
   if (!SNAPSHOT_ENABLED) return
@@ -1003,6 +1009,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       uebersprungen: raus,
       quelle,
     })
+    erstnachrichtenGeschrieben += r.geschrieben ?? 0
     console.log(
       `[runner] Erstnachrichten (Regeln ${fassung}): ${r.geschrieben} Texte durch den Prüfer` +
         (r.ersetzt ? ` · ${r.ersetzt} veraltete ersetzt` : '') +
@@ -3282,11 +3289,19 @@ const ROUTINEN_AUTOMATIK = process.env.ROUTINEN_AUTOMATIK === '1'
  */
 const RUNDE_AUTOMATIK = process.env.RUNDE_AUTOMATIK === '1'
 /**
- * Erstnachrichten je Runde (23.09.2026): 30 — Kevin: „lass lieber 30 laufen".
+ * Erstnachrichten je Runde: 50 FERTIGE Texte (25.09.2026, Kevin: *„jeden
+ * Morgen ordentliche fünfzig Nachrichten"*). Bis heute zählte die Zahl
+ * geprüfte Leads — aus 30 Geprüften wurden in der Nacht 3 Texte.
  * Muss mit `ERSTNACHRICHTEN_RUNDE` in `app/src/cockpit/lib/tagesFlow.ts`
  * übereinstimmen (`scripts/verify-lead-profil.ts` hält beide zusammen).
  */
-const ERSTNACHRICHTEN_RUNDE = 30
+const ERSTNACHRICHTEN_RUNDE = 50
+/**
+ * Wie viele Leads eine Runde höchstens prüft, je gewünschtem Text (25.09.2026).
+ * Deckel für die Recherche-Kosten, weil das Ziel jetzt Texte zählt: Ohne ihn
+ * liefe eine Runde bei hoher Ausfallquote durch den ganzen Vorrat.
+ */
+const ERSTNACHRICHTEN_VERSUCHE_JE_TEXT = 3
 /** Obergrenze für eine ausdrückliche Stückzahl aus dem Cockpit/Handy — Notbremse gegen Tippfehler. */
 const ERSTNACHRICHTEN_NACHSCHUB_MAX = 50
 const RUNDE_NACHT_STUNDE = Number(process.env.RUNDE_NACHT_STUNDE ?? 3)
@@ -4720,15 +4735,28 @@ const ETAPPEN_ARBEIT = {
       console.warn('[runner] Erstnachrichten: DATAFORSEO_LOGIN/DATAFORSEO_PASSWORD fehlen (runner/.env oder ~/.seo-skill/.env) — Google-Anzeigen bleiben „unbekannt"')
     }
     const BATCH = 13
+    /**
+     * **Gezählt werden fertige Texte, nicht geprüfte Leads** (25.09.2026).
+     * Bis heute war nach 30 Geprüften Schluss — in der Nacht blieben davon 3
+     * Texte, weil Makler-Sperre und „Seite stark" 24 aussortierten. Jetzt
+     * läuft die Runde, bis das Ziel an Texten steht, der Vorrat leer ist oder
+     * `VERSUCHE_MAX` Leads geprüft sind (Kosten-Deckel).
+     */
+    const VERSUCHE_MAX = TAGESZIEL * ERSTNACHRICHTEN_VERSUCHE_JE_TEXT
     let vorbereitet = 0
+    let versucht = 0
     let zuletztGesamt = 0
     let kostenRecherche = 0
-    for (let runde = 0; vorbereitet < TAGESZIEL; runde++) {
+    let vorratLeer = false
+    for (let runde = 0; vorbereitet < TAGESZIEL && versucht < VERSUCHE_MAX; runde++) {
       if (rundeAbbruch || signal?.aborted) break
-      const gebaut = await erstnachrichtenInput(Math.min(BATCH, TAGESZIEL - vorbereitet))
-      if (!gebaut) break
+      const gebaut = await erstnachrichtenInput(Math.min(BATCH, VERSUCHE_MAX - versucht))
+      if (!gebaut?.leads?.length) {
+        vorratLeer = true
+        break
+      }
       zuletztGesamt = gebaut.gesamt
-      melde(`${vorbereitet + gebaut.leads.length} von ${Math.min(TAGESZIEL, gebaut.gesamt + vorbereitet)} werden vorbereitet (Batch ${runde + 1})`, Math.min(1, vorbereitet / TAGESZIEL))
+      melde(`${vorbereitet} von ${TAGESZIEL} Texten fertig · ${gebaut.leads.length} werden geprüft (Batch ${runde + 1})`, Math.min(1, vorbereitet / TAGESZIEL))
       /**
        * Erst recherchieren, dann schreiben (07.09.2026) — je Lead ein eigener,
        * kurzlebiger Lauf, dessen Kontext mit ihm stirbt. Der Schreib-Agent
@@ -4736,7 +4764,7 @@ const ETAPPEN_ARBEIT = {
        * deshalb keine Web-Werkzeuge mehr.
        */
       const recherchiert = await rechercheLeads(gebaut.leads, {
-        melde: (t, a) => melde(`Batch ${runde + 1}: ${t}`, a == null ? null : Math.min(1, (vorbereitet + a * gebaut.leads.length) / TAGESZIEL)),
+        melde: (t) => melde(`${vorbereitet} von ${TAGESZIEL} Texten fertig · Batch ${runde + 1}: ${t}`, Math.min(1, vorbereitet / TAGESZIEL)),
         cliPath: CLI_PATH,
         cwd: VAULT,
         signal,
@@ -4904,25 +4932,28 @@ const ETAPPEN_ARBEIT = {
         const fuerAgent = leads.map((l) =>
           l.recherche ? { ...l, recherche: Object.fromEntries(Object.entries(l.recherche).filter(([k]) => !['profil', 'klasse', 'klasse_grund'].includes(k))) } : l,
         )
+        const vorher = erstnachrichtenGeschrieben
         const schreiblauf = await startRun('linkedin-erstnachrichten', { ...gebaut, leads: fuerAgent }, { signal })
         // Erst wenn die Texte gespeichert sind, darf der nächste Batch wählen —
         // sonst nimmt er dieselben Leads noch einmal (siehe `fertig` in startRun).
         await schreiblauf.fertig
+        vorbereitet += erstnachrichtenGeschrieben - vorher
       }
-      // Versuche zählen, nicht Treffer: Sonst griffe ein dauerhaft scheiternder
-      // Lead in jedem Batch neu zu und die Schleife liefe nie aus.
-      vorbereitet += gebaut.leads.length
+      // Die Versuche laufen getrennt mit: Ein dauerhaft scheiternder Lead greift
+      // in jedem Batch neu zu — `VERSUCHE_MAX` lässt die Schleife trotzdem auslaufen.
+      versucht += gebaut.leads.length
       // Nach JEDEM Batch, nicht erst am Ende: Bricht der Lauf in Batch 3 ab,
       // sind die ersten beiden trotzdem bezahlt und geschrieben — das Budget
       // muss sie kennen, sonst zahlt der nächste Slot sie ein zweites Mal.
       markeSchreib('erstnachrichten-tag', heuteZahl)
       markeSchreib('erstnachrichten-heute', schonHeute + vorbereitet)
     }
-    if (vorbereitet === 0) return { text: 'niemand wartet auf eine Erstnachricht' }
+    if (versucht === 0) return { text: 'niemand wartet auf eine Erstnachricht' }
     return {
       text:
-        `${vorbereitet} vorbereitet` +
-        (zuletztGesamt > vorbereitet ? ` · ~${zuletztGesamt - vorbereitet} bleiben für den nächsten Lauf` : '') +
+        `${vorbereitet} Texte aus ${versucht} geprüften Leads` +
+        (vorratLeer ? ' · Vorrat leer' : '') +
+        (vorbereitet < TAGESZIEL && versucht >= VERSUCHE_MAX ? ` · Prüf-Deckel von ${VERSUCHE_MAX} erreicht` : '') +
         // Die Kosten stehen in der Etappe, weil sie sonst niemand sieht: Der
         // Anlass des ganzen Umbaus war ein Lauf, der 16 Mio. Token zog, ohne
         // dass irgendwo eine Zahl davon erschien.

@@ -66,12 +66,18 @@ export function ansatzFuer(lead, heute = new Date()) {
 
   const stufe = String(r.website_stufe ?? '')
   const wow = String(r.wow_potenzial ?? '')
-  if (stufe === 'stark' || wow === 'nein' || wow === 'knapp') {
+  /**
+   * Nur wirklich starke Seiten warten (25.09.2026). Bis heute stellte schon
+   * „Wow knapp" zurück — in einer Nacht 9 von 14, darunter solide und sogar
+   * schwache Seiten. Kevin: *„das von dreißig zwei, drei übrig bleiben, macht
+   * überhaupt gar keinen Sinn."* Knapp heißt jetzt Analyse-Ansatz.
+   */
+  if (stufe === 'stark' || wow === 'nein') {
     return {
       zurueck: `[zurückgestellt] Seite stark — wir bauen keine sichtbar bessere (Stufe ${stufe || '?'}, Wow ${wow || '?'}). Eigener Ansatz offen.`,
     }
   }
-  if (wow !== 'ja') {
+  if (wow !== 'ja' && wow !== 'knapp') {
     return { zurueck: `[prüfen] Wow-Potenzial der Seite nicht beurteilt — Recherche vor dem 23.09. oder unvollständig` }
   }
   if (String(r.geschaeftsmodell ?? '') === 'projektentwickler') return { ansatz: 'projektentwickler' }

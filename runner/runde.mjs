@@ -85,11 +85,13 @@ export const ETAPPEN_LIMIT_MIN = {
   waechter: 5,
   sortierer: 20,
   entwuerfe: 20,
-  erstnachrichten: 60,
+  // 25.09.2026: 50 fertige Texte statt 30 geprüfter Leads — bei ~40 % Trefferquote
+  // bis zu ~125 Leads à gut einer Minute. Die Nacht-Runde (03:00) ist dann gegen 06:00 durch.
+  erstnachrichten: 180,
 }
 
 /** Die ganze Runde. Die Summe der Etappen-Grenzen ist größer — das ist Absicht, sie deckt den Fall „alles langsam". */
-export const RUNDE_LIMIT_MIN = 120
+export const RUNDE_LIMIT_MIN = 240
 
 /**
  * Wie lange darf diese Etappe JETZT noch laufen? Die kleinere von zwei Zahlen:

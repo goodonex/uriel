@@ -32,7 +32,7 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
   const stark = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'stark', wow_potenzial: 'ja' }), heute)
   check('Stufe „stark" sticht jedes Wow-Urteil', 'zurueck' in stark, stark)
   const knapp = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'knapp' }), heute)
-  check('„knapp" reicht nicht für eine Analyse', 'zurueck' in knapp, knapp)
+  check('„knapp" bekommt die Analyse (25.09.2026)', 'ansatz' in knapp && knapp.ansatz === 'analyse', knapp)
   const alt = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide' }), heute)
   check('Recherche ohne Wow-Urteil (vor dem 23.09.) → prüfen statt raten', 'zurueck' in alt && /prüfen/.test(alt.zurueck), alt)
 
