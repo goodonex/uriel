@@ -114,8 +114,20 @@ const QUEUE_DIR = join(VAULT, 'System', 'Queue')
  * braucht ein Morgenbrief 23 bis 33 Sekunden. Ursache war der schlafende Mac,
  * dagegen hilft `caffeinate` (siehe CAFFEINATE_BIN), nicht eine groessere Zahl.
  * Ueberschreibbar nur fuer Tests.
+ *
+ * Ausnahme je Agent ueber `timeoutMin` in der Agentenliste (26.09.2026): Die
+ * laplace-Bau-Auftraege der KETTE 5 liefen fuenf von fuenf Mal in die zehn
+ * Minuten — die Kette kam nur im 15-Minuten-Takt mit Abbruch voran. Kevin:
+ * „lass uns da die volle Geschwindigkeit fahren und die Regeln aendern."
  */
 const TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 10 * 60 * 1000)
+
+/** Zeitlimit eines Agenten: eigenes `timeoutMin`, sonst das allgemeine. Env schlaegt beides (Tests). */
+function timeoutFuer(agent) {
+  if (process.env.RUN_TIMEOUT_MS) return TIMEOUT_MS
+  const min = AGENT_BY_ID.get(agent)?.timeoutMin
+  return Number.isFinite(min) && min > 0 ? min * 60_000 : TIMEOUT_MS
+}
 /**
  * Was ein einzelner Agentenlauf höchstens kosten darf, in Dollar (07.09.2026).
  *
@@ -512,7 +524,11 @@ const AGENT_CATALOG = [
     // kostet: das Geld und das Ergebnis.
     modell: 'claude-opus-5',
     effort: 'high',
-    budget: 12,
+    // 26.09.2026: 30 statt 10 Minuten und der Deckel mitgezogen (12 → 30 $),
+    // sonst schneidet ihn das Geld statt der Uhr ab. Anlass: KETTE 5 von
+    // laplace — jeder Bau-Job lief in die zehn Minuten (siehe timeoutFuer).
+    timeoutMin: 30,
+    budget: 30,
   },
 ]
 
@@ -1232,10 +1248,11 @@ async function startRun(agent, input, { signal } = {}) {
     }, LIVE_SCHREIB_MS)
   }
 
+  const zeitlimitMs = timeoutFuer(agent)
   const timeout = setTimeout(() => {
-    console.warn(`[runner] ${id}: ${Math.round(TIMEOUT_MS / 60000)} Minuten ueberschritten — beende den Prozessbaum`)
+    console.warn(`[runner] ${id}: ${Math.round(zeitlimitMs / 60000)} Minuten ueberschritten — beende den Prozessbaum`)
     beendeBaum(proc, id)
-  }, TIMEOUT_MS)
+  }, zeitlimitMs)
 
   running.set(id, { id, agent, startedAt, proc, lauf })
 
@@ -1323,9 +1340,9 @@ async function startRun(agent, input, { signal } = {}) {
         // 143 = 128+SIGTERM, 137 = 128+SIGKILL, null = per Signal beendet.
         const abgebrochen = code === 143 || code === 137 || code === null
         const limit =
-          TIMEOUT_MS >= 60_000
-            ? `${Math.round(TIMEOUT_MS / 60_000)} Minuten`
-            : `${Math.round(TIMEOUT_MS / 1000)} Sekunden`
+          zeitlimitMs >= 60_000
+            ? `${Math.round(zeitlimitMs / 60_000)} Minuten`
+            : `${Math.round(zeitlimitMs / 1000)} Sekunden`
         const grund = abgebrochen
           ? `# Run abgebrochen (Exit ${code} — Zeitlimit ${limit})`
           : `# Run fehlgeschlagen (Exit ${code})`
