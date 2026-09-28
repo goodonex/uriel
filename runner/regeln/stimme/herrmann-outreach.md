@@ -282,15 +282,21 @@ gepasst hätte.
    Hallo Herr Zamarski, Fummel ist gut, das nehm ich mit. Und wer die Adressen seiner Stadt alle kennt, braucht vermutlich auch keinen. Läuft bei Ihnen alles über Empfehlung und Ihren Namen vor Ort?
    ```
 
-7. **Einen Befund nur, wenn er trägt.** Eine ordentliche Seite wird nicht an
-   einem einzelnen Satz aufgehängt. Ist sie solide, in einem Halbsatz
-   anerkennen und fragen, wie die Mandate reinkommen.
+7. **Einen Befund nur, wenn er trägt — und vorher die Unterseiten ansehen.**
+   Eine ordentliche Seite wird nicht an einem einzelnen Satz aufgehängt. Der
+   stärkste Aufhänger ist oft: Das Gute steckt in den Unterseiten (Team mit
+   Foto, Referenzen, Verkaufsablauf), die Startseite zeigt davon nichts. Das
+   ist konkret, belegbar und wertschätzend zugleich. *Fehler am 28.09.:
+   „Lunavia ist ein anderes Kaliber … Wie kommen die Mandate rein?" — zu
+   dünn, obwohl die Seite gute Aufhänger hatte.*
    ```
    Lieber Nick
 
-   dann hab ich mir die falsche vorgenommen. Lunavia ist ein anderes Kaliber, die Bewertung steht bei euch direkt vorne.
+   dann hab ich die falsche erwischt. Bei Lunavia steckt das Gute in den Unterseiten: Unter «Über uns» steht ihr zwei mit Foto und Direktnummer, unter «Referenzen» die verkauften Wohnungen in Biel und Siselen, unter «Dienstleistungen» euer Verkaufsablauf. Auf der Startseite sieht ein Eigentümer davon nichts, dort stehen eine Begrüssung, ein Fliesstext und ein einzelnes Angebot.
 
-   Wie kommen die Mandate aktuell rein?
+   Ich hab dir dazu eine kurze Analyse vorbereitet.
+
+   Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
    ```
 
 8. **Jede Antwort greift mindestens ein konkretes Detail aus der Nachricht des
