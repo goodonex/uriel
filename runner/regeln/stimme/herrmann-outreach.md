@@ -213,6 +213,90 @@ nicht als Thema.
 (Käufer-Winkel, bei eigenem Vertrieb Ankauf-Winkel, siehe `schreiben.md`).
 Hausverwaltungen bekommen erst eine Nachricht, wenn ihr Pain geklärt ist.
 
+## Antworten auf Replies — Regeln aus Kevins Durchsicht (28.09.2026)
+
+Am 28.09. fielen 9 von 16 Antwort-Entwürfen bei Kevin durch. Jede Regel hier
+steht für einen echten Fehlschlag; das Beispiel darunter ist die Fassung, die
+gepasst hätte.
+
+1. **Erst prüfen, dann behaupten.** Jede Tatsache in der Antwort wird am selben
+   Tag live geprüft: Seite öffnen, bei „nicht gefunden" den exakten Firmennamen
+   googeln. Sagt der Lead „es gibt eine Website", wird sie gesucht, angesehen
+   und ist dann der Aufhänger. *Fehler: „Unter LMNTS bin ich auf nichts
+   gestoßen" — lmntsrealestate.com ist der erste Google-Treffer, eine Seite
+   aus Logo und drei Links.*
+   ```
+   Stimmt, jetzt hab ich sie. Logo, Instagram, LinkedIn, E-Mail, sonst nichts. Ein Eigentümer erfährt dort nicht, was du machst, in welcher Gegend und warum er ausgerechnet dir sein Objekt geben sollte. Für ein Nebenprojekt verständlich, nur holt die Seite so keine einzige Anfrage.
+
+   Ich hab dir dazu eine kurze Analyse vorbereitet.
+
+   Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+   ```
+
+2. **Ein „später" ist kein Ja.** Loom-Link oder Analyse-Versand nur, wenn der
+   Lead ausdrücklich Ja zur Analyse gesagt hat. Nennt er einen Grund für später
+   (Softwareumstellung, Urlaub, Übernahme), knüpft die Antwort nach der Pause
+   genau an diesen Grund an — eine kurze, menschliche Frage, kein Pitch.
+   ```
+   Hallo Hartmut, läuft die neue Maklersoftware inzwischen rund?
+   ```
+
+3. **Website im Umbau oder „kommt bald" = kein Befund, kein Pitch.** Die alte
+   Seite zu kritisieren, während er die neue baut, ist sinnlos. Zusagen,
+   reinzuschauen, und Wiedervorlage auf den genannten Termin (ohne Termin:
+   zwei Wochen). Dann Follow-up mit Befund zur NEUEN Seite.
+   ```
+   Hi Andrea, alles klar. Dann schau ich rein, sobald die neue Seite live ist.
+   ```
+
+4. **Neuigkeiten des Leads zuerst würdigen.** Übernahme, Gründung, Jubiläum,
+   neue Seite: Der erste Satz reagiert darauf wie ein Mensch („Glückwunsch zur
+   Übernahme"). Ein Satz, der nur die Lage kommentiert („das ist der Moment, in
+   dem …"), hat keine Funktion und fliegt.
+   ```
+   Hi Phil, Glückwunsch zur Übernahme. Dann bin ich auf die neue Seite gespannt. Wann soll sie live gehen?
+   ```
+
+5. **Die Absage-Rückfrage passt nur auf eine Lage.** „Heisst das, ihr habt mehr
+   Eigentümer, als ihr abarbeiten könnt?" nur bei einem pauschalen „kein
+   Interesse" von jemandem, der von Eigentümer-Mandaten lebt. Nie bei:
+   - **begründeter Absage** → auf genau den Grund eingehen:
+     ```
+     Hallo Christian, verstanden, dann ist die Landing Page Absicht und kein Versehen. Wofür soll sie bei euch sorgen, Visitenkarte oder Anfragen?
+     ```
+   - **Nicht-Maklern (Berater, Entwickler, Verwalter)** → ihre Rolle aufgreifen,
+     oft sind sie Multiplikatoren:
+     ```
+     Sehr geehrter Herr Rothböck, danke Ihnen. Sie beraten Immobilienunternehmen bei der strategischen Ausrichtung: Wie oft ist dabei die Gewinnung von Eigentümern das eigentliche Thema?
+     ```
+   - **höflichem „bei Bedarf melde ich mich"** → nicht dieselbe Rückfrage, sondern
+     sein Geschäft verstehen:
+     ```
+     Moin Arne, alles klar. Was macht ihr bei btl RE genau, eher Vermittlung oder Beratung?
+     ```
+
+6. **Humor mit Humor beantworten.** Scherzt der Lead („keine Eigentümer
+   Fummel"), antwortet der erste Halbsatz locker darauf, danach eine Frage zu
+   SEINEM Claim oder Geschäft. Nie belehren, nie seine Lage erklären.
+   ```
+   Hallo Herr Zamarski, Fummel ist gut, das nehm ich mit. Und wer die Adressen seiner Stadt alle kennt, braucht vermutlich auch keinen. Läuft bei Ihnen alles über Empfehlung und Ihren Namen vor Ort?
+   ```
+
+7. **Einen Befund nur, wenn er trägt.** Eine ordentliche Seite wird nicht an
+   einem einzelnen Satz aufgehängt. Ist sie solide, in einem Halbsatz
+   anerkennen und fragen, wie die Mandate reinkommen.
+   ```
+   Lieber Nick
+
+   dann hab ich mir die falsche vorgenommen. Lunavia ist ein anderes Kaliber, die Bewertung steht bei euch direkt vorne.
+
+   Wie kommen die Mandate aktuell rein?
+   ```
+
+8. **Jede Antwort greift mindestens ein konkretes Detail aus der Nachricht des
+   Leads auf.** Test: Passt der Text auch als Antwort auf eine andere Nachricht,
+   ist er falsch.
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,

@@ -1,4 +1,6 @@
+import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { icpUrteil, istArbeitsVorrat } from './icp.mjs'
 
@@ -65,16 +67,30 @@ export function hatFrischenEntwurf(thread, regelStand = stimmeStand()) {
  * „Soll ich?"). Jetzt veraltet ein Entwurf auch, wenn die Stimm-Datei nach ihm
  * geändert wurde, und die nächste Runde schreibt ihn neu.
  *
- * Gemessen wird die Änderungszeit der Datei: git setzt sie nur beim Pull einer
- * geänderten Fassung neu, auf dem Mini also genau dann, wenn eine Regel kam.
+ * Gemessen wird die Commit-Zeit der Datei, nicht ihre Änderungszeit auf der
+ * Platte: Der Mini holt eine Regel erst Minuten bis Stunden nach dem Commit.
+ * Mit der Plattenzeit hätte er Entwürfe, die Kevin dazwischen auf dem Laptop
+ * nach der NEUEN Regel geprüft hat, für veraltet gehalten und überschrieben.
+ * Ohne git (oder uncommittet) gilt die Plattenzeit.
  */
 const STIMME = fileURLToPath(new URL('../regeln/stimme/herrmann-outreach.md', import.meta.url))
+let stimmeCache = { at: 0, wert: 0 }
 export function stimmeStand() {
+  if (Date.now() - stimmeCache.at < 60_000) return stimmeCache.wert
+  let wert = 0
   try {
-    return statSync(STIMME).mtimeMs
+    const sek = execFileSync('git', ['log', '-1', '--format=%ct', '--', STIMME], {
+      cwd: dirname(STIMME), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    const dirty = execFileSync('git', ['status', '--porcelain', '--', STIMME], {
+      cwd: dirname(STIMME), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    wert = sek && !dirty ? Number(sek) * 1000 : statSync(STIMME).mtimeMs
   } catch {
-    return 0
+    try { wert = statSync(STIMME).mtimeMs } catch { wert = 0 }
   }
+  stimmeCache = { at: Date.now(), wert }
+  return wert
 }
 
 /**
