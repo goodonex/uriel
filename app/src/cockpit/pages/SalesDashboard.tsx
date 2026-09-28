@@ -624,9 +624,9 @@ export function SalesDashboard() {
       void erledigePosten(ergebnis, {
         bump: metrics.bump,
         erstnachrichtGesendet: (id) => erstnachrichten.setzeStatus(id, 'gesendet'),
-        followupErledigt: (id) => {
+        followupErledigt: (id, erinnernBis) => {
           const thread = linkedinThreads.items.find((t) => t.id === id)
-          if (thread) return linkedinThreads.markDone(thread)
+          if (thread) return linkedinThreads.markDone(thread, erinnernBis)
         },
         loomVerschickt: (id) => linkedinThreads.markLoomVerschickt(id),
         taskErledigt: (id) => tasks.toggle(id),
@@ -799,6 +799,12 @@ export function SalesDashboard() {
         const threadId = p.id.slice('thread:'.length)
         if (!threadId) return
         void linkedinThreads.snooze(threadId, new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
+      },
+      // „Später senden" (28.09.2026): derselbe Pfad, nur mit frei gewählter
+      // Frist. Der Entwurf bleibt am Thread und ist beim Aufwachen wieder da.
+      verschiebeBis: (p: Posten, bisIso: string) => {
+        const threadId = p.id.slice('thread:'.length)
+        if (threadId) void linkedinThreads.snooze(threadId, bisIso)
       },
     }),
     [linkedinThreads],

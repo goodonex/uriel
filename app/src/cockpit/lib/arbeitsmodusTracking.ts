@@ -104,7 +104,7 @@ export const AUTO_METRIK_FELDER: ReadonlySet<MetricField> = new Set(
 export interface ArbeitsmodusTrackingDeps {
   bump: (field: MetricField, delta: number) => void
   erstnachrichtGesendet: (id: string) => Promise<void> | void
-  followupErledigt: (threadId: string) => Promise<void> | void
+  followupErledigt: (threadId: string, erinnernBis?: string) => Promise<void> | void
   loomVerschickt: (threadId: string) => Promise<void> | void
   taskErledigt: (taskId: string) => void
   /** arbeits_dauern-Insert — vom Aufrufer injiziert (kennt brandId + Supabase-Client). */
@@ -133,7 +133,7 @@ export interface ArbeitsmodusTrackingDeps {
  * dieser Sitzung schon einmal abgehakt wurde.
  */
 export async function erledigePosten(
-  { posten, sekunden }: ArbeitsmodusErgebnis,
+  { posten, sekunden, erinnernBis }: ArbeitsmodusErgebnis,
   deps: ArbeitsmodusTrackingDeps,
 ): Promise<void> {
   // O7: Reine Erinnerungs-Posten haben keine Zeile zum Abhaken und keinen
@@ -149,7 +149,7 @@ export async function erledigePosten(
       await deps.erstnachrichtGesendet(rowId)
       break
     case 'followup':
-      await deps.followupErledigt(rowId)
+      await deps.followupErledigt(rowId, erinnernBis)
       break
     case 'loom':
       await deps.loomVerschickt(rowId)
@@ -167,7 +167,7 @@ export async function erledigePosten(
     // (Antwort → Leiter zurück auf 0, Thread lebt weiter, nie archivieren);
     // er war vom Sales-Dashboard aus nur nicht erreichbar.
     case 'antwort':
-      await deps.followupErledigt(rowId)
+      await deps.followupErledigt(rowId, erinnernBis)
       break
     // 'kunde_liegt' bleibt ein abgeleitetes Signal ohne eigene Zeile — die
     // reale Aktion passiert im Projekt, der nächste Stage-Wechsel räumt es weg.

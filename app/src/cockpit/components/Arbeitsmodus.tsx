@@ -6,6 +6,12 @@ import { entwurfStand, type LoomSkriptAktionen } from './Arbeitsliste'
 export interface ArbeitsmodusErgebnis {
   posten: Posten
   sekunden: number
+  /**
+   * „Gesendet, erinnern in …" (28.09.2026): Der Thread wird erledigt UND bis
+   * zu diesem Zeitpunkt schlafen gelegt — ein Patch, kein Wettlauf zwischen
+   * „Erledigt" (setzt snoozed_until auf null) und einem zweiten Snooze.
+   */
+  erinnernBis?: string
 }
 
 interface ArbeitsmodusProps {

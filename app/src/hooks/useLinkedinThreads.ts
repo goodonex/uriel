@@ -19,7 +19,7 @@ interface UseLinkedinThreadsResult {
    * „Erledigt" je nach Bucket: Antwort des Leads → Leiter zurück auf 0,
    * Break-up fällig → archiviert, sonst eine Stufe weiter (markDonePatch).
    */
-  markDone: (thread: LinkedinThread) => Promise<void>
+  markDone: (thread: LinkedinThread, erinnernBis?: string) => Promise<void>
   /** Loom aufgenommen und verschickt (Migration 0061, Wargame-Arbeitsmodus Zug 4). */
   markLoomVerschickt: (id: string) => Promise<void>
   /** 0077: zugesagt, aber jemand anderes entscheidet über die Website. */
@@ -121,12 +121,13 @@ export function useLinkedinThreads(brandSlug: string | undefined): UseLinkedinTh
   const wake = useCallback((id: string) => applyPatch(id, { snoozed_until: null }), [applyPatch])
 
   const markDone = useCallback(
-    async (thread: LinkedinThread) => {
+    async (thread: LinkedinThread, erinnernBis?: string) => {
       // Regel liegt in linkedinFollowups.markDonePatch (bucket-bewusst, per
       // scripts/verify-linkedin-followups.ts geprüft).
       const patch = markDonePatch(thread)
       if (!patch) return
-      await applyPatch(thread.id, patch)
+      // „Gesendet, erinnern in …": derselbe Patch schläft zusätzlich bis dahin.
+      await applyPatch(thread.id, erinnernBis ? { ...patch, snoozed_until: erinnernBis } : patch)
     },
     [applyPatch],
   )

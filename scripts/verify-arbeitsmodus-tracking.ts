@@ -151,5 +151,23 @@ check('1h kunde_liegt -> keins', metrikFeldFuer('kunde_liegt'), null)
   check('7c Metrikfeld unveraendert', metrikFeldFuer('anfrage'), 'li_anfragen')
 }
 
+// 8. „Gesendet, erinnern in …" (28.09.2026): Das Datum muss bis zum Thread-
+// Haken durchgereicht werden, sonst schläft der Thread nicht und die Standard-
+// Kadenz holt ihn nach drei Tagen hoch.
+{
+  let bis: string | undefined
+  const deps: ArbeitsmodusTrackingDeps = {
+    ...makeDeps().deps,
+    followupErledigt: (_id, erinnernBis) => {
+      bis = erinnernBis
+    },
+  }
+  await erledigePosten(
+    { posten: makePosten({ id: 'thread:t9', spur: 'antwort' }), sekunden: 0, erinnernBis: '2026-10-12T05:00:00.000Z' },
+    deps,
+  )
+  check('8 Antwort: Erinnerungsdatum kommt beim Thread an', bis, '2026-10-12T05:00:00.000Z')
+}
+
 console.log(`${pass}/${pass + fail} Fälle korrekt`)
 if (fail > 0) process.exit(1)

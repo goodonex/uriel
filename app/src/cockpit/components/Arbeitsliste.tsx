@@ -47,7 +47,12 @@ interface ArbeitslisteProps {
    * lassen, weiß der Aufrufer — die Liste soll keine Spur-Kenntnis bekommen.
    * Wo `moeglich` false sagt, erscheint die Aktion gar nicht erst.
    */
-  morgen?: { moeglich: (posten: Posten) => boolean; verschiebe: (posten: Posten) => void }
+  morgen?: {
+    moeglich: (posten: Posten) => boolean
+    verschiebe: (posten: Posten) => void
+    /** „Später senden" mit frei gewählter Frist (28.09.2026) — optional, ohne erscheint der Knopf nicht. */
+    verschiebeBis?: (posten: Posten, bisIso: string) => void
+  }
   loom?: LoomSkriptAktionen
   /** Route zum Projekt einer Kundenaufgabe (Spur `kundenaufgabe`), sonst null */
   projektLink?: (p: Posten) => string | null
@@ -84,6 +89,33 @@ function linkHref(url: string): string {
   return /^https?:\/\//.test(url) ? url : `https://${url}`
 }
 
+/**
+ * „Später" (28.09.2026, Kevin: „vielleicht will ich ja mal aktiv eine
+ * Nachricht erst später raus schicken"). Zwei Absichten, ein Knopf:
+ * - **Später senden** — nichts ist raus; der Thread schläft, der Entwurf bleibt.
+ * - **Gesendet, erinnern in …** — die Nachricht ist raus („Erledigt"), der
+ *   Thread kommt aber erst zum gewählten Tag wieder hoch statt nach der
+ *   Standard-Kadenz. Für „die neue Seite kommt in zwei Wochen".
+ * Aufgeweckt wird um 7 Uhr, damit der Posten in der Morgenliste steht.
+ */
+const SPAETER_SENDEN = [
+  { label: 'Morgen', tage: 1 },
+  { label: '3 Tage', tage: 3 },
+  { label: '1 Woche', tage: 7 },
+] as const
+const ERINNERN_IN = [
+  { label: '3 Tage', tage: 3 },
+  { label: '1 Woche', tage: 7 },
+  { label: '2 Wochen', tage: 14 },
+] as const
+
+export function inTagen(tage: number, jetzt: Date = new Date()): string {
+  const d = new Date(jetzt)
+  d.setDate(d.getDate() + tage)
+  d.setHours(7, 0, 0, 0)
+  return d.toISOString()
+}
+
 /** „von heute Nacht" trägt mehr als ein Zeitstempel — das ist die Frage dahinter. */
 export function entwurfStand(erstelltAm: string | null, jetzt: Date = new Date()): string {
   if (!erstelltAm) return 'vorbereitet'
@@ -118,6 +150,7 @@ export function Arbeitsliste({
   const [kopiertId, setKopiertId] = useState<string | null>(null)
   const [nameKopiertId, setNameKopiertId] = useState<string | null>(null)
   const [kopierGesperrt, setKopierGesperrt] = useState(false)
+  const [spaeterOffen, setSpaeterOffen] = useState<string | null>(null)
 
   const toggle = useCallback((id: string) => {
     setOffenId((prev) => (prev === id ? null : id))
@@ -166,13 +199,13 @@ export function Arbeitsliste({
   )
 
   const hake = useCallback(
-    (p: Posten) => {
+    (p: Posten, erinnernBis?: string) => {
       if (erledigt.has(p.id)) return
       setErledigt((prev) => new Set(prev).add(p.id))
       // Dauer nur, wenn der Posten wirklich offen war — direkt weggehakte
       // Zeilen sind keine gemessene Arbeitszeit.
       const sekunden = offenId === p.id ? Math.max(0, Math.round((Date.now() - offenSeit) / 1000)) : 0
-      onErledigt({ posten: p, sekunden })
+      onErledigt({ posten: p, sekunden, erinnernBis })
     },
     [erledigt, offenId, offenSeit, onErledigt],
   )
@@ -572,6 +605,17 @@ export function Arbeitsliste({
                       </button>
                     </>
                   ) : null}
+                  {morgen?.verschiebeBis && !p.nurZaehler && morgen.moeglich(p) && !istErledigt ? (
+                    <button
+                      type="button"
+                      className="ck-btn"
+                      style={{ minHeight: 40 }}
+                      aria-expanded={spaeterOffen === p.id}
+                      onClick={() => setSpaeterOffen((x) => (x === p.id ? null : p.id))}
+                    >
+                      Später
+                    </button>
+                  ) : null}
                   {/* O7: Erinnerungs-Posten bekommen GENAU EINE Aktion und
                       keinen Haken — die Wahrheit ist der Zaehler. */}
                   {p.nurZaehler ? (
@@ -595,6 +639,44 @@ export function Arbeitsliste({
                     </button>
                   )}
                 </div>
+                {spaeterOffen === p.id && morgen?.verschiebeBis && !istErledigt ? (
+                  <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      <span style={{ color: 'var(--ck-text-3)', minWidth: 150 }}>Noch nicht gesendet, später:</span>
+                      {SPAETER_SENDEN.map((o) => (
+                        <button
+                          key={o.tage}
+                          type="button"
+                          className="ck-btn"
+                          style={{ minHeight: 36 }}
+                          onClick={() => {
+                            morgen.verschiebeBis?.(p, inTagen(o.tage))
+                            setSpaeterOffen(null)
+                          }}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                      <span style={{ color: 'var(--ck-text-3)', minWidth: 150 }}>Gesendet, erinnern in:</span>
+                      {ERINNERN_IN.map((o) => (
+                        <button
+                          key={o.tage}
+                          type="button"
+                          className="ck-btn"
+                          style={{ minHeight: 36 }}
+                          onClick={() => {
+                            hake(p, inTagen(o.tage))
+                            setSpaeterOffen(null)
+                          }}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {p.spur === 'loom' && loom?.fehler ? (
                   <span style={{ fontSize: 12, color: 'var(--ck-warn)' }}>{loom.fehler}</span>
                 ) : null}
