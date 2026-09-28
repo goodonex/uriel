@@ -63,7 +63,7 @@ const BUDGET_FINDEN = Number(process.env.RECHERCHE_BUDGET_FINDEN_USD ?? 0.5)
 const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.6)
 
 /** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
-const MODELL = process.env.RECHERCHE_MODELL ?? 'claude-sonnet-5'
+const MODELL = process.env.RECHERCHE_MODELL ?? 'sonnet'
 
 function baueFindenPrompt(lead, erfahrung, stationen = []) {
   const liste = stationen.length

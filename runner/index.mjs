@@ -345,7 +345,7 @@ const AGENT_CATALOG = [
     // Aufruf: die Vault-settings.json allein griff headless nicht (siehe die
     // gleiche Lehre bei den write-Agenten), und ohne WebFetch/WebSearch kann der
     // Agent die Website des Leads nicht ansehen — genau das fehlte den Entwürfen.
-    modell: 'claude-opus-5',
+    modell: 'opus',
     effort: 'high',
     tools: 'Read,Glob,Grep,WebFetch,WebSearch',
     // 24.09.2026: Kevins Stimme kommt aus dem Code, nicht aus
@@ -372,7 +372,7 @@ const AGENT_CATALOG = [
     // Lead mit: 51 Aufrufe, Kontext 47k → 102k, 4,09 Mio. Token für 13
     // Nachrichten. Wer hier die Web-Werkzeuge zurückgibt, holt genau das
     // zurück — dann bitte mit einer Messung daneben.
-    modell: 'claude-opus-5',
+    modell: 'opus',
     effort: 'high',
     tools: 'Read,Glob,Grep',
     // Das Regelwerk kommt aus dem Code, nicht mehr aus dem Vault-Skill (23.09.2026) —
@@ -396,7 +396,7 @@ const AGENT_CATALOG = [
     // mit Absicht: Geurteilt wird über Headline und Verlauf, nicht über eine
     // Website-Recherche je Person. Sechzig Threads mal Websuche wären ein
     // garantiertes Zeitlimit.
-    modell: 'claude-opus-5',
+    modell: 'opus',
     effort: 'high',
     tools: 'Read,Glob,Grep',
   },
@@ -523,7 +523,7 @@ const AGENT_CATALOG = [
     // Modell die teuerste Ersparnis. Der Deckel liegt höher als sonst, weil
     // hier ganze Bau-Aufträge landen und ein abgeschnittener Lauf beides
     // kostet: das Geld und das Ergebnis.
-    modell: 'claude-opus-5',
+    modell: 'opus',
     effort: 'high',
     // 26.09.2026: 30 statt 10 Minuten und der Deckel mitgezogen (12 → 30 $),
     // sonst schneidet ihn das Geld statt der Uhr ab. Anlass: KETTE 5 von

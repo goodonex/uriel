@@ -44,7 +44,10 @@ export const OHNE_PROJEKT = 'Vault & Sonstiges'
 /** Preise je 1 Mio. Tokens (Eingabe, Ausgabe). Unbekanntes Modell → kein Dollarwert. */
 const PREISE = [
   [/fable/i, 10, 50],
+  // 29.09.2026: Opus 5.5 ist billiger als Opus 5, Sonnet 5/5.5 billiger als Sonnet 4.6.
+  [/opus-5-5/i, 4, 20],
   [/opus/i, 5, 25],
+  [/sonnet-5/i, 2, 10],
   [/sonnet/i, 3, 15],
   [/haiku/i, 1, 5],
 ]

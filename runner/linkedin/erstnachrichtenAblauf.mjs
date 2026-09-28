@@ -28,7 +28,7 @@ import { regelwerk } from '../regeln/fassung.mjs'
 import { parseErstnachrichtenRoh } from './erstnachrichtenEntwuerfe.mjs'
 
 /** Opus: Der Prüfer ist die letzte Stelle vor Kevins Namen. */
-const MODELL = process.env.ERSTNACHRICHTEN_PRUEFER_MODELL ?? 'claude-opus-5'
+const MODELL = process.env.ERSTNACHRICHTEN_PRUEFER_MODELL ?? 'opus'
 const LAUF_TIMEOUT_MS = Number(process.env.ERSTNACHRICHTEN_PRUEFER_TIMEOUT_MS ?? 8 * 60 * 1000)
 
 const jahrAus = (t) => {

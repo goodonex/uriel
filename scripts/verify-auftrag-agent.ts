@@ -33,7 +33,7 @@ const skript = readFileSync(join(wurzel, 'scripts/an-den-mini.mjs'), 'utf8')
   check('der Agent `auftrag` steht im Katalog', /id: 'auftrag'/.test(runner))
   check(
     'er läuft auf Opus — der Auftrag ist unbekannt, dort ist ein kleines Modell die teuerste Ersparnis',
-    /id: 'auftrag'[\s\S]{0,900}?modell: 'claude-opus-5'/.test(runner),
+    /id: 'auftrag'[\s\S]{0,900}?modell: 'opus'/.test(runner),
   )
   check('er trägt einen Geld-Deckel', /id: 'auftrag'[\s\S]{0,900}?budget: \d+/.test(runner))
   check('startRun reicht den Input an agentConfig durch', /agentConfig\(agent, input\)/.test(runner))
