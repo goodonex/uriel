@@ -30,6 +30,10 @@ const INPUT_GROUPS: InputGroup[] = [
       { field: 'li_nachrichten', label: 'Erstnachrichten' },
       { field: 'inmails', label: 'InMail' },
       { field: 'li_followups', label: 'Follow-ups' },
+      // 28.09.2026: wurde beim Abhaken längst gezählt (0081), hatte aber keine
+      // Kachel — 18 beantwortete Antworten standen in der Datenbank, zu sehen
+      // war nur „Antw. LinkedIn 0" (die ERHALTENEN).
+      { field: 'antworten_erledigt', label: 'Antworten' },
       { field: 'looms', label: 'Looms' },
     ],
   },
