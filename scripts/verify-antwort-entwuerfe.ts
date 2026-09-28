@@ -10,7 +10,7 @@
  * Start: npx tsx scripts/verify-antwort-entwuerfe.ts
  */
 // @ts-expect-error — .mjs ohne Typen; genau die Datei, die der Runner lädt.
-import { ANTWORT_MAX, baueAntwortInput, istDuBistDran } from '../runner/linkedin/antwortThreads.mjs'
+import { ANTWORT_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran } from '../runner/linkedin/antwortThreads.mjs'
 import { bucketOf } from '../app/src/cockpit/lib/linkedinFollowups'
 import type { LinkedinThread, LinkedinThreadStatus, LinkedinLastFrom } from '../app/src/types/db'
 
@@ -165,6 +165,15 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const { input, weitereWarten } = baueAntwortInput(viele, NOW)
   check('6 Deckel greift', input.threads.length, ANTWORT_MAX)
   check('6b Rest wird gemeldet', weitereWarten, 5)
+}
+
+// 7. Regelstand (28.09.2026): Ein Entwurf, der vor der aktuellen Stimm-Fassung
+// entstand, ist veraltet — auch wenn der Lead danach nichts geschrieben hat.
+{
+  const regel = new Date('2026-09-24T12:00:00Z').getTime()
+  const t = { entwurf: 'x', entwurf_at: '2026-08-25T10:00:00Z', last_message_at: '2026-08-24T10:00:00Z' }
+  check('7 Entwurf vor Regelstand → neu schreiben', hatFrischenEntwurf(t, regel), false)
+  check('7b Entwurf nach Regelstand → bleibt', hatFrischenEntwurf({ ...t, entwurf_at: '2026-09-25T10:00:00Z' }, regel), true)
 }
 
 console.log(`${pass} bestanden, ${fail} fehlgeschlagen`)

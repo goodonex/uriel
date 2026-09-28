@@ -1,3 +1,5 @@
+import { statSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { icpUrteil, istArbeitsVorrat } from './icp.mjs'
 
 /**
@@ -43,11 +45,36 @@ export const ANTWORT_MAX = 18
  * Veraltet heißt: der Lead hat NACH dem Entwurf noch einmal geschrieben — dann
  * antwortet der alte Text auf eine überholte Nachricht und muss neu.
  */
-export function hatFrischenEntwurf(thread) {
+export function hatFrischenEntwurf(thread, regelStand = stimmeStand()) {
   const text = typeof thread.entwurf === 'string' ? thread.entwurf.trim() : ''
   if (!text) return false
-  if (!thread.entwurf_at || !thread.last_message_at) return true
-  return new Date(thread.entwurf_at).getTime() >= new Date(thread.last_message_at).getTime()
+  if (!thread.entwurf_at) return true
+  const entworfen = new Date(thread.entwurf_at).getTime()
+  if (entworfen < regelStand) return false
+  if (!thread.last_message_at) return true
+  return entworfen >= new Date(thread.last_message_at).getTime()
+}
+
+/**
+ * Seit wann gilt Kevins Stimme in ihrer jetzigen Fassung? (28.09.2026)
+ *
+ * Bis heute zählte ein Entwurf als frisch, solange der Lead danach nichts mehr
+ * geschrieben hatte — egal, nach welchen Regeln er entstanden war. Am 28.09.
+ * standen deshalb 16 von 18 Entwürfen in der Antworten-Spur, die im August nach
+ * der alten Fassung geschrieben waren (Geviertstriche, „kostet dich nichts",
+ * „Soll ich?"). Jetzt veraltet ein Entwurf auch, wenn die Stimm-Datei nach ihm
+ * geändert wurde, und die nächste Runde schreibt ihn neu.
+ *
+ * Gemessen wird die Änderungszeit der Datei: git setzt sie nur beim Pull einer
+ * geänderten Fassung neu, auf dem Mini also genau dann, wenn eine Regel kam.
+ */
+const STIMME = fileURLToPath(new URL('../regeln/stimme/herrmann-outreach.md', import.meta.url))
+export function stimmeStand() {
+  try {
+    return statSync(STIMME).mtimeMs
+  } catch {
+    return 0
+  }
 }
 
 /**
