@@ -57,6 +57,7 @@ import {
 } from './runde.mjs'
 import { bewerteSchleuse, pruefeAnmeldung, pruefeDurchgang, pruefeSupabase, pruefeVault } from './schleuse.mjs'
 import { jophielProjekte, jophielShot, shotStand } from './jophiel.mjs'
+import { jophielNachziehen } from './jophielNachziehen.mjs'
 
 // ---------- Lokale .env (nur für Secrets wie den Supabase-Key; gitignored) ----------
 // Minimaler Parser (zero-dependency). Prozess-Env hat Vorrang vor der Datei.
@@ -5226,6 +5227,19 @@ server.listen(PORT, '127.0.0.1', () => {
     setTimeout(() => void codeCheckTick(), 60_000)
     const cc = setInterval(() => void codeCheckTick(), CODE_CHECK_MS)
     cc.unref?.()
+    /**
+     * Jophiel im selben Takt nachziehen (28.09.2026) — bisher kam es nur per
+     * Push vom Laptop im Heimnetz. Sicherungen in `jophielNachziehen.mjs`
+     * (nur nachts, nur Fast-Forward, nie während eines Seitenbaus).
+     */
+    const jn = setInterval(() => {
+      void jophielNachziehen()
+        .then((was) => {
+          if (was !== 'aktuell' && !was.startsWith('außerhalb')) console.log(`[runner] Jophiel: ${was}`)
+        })
+        .catch((e) => console.error('[runner] Jophiel nachziehen:', e?.message ?? e))
+    }, CODE_CHECK_MS)
+    jn.unref?.()
   }
 
   /**
