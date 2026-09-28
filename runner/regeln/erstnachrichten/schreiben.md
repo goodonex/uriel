@@ -101,6 +101,13 @@ Reihenfolge:
 - Kleinkram: Kontaktformular, fehlendes Einzelbild, Tippfehler,
   Copyright-Jahr, Quelltext, Ladezeit, Cookie-Banner.
 - Aussagen über Gesichter/Team, wenn die Team-Seite nicht mitgeprüft ist.
+- **Ein bewusst gesetztes Markenzeichen** (Maskottchen, Comicfigur, eigener
+  Claim, Hausfarbe), das erkennbar seit Jahren im Einsatz ist. Das ist Marke,
+  kein Mangel. Am 28.09.2026 nannte eine Erstnachricht die Comicfigur von TREND
+  Immobilien „Cartoon statt echter Menschen" — Antwort: *„Du liegst völlig
+  falsch! Genau der Umstieg auf den Comic Charakter hat meinem Unternehmen
+  einen großen Boost verschafft."* Ein solches Element wird höchstens
+  anerkannt, nie angegriffen.
 - Eine Folge, die nicht im Destillat steht.
 
 **Anzeigen:** Etwas über Anzeigen sagen darfst du nur, wenn **beide** Felder
