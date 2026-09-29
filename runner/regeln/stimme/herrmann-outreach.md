@@ -154,11 +154,8 @@ aber ebenfalls einen festen:
 | **Kein Auftritt auffindbar** — Kevin will die Adresse, um doch zu schauen | `Wo finde ich euch?` |
 | **Seite kaputt, leer oder im Umbau** | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
 | **Ohne Seite ist ein Video sinnlos** — nächster Schritt ist ein Gespräch | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |
-| **Bewusst noch kein Angebot** — erst verstehen, wie die Mandate reinkommen | `Wie kommen die Mandate aktuell rein?` |
+| **Bewusst noch kein Angebot** — Seite ist gut, kein Befund trägt | Eine offene, konkrete Frage mit Anlass von SEINER Seite (z. B. zu Anzeigen, zu einem Werkzeug, das er anbietet). **Abgeschafft seit 17.09.2026:** „Wie kommen die Mandate aktuell rein?" (Kevin: *„bekommen die bestimmt von jedem"*), siehe `erstnachrichten/schreiben.md`. |
 | **Angestellte** (kein Inhaber/GF laut Impressum) | Kein Zuständigkeits-CTA mehr (abgeschafft 22.09.2026, peinlich wenn es doch der GF ist). Nebenfirma vorhanden → offene Frage zu den Stationen („Wo liegt bei dir gerade der Hauptfokus?"); sonst zurückstellen und erst den GF anfragen. |
-
-Der Mandate-Satz kommt ohne „eure"/„deine" aus, damit ein Wortlaut für geduzte
-Einzelmakler und für Firmen gleichermaßen passt.
 
 Ist der Loom raus, holt der Terminlink als Button unter dem Video den Termin;
 Fallback bleiben zwei Zeitvorschläge im Chat.
