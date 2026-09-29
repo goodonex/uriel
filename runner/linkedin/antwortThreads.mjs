@@ -169,8 +169,25 @@ export const LEAD_ENDSTATUS = new Set(['kunde', 'disqualifiziert', 'ruht'])
  * - Loom verschickt → dafür gibt es die Loom-Reihe mit eigenen Texten.
  * - Ja gesagt, Loom offen (Stern) → die nächste Nachricht ist das Loom selbst,
  *   keine Ankündigung.
+ *
+ * Eigener Deckel, eigene Läufe: Die Nachtrunde schickt erst die Antworten,
+ * dann das Nachfassen in Paketen zu `ANTWORT_MAX` an den Agenten
+ * (`antwortLaeufe` im Runner), jedes Paket mit dem vollen Zeit- und
+ * Geldrahmen. 18 Antworten brauchten am 28.09. 5½ Minuten von zehn.
  */
-export const NACHFASSEN_MAX = 6
+export const NACHFASSEN_MAX = 20
+
+/**
+ * Wie viele Nachfass-Texte eine Nacht schreibt, folgt Kevins Tagesziel für
+ * Follow-ups (`ui_settings.tagesFlowZiele.followups`, am 29.09.2026 auf 40
+ * gesetzt). Ohne Einstellung gilt `NACHFASSEN_MAX` = `FOLLOWUP_PORTION_TAG`.
+ * Eine eigene, kleinere Zahl hier hieße: Die Liste fordert 40, und ab Platz
+ * sieben steht kein Text daneben.
+ */
+export function nachfassDeckel(tagesFlowZiele) {
+  const n = Number(tagesFlowZiele?.followups)
+  return Number.isInteger(n) && n > 0 ? n : NACHFASSEN_MAX
+}
 /** Spiegel von `klassenRang` (app/src/cockpit/lib/leadKlasse.ts). */
 export function klassenRang(klasse) {
   return klasse === 'A' ? 0 : klasse === 'B' ? 1 : klasse === 'C' ? 3 : 2
@@ -313,7 +330,7 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
     `linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.them` +
       `&status=in.(active,waiting_reply)&select=*&order=last_message_at.asc`,
   )
-  const [endLeads, antwortEreignisse, kevinZuletzt, klassenZeilen] = await Promise.all([
+  const [endLeads, antwortEreignisse, kevinZuletzt, klassenZeilen, ziele] = await Promise.all([
     holeAlle(supabaseUrl, headers, `leads?brand_id=eq.${brand.id}&lead_status=in.(${[...LEAD_ENDSTATUS].join(',')})&select=id&order=id`),
     holeAlle(
       supabaseUrl,
@@ -331,6 +348,9 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
       headers,
       `leads?brand_id=eq.${brand.id}&klasse=not.is.null&select=id,klasse,punkte:profil->punkte&order=id`,
     ).catch(() => []),
+    holeAlle(supabaseUrl, headers, `ui_settings?setting_key=eq.tagesFlowZiele&select=setting_value&order=updated_at.desc`).catch(
+      () => [],
+    ),
   ])
   const klassen = new Map(klassenZeilen.map((z) => [z.id, { klasse: z.klasse, punkte: z.punkte }]))
   const amEnde = new Set(endLeads.map((l) => l.id))
@@ -344,7 +364,9 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
   }
 
   const wartend = rows.filter((t) => istDuBistDran(t, now))
-  const threads = wartend.filter((t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t))
+  const threads = wartend.filter(
+    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t) && !wartetAufLoom(t),
+  )
   // Nachfassen nur, wo die Follow-up-Spur im Cockpit ihn auch zeigt: Zielgruppe,
   // kein Akquise-Versuch und kein reiner Kontakt (Spiegel von `followupPosten`).
   const nachfassen = kevinZuletzt.filter(
@@ -357,8 +379,19 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
     brandId: brand.id,
     threads,
     uebersprungenOffIcp: wartend.length - threads.length,
-    nachfassen: { threads: nachfassen, antwortenJeLead, klassen },
+    nachfassen: { threads: nachfassen, antwortenJeLead, klassen, max: nachfassDeckel(ziele[0]?.setting_value) },
   }
+}
+
+/**
+ * Ja zur Analyse, Loom noch offen (29.09.2026): Die Antwort darauf ist das Loom
+ * selbst, keine Ankündigung. Kevin: *„im Normalfall braucht kein Loom länger als
+ * 24 Stunden."* Vorher schrieb der Agent hier „Kommt diese Woche bei dir an" —
+ * fünfzehnmal fast wortgleich, bis zu elf Wochen nach dem Ja. Spiegel des
+ * Filters in `antwortPosten`; diese Leute stehen in der Loom-Spur.
+ */
+export function wartetAufLoom(thread) {
+  return Boolean(thread.starred) && thread.loom_status === 'offen'
 }
 
 /** PostgREST liefert höchstens 1000 Zeilen je Abfrage — seitenweise holen. */

@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { syncThreads, TIEFENSCAN_TAGE } from './linkedin/sync.mjs'
 import { upsertThreads } from './linkedin/upsert.mjs'
 import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
-import { baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
+import { ANTWORT_MAX, baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
@@ -3725,13 +3725,47 @@ async function maybeAntwortEntwuerfe() {
     if (!gebaut) return
 
     console.log(
-      `[runner] antwort-entwuerfe startet — ${gebaut.input.threads.length} wartende Leads` +
+      `[runner] antwort-entwuerfe startet — ${gebaut.input.threads.length} Threads` +
         (gebaut.weitereWarten ? ` (+${gebaut.weitereWarten} über dem Limit)` : ''),
     )
-    await startRun('linkedin-antwort-entwuerfe', gebaut.input)
+    await antwortLaeufe(gebaut)
   } catch (e) {
     console.error('[runner] antwort-entwuerfe übersprungen:', e?.message ?? e)
   }
+}
+
+/**
+ * Antworten und Nachfassen nacheinander, je ein eigener Lauf (29.09.2026).
+ *
+ * Ein gemeinsamer Lauf hätte beide in dieselben zehn Minuten und dieselben drei
+ * Dollar gezwängt; das Nachfassen bekam deshalb anfangs nur sechs Plätze. So hat
+ * jeder Durchgang den vollen Rahmen, und die Antworten kommen immer zuerst.
+ * Der zweite Lauf startet erst, wenn der erste fertig ist — ohne dass der
+ * Aufrufer darauf wartet (der Takt der anderen Routinen läuft weiter).
+ */
+async function antwortLaeufe(gebaut, { signal } = {}) {
+  // Nachfassen in Paketen zu ANTWORT_MAX: 40 in einem Lauf sprengten die zehn
+  // Minuten, 18 sind am 28.09. in 5½ Minuten durchgelaufen.
+  const nachfassen = gebaut.input.threads.filter((t) => t.art === 'nachfassen')
+  const pakete = []
+  for (let i = 0; i < nachfassen.length; i += ANTWORT_MAX) pakete.push(nachfassen.slice(i, i + ANTWORT_MAX))
+  const teile = [gebaut.input.threads.filter((t) => t.art === 'antwort'), ...pakete].filter((threads) => threads.length)
+  if (!teile.length) return
+  const [erster, ...rest] = teile
+  let lauf = await startRun('linkedin-antwort-entwuerfe', { threads: erster }, { signal })
+  if (!rest.length) return
+  void (async () => {
+    for (const threads of rest) {
+      await lauf.fertig
+      if (signal?.aborted) return
+      try {
+        lauf = await startRun('linkedin-antwort-entwuerfe', { threads }, { signal })
+      } catch (e) {
+        console.error('[runner] Nachfass-Entwürfe nicht gestartet:', e?.message ?? e)
+        return
+      }
+    }
+  })()
 }
 
 /**
@@ -5005,7 +5039,7 @@ const ETAPPEN_ARBEIT = {
     const gebaut = await antwortEntwuerfeInput(new Date())
     if (!gebaut) return { text: 'niemand wartet auf eine Antwort' }
     melde(`${gebaut.input.threads.length} Entwürfe werden geschrieben`)
-    await startRun('linkedin-antwort-entwuerfe', gebaut.input, { signal })
+    await antwortLaeufe(gebaut, { signal })
     return {
       text:
         `${gebaut.input.threads.length} Entwürfe` +

@@ -390,6 +390,17 @@ gepasst hätte.
     Ist auch schon eingeplant, wie über die neue Seite Käufer reinkommen?
     ```
 
+12. **Ja zur Analyse → keine Ankündigung. Die nächste Nachricht ist das Loom.**
+    Hat der Lead Ja gesagt („schick rüber", „gerne", ein Daumen auf das
+    Angebot), gibt es keinen Entwurf. Kevin nimmt das Loom auf und schickt es
+    mit der Versand-Nachricht aus der Loom-Spur, im Normalfall innerhalb von
+    24 Stunden (Kevin, 29.09.2026: *„im Normalfall braucht kein Loom länger
+    als 24 Stunden"*). „Kommt diese Woche bei dir an", „schick ich dir bis
+    morgen", „Vorab eine Frage …" entfallen: Sie versprechen, statt zu
+    liefern, und klingen bei jedem Lead gleich.
+    *Fehler am 28.09.: 15 von 21 Antwort-Entwürfen begannen fast wortgleich
+    mit „Kommt diese Woche bei dir an", das älteste Ja war vom 13.07.*
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,

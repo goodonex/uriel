@@ -15,7 +15,7 @@ import { istKunde, kundenSchluessel, type KundenKontakt } from './kundenAbgleich
 import { bucketOf } from './linkedinFollowups'
 import { verlaufVon } from './linkedinVerlauf'
 import type { Posten, PostenEntwurf } from './prioritaet'
-import { followupVorlage, loomZusageVorlage } from './followupVorlagen'
+import { followupVorlage, loomVersandVorlage } from './followupVorlagen'
 import { klassenRang, type LeadKlassenInfo } from './leadKlasse'
 
 /**
@@ -190,19 +190,6 @@ function letzteNachricht(t: LinkedinThread): string {
   return vonKevin ? `Zuletzt hast DU geschrieben: „${text}“` : text
 }
 
-/**
- * Hat Kevin auf die Zusage schon geantwortet?
- *
- * Entscheidet darüber, ob die Zusage-Antwort als Entwurf angeboten wird. Kam
- * die letzte Nachricht von ihm, ist sie raus — ein zweites „Alles klar, kommt
- * morgen zu dir" wäre der peinlichste Fehler, den diese Vorlage machen kann.
- */
-function kevinHatGeantwortet(t: LinkedinThread): boolean {
-  const vom = verlaufVon(t)
-  const letzte = vom.length > 0 ? vom[vom.length - 1] : null
-  return letzte ? letzte.sender === 'me' : t.last_from === 'me'
-}
-
 /** Rang 4 — Lead hat Ja zum Loom gesagt, Skript/Aufnahme steht noch aus. */
 export function loomPosten(threads: LinkedinThread[]): Posten[] {
   return threads
@@ -210,16 +197,16 @@ export function loomPosten(threads: LinkedinThread[]): Posten[] {
     .map((t) => ({
       ...threadZuPosten(t, 'loom', 'loom', letzteNachricht(t)),
       /**
-       * Zwischen Zusage und fertigem Loom liegt eine Nacht — die Demo-Seite
-       * wird über Nacht gebaut. Diese Lücke braucht einen Text, sonst wartet
-       * der Lead ohne zu wissen, worauf, und die E-Mail-Adresse holt sich
-       * niemand mehr ab: Der Moment direkt nach dem Ja ist der einzige, in
-       * dem sie ohne Widerstand rausrückt.
+       * Auf ein Ja folgt das Loom selbst, keine Ankündigung (29.09.2026).
        *
-       * Nur solange Kevin noch nicht geantwortet hat — sonst ginge die
-       * Nachricht ein zweites Mal raus.
+       * Bis heute stand hier die Zusage „Alles klar, kommt morgen zu dir",
+       * und der Nacht-Agent schrieb „Kommt diese Woche bei dir an" —
+       * fünfzehnmal fast wortgleich, bis zu elf Wochen nach dem Ja. Kevin:
+       * *„im Normalfall braucht kein Loom länger als 24 Stunden."* Der Text in
+       * dieser Spur ist deshalb die Versand-Nachricht; `[Loom-Link]` bleibt
+       * sichtbar stehen, bis die Aufnahme hochgeladen ist.
        */
-      entwurf: entwurfVon(t) ?? (kevinHatGeantwortet(t) ? undefined : loomZusageVorlage()),
+      entwurf: entwurfVon(t) ?? loomVersandVorlage(t),
     }))
 }
 
