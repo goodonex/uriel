@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { CallModePage } from '../../pages/sales/CallModePage'
+import { AnrufListePage } from './sales/AnrufListePage'
 import { ContactListsPage } from '../../pages/sales/ContactListsPage'
 import { SalesMode } from '../../pages/sales/SalesMode'
 import { SalesNewLeadPage } from '../../pages/sales/SalesNewLeadPage'
@@ -36,6 +37,8 @@ interface Reiter {
 
 const REITER: Reiter[] = [
   { to: '/sales', label: 'Dashboard', unter: [] },
+  // 29.09.2026: der Dialer über alle Unternehmen (LinkedIn + Kaltakquise).
+  { to: '/sales/anrufe', label: 'Anrufliste', unter: ['/sales/anrufe'] },
   { to: '/sales/linkedin', label: 'LinkedIn-Leads', unter: ['/sales/linkedin', '/sales/kontakte'] },
   {
     to: '/sales/leads',
@@ -118,6 +121,7 @@ export function SalesArea() {
         <Route path="pipeline" element={<ColdCallLeads><SalesMode panel="full" scrollEmbed /></ColdCallLeads>} />
         <Route path="call-mode" element={<ColdCallLeads><CallModePage /></ColdCallLeads>} />
         <Route path="new" element={<ColdCallLeads><SalesNewLeadPage /></ColdCallLeads>} />
+        <Route path="anrufe" element={<AnrufListePage />} />
         <Route path="bibliothek" element={<SalesBibliothek />} />
         <Route path=":contactId" element={<LeadDetail />} />
       </Routes>
