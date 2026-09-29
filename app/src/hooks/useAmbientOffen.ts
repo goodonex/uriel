@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useActiveBrand } from '../cockpit/lib/activeBrand'
-import { antwortPosten, followupPosten } from '../cockpit/lib/arbeitsmodusQuellen'
+import { antwortPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG } from '../cockpit/lib/arbeitsmodusQuellen'
 import { useContacts } from './useContacts'
 import { useLinkedinThreads } from './useLinkedinThreads'
 
@@ -38,7 +38,7 @@ export function useAmbientOffen(): { antworten: number; followups: number; laedt
     const jetzt = new Date()
     return {
       antworten: antwortPosten(threads.items, jetzt, contacts.items).length,
-      followups: followupPosten(threads.items, jetzt, contacts.items).length,
+      followups: followupPosten(threads.items, jetzt, contacts.items, undefined, undefined, undefined, FOLLOWUP_NUR_SENDEFERTIG).length,
       laedt: threads.loading,
     }
   }, [threads.items, threads.loading, contacts.items])

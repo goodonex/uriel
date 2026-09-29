@@ -236,8 +236,17 @@ export function followupPosten(
    * bekannt" — dann entscheidet allein der Verlauf am Thread.
    */
   beantworteteThreads: ReadonlySet<string> = new Set(),
+  /** Siehe `FOLLOWUP_NUR_SENDEFERTIG`. Ohne Angabe wie bisher: jeder fällige Posten, Vorlage als Rückfall. */
+  optionen: FollowupOptionen = {},
 ): Posten[] {
   const kunden = kundenSchluessel(kontakte)
+  const neuVor = optionen.neuerTextVor ? new Date(optionen.neuerTextVor).getTime() : null
+  /** Braucht der Thread einen neu geschriebenen Text statt der festen Vorlage? */
+  const brauchtNeuenText = (t: LinkedinThread) => {
+    if (t.loom_status === 'verschickt') return false
+    if (imGespraech(t, beantworteteThreads)) return true
+    return neuVor != null && t.last_message_at != null && new Date(t.last_message_at).getTime() < neuVor
+  }
   return threads
     .filter((t) => bucketOf(t, heute, undefined, gesichteteThreads.has(t.id)) === 'faellig')
     // Ein laufender Kunde bekommt kein Akquise-Follow-up (18.08.2026).
@@ -281,13 +290,10 @@ export function followupPosten(
        * kein Text als der falsche. Die Loom-Reihe bleibt: Die ist genau für
        * Leute gebaut, die Ja gesagt haben.
        */
-      entwurf:
-        entwurfVon(t) ??
-        (imGespraech(t, beantworteteThreads) && t.loom_status !== 'verschickt'
-          ? undefined
-          : followupVorlage(t, gesichteteThreads.has(t.id))),
+      entwurf: entwurfVon(t) ?? (brauchtNeuenText(t) ? undefined : followupVorlage(t, gesichteteThreads.has(t.id))),
       ...klasseVon(t.lead_id, klassen),
     }))
+    .filter((p) => !optionen.nurMitText || p.entwurf != null)
     /**
      * A zuerst, dann B, dann ungeprüft, dann C — stabil, also innerhalb der
      * Klasse in der bisherigen Reihenfolge. Hier an der Quelle und nicht erst
@@ -297,6 +303,31 @@ export function followupPosten(
     // Innerhalb der Klasse die höchsten Punkte zuerst (Lead-Bewertung, 24.09.2026).
     .sort((a, b) => klassenRang(a.klasse) - klassenRang(b.klasse) || (b.klassePunkte ?? -1) - (a.klassePunkte ?? -1))
 }
+
+export interface FollowupOptionen {
+  /** Nur Posten mit sendefertigem Text zeigen; der Rest wartet auf die Nachtrunde. */
+  nurMitText?: boolean
+  /** Kalte Threads, deren letzte Nachricht vor diesem Datum liegt, bekommen keine Vorlage. */
+  neuerTextVor?: string
+}
+
+/**
+ * Die Follow-up-Spur zeigt nur, was Kevin so abschicken kann (29.09.2026).
+ *
+ * Die feste Vorlage „falls das untergegangen ist, hol ich es kurz hoch" holt
+ * die Erstnachricht wieder nach oben. Bis zum 16.09.2026 entstanden diese mit
+ * einer Recherche, die nachweislich falsche Befunde lieferte (Haiku + WebFetch,
+ * siehe `leadRecherche.mjs`); bei Amadeus stand „keine Seite gefunden", obwohl
+ * es eine gab. Kevin: *„dann werden wir auch im Follow-up die Leute nicht
+ * bekommen."* 140 von 243 fälligen Follow-ups hingen an so einer Nachricht.
+ *
+ * Diese Threads bekommen keine Vorlage mehr, sondern einen neu geprüften Text
+ * aus der Nachtrunde (`istNeuPruefFall` im Runner) — ebenso laufende Gespräche
+ * (`imGespraech`). Bis der Text da ist, stehen sie nicht in der Liste: Ein
+ * Posten ohne Text füllt nur Plätze der Tagesportion, die Kevin nicht
+ * abarbeiten kann.
+ */
+export const FOLLOWUP_NUR_SENDEFERTIG: FollowupOptionen = { nurMitText: true, neuerTextVor: '2026-09-16' }
 
 /** Hat der Lead in diesem Gespräch je geschrieben? Spiegel von `hatGeantwortet` im Runner. */
 export function imGespraech(t: LinkedinThread, beantworteteThreads: ReadonlySet<string>): boolean {

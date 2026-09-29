@@ -167,6 +167,21 @@ function check(label: string, actual: unknown, expected: unknown) {
   check('3c5 der Posten selbst bleibt in der Liste', posten.length, 4)
 }
 
+// 3d. Nur Sendefertiges (29.09.2026): Kalte Follow-ups auf Erstnachrichten vor
+// dem Stichtag bekommen keine Vorlage, und Posten ohne Text bleiben draußen.
+{
+  const threads = [
+    makeThread({ id: 'frisch', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(4) }),
+    makeThread({ id: 'alt', name: 'Marija Schmitt', followup_stage: 0, last_message_at: dayAgo(60) }),
+    makeThread({ id: 'alt-agent', name: 'Amadeus Jesinghaus', followup_stage: 0, last_message_at: dayAgo(60), entwurf: 'Moin Amadeus, jetzt hab ich deine Seite doch gefunden.', entwurf_at: NOW.toISOString() }),
+    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(4) }),
+  ]
+  const stichtag = new Date(NOW.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const ids = (o: object) => followupPosten(threads, NOW, [], new Set(), new Map(), new Set(['warm']), o).map((p) => p.id).sort()
+  check('3d1 ohne Optionen wie bisher', ids({}), ['thread:alt', 'thread:alt-agent', 'thread:frisch', 'thread:warm'])
+  check('3d2 nur sendefertig', ids({ nurMitText: true, neuerTextVor: stichtag }), ['thread:alt-agent', 'thread:frisch'])
+}
+
 // 4. erstnachrichtPosten: nur offen, Reihenfolge nach sort_index.
 {
   const leads = [

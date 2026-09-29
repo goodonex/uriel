@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { antwortPosten, erstnachrichtPosten, followupPosten, loomPosten } from '../cockpit/lib/arbeitsmodusQuellen'
+import { antwortPosten, erstnachrichtPosten, followupPosten, loomPosten, FOLLOWUP_NUR_SENDEFERTIG } from '../cockpit/lib/arbeitsmodusQuellen'
 import { angenommenOhneErstnachricht, nachStichtag } from '../cockpit/lib/funnelStufen'
 import { icpUrteil, istArbeitsVorrat } from '../cockpit/lib/icp'
 import {
@@ -123,7 +123,7 @@ export function usePosten(slug: string | undefined): UsePostenResult {
 
   const followupListe = useMemo(
     () =>
-      followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen, beantworteteThreads),
+      followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen, beantworteteThreads, FOLLOWUP_NUR_SENDEFERTIG),
     [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen, beantworteteThreads],
   )
   // Threads gegenrechnen: eine verschickte Nachricht bleibt sonst ewig „offen",

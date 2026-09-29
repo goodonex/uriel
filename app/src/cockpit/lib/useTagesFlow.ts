@@ -6,7 +6,7 @@ import { useContacts } from '../../hooks/useContacts'
 import { useLinkedinNetzwerk } from '../../hooks/useLinkedinNetzwerk'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import { useActiveBrand } from './activeBrand'
-import { antwortPosten, erstnachrichtPosten, followupPosten, loomPosten } from './arbeitsmodusQuellen'
+import { antwortPosten, erstnachrichtPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG, loomPosten } from './arbeitsmodusQuellen'
 import { useMetrikTag } from './useMetrikTag'
 import { useTagesPortionen, type TagesPortionen } from './useTagesPortionen'
 import { useUiSetting } from './uiSettings'
@@ -80,7 +80,7 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
     () =>
       flowQuellen(
         {
-          followup: followupPosten(threads.items, jetzt, contacts.items),
+          followup: followupPosten(threads.items, jetzt, contacts.items, undefined, undefined, undefined, FOLLOWUP_NUR_SENDEFERTIG),
           erstnachricht: erstnachrichtPosten(erstnachrichten.items, threads.items, netzwerk.items),
           erstnachrichtWartend: angenommenOhneErstnachricht(
             netzwerk.items,
