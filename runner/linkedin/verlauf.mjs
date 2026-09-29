@@ -49,9 +49,29 @@ export function verlaufAusMessages(messages, conversationUrn, isSelf, max, textM
     var m = eigene[j]
     var roh = m.body && typeof m.body.text === 'string' ? m.body.text : ''
     var text = roh.trim()
-    // Anhänge, Reaktionen und Systemzeilen ohne Text tragen zum Gespräch nichts
-    // bei — sie würden dem Agenten nur leere Sprecherwechsel vorspielen.
-    if (!text) continue
+    // Sprachnachricht, Bild, Datei ohne Text (29.09.2026): Bis heute fielen sie
+    // hier raus. Hartmut antwortete mit so einer Nachricht — das Cockpit zeigte
+    // eine leere Karte, der Agent schrieb „hat noch nicht geantwortet". Jetzt
+    // steht ein Platzhalter da, damit beide sehen, DASS er geantwortet hat.
+    // Systemzeilen ohne Inhalt bleiben draußen: Sie spielten dem Agenten nur
+    // leere Sprecherwechsel vor.
+    if (!text) {
+      var inhalte = Array.isArray(m.renderContent) ? m.renderContent : Array.isArray(m.renderContentUnions) ? m.renderContentUnions : []
+      var art = ''
+      for (var k = 0; k < inhalte.length && !art; k++) {
+        var rc = inhalte[k] || {}
+        if (rc.audio) art = '[Sprachnachricht]'
+        else if (rc.vectorImage || rc.image) art = '[Bild]'
+        else if (rc.video) art = '[Video]'
+        else if (rc.externalMedia) art = '[GIF]'
+        else if (rc.file) art = rc.file.name ? '[Datei: ' + rc.file.name + ']' : '[Datei]'
+        else if (rc.forwardedMessageContent) art = '[Weitergeleitete Nachricht]'
+        else if (rc.videoMeeting) art = '[Einladung zum Videocall]'
+      }
+      if (!art && inhalte.length) art = '[Anhang ohne Text]'
+      if (!art) continue
+      text = art
+    }
     if (text.length > grenzeText) text = text.slice(0, grenzeText) + ' …'
 
     // Ohne Absender wird NICHT geraten (gleiche Regel wie bei `last_from`).

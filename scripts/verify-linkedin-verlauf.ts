@@ -109,6 +109,29 @@ function msg(over: Record<string, unknown>): Record<string, unknown> {
   check('5 nur Einträge mit Text', v.map((e: { text: string }) => e.text), ['echt'])
 }
 
+// 5b. Nachrichten ohne Text, aber mit Inhalt (29.09.2026, Fall Hartmut): Platzhalter
+// statt Loch — sonst hält der Agent eine Antwort für Schweigen.
+{
+  const v = verlaufAusMessages(
+    [
+      msg({ deliveredAt: 1000, '*sender': ICH, body: { text: 'Läuft die neue Maklersoftware rund?' } }),
+      msg({ deliveredAt: 2000, body: {}, renderContent: [{ audio: { duration: 31000 } }] }),
+      msg({ deliveredAt: 3000, body: { text: '' }, renderContent: [{ vectorImage: { rootUrl: 'x' } }] }),
+      msg({ deliveredAt: 4000, body: {}, renderContent: [{ file: { name: 'Expose.pdf' } }] }),
+      msg({ deliveredAt: 5000, body: {}, renderContent: [{ unbekannt: {} }] }),
+      msg({ deliveredAt: 6000, body: {}, renderContent: [] }),
+    ],
+    CONV,
+    isSelf,
+  )
+  check(
+    '5b Platzhalter je Inhalt',
+    v.map((e: { text: string }) => e.text),
+    ['Läuft die neue Maklersoftware rund?', '[Sprachnachricht]', '[Bild]', '[Datei: Expose.pdf]', '[Anhang ohne Text]'],
+  )
+  check('5c Absender bleibt der Lead', v[1].sender, 'them')
+}
+
 // 6. Zeitstempel: ISO oder null — ein kaputter Wert darf nicht werfen.
 {
   const v = verlaufAusMessages(

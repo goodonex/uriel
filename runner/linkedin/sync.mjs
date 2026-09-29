@@ -354,7 +354,9 @@ const buildSyncExpr = (cachedQid, scanTage) => `(async () => {
       name: other ? participantName(other) : '',
       company: other?.participantType?.member?.headline?.text || '',
       profile_url: other?.participantType?.member?.profileUrl || '',
-      preview: m?.body?.text || '',
+      // Ohne Text (Sprachnachricht, Bild, Datei) trägt die Vorschau den
+      // Platzhalter aus dem Verlauf — sonst zeigt das Cockpit eine leere Karte.
+      preview: m?.body?.text || (verlauf.length && verlauf[verlauf.length - 1].text.charAt(0) === '[' && m?.deliveredAt && verlauf[verlauf.length - 1].ts === new Date(m.deliveredAt).toISOString() ? verlauf[verlauf.length - 1].text : ''),
       verlauf,
       last_message_at: lastMessageAt,
       last_from: lastFrom,
