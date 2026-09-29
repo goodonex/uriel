@@ -213,6 +213,32 @@ export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
   return hatGeantwortet(thread, antwortenJeLead)
 }
 
+/**
+ * Stichtag der neuen Lead-Recherche (29.09.2026, Spiegel von
+ * `FOLLOWUP_NUR_SENDEFERTIG.neuerTextVor` im Cockpit). Erstnachrichten davor
+ * entstanden mit Haiku + WebFetch und trugen nachweislich falsche Befunde
+ * (`leadRecherche.mjs`). Die feste Vorlage würde sie nur wieder hochholen.
+ */
+export const RECHERCHE_NEU_AB = '2026-09-16'
+
+/**
+ * Kalter Thread (nie geantwortet) auf einer Erstnachricht vor dem Stichtag:
+ * Der Agent prüft die Seite neu und schreibt einen frischen Text, statt dass
+ * die Vorlage die alte, womöglich falsche Nachricht hochholt. Kevin: *„dann
+ * werden wir auch im Follow-up die Leute nicht bekommen."*
+ */
+export function istNeuPruefFall(thread, now, antwortenJeLead = new Map(), stichtag = RECHERCHE_NEU_AB) {
+  if (istEndzustand(thread.status)) return false
+  if (thread.snoozed_until != null && new Date(thread.snoozed_until).getTime() > now.getTime()) return false
+  if (thread.last_from !== 'me') return false
+  if (!Number.isInteger(thread.followup_stage) || thread.followup_stage < 0 || thread.followup_stage >= 3) return false
+  if (thread.loom_status === 'verschickt') return false
+  if (thread.starred && thread.loom_status === 'offen') return false
+  if (hatGeantwortet(thread, antwortenJeLead)) return false
+  const t = thread.last_message_at ? new Date(thread.last_message_at).getTime() : NaN
+  return Number.isFinite(t) && t < new Date(stichtag).getTime()
+}
+
 /** Hat der Lead in diesem Gespräch je geschrieben? Verlauf ODER Lead-Ereignis. */
 export function hatGeantwortet(thread, antwortenJeLead = new Map()) {
   if (thread.lead_id && antwortenJeLead.has(thread.lead_id)) return true
@@ -282,8 +308,10 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
     const k = t.lead_id ? klassen.get(t.lead_id) : undefined
     return { r: klassenRang(k?.klasse), p: typeof k?.punkte === 'number' ? k.punkte : -1 }
   }
+  const artVon = (t) =>
+    istNachfassFall(t, now, antwortenJeLead) ? 'nachfassen' : istNeuPruefFall(t, now, antwortenJeLead) ? 'neu_pruefen' : null
   const fassen = (nachfassen?.threads ?? [])
-    .filter((t) => istNachfassFall(t, now, antwortenJeLead) && !hatFrischenEntwurf(t))
+    .filter((t) => artVon(t) && !hatFrischenEntwurf(t))
     .sort((a, b) => {
       const ra = rang(a)
       const rb = rang(b)
@@ -298,7 +326,7 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
       threads: [
         ...dran.slice(0, max).map((t) => ({ art: 'antwort', ...basis(t) })),
         ...fassen.slice(0, fassenMax).map((t) => ({
-          art: 'nachfassen',
+          art: artVon(t),
           ...basis(t),
           tage_seit_antwort: null,
           tage_seit_kevin: tageSeit(t.last_message_at, now),

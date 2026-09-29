@@ -10,7 +10,7 @@
  * Start: npx tsx scripts/verify-antwort-entwuerfe.ts
  */
 // @ts-expect-error — .mjs ohne Typen; genau die Datei, die der Runner lädt.
-import { ANTWORT_MAX, NACHFASSEN_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran, istNachfassFall } from '../runner/linkedin/antwortThreads.mjs'
+import { ANTWORT_MAX, NACHFASSEN_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran, istNachfassFall, istNeuPruefFall } from '../runner/linkedin/antwortThreads.mjs'
 import { bucketOf } from '../app/src/cockpit/lib/linkedinFollowups'
 import type { LinkedinThread, LinkedinThreadStatus, LinkedinLastFrom } from '../app/src/types/db'
 
@@ -199,7 +199,8 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
 
   const wartet = thread({ last_message_at: tageHer(1) })
   const { input } = baueAntwortInput([wartet], NOW, undefined, { threads: [kalt, warm, imVerlauf], antwortenJeLead: antworten })
-  check('8i Antworten zuerst, dann Nachfassen', input.threads.map((t: { art: string }) => t.art), ['antwort', 'nachfassen', 'nachfassen'])
+  // Der kalte Thread liegt vor dem Recherche-Stichtag → kommt als neu_pruefen mit (Test 9).
+  check('8i Antworten zuerst, dann Nachfassen', input.threads.map((t: { art: string }) => t.art), ['antwort', 'nachfassen', 'neu_pruefen', 'nachfassen'])
   const val = input.threads.find((t: { thread_key: string }) => t.thread_key === warm.thread_key) as { letzte_antwort_lead: { text: string } | null; tage_seit_kevin: number }
   check('8j letzte Antwort aus der Lead-Kartei geht mit', val?.letzte_antwort_lead?.text, 'Die Seite wird im Hintergrund gerade überarbeitet.')
   check('8k Tage seit Kevins Nachricht', val?.tage_seit_kevin, 183)
@@ -216,6 +217,16 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const alleMitAntwort = new Map(['L-alt', 'L-b', 'L-a'].map((id) => [id, { text: 'x', ts: tageHer(300) }]))
   const klassen = new Map([['L-b', { klasse: 'B', punkte: 40 }], ['L-a', { klasse: 'A', punkte: 70 }]])
   const sortiert = baueAntwortInput([], NOW, undefined, { threads: [alt, b, a], antwortenJeLead: alleMitAntwort, klassen })
+  // 9. Kalte Follow-ups auf alte Erstnachrichten (29.09.2026): neu prüfen statt Vorlage.
+  const altKalt = thread({ lead_id: 'L-x', last_from: 'me', last_message_at: '2026-07-14T10:00:00Z' } as Partial<LinkedinThread>)
+  const frischKalt = thread({ lead_id: 'L-y', last_from: 'me', last_message_at: '2026-09-18T10:00:00Z' } as Partial<LinkedinThread>)
+  const spaeter = new Date('2026-09-29T12:00:00Z')
+  check('9a alte Erstnachricht, nie geantwortet → neu prüfen', istNeuPruefFall(altKalt, spaeter), true)
+  check('9b Erstnachricht nach dem Stichtag → Vorlage bleibt', istNeuPruefFall(frischKalt, spaeter), false)
+  check('9c hat geantwortet → Nachfassen, nicht neu prüfen', istNeuPruefFall(altKalt, spaeter, new Map([['L-x', { text: 'x', ts: null }]])), false)
+  const gemischt = baueAntwortInput([], spaeter, undefined, { threads: [altKalt, frischKalt], antwortenJeLead: new Map() })
+  check('9d nur der alte kommt mit, als neu_pruefen', gemischt.input.threads.map((t: { art: string }) => t.art), ['neu_pruefen'])
+
   check('8n A vor B vor ungeprüft', sortiert.input.threads.map((t: { thread_key: string }) => t.thread_key), [a.thread_key, b.thread_key, alt.thread_key])
 }
 

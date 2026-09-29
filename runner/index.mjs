@@ -3746,7 +3746,7 @@ async function maybeAntwortEntwuerfe() {
 async function antwortLaeufe(gebaut, { signal } = {}) {
   // Nachfassen in Paketen zu ANTWORT_MAX: 40 in einem Lauf sprengten die zehn
   // Minuten, 18 sind am 28.09. in 5½ Minuten durchgelaufen.
-  const nachfassen = gebaut.input.threads.filter((t) => t.art === 'nachfassen')
+  const nachfassen = gebaut.input.threads.filter((t) => t.art !== 'antwort')
   const pakete = []
   for (let i = 0; i < nachfassen.length; i += ANTWORT_MAX) pakete.push(nachfassen.slice(i, i + ANTWORT_MAX))
   const teile = [gebaut.input.threads.filter((t) => t.art === 'antwort'), ...pakete].filter((threads) => threads.length)
