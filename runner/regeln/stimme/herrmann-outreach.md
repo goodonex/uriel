@@ -213,7 +213,7 @@ nicht als Thema.
 (Käufer-Winkel, bei eigenem Vertrieb Ankauf-Winkel, siehe `schreiben.md`).
 Hausverwaltungen bekommen erst eine Nachricht, wenn ihr Pain geklärt ist.
 
-## Antworten auf Replies — Regeln aus Kevins Durchsicht (28.09.2026)
+## Antworten auf Replies — Regeln aus Kevins Durchsicht (28.09.2026, ergänzt 29.09.)
 
 Am 28.09. fielen 9 von 16 Antwort-Entwürfen bei Kevin durch. Jede Regel hier
 steht für einen echten Fehlschlag; das Beispiel darunter ist die Fassung, die
@@ -241,15 +241,52 @@ gepasst hätte.
    Hallo Hartmut, läuft die neue Maklersoftware inzwischen rund?
    ```
 
-3. **Website im Umbau oder „kommt bald" = kein Befund, kein Pitch.** Die alte
-   Seite zu kritisieren, während er die neue baut, ist sinnlos. Zusagen,
-   reinzuschauen, und Wiedervorlage auf den genannten Termin (ohne Termin:
-   zwei Wochen). Dann Follow-up mit Befund zur NEUEN Seite.
+3. **Website im Umbau oder „kommt bald" = kein Befund, kein Pitch, aber immer
+   die Frage nach dem Termin.** Die alte Seite zu kritisieren, während er die
+   neue baut, ist sinnlos. Das Einzige, was Kevin in dem Moment braucht, ist
+   das Datum (Kevin, 29.09.2026: *„das ist die wichtigste Information: wann
+   wird sie online gehen, dann schaue ich drauf"*). „Ich schau rein, sobald sie
+   live ist" allein ist ein Versprechen ohne Anlass, je wieder zu schreiben.
+   Die Antwort endet deshalb mit der Frage nach dem Live-Termin; nur wenn der
+   Lead ihn schon genannt hat, entfällt sie. Wiedervorlage auf den Termin
+   (nennt er keinen: zwei Wochen), dann Follow-up zur NEUEN Seite nach Regel 4.
+   *Fehler am 28.09.: Der Entwurf an Andrea endete bei „sobald die neue Seite
+   live ist", Kevin musste die Frage vor dem Senden selbst anhängen.*
    ```
-   Hi Andrea, alles klar. Dann schau ich rein, sobald die neue Seite live ist.
+   Hi Andrea, alles klar. Dann schau ich rein, sobald die neue Seite live ist. Wann soll sie denn live gehen?
    ```
 
-4. **Neuigkeiten des Leads zuerst würdigen.** Übernahme, Gründung, Jubiläum,
+4. **Die neue Seite ist live: Glückwunsch, Punkte nur andeuten, dann die Frage
+   nach den Eigentümern.** Wer gerade relauncht hat, will keine Besprechung
+   seiner frischen Seite, und eine neue Website verkauft man ihm jetzt nicht.
+   Offen ist aber fast immer, wie über die neue Seite überhaupt Eigentümer
+   reinkommen. Genau da setzt das Angebot an (Landingpage, Werbekonto,
+   Kampagne). Aufbau, drei kurze Sätze, auch wenn der Lead nur einen Einzeiler
+   geschrieben hat:
+   1. Glückwunsch zur neuen Seite plus ein echtes Detail, das man gesehen hat.
+   2. Punkte andeuten, nicht aufzählen: „Mir sind beim Durchklicken noch zwei,
+      drei Punkte aufgefallen", höchstens mit dem Bereich dazu („rund um die
+      Bewertung"). Die Punkte müssen echt sein und aus der Prüfung der Seite
+      stammen (Regel 1). Genannt werden sie erst, wenn er danach fragt, dann
+      zwei, höchstens drei, je ein Satz.
+   3. Letzter Satz fix: `Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?`
+
+   Kein Befund im Detail, keine Analyse anbieten, keine Kritik an
+   Entscheidungen, die er gerade bewusst getroffen hat. Sagt er darauf „noch
+   nicht" oder „über Empfehlung", ist der nächste Schritt das Telefonat:
+   `Hast du was dagegen, wenn wir zehn Minuten telefonieren?`
+   *Fehler am 29.09.: Auf „Ist bereits live :)" kam eine Seitenbesprechung
+   (Navigation, Ablauf, Team, dann der Befund „Rechenweg statt schneller
+   Online-Zahl") und das Analyse-Angebot. Kevin: „Wieso nicht Glückwunsch zur
+   neuen Seite, mir fallen da noch 2–3 Verbesserungsvorschläge auf, dann …
+   ist auch fest eingeplant, darüber Eigentümer reinzubekommen?"*
+   ```
+   Hi Phil, Glückwunsch zur neuen Seite, Verkaufen steht jetzt ganz vorne. Mir sind beim Durchklicken noch zwei, drei Punkte aufgefallen, vor allem rund um die Bewertung.
+
+   Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?
+   ```
+
+5. **Neuigkeiten des Leads zuerst würdigen.** Übernahme, Gründung, Jubiläum,
    neue Seite: Der erste Satz reagiert darauf wie ein Mensch („Glückwunsch zur
    Übernahme"). Ein Satz, der nur die Lage kommentiert („das ist der Moment, in
    dem …"), hat keine Funktion und fliegt.
@@ -257,7 +294,7 @@ gepasst hätte.
    Hi Phil, Glückwunsch zur Übernahme. Dann bin ich auf die neue Seite gespannt. Wann soll sie live gehen?
    ```
 
-5. **Die Absage-Rückfrage passt nur auf eine Lage.** „Heisst das, ihr habt mehr
+6. **Die Absage-Rückfrage passt nur auf eine Lage.** „Heisst das, ihr habt mehr
    Eigentümer, als ihr abarbeiten könnt?" nur bei einem pauschalen „kein
    Interesse" von jemandem, der von Eigentümer-Mandaten lebt. Nie bei:
    - **begründeter Absage** → auf genau den Grund eingehen:
@@ -275,14 +312,14 @@ gepasst hätte.
      Moin Arne, alles klar. Was macht ihr bei btl RE genau, eher Vermittlung oder Beratung?
      ```
 
-6. **Humor mit Humor beantworten.** Scherzt der Lead („keine Eigentümer
+7. **Humor mit Humor beantworten.** Scherzt der Lead („keine Eigentümer
    Fummel"), antwortet der erste Halbsatz locker darauf, danach eine Frage zu
    SEINEM Claim oder Geschäft. Nie belehren, nie seine Lage erklären.
    ```
    Hallo Herr Zamarski, Fummel ist gut, das nehm ich mit. Und wer die Adressen seiner Stadt alle kennt, braucht vermutlich auch keinen. Läuft bei Ihnen alles über Empfehlung und Ihren Namen vor Ort?
    ```
 
-7. **Einen Befund nur, wenn er trägt — und vorher die Unterseiten ansehen.**
+8. **Einen Befund nur, wenn er trägt — und vorher die Unterseiten ansehen.**
    Eine ordentliche Seite wird nicht an einem einzelnen Satz aufgehängt. Der
    stärkste Aufhänger ist oft: Das Gute steckt in den Unterseiten (Team mit
    Foto, Referenzen, Verkaufsablauf), die Startseite zeigt davon nichts. Das
@@ -299,9 +336,26 @@ gepasst hätte.
    Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
    ```
 
-8. **Jede Antwort greift mindestens ein konkretes Detail aus der Nachricht des
+9. **Jede Antwort greift mindestens ein konkretes Detail aus der Nachricht des
    Leads auf.** Test: Passt der Text auch als Antwort auf eine andere Nachricht,
    ist er falsch.
+
+10. **Antwortet der Lead an Kevins Punkt vorbei, den Punkt in einem Satz
+    zurückholen.** Erst seine Aussage stehen lassen (ohne sie zu bewerten),
+    dann klarstellen, worum es eigentlich ging, dann EIN nächster Schritt.
+    Nicht seine Aussage loben und über das Missverständnis hinweg zum Termin
+    springen: Dann telefoniert man über das Falsche. Bietet er selbst einen
+    Austausch an, ist der Schlusssatz der feste Telefonat-CTA, nicht Link und
+    Nummer zur Auswahl.
+    *Fehler am 29.09.: Sven (Projektentwickler) las den Befund zu den
+    Grundstückseigentümern als Frage nach Käufern („von 17 sind 11 so gut wie weg").
+    Der Entwurf lobte die Quote und schickte Terminlink ODER Nummer, das
+    Missverständnis blieb stehen, dazu „Moin" auf sein „Hallo".*
+    ```
+    Hallo Sven, glaub ich sofort, an den Käufern zweifle ich bei dem Produkt auch nicht. Mir ging es um die andere Seite, die Grundstücke für die nächsten 17.
+
+    Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    ```
 
 ## Edge Cases
 
