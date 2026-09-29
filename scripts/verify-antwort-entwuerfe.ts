@@ -207,6 +207,16 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const gedeckelt = baueAntwortInput([], NOW, undefined, { threads: viele, antwortenJeLead: antworten })
   check('8l eigener Deckel fürs Nachfassen', gedeckelt.input.threads.length, NACHFASSEN_MAX)
   check('8m Rest wird gemeldet', gedeckelt.weitereNachfassen, 2)
+
+  // Reihenfolge wie im Cockpit: Klasse vor Alter — sonst bekommen Neujahrsgrüße
+  // vom Januar Texte und der B-Lead oben in Kevins Liste nicht.
+  const alt = thread({ lead_id: 'L-alt', last_from: 'me', last_message_at: tageHer(260) } as Partial<LinkedinThread>)
+  const b = thread({ lead_id: 'L-b', last_from: 'me', last_message_at: tageHer(183) } as Partial<LinkedinThread>)
+  const a = thread({ lead_id: 'L-a', last_from: 'me', last_message_at: tageHer(20) } as Partial<LinkedinThread>)
+  const alleMitAntwort = new Map(['L-alt', 'L-b', 'L-a'].map((id) => [id, { text: 'x', ts: tageHer(300) }]))
+  const klassen = new Map([['L-b', { klasse: 'B', punkte: 40 }], ['L-a', { klasse: 'A', punkte: 70 }]])
+  const sortiert = baueAntwortInput([], NOW, undefined, { threads: [alt, b, a], antwortenJeLead: alleMitAntwort, klassen })
+  check('8n A vor B vor ungeprüft', sortiert.input.threads.map((t: { thread_key: string }) => t.thread_key), [a.thread_key, b.thread_key, alt.thread_key])
 }
 
 console.log(`${pass} bestanden, ${fail} fehlgeschlagen`)

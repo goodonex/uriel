@@ -171,6 +171,11 @@ export const LEAD_ENDSTATUS = new Set(['kunde', 'disqualifiziert', 'ruht'])
  *   keine Ankündigung.
  */
 export const NACHFASSEN_MAX = 6
+/** Spiegel von `klassenRang` (app/src/cockpit/lib/leadKlasse.ts). */
+export function klassenRang(klasse) {
+  return klasse === 'A' ? 0 : klasse === 'B' ? 1 : klasse === 'C' ? 3 : 2
+}
+
 /** Frühestens nach der ersten Follow-up-Schwelle (`FOLLOWUP_THRESHOLDS_DAYS[0]`). */
 export const NACHFASSEN_AB_TAGEN = 3
 
@@ -252,9 +257,21 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
   // Nachfassen kommt NACH den Antworten und hat einen eigenen Deckel: Wer
   // geschrieben hat, wartet dringender als der, dem Kevin zuletzt schrieb.
   const antwortenJeLead = nachfassen?.antwortenJeLead ?? new Map()
+  // Reihenfolge wie die Follow-up-Spur im Cockpit (`followupPosten`): Klasse A,
+  // B, ungeprüft, C, darin die meisten Punkte zuerst. Nur so hängen die Texte an
+  // den Posten, die Kevin oben sieht, und nicht an Neujahrsgrüßen vom Januar.
+  const klassen = nachfassen?.klassen ?? new Map()
+  const rang = (t) => {
+    const k = t.lead_id ? klassen.get(t.lead_id) : undefined
+    return { r: klassenRang(k?.klasse), p: typeof k?.punkte === 'number' ? k.punkte : -1 }
+  }
   const fassen = (nachfassen?.threads ?? [])
     .filter((t) => istNachfassFall(t, now, antwortenJeLead) && !hatFrischenEntwurf(t))
-    .sort((a, b) => new Date(a.last_message_at).getTime() - new Date(b.last_message_at).getTime())
+    .sort((a, b) => {
+      const ra = rang(a)
+      const rb = rang(b)
+      return ra.r - rb.r || rb.p - ra.p || new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+    })
   const fassenMax = nachfassen?.max ?? NACHFASSEN_MAX
 
   return {
@@ -296,7 +313,7 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
     `linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.them` +
       `&status=in.(active,waiting_reply)&select=*&order=last_message_at.asc`,
   )
-  const [endLeads, antwortEreignisse, kevinZuletzt] = await Promise.all([
+  const [endLeads, antwortEreignisse, kevinZuletzt, klassenZeilen] = await Promise.all([
     holeAlle(supabaseUrl, headers, `leads?brand_id=eq.${brand.id}&lead_status=in.(${[...LEAD_ENDSTATUS].join(',')})&select=id&order=id`),
     holeAlle(
       supabaseUrl,
@@ -309,7 +326,13 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
       `linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.me&followup_stage=lt.3` +
         `&status=in.(active,waiting_reply)&select=*&order=last_message_at.asc`,
     ),
+    holeAlle(
+      supabaseUrl,
+      headers,
+      `leads?brand_id=eq.${brand.id}&klasse=not.is.null&select=id,klasse,punkte:profil->punkte&order=id`,
+    ).catch(() => []),
   ])
+  const klassen = new Map(klassenZeilen.map((z) => [z.id, { klasse: z.klasse, punkte: z.punkte }]))
   const amEnde = new Set(endLeads.map((l) => l.id))
   const keinEndLead = (t) => !(t.lead_id && amEnde.has(t.lead_id))
 
@@ -334,7 +357,7 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
     brandId: brand.id,
     threads,
     uebersprungenOffIcp: wartend.length - threads.length,
-    nachfassen: { threads: nachfassen, antwortenJeLead },
+    nachfassen: { threads: nachfassen, antwortenJeLead, klassen },
   }
 }
 
