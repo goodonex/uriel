@@ -3338,7 +3338,13 @@ const RUNDE_TAG_STUNDEN = String(process.env.RUNDE_TAG_STUNDEN ?? '8,11,14,17,20
  * Mini durchläuft. `erstnachrichten` fehlt: Die Etappe arbeitet einen Vorrat ab
  * und hätte fünfmal am Tag den fünffachen Preis.
  */
-const RUNDE_TAG_ETAPPEN = ['postfach', 'verlauf', 'einladungen', 'kontakte', 'leads', 'waechter', 'sortierer', 'entwuerfe']
+/**
+ * **29.09.2026: `erstnachrichten` fährt jetzt auch tagsüber mit** (Kevin: wer
+ * morgens annimmt, stand bis zur nächsten Nacht mit „kein Text bereit" da).
+ * Der Preis-Einwand oben galt dem Tagesbudget von 50 je Lauf; seit die Etappe
+ * nur noch schreibt, wer wirklich wartet, kostet ein leerer Vorrat nichts.
+ */
+const RUNDE_TAG_ETAPPEN = ['postfach', 'verlauf', 'einladungen', 'kontakte', 'leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten']
 /** Überlebt den Runner-Neustart — sonst liefe nach jedem Neustart derselbe Slot erneut. */
 const RUNDE_SLOT_MARKE = 'letzte-zeitplan-runde'
 
@@ -4744,11 +4750,18 @@ const ETAPPEN_ARBEIT = {
      * ist ein eigener Knopf in der Erstnachrichten-Liste, der mit
      * `anzahl: ERSTNACHRICHTEN_NACHSCHUB` kommt und das Tagesbudget nicht fragt.
      */
+    /**
+     * **Kein Tagesdeckel mehr** (29.09.2026, Kevin: *„Lass einfach gar keinen
+     * Deckel … dann sehe ich einfach, wie viele effektiv offen sind."*). Der
+     * Vorrat sind die Annahmen, rund ein Dutzend am Tag; geschrieben wird für
+     * jeden, der wartet. `ERSTNACHRICHTEN_SCHUTZ` bleibt nur als Notbremse
+     * gegen einen Lauf, der sich verrennt (je Text ein Profilbesuch).
+     */
     const TAGESZIEL =
       Number.isInteger(anzahl) && anzahl > 0
         ? anzahl
-        : Math.max(0, Number(process.env.ERSTNACHRICHTEN_TAGESZIEL ?? ERSTNACHRICHTEN_RUNDE) - schonHeute)
-    if (TAGESZIEL === 0) return { text: `Tagesbudget erreicht (${schonHeute} heute)` }
+        : Math.max(0, Number(process.env.ERSTNACHRICHTEN_SCHUTZ ?? 200) - schonHeute)
+    if (TAGESZIEL === 0) return { text: `Notbremse erreicht (${schonHeute} heute)` }
     if (!dataforseoZugang()) {
       console.warn('[runner] Erstnachrichten: DATAFORSEO_LOGIN/DATAFORSEO_PASSWORD fehlen (runner/.env oder ~/.seo-skill/.env) — Google-Anzeigen bleiben „unbekannt"')
     }
@@ -4774,7 +4787,10 @@ const ETAPPEN_ARBEIT = {
         break
       }
       zuletztGesamt = gebaut.gesamt
-      melde(`${vorbereitet} von ${TAGESZIEL} Texten fertig · ${gebaut.leads.length} werden geprüft (Batch ${runde + 1})`, Math.min(1, vorbereitet / TAGESZIEL))
+      // Angezeigt wird, wer wirklich wartet — nicht das Budget (29.09.2026:
+      // „0 von 39 Texten" bei acht Wartenden).
+      const ziel = Math.min(TAGESZIEL, vorbereitet + gebaut.gesamt)
+      melde(`${vorbereitet} von ${ziel} Texten fertig · ${gebaut.leads.length} werden geprüft (Batch ${runde + 1})`, Math.min(1, vorbereitet / ziel))
       /**
        * Erst recherchieren, dann schreiben (07.09.2026) — je Lead ein eigener,
        * kurzlebiger Lauf, dessen Kontext mit ihm stirbt. Der Schreib-Agent
@@ -4782,7 +4798,7 @@ const ETAPPEN_ARBEIT = {
        * deshalb keine Web-Werkzeuge mehr.
        */
       const recherchiert = await rechercheLeads(gebaut.leads, {
-        melde: (t) => melde(`${vorbereitet} von ${TAGESZIEL} Texten fertig · Batch ${runde + 1}: ${t}`, Math.min(1, vorbereitet / TAGESZIEL)),
+        melde: (t) => melde(`${vorbereitet} von ${ziel} Texten fertig · Batch ${runde + 1}: ${t}`, Math.min(1, vorbereitet / ziel)),
         cliPath: CLI_PATH,
         cwd: VAULT,
         signal,

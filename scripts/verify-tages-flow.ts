@@ -60,11 +60,12 @@ function eingabe(teil: Partial<FlowEingabe> = {}): FlowEingabe {
 const ANFRAGEN = 0
 const ERSTNACHRICHTEN = 1
 const ANTWORTEN = 2
-const LOOMS = 3
-const FOLLOWUPS = 4
+const FOLLOWUPS = 3
+const LOOMS = 4
 
 // --- 1. Die Reihenfolge ist Kevins Diktat (D1, 18.08.2026) ---------------
-const erwartet: StufenId[] = ['anfragen', 'erstnachrichten', 'antworten', 'looms', 'followups']
+// 29.09.2026: Follow-ups wieder vor den Looms (Kevins Diktat, Sprint).
+const erwartet: StufenId[] = ['anfragen', 'erstnachrichten', 'antworten', 'followups', 'looms']
 check(
   'die sechs Stufen stehen in Kevins Reihenfolge',
   JSON.stringify(TAGES_FLOW.map((s) => s.id)) === JSON.stringify(erwartet),

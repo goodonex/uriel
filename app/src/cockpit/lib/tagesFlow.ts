@@ -162,6 +162,10 @@ export interface Stufe {
  * InMail-Stufe ist raus: ohne Sales Navigator gibt es keine InMails. Die
  * `StufenId` 'reaktivierung' bleibt als Typ stehen, damit alte Einträge in
  * `ui_settings`/`sales_tagesportionen` nichts zerschiessen.
+ *
+ * **Umbau 29.09.2026 (Kevins Diktat, Sprint):** Follow-ups wieder VOR die
+ * Looms. Reihenfolge: Anfragen, Erstnachrichten, Antworten, Follow-ups, Looms —
+ * die ersten vier sind schnelle Chat-Arbeit, die Looms der lange Block danach.
  */
 export const TAGES_FLOW: readonly Stufe[] = [
   {
@@ -210,15 +214,6 @@ export const TAGES_FLOW: readonly Stufe[] = [
     standardZiel: null,
   },
   {
-    id: 'looms',
-    art: 'zaehler',
-    feld: 'looms',
-    label: 'Looms',
-    langLabel: 'Looms',
-    hinweis: 'Zugesagte Analysen aufnehmen und rausschicken.',
-    standardZiel: Math.round(WEEK_TARGETS.looms / ARBEITSTAGE_WOCHE),
-  },
-  {
     id: 'followups',
     art: 'zaehler',
     feld: 'li_followups',
@@ -228,6 +223,15 @@ export const TAGES_FLOW: readonly Stufe[] = [
     // Kein festes Ziel: die Portion kommt aus dem Fälligen, gedrosselt auf
     // FOLLOWUP_PORTION_TAG. Siehe sollFuer().
     standardZiel: null,
+  },
+  {
+    id: 'looms',
+    art: 'zaehler',
+    feld: 'looms',
+    label: 'Looms',
+    langLabel: 'Looms',
+    hinweis: 'Zugesagte Analysen aufnehmen und rausschicken.',
+    standardZiel: Math.round(WEEK_TARGETS.looms / ARBEITSTAGE_WOCHE),
   },
 ]
 

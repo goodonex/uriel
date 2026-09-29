@@ -78,7 +78,8 @@ console.log('\n2) Was der Tag-Slot fährt')
   check('die Tag-Liste steht im Runner', tagEtappen.length > 0)
   // Die einzige Etappe, die pro Lauf zweistellig Geld zieht (je Lead eine
   // Website-Recherche): Sie gehört in den einen Nachtlauf, nicht in fünf Slots.
-  check('Erstnachrichten laufen NICHT im Tag-Slot', !tagEtappen.includes('erstnachrichten'))
+  // Seit 29.09.2026 im Tag-Slot: wer morgens annimmt, soll mittags seinen Text haben.
+  check('Erstnachrichten laufen auch im Tag-Slot', tagEtappen.includes('erstnachrichten'))
   check('das Postfach läuft im Tag-Slot', tagEtappen.includes('postfach'))
   // Kostet nichts, wenn niemand wartet — und beantwortet den Lead, der heute
   // Vormittag geschrieben hat, noch heute Vormittag.
@@ -89,7 +90,9 @@ console.log('\n2) Was der Tag-Slot fährt')
   const namen = tagEtappen.split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean)
   const bekannt = new Set(ETAPPEN.map((e) => e.schluessel))
   check('jeder Name in der Tag-Liste ist eine echte Etappe', namen.every((n) => bekannt.has(n)), namen.filter((n) => !bekannt.has(n)).join(', '))
-  check('der Tag-Slot fährt weniger als die volle Runde', neueRunde({ jetzt: Date.now(), nur: namen }).etappen.length < ETAPPEN.length)
+  // Seit 29.09.2026 fährt der Tag-Slot alle Etappen (mit den Erstnachrichten) — die
+  // Liste bleibt trotzdem stehen, damit eine neue, teure Etappe nicht still mitläuft.
+  check('der Tag-Slot fährt höchstens die volle Runde', neueRunde({ jetzt: Date.now(), nur: namen }).etappen.length <= ETAPPEN.length)
   check('der Nacht-Slot fährt alles', neueRunde({ jetzt: Date.now(), nur: null }).etappen.length === ETAPPEN.length)
 }
 
@@ -117,9 +120,10 @@ console.log('\n4) Der Slot darf nicht still verbrennen')
 console.log('\n5) Das Tagesbudget der Erstnachrichten')
 {
   check('das Budget rechnet gegen den heutigen Tag', /const schonHeute = markeLies\('erstnachrichten-tag'\) === heuteZahl \? markeLies\('erstnachrichten-heute'\) : 0/.test(kern))
-  check('das Tagesziel ist das Ziel MINUS was heute schon lief', /ERSTNACHRICHTEN_TAGESZIEL \?\? ERSTNACHRICHTEN_RUNDE\) - schonHeute/.test(kern))
+  // Seit 29.09.2026 kein Tagesdeckel, nur eine Notbremse.
+  check('die Notbremse rechnet gegen den heutigen Tag', /ERSTNACHRICHTEN_SCHUTZ \?\? 200\) - schonHeute/.test(kern))
   check('die Runde sind 50 Erstnachrichten (25.09.2026)', /const ERSTNACHRICHTEN_RUNDE = 50\n/.test(kern))
-  check('ist das Budget weg, kostet die Etappe nichts mehr', /if \(TAGESZIEL === 0\) return \{ text: `Tagesbudget erreicht/.test(kern))
+  check('ist die Notbremse erreicht, kostet die Etappe nichts mehr', /if \(TAGESZIEL === 0\) return \{ text: `Notbremse erreicht/.test(kern))
   // Nach jedem Batch, nicht erst am Ende: Ein Abbruch in Batch 3 darf die
   // bezahlten Batches 1 und 2 nicht vergessen.
   // Seit 25.09.2026 zählen fertige Texte aufs Ziel, nicht geprüfte Leads.
