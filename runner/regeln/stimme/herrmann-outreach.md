@@ -401,6 +401,14 @@ gepasst hätte.
     *Fehler am 28.09.: 15 von 21 Antwort-Entwürfen begannen fast wortgleich
     mit „Kommt diese Woche bei dir an", das älteste Ja war vom 13.07.*
 
+    **Achtung, der feste CTA dreht die Logik um:** Auf „Hast du was dagegen,
+    wenn ich sie dir einmal rüberschicke?" heißt „Nein", „nö", „nein, habe ich
+    nicht", „überhaupt nicht" JA. Erst wenn der Lead ausdrücklich ablehnt
+    („bitte nicht", „kein Interesse"), ist es eine Absage.
+    *Fehler am 29.09.: Uwe schrieb „Nein habe ich nicht." Der Entwurf las das
+    als Absage und wechselte mit „Alles klar. Dann eine andere Frage …" das
+    Thema, statt dass Uwe sein Loom bekommt.*
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,
