@@ -176,6 +176,9 @@ export function klasseFuer(p) {
   const jahre = Number.isFinite(profil.jahre_am_markt) ? profil.jahre_am_markt : null
   const team = Number.isFinite(profil.team_personen) ? profil.team_personen : null
   const groesse = String(profil.groesse ?? '')
+  // Seit 29.09.2026: Ohne Tiefenrecherche ersetzt das Website-Signal der
+  // Anreicherung (`anreicherung.mjs`) die fehlende Stufe — nie umgekehrt.
+  const stufe = String(profil.website_stufe || profil.website_signal || '')
 
   const fest = FESTE_RECHTSFORM.has(rechtsform)
   const lange = jahre != null && jahre >= 3
@@ -190,18 +193,18 @@ export function klasseFuer(p) {
   if (rechtsform) fakten.push(rechtsform)
   if (profil.gruendungsjahr) fakten.push(`seit ${profil.gruendungsjahr}`)
   if (team) fakten.push(`Team ${team}`)
-  if (profil.website_stufe) fakten.push(`Seite ${profil.website_stufe}`)
+  if (stufe) fakten.push(`Seite ${stufe}`)
   if (profil.gf === 'angestellt') fakten.push('Kontakt nicht GF')
   const liste = fakten.join(' · ')
 
   let klasse
   let kern
-  if (anzeigen && solide && profil.website_stufe === 'schwach') {
+  if (anzeigen && solide && stufe === 'schwach') {
     klasse = 'A'
     kern = 'Zahlt für Anzeigen, solide Firma, schwache Seite'
   } else if (solide || anzeigen) {
     klasse = 'B'
-    kern = solide && !anzeigen ? 'Solide Firma ohne Anzeigen' : anzeigen && profil.website_stufe !== 'schwach' ? 'Anzeigen + ordentliche Seite' : 'Anzeigen, Firma noch unklar'
+    kern = solide && !anzeigen ? 'Solide Firma ohne Anzeigen' : anzeigen && stufe !== 'schwach' ? 'Anzeigen + ordentliche Seite' : 'Anzeigen, Firma noch unklar'
   } else {
     klasse = 'C'
     kern = neu ? 'Neu am Markt' : einzel ? 'Einzelkämpfer' : 'Unklar'
@@ -257,7 +260,13 @@ export function bewerte(p, jetzt = new Date()) {
   anzeigen = Math.min(35, anzeigen)
 
   const wow = String(profil.wow_potenzial ?? '')
-  const hebel = wow === 'ja' ? 20 : wow === 'knapp' ? 5 : wow === 'nein' || profil.website_stufe === 'stark' ? 0 : 10
+  const signal = String(profil.website_signal ?? '')
+  const hebel =
+    wow === 'ja' ? 20
+    : wow === 'knapp' ? 5
+    : wow === 'nein' || profil.website_stufe === 'stark' ? 0
+    // Noch nicht angesehen: das Website-Signal der Anreicherung (29.09.2026).
+    : signal === 'schwach' ? 18 : signal === 'mittel' ? 10 : signal === 'ordentlich' ? 3 : 10
 
   const fest = FESTE_RECHTSFORM.has(String(profil.rechtsform ?? ''))
   const team = Number(profil.team_personen) >= 3 || Number(profil.jahre_am_markt) >= 3
@@ -293,6 +302,9 @@ export function bewerte(p, jetzt = new Date()) {
   if (profil.gf === 'gf') teile.push('selbst GF')
   if (profil.gf === 'angestellt') teile.push('nicht GF')
   if (wow) teile.push(`Wow ${wow}`)
+  else if (signal) teile.push(`Seite ${signal}${Array.isArray(profil.website_gruende) && profil.website_gruende.length ? ` (${profil.website_gruende.slice(0, 2).join(', ')})` : ''}`)
+  if (profil.jahre_am_markt != null) teile.push(`${profil.jahre_am_markt} Jahre am Markt`)
+  if (profil.team_personen) teile.push(`Team ${profil.team_personen}`)
   if (toteSeite) teile.push('Seite lädt nicht')
   else if (!profil.website) teile.push('keine Seite gefunden')
 

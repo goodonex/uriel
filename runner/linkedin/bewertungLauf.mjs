@@ -12,6 +12,8 @@
  * mit Topf und Punkten daneben („Jetzt angehen · 72 Punkte — Google-Anzeigen
  * seit 2025-03 · GmbH · München · selbst GF").
  */
+import { reichereAn, mischeProfil } from './anreicherung.mjs'
+import { besteNummer } from './kontaktdaten.mjs'
 import { starteBrowser } from './seiteRendern.mjs'
 import { STUFE1_FASSUNG, bewerte, grundprofil } from './grundprofil.mjs'
 
@@ -73,17 +75,36 @@ export async function bewerteStapel({ supabaseUrl, headers, brandId, limit = 40,
       const k = dran[naechster++]
       let uhr
       try {
-        const { profil, kosten: k$ } = await Promise.race([
+        let { profil, kosten: k$ } = await Promise.race([
           grundprofil(k, { browser, cliPath, cwd }),
           new Promise((_, nein) => (uhr = setTimeout(() => nein(new Error('Zeitlimit')), KONTAKT_TIMEOUT_MS))),
         ]).finally(() => clearTimeout(uhr))
         kosten += k$
+        /**
+         * Anreicherung gleich mit (29.09.2026): Nummer, Mail, Alter, Team und
+         * Website-Signal — sonst ersetzte eine Neubewertung das Profil und die
+         * Anrufliste verlöre die Nummer wieder. Scheitert sie, bleibt Stufe 1.
+         */
+        let felder = {}
+        if (profil.website) {
+          try {
+            felder = (await reichereAn(profil.website)).felder
+            profil = mischeProfil(profil, felder)
+          } catch {}
+        }
         const b = bewerte(profil)
         // Nie über ein Profil der Stufe 2 schreiben — die Recherche weiß mehr.
         const res = await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${k.lead_id}&or=(profil.is.null,and(profil->>stufe2_at.is.null,profil->>stand.is.null))`, {
           method: 'PATCH',
           headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ profil: { ...profil, punkte: b.punkte, topf: b.topf }, klasse: b.klasse, klasse_grund: b.grund, profil_at: new Date().toISOString() }),
+          body: JSON.stringify({
+            profil: { ...profil, punkte: b.punkte, topf: b.topf },
+            klasse: b.klasse,
+            klasse_grund: b.grund,
+            profil_at: new Date().toISOString(),
+            ...(besteNummer(felder) ? { telefon: besteNummer(felder) } : {}),
+            ...(felder.email_impressum ? { email: felder.email_impressum } : {}),
+          }),
         })
         if (!res.ok) throw new Error(`PATCH HTTP ${res.status}`)
         toepfe[b.topf] = (toepfe[b.topf] ?? 0) + 1
