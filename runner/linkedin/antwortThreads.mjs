@@ -404,7 +404,7 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
 
   const wartend = rows.filter((t) => istDuBistDran(t, now))
   const threads = wartend.filter(
-    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t) && !wartetAufLoom(t),
+    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t) && !wartetAufLoom(t) && !nurPlatzhalter(t),
   )
   // Nachfassen nur, wo die Follow-up-Spur im Cockpit ihn auch zeigt: Zielgruppe,
   // kein Akquise-Versuch und kein reiner Kontakt (Spiegel von `followupPosten`).
@@ -431,6 +431,16 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
  */
 export function wartetAufLoom(thread) {
   return Boolean(thread.starred) && thread.loom_status === 'offen'
+}
+
+/**
+ * Die letzte Nachricht ist eine Sprachnachricht, ein Bild oder eine Datei, die
+ * (noch) niemand abgeschrieben hat (29.09.2026). Darauf kann der Agent nichts
+ * antworten — Kevin muss selbst reinhören. Eine abgeschriebene Sprachnachricht
+ * („[Sprachnachricht] Ja, läuft …") geht dagegen ganz normal durch.
+ */
+export function nurPlatzhalter(thread) {
+  return /^\[[^\]]+\]$/.test(String(thread.preview ?? '').trim())
 }
 
 /** PostgREST liefert höchstens 1000 Zeilen je Abfrage — seitenweise holen. */

@@ -10,7 +10,7 @@
  * Start: npx tsx scripts/verify-antwort-entwuerfe.ts
  */
 // @ts-expect-error — .mjs ohne Typen; genau die Datei, die der Runner lädt.
-import { ANTWORT_MAX, NACHFASSEN_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran, istNachfassFall, istNeuPruefFall } from '../runner/linkedin/antwortThreads.mjs'
+import { ANTWORT_MAX, NACHFASSEN_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran, istNachfassFall, istNeuPruefFall, nurPlatzhalter } from '../runner/linkedin/antwortThreads.mjs'
 import { bucketOf } from '../app/src/cockpit/lib/linkedinFollowups'
 import type { LinkedinThread, LinkedinThreadStatus, LinkedinLastFrom } from '../app/src/types/db'
 
@@ -228,6 +228,12 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const offline = thread({ last_from: 'me', last_message_at: '2026-09-17T10:00:00Z', preview: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?', verlauf: [] } as Partial<LinkedinThread>)
   check('9e frisch, aber ohne Analyse-Angebot → neu prüfen', istNeuPruefFall(offline, spaeter), true)
   check('9d nur der alte kommt mit, als neu_pruefen', gemischt.input.threads.map((t: { art: string }) => t.art), ['neu_pruefen'])
+
+  // 10. Unabgeschriebene Sprachnachricht: kein Agent-Lauf, Kevin hört selbst.
+  check('10a Platzhalter allein', nurPlatzhalter({ preview: '[Sprachnachricht]' }), true)
+  check('10b Datei mit Namen', nurPlatzhalter({ preview: '[Datei: Expose.pdf]' }), true)
+  check('10c abgeschrieben', nurPlatzhalter({ preview: '[Sprachnachricht] Ja, läuft super.' }), false)
+  check('10d normaler Text', nurPlatzhalter({ preview: 'Klingt spannend' }), false)
 
   check('8n A vor B vor ungeprüft', sortiert.input.threads.map((t: { thread_key: string }) => t.thread_key), [a.thread_key, b.thread_key, alt.thread_key])
 }

@@ -3839,10 +3839,16 @@ async function maybeSortierer() {
  *
  * Zwei Stunden Takt, 6 bis 20 Uhr, auch am Wochenende: Antworten kommen nicht
  * nur werktags, und ein Lauf kostet rund 45 Sekunden.
+ *
+ * **Seit 29.09.2026 alle 30 Minuten.** Kevin arbeitet tagsüber die Antworten
+ * ab und fand vier neue ohne Entwurf: „bei Antworten habe ich jetzt nur deren
+ * letzte Nachricht und keine Antwort, die ich rausschicken kann." Der Sync
+ * selbst dauerte am 29.09. 9,4 Sekunden für 178 Threads; danach schreibt
+ * `antwortenSofort` die Entwürfe für neue Antworten direkt.
  */
 const POSTFACH_AB_STUNDE = Number(process.env.POSTFACH_STUNDE ?? 6)
 const POSTFACH_BIS_STUNDE = Number(process.env.POSTFACH_BIS_STUNDE ?? 20)
-const POSTFACH_ABSTAND_MS = Number(process.env.POSTFACH_ABSTAND_MS ?? 2 * 60 * 60 * 1000)
+const POSTFACH_ABSTAND_MS = Number(process.env.POSTFACH_ABSTAND_MS ?? 30 * 60 * 1000)
 /**
  * Auf Platte, nicht im Prozess (20.08.): Als Modul-Variable war der Zwei-
  * Stunden-Takt wirkungslos — nach jedem Runner-Neustart (Schlaf/Wach, laut Log
@@ -3901,11 +3907,46 @@ async function maybePostfachSync() {
       // haelt sonst den Sync-Zweig besetzt. Der Deckel begrenzt ihn auf die
       // Threads, die seit dem letzten Mal dazugekommen sind.
       void verlaufNachziehen()
+      void antwortenSofort()
     } finally {
       linkedinSyncRunning = false
     }
   } catch (e) {
     console.error('[runner] postfach-sync übersprungen:', e?.message ?? e)
+  }
+}
+
+/**
+ * Entwürfe für neue Antworten sofort nach dem Postfach-Sync (29.09.2026).
+ *
+ * Bis heute entstanden sie nur zu den festen Runden (8, 11, 14, 17, 20 Uhr).
+ * Am 29.09. schrieben vier Leads zwischen 15:17 und 16:30 — Kevin saß davor
+ * und hatte nichts zum Abschicken. Hier nur die Antworten, nicht das
+ * Nachfassen: Das bleibt bei den Runden.
+ *
+ * Jeder Thread geht mit demselben Stand nur einmal an den Agenten. Sonst würde
+ * einer, für den der Agent bewusst keinen Entwurf schreibt (Ja zum Loom, nur
+ * ein Daumen), alle 30 Minuten erneut vorgelegt.
+ */
+const SOFORT_ANTWORT_ABSTAND_MS = 20 * 60 * 1000
+let letzteSofortAntwort = 0
+const schonVorgelegt = new Map()
+async function antwortenSofort() {
+  try {
+    if (Date.now() - letzteSofortAntwort < SOFORT_ANTWORT_ABSTAND_MS) return
+    if ([...running.values()].some((r) => r.agent === 'linkedin-antwort-entwuerfe')) return
+    const gebaut = await antwortEntwuerfeInput(new Date())
+    const neu = (gebaut?.input.threads ?? []).filter(
+      (t) => t.art === 'antwort' && schonVorgelegt.get(t.thread_key) !== t.tage_seit_antwort + '|' + t.preview,
+    )
+    if (!neu.length) return
+    if (!(await warteAufRechner('linkedin-antwort-entwuerfe'))) return
+    letzteSofortAntwort = Date.now()
+    for (const t of neu) schonVorgelegt.set(t.thread_key, t.tage_seit_antwort + '|' + t.preview)
+    console.log(`[runner] ${neu.length} neue Antwort(en) — Entwürfe sofort`)
+    await startRun('linkedin-antwort-entwuerfe', { threads: neu })
+  } catch (e) {
+    console.error('[runner] Sofort-Entwürfe übersprungen:', e?.message ?? e)
   }
 }
 
