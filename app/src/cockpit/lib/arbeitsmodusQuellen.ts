@@ -245,6 +245,7 @@ export function followupPosten(
   const brauchtNeuenText = (t: LinkedinThread) => {
     if (t.loom_status === 'verschickt') return false
     if (imGespraech(t, beantworteteThreads)) return true
+    if (optionen.nurNachAnalyseAngebot && !botAnalyseAn(t)) return true
     return neuVor != null && t.last_message_at != null && new Date(t.last_message_at).getTime() < neuVor
   }
   return threads
@@ -309,6 +310,21 @@ export interface FollowupOptionen {
   nurMitText?: boolean
   /** Kalte Threads, deren letzte Nachricht vor diesem Datum liegt, bekommen keine Vorlage. */
   neuerTextVor?: string
+  /**
+   * Die Vorlage nur, wenn Kevins Nachricht die Analyse angeboten hat. Sie holt
+   * „es" hoch und bietet die Analyse erneut an — nach „Ist die Seite gerade
+   * offline?" oder „Wo finde ich euch?" wäre das eine Analyse einer Seite, die
+   * nicht lädt oder nicht existiert (Jan Barendsma, Melina Haller, 29.09.2026).
+   */
+  nurNachAnalyseAngebot?: boolean
+}
+
+/** Kevins letzte Nachricht bot die Analyse an. Unbekannter Text zählt als Ja — dann gilt wie bisher die Vorlage. */
+export function botAnalyseAn(t: LinkedinThread): boolean {
+  const eigene = verlaufVon(t).filter((m) => m.sender === 'me')
+  const text = eigene.length ? eigene[eigene.length - 1].text : t.last_from === 'me' ? (t.preview ?? '') : ''
+  if (!text.trim()) return true
+  return /analyse|rüberschick|zusenden/i.test(text)
 }
 
 /**
@@ -327,7 +343,7 @@ export interface FollowupOptionen {
  * Posten ohne Text füllt nur Plätze der Tagesportion, die Kevin nicht
  * abarbeiten kann.
  */
-export const FOLLOWUP_NUR_SENDEFERTIG: FollowupOptionen = { nurMitText: true, neuerTextVor: '2026-09-16' }
+export const FOLLOWUP_NUR_SENDEFERTIG: FollowupOptionen = { nurMitText: true, neuerTextVor: '2026-09-16', nurNachAnalyseAngebot: true }
 
 /** Hat der Lead in diesem Gespräch je geschrieben? Spiegel von `hatGeantwortet` im Runner. */
 export function imGespraech(t: LinkedinThread, beantworteteThreads: ReadonlySet<string>): boolean {

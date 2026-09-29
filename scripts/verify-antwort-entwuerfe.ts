@@ -219,12 +219,14 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const sortiert = baueAntwortInput([], NOW, undefined, { threads: [alt, b, a], antwortenJeLead: alleMitAntwort, klassen })
   // 9. Kalte Follow-ups auf alte Erstnachrichten (29.09.2026): neu prüfen statt Vorlage.
   const altKalt = thread({ lead_id: 'L-x', last_from: 'me', last_message_at: '2026-07-14T10:00:00Z' } as Partial<LinkedinThread>)
-  const frischKalt = thread({ lead_id: 'L-y', last_from: 'me', last_message_at: '2026-09-18T10:00:00Z' } as Partial<LinkedinThread>)
+  const frischKalt = thread({ lead_id: 'L-y', last_from: 'me', last_message_at: '2026-09-18T10:00:00Z', preview: 'Ich hab dir dazu eine kurze Analyse vorbereitet. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?' } as Partial<LinkedinThread>)
   const spaeter = new Date('2026-09-29T12:00:00Z')
   check('9a alte Erstnachricht, nie geantwortet → neu prüfen', istNeuPruefFall(altKalt, spaeter), true)
   check('9b Erstnachricht nach dem Stichtag → Vorlage bleibt', istNeuPruefFall(frischKalt, spaeter), false)
   check('9c hat geantwortet → Nachfassen, nicht neu prüfen', istNeuPruefFall(altKalt, spaeter, new Map([['L-x', { text: 'x', ts: null }]])), false)
   const gemischt = baueAntwortInput([], spaeter, undefined, { threads: [altKalt, frischKalt], antwortenJeLead: new Map() })
+  const offline = thread({ last_from: 'me', last_message_at: '2026-09-17T10:00:00Z', preview: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?', verlauf: [] } as Partial<LinkedinThread>)
+  check('9e frisch, aber ohne Analyse-Angebot → neu prüfen', istNeuPruefFall(offline, spaeter), true)
   check('9d nur der alte kommt mit, als neu_pruefen', gemischt.input.threads.map((t: { art: string }) => t.art), ['neu_pruefen'])
 
   check('8n A vor B vor ungeprüft', sortiert.input.threads.map((t: { thread_key: string }) => t.thread_key), [a.thread_key, b.thread_key, alt.thread_key])

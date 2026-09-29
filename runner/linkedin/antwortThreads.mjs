@@ -235,8 +235,19 @@ export function istNeuPruefFall(thread, now, antwortenJeLead = new Map(), sticht
   if (thread.loom_status === 'verschickt') return false
   if (thread.starred && thread.loom_status === 'offen') return false
   if (hatGeantwortet(thread, antwortenJeLead)) return false
+  // Ohne Analyse-Angebot passt die Vorlage nicht (Seite offline, keine Seite,
+  // Fokus-Frage): Spiegel von `botAnalyseAn` im Cockpit.
+  if (!botAnalyseAn(thread)) return true
   const t = thread.last_message_at ? new Date(thread.last_message_at).getTime() : NaN
   return Number.isFinite(t) && t < new Date(stichtag).getTime()
+}
+
+/** Kevins letzte Nachricht bot die Analyse an. Unbekannter Text zählt als Ja. */
+export function botAnalyseAn(thread) {
+  const eigene = Array.isArray(thread.verlauf) ? thread.verlauf.filter((m) => m?.sender === 'me' && m.text) : []
+  const text = eigene.length ? eigene[eigene.length - 1].text : thread.last_from === 'me' ? String(thread.preview ?? '') : ''
+  if (!text.trim()) return true
+  return /analyse|rüberschick|zusenden/i.test(text)
 }
 
 /** Hat der Lead in diesem Gespräch je geschrieben? Verlauf ODER Lead-Ereignis. */

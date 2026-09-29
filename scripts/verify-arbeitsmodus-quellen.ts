@@ -180,6 +180,15 @@ function check(label: string, actual: unknown, expected: unknown) {
   const ids = (o: object) => followupPosten(threads, NOW, [], new Set(), new Map(), new Set(['warm']), o).map((p) => p.id).sort()
   check('3d1 ohne Optionen wie bisher', ids({}), ['thread:alt', 'thread:alt-agent', 'thread:frisch', 'thread:warm'])
   check('3d2 nur sendefertig', ids({ nurMitText: true, neuerTextVor: stichtag }), ['thread:alt-agent', 'thread:frisch'])
+  const offline = [
+    makeThread({ id: 'offline', name: 'Jan Barendsma', followup_stage: 0, last_message_at: dayAgo(4), last_from: 'me', preview: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?' }),
+    makeThread({ id: 'angebot', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(4), last_from: 'me', preview: 'Ich hab dir dazu eine kurze Analyse vorbereitet. Hast du was dagegen?' }),
+  ]
+  check(
+    '3d3 Vorlage nur nach Analyse-Angebot',
+    followupPosten(offline, NOW, [], new Set(), new Map(), new Set(), { nurMitText: true, nurNachAnalyseAngebot: true }).map((p) => p.id),
+    ['thread:angebot'],
+  )
 }
 
 // 4. erstnachrichtPosten: nur offen, Reihenfolge nach sort_index.
