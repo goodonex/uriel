@@ -15,6 +15,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { SPRACH_PLATZHALTER, behalteTranskripte } from './verlauf.mjs'
+import { sprachnachrichtenAbschreiben } from './sprachnachrichten.mjs'
 
 // ---------- Lokale .env (runner/.env, ein Verzeichnis über diesem Modul) ----------
 function loadLocalEnv() {
@@ -68,7 +70,9 @@ function normalizeName(n) {
  * gespeicherte. Nie ein leeres Array über eine vorhandene Historie schreiben.
  */
 function verlaufFuer(thread, prior) {
-  if (Array.isArray(thread.verlauf) && thread.verlauf.length) return thread.verlauf
+  // Abgeschriebene Sprachnachrichten behalten (29.09.2026) — der Sync liefert
+  // jedes Mal wieder nur den Platzhalter.
+  if (Array.isArray(thread.verlauf) && thread.verlauf.length) return behalteTranskripte(thread.verlauf, prior?.verlauf)
   if (prior && Array.isArray(prior.verlauf)) return prior.verlauf
   return []
 }
@@ -163,6 +167,13 @@ export async function upsertThreads(threads, { dryRun = false } = {}) {
       inserted++
     }
 
+    const verlauf = verlaufSpalteFehlt ? null : verlaufFuer(t, prior)
+    const letzte = verlauf?.length ? verlauf[verlauf.length - 1] : null
+    // Ist die neueste Nachricht eine schon abgeschriebene Sprachnachricht, zeigt
+    // die Vorschau den Text statt des nackten Platzhalters.
+    const preview =
+      t.preview === SPRACH_PLATZHALTER && letzte?.text?.startsWith(SPRACH_PLATZHALTER + ' ') ? letzte.text : t.preview
+
     rows.push({
       brand_id: brandId,
       thread_key: t.thread_key,
@@ -170,7 +181,7 @@ export async function upsertThreads(threads, { dryRun = false } = {}) {
       name: t.name,
       company: t.company,
       profile_url: t.profile_url,
-      preview: t.preview,
+      preview,
       last_message_at: toIsoOrNull(t.last_message_at),
       last_from: t.last_from,
       unread: t.unread,
@@ -181,7 +192,7 @@ export async function upsertThreads(threads, { dryRun = false } = {}) {
       // leeres Array würde die Historie lautlos löschen. Die Spaltenliste des
       // Upserts muss über alle Zeilen gleich sein, deshalb wird der alte Wert
       // zurückgeschrieben statt das Feld wegzulassen.
-      ...(verlaufSpalteFehlt ? {} : { verlauf: verlaufFuer(t, prior) }),
+      ...(verlaufSpalteFehlt ? {} : { verlauf }),
     })
   }
 
@@ -218,7 +229,26 @@ export async function upsertThreads(threads, { dryRun = false } = {}) {
     throw new Error(`ABBRUCH: Upsert HTTP ${res.status}: ${txt.slice(0, 300)}`)
   }
 
-  return { inserted, updated, unmatched, contactChanges, verlaufSpalteFehlt }
+  // Sprachnachrichten abschreiben (29.09.2026) — hier, weil jeder der vier
+  // Sync-Wege im Runner durch diese Funktion läuft. Darf den Abgleich nie
+  // umwerfen: Die Threads stehen oben schon in der Datenbank.
+  let sprachnachrichten = null
+  if (!verlaufSpalteFehlt) {
+    try {
+      sprachnachrichten = await sprachnachrichtenAbschreiben({
+        supabaseUrl: SUPABASE_URL,
+        headers: authHeaders(),
+        brandId,
+        groqKey: process.env.GROQ_API_KEY ?? '',
+      })
+      if (sprachnachrichten.abgeschrieben) console.log(`[upsert] ${sprachnachrichten.abgeschrieben} Sprachnachricht(en) abgeschrieben`)
+      if (sprachnachrichten.fehler?.length) console.warn('[upsert] Sprachnachrichten:', sprachnachrichten.fehler.slice(0, 3).join(' · '))
+    } catch (e) {
+      console.warn('[upsert] Sprachnachrichten übersprungen:', e?.message ?? e)
+    }
+  }
+
+  return { inserted, updated, unmatched, contactChanges, verlaufSpalteFehlt, sprachnachrichten }
 }
 
 // CLI: `node runner/linkedin/upsert.mjs [--dry-run]` — synct live und schreibt (außer --dry-run).

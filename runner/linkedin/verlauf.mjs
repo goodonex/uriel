@@ -49,6 +49,7 @@ export function verlaufAusMessages(messages, conversationUrn, isSelf, max, textM
     var m = eigene[j]
     var roh = m.body && typeof m.body.text === 'string' ? m.body.text : ''
     var text = roh.trim()
+    var medien = ''
     // Sprachnachricht, Bild, Datei ohne Text (29.09.2026): Bis heute fielen sie
     // hier raus. Hartmut antwortete mit so einer Nachricht — das Cockpit zeigte
     // eine leere Karte, der Agent schrieb „hat noch nicht geantwortet". Jetzt
@@ -60,7 +61,19 @@ export function verlaufAusMessages(messages, conversationUrn, isSelf, max, textM
       var art = ''
       for (var k = 0; k < inhalte.length && !art; k++) {
         var rc = inhalte[k] || {}
-        if (rc.audio) art = '[Sprachnachricht]'
+        if (rc.audio) {
+          art = '[Sprachnachricht]'
+          // Der Link zur Audiodatei — daraus schreibt der Runner die Nachricht
+          // ab (`sprachnachrichten.mjs`). Feldname nicht fest dokumentiert,
+          // deshalb der erste https-Wert im Objekt als Rückfall.
+          var a = rc.audio
+          medien = (typeof a.url === 'string' && a.url) || (typeof a.downloadUrl === 'string' && a.downloadUrl) || ''
+          if (!medien && typeof a === 'object') {
+            for (var feld in a) {
+              if (typeof a[feld] === 'string' && a[feld].indexOf('https://') === 0) { medien = a[feld]; break }
+            }
+          }
+        }
         else if (rc.vectorImage || rc.image) art = '[Bild]'
         else if (rc.video) art = '[Video]'
         else if (rc.externalMedia) art = '[GIF]'
@@ -84,9 +97,32 @@ export function verlaufAusMessages(messages, conversationUrn, isSelf, max, textM
       ts = isNaN(d.getTime()) ? null : d.toISOString()
     }
 
-    out.push({ sender: sender, text: text, ts: ts })
+    var eintrag = { sender: sender, text: text, ts: ts }
+    if (medien) eintrag.medien_url = medien
+    out.push(eintrag)
   }
 
   // Die NEUESTEN `max` — abschneiden am Anfang, nicht am Ende.
   return out.slice(-grenzeAnzahl)
+}
+
+/** Abgeschriebene Sprachnachricht: Platzhalter plus Text. */
+export const SPRACH_PLATZHALTER = '[Sprachnachricht]'
+
+/**
+ * Abgeschriebene Sprachnachrichten überleben den nächsten Abgleich (29.09.2026).
+ *
+ * Der Sync liefert jedes Mal wieder nur den Platzhalter. Ohne diesen Abgleich
+ * würde er den abgeschriebenen Text überschreiben — und die nächste Runde
+ * dieselbe Nachricht erneut an Groq schicken. Zugeordnet wird über den
+ * Zeitstempel, der je Nachricht fest ist.
+ */
+export function behalteTranskripte(neu, alt) {
+  if (!Array.isArray(neu) || !Array.isArray(alt) || !alt.length) return neu
+  const fertig = new Map()
+  for (const e of alt) {
+    if (e && e.ts && typeof e.text === 'string' && e.text.startsWith(SPRACH_PLATZHALTER + ' ')) fertig.set(e.ts, e.text)
+  }
+  if (!fertig.size) return neu
+  return neu.map((e) => (e && e.text === SPRACH_PLATZHALTER && fertig.has(e.ts) ? { ...e, text: fertig.get(e.ts) } : e))
 }

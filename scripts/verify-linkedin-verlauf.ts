@@ -11,7 +11,7 @@
  * Start: npx tsx scripts/verify-linkedin-verlauf.ts
  */
 // @ts-expect-error — bewusst dieselbe .mjs, die der Runner in die Seite injiziert (kein Typ-Zwilling).
-import { verlaufAusMessages } from '../runner/linkedin/verlauf.mjs'
+import { behalteTranskripte, verlaufAusMessages } from '../runner/linkedin/verlauf.mjs'
 import { verlaufAlsText, verlaufVon } from '../app/src/cockpit/lib/linkedinVerlauf'
 import type { LinkedinThread } from '../app/src/types/db'
 
@@ -130,6 +130,21 @@ function msg(over: Record<string, unknown>): Record<string, unknown> {
     ['Läuft die neue Maklersoftware rund?', '[Sprachnachricht]', '[Bild]', '[Datei: Expose.pdf]', '[Anhang ohne Text]'],
   )
   check('5c Absender bleibt der Lead', v[1].sender, 'them')
+  const mitLink = verlaufAusMessages([msg({ deliveredAt: 2000, body: {}, renderContent: [{ audio: { url: 'https://dms.licdn.com/audio/x', duration: 31000 } }] })], CONV, isSelf)
+  check('5d Link zur Audiodatei geht mit', mitLink[0].medien_url, 'https://dms.licdn.com/audio/x')
+  const andererName = verlaufAusMessages([msg({ deliveredAt: 2000, body: {}, renderContent: [{ audio: { duration: 1, quelle: 'https://dms.licdn.com/audio/y' } }] })], CONV, isSelf)
+  check('5e unbekannter Feldname: erster https-Wert', andererName[0].medien_url, 'https://dms.licdn.com/audio/y')
+  check('5f Textnachricht ohne Link-Feld', 'medien_url' in v[0], false)
+}
+
+// 5g. Abgeschriebene Sprachnachrichten überleben den nächsten Abgleich.
+{
+  const alt = [{ sender: 'them', text: '[Sprachnachricht] Ja, läuft super.', ts: 't1' }]
+  const neu = [{ sender: 'them', text: '[Sprachnachricht]', ts: 't1', medien_url: 'https://x' }, { sender: 'me', text: 'Danke', ts: 't2' }]
+  const r = behalteTranskripte(neu, alt)
+  check('5g Text bleibt', r[0].text, '[Sprachnachricht] Ja, läuft super.')
+  check('5h Rest unverändert', r[1].text, 'Danke')
+  check('5i ohne alten Verlauf unverändert', behalteTranskripte(neu, null)[0].text, '[Sprachnachricht]')
 }
 
 // 6. Zeitstempel: ISO oder null — ein kaputter Wert darf nicht werfen.

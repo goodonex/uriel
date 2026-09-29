@@ -13,7 +13,7 @@
  * Braucht das Sync-Chrome (Alias `chrome-sync`) mit angemeldetem LinkedIn.
  */
 import { MESSAGES_QID_FALLBACK, brauchtTiefe, conversationUrn, strengKodiert } from '../runner/linkedin/verlaufTiefe.mjs'
-import { VERLAUF_MAX, VERLAUF_TEXT_MAX, verlaufAusMessages } from '../runner/linkedin/verlauf.mjs'
+import { VERLAUF_MAX, VERLAUF_TEXT_MAX, behalteTranskripte, verlaufAusMessages } from '../runner/linkedin/verlauf.mjs'
 
 const CDP = 'http://127.0.0.1:9222'
 const SUPA = process.env.SUPABASE_URL
@@ -148,9 +148,11 @@ if (TROCKEN) { sag('Trockenlauf - nichts geschrieben.'); process.exit(0) }
 
 // --- Zurueckschreiben ----------------------------------------------------
 let geschrieben = 0
+// Abgeschriebene Sprachnachrichten nicht mit dem Platzhalter überschreiben (29.09.2026).
+const altNachId = Object.fromEntries(offen.map((t) => [t.id, t.verlauf]))
 for (const e of gut) {
   const res = await fetch(`${SUPA}/rest/v1/linkedin_threads?id=eq.${e.id}`, {
-    method: 'PATCH', headers: kopf, body: JSON.stringify({ verlauf: e.verlauf }),
+    method: 'PATCH', headers: kopf, body: JSON.stringify({ verlauf: behalteTranskripte(e.verlauf, altNachId[e.id]) }),
   })
   if (res.ok) geschrieben++
   else sag(`  Schreibfehler bei ${nachName[e.id]}: HTTP ${res.status}`)
