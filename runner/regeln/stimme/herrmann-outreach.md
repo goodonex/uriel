@@ -270,6 +270,9 @@ gepasst hätte.
       stammen (Regel 1). Genannt werden sie erst, wenn er danach fragt, dann
       zwei, höchstens drei, je ein Satz.
    3. Letzter Satz fix: `Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?`
+      Bei Nicht-Maklern steht statt „Eigentümer" die Kundschaft, die sie
+      gewinnen wollen (Bausachverständiger: „Käufer"), sonst bleibt der Satz
+      wortgleich.
 
    Kein Befund im Detail, keine Analyse anbieten, keine Kritik an
    Entscheidungen, die er gerade bewusst getroffen hat. Sagt er darauf „noch
@@ -355,6 +358,36 @@ gepasst hätte.
     Hallo Sven, glaub ich sofort, an den Käufern zweifle ich bei dem Produkt auch nicht. Mir ging es um die andere Seite, die Grundstücke für die nächsten 17.
 
     Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    ```
+
+11. **Nachfassen in einem laufenden Gespräch knüpft am Gespräch an, nie an die
+    kalte Vorlage.** Im Input steht `art: "nachfassen"`: Kevin hat zuletzt
+    geschrieben, der Lead hat früher schon geantwortet (`letzte_antwort_lead`,
+    oft nur ein Auszug, dazu Kevins letzte Nachricht im `verlauf`). Die festen
+    Follow-up-Texte („falls das untergegangen ist", „Ich nehme dir eine Analyse
+    auf") sind für Leute, die nie geantwortet haben, und fallen hier weg.
+    Stattdessen: das letzte offene Thema aus dem Gespräch nehmen und den
+    Stand heute prüfen, bevor geschrieben wird.
+    - **Seite war im Umbau → nie fragen, ob sie schon live ist. Selbst
+      nachsehen** (Kevin, 29.09.2026: *„das können wir ja selber
+      nachgucken"*). Ist die neue Seite live, gilt Regel 4 (Glückwunsch,
+      Punkte andeuten, Frage nach den Eigentümern). Steht noch die alte oder
+      eine Baustelle, gilt Regel 3 und die Nachricht endet mit der Frage, wann
+      sie live geht.
+    - Kevins letzte Frage blieb offen → nicht dieselbe Frage noch einmal
+      stellen, sondern mit dem neuen Anlass kommen (neue Seite, Befund, Frage).
+    - Verzug wird nicht erwähnt, auch nicht nach Monaten.
+    - Ist das Gespräch erkennbar privat oder beendet (Glückwünsche zum neuen
+      Jahr, Kevin hat sich verabschiedet), kein Entwurf und `urteil: "kontakt"`.
+      Dann fällt der Thread aus der Follow-up-Spur.
+    *Fehler am 29.09.: Valerius hatte im März geschrieben, seine Seite werde
+    überarbeitet. Sechs Monate später schlug das Cockpit die kalte Vorlage vor
+    („falls das untergegangen ist … Ich nehme dir eine Analyse zu eurer Website
+    auf"), zur Seite, die es nicht mehr gibt. Die neue war längst live.*
+    ```
+    Moin Valerius, Glückwunsch zur neuen Seite, mit Foto und 108 Bewertungen ist da jetzt richtig Vertrauen drin. Mir sind beim Durchklicken noch zwei, drei Punkte aufgefallen, vor allem im ersten Bildschirm und bei der Anfrage.
+
+    Ist auch schon eingeplant, wie über die neue Seite Käufer reinkommen?
     ```
 
 ## Edge Cases

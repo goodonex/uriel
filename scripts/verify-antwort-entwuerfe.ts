@@ -10,7 +10,7 @@
  * Start: npx tsx scripts/verify-antwort-entwuerfe.ts
  */
 // @ts-expect-error — .mjs ohne Typen; genau die Datei, die der Runner lädt.
-import { ANTWORT_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran } from '../runner/linkedin/antwortThreads.mjs'
+import { ANTWORT_MAX, NACHFASSEN_MAX, baueAntwortInput, hatFrischenEntwurf, istDuBistDran, istNachfassFall } from '../runner/linkedin/antwortThreads.mjs'
 import { bucketOf } from '../app/src/cockpit/lib/linkedinFollowups'
 import type { LinkedinThread, LinkedinThreadStatus, LinkedinLastFrom } from '../app/src/types/db'
 
@@ -174,6 +174,39 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   const t = { entwurf: 'x', entwurf_at: '2026-08-25T10:00:00Z', last_message_at: '2026-08-24T10:00:00Z' }
   check('7 Entwurf vor Regelstand → neu schreiben', hatFrischenEntwurf(t, regel), false)
   check('7b Entwurf nach Regelstand → bleibt', hatFrischenEntwurf({ ...t, entwurf_at: '2026-09-25T10:00:00Z' }, regel), true)
+}
+
+// 8. Nachfassen im laufenden Gespräch (29.09.2026, Fall Valerius): Kevin hat
+// zuletzt geschrieben, der Lead hatte vorher geantwortet → der Agent schreibt,
+// nicht die kalte Vorlage.
+{
+  const antworten = new Map([['L-val', { text: 'Die Seite wird im Hintergrund gerade überarbeitet.', ts: tageHer(190) }]])
+  const warm = thread({ lead_id: 'L-val', last_from: 'me', last_message_at: tageHer(183), preview: 'Super Timing dann!' } as Partial<LinkedinThread>)
+  const kalt = thread({ lead_id: 'L-kalt', last_from: 'me', last_message_at: tageHer(10) } as Partial<LinkedinThread>)
+  const imVerlauf = thread({
+    last_from: 'me',
+    last_message_at: tageHer(5),
+    verlauf: [{ sender: 'them', text: 'Passt soweit', ts: tageHer(6) }, { sender: 'me', text: 'Ist das bei dir anders?', ts: tageHer(5) }],
+  } as Partial<LinkedinThread>)
+  check('8a Antwort in der Lead-Kartei → Nachfassfall', istNachfassFall(warm, NOW, antworten), true)
+  check('8b nie geantwortet → Vorlage bleibt zuständig', istNachfassFall(kalt, NOW, antworten), false)
+  check('8c Antwort im Verlauf reicht auch', istNachfassFall(imVerlauf, NOW), true)
+  check('8d zu frisch (unter 3 Tagen) → noch nicht', istNachfassFall({ ...warm, last_message_at: tageHer(1) }, NOW, antworten), false)
+  check('8e Loom verschickt → Loom-Reihe', istNachfassFall({ ...warm, loom_status: 'verschickt' }, NOW, antworten), false)
+  check('8f Ja gesagt, Loom offen → das Loom ist die Antwort', istNachfassFall({ ...warm, starred: true }, NOW, antworten), false)
+  check('8g ab Stufe 3 übernimmt die laute Kette', istNachfassFall({ ...warm, followup_stage: 3 }, NOW, antworten), false)
+  check('8h Lead hat zuletzt geschrieben → Antwort, kein Nachfassen', istNachfassFall({ ...warm, last_from: 'them' }, NOW, antworten), false)
+
+  const wartet = thread({ last_message_at: tageHer(1) })
+  const { input } = baueAntwortInput([wartet], NOW, undefined, { threads: [kalt, warm, imVerlauf], antwortenJeLead: antworten })
+  check('8i Antworten zuerst, dann Nachfassen', input.threads.map((t: { art: string }) => t.art), ['antwort', 'nachfassen', 'nachfassen'])
+  const val = input.threads.find((t: { thread_key: string }) => t.thread_key === warm.thread_key) as { letzte_antwort_lead: { text: string } | null; tage_seit_kevin: number }
+  check('8j letzte Antwort aus der Lead-Kartei geht mit', val?.letzte_antwort_lead?.text, 'Die Seite wird im Hintergrund gerade überarbeitet.')
+  check('8k Tage seit Kevins Nachricht', val?.tage_seit_kevin, 183)
+  const viele = Array.from({ length: NACHFASSEN_MAX + 2 }, (_, i) => thread({ lead_id: 'L-val', last_from: 'me', last_message_at: tageHer(10 + i) } as Partial<LinkedinThread>))
+  const gedeckelt = baueAntwortInput([], NOW, undefined, { threads: viele, antwortenJeLead: antworten })
+  check('8l eigener Deckel fürs Nachfassen', gedeckelt.input.threads.length, NACHFASSEN_MAX)
+  check('8m Rest wird gemeldet', gedeckelt.weitereNachfassen, 2)
 }
 
 console.log(`${pass} bestanden, ${fail} fehlgeschlagen`)

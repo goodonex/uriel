@@ -144,6 +144,68 @@ export function istDuBistDran(thread, now) {
   return thread.last_from === 'them'
 }
 
+/**
+ * Endstationen in der Lead-Kartei (29.09.2026). Wer dort Kunde, aussortiert
+ * oder ruhend ist, bekommt keinen Akquise-Text mehr, egal was sein Thread sagt.
+ *
+ * Anlass: Reichentrog stand seit August als `kunde` in `leads`, sein Thread aber
+ * weiter auf `active` — die Nachtrunde fragte ihn deshalb jede Nacht aufs Neue
+ * nach einer Referenz. Kevin: *„Reichentrog kommt immer wieder vor, das nervt."*
+ */
+export const LEAD_ENDSTATUS = new Set(['kunde', 'disqualifiziert', 'ruht'])
+
+/**
+ * Nachfassen in einem laufenden Gespräch (29.09.2026).
+ *
+ * Die festen Follow-up-Vorlagen (`followupVorlagen.ts`) sind für Leute gebaut,
+ * die nie geantwortet haben: Dort gibt es nichts, worauf ein Text eingehen
+ * könnte. Sie landeten aber auch bei Leads MIT Gesprächsverlauf. Valerius hatte
+ * geschrieben, seine Seite werde überarbeitet; sechs Monate später bot ihm die
+ * Vorlage „eine Analyse zu eurer Website" an — zur alten Seite. Kevin: *„da
+ * sollte wieder kommen, wann sie online geht, dann schaue ich sie mir an."*
+ *
+ * Diese Threads schreibt deshalb der Antwort-Agent, mit der letzten Antwort des
+ * Leads als Anker. Ausgenommen:
+ * - Loom verschickt → dafür gibt es die Loom-Reihe mit eigenen Texten.
+ * - Ja gesagt, Loom offen (Stern) → die nächste Nachricht ist das Loom selbst,
+ *   keine Ankündigung.
+ */
+export const NACHFASSEN_MAX = 6
+/** Frühestens nach der ersten Follow-up-Schwelle (`FOLLOWUP_THRESHOLDS_DAYS[0]`). */
+export const NACHFASSEN_AB_TAGEN = 3
+
+/**
+ * @param {object} thread
+ * @param {Date} now
+ * @param {Map<string, {text: string, ts: string}>} antwortenJeLead  lead_id → letzte Antwort des Leads
+ */
+export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
+  if (istEndzustand(thread.status)) return false
+  if (thread.snoozed_until != null && new Date(thread.snoozed_until).getTime() > now.getTime()) return false
+  if (thread.last_from !== 'me') return false
+  if (!Number.isInteger(thread.followup_stage) || thread.followup_stage < 0 || thread.followup_stage >= 3) return false
+  if (thread.loom_status === 'verschickt') return false
+  if (thread.starred && thread.loom_status === 'offen') return false
+  const tage = tageSeit(thread.last_message_at, now)
+  if (tage == null || tage < NACHFASSEN_AB_TAGEN) return false
+  return hatGeantwortet(thread, antwortenJeLead)
+}
+
+/** Hat der Lead in diesem Gespräch je geschrieben? Verlauf ODER Lead-Ereignis. */
+export function hatGeantwortet(thread, antwortenJeLead = new Map()) {
+  if (thread.lead_id && antwortenJeLead.has(thread.lead_id)) return true
+  return Array.isArray(thread.verlauf) && thread.verlauf.some((m) => m?.sender === 'them')
+}
+
+/** Die letzte Nachricht des Leads: aus dem Verlauf, sonst aus dem Lead-Ereignis. */
+function letzteAntwortDesLeads(thread, antwortenJeLead) {
+  const ausVerlauf = Array.isArray(thread.verlauf)
+    ? [...thread.verlauf].reverse().find((m) => m?.sender === 'them' && m.text)
+    : null
+  if (ausVerlauf) return { text: ausVerlauf.text, ts: ausVerlauf.ts ?? null }
+  return (thread.lead_id && antwortenJeLead.get(thread.lead_id)) || null
+}
+
 /** Tage seit der letzten Nachricht — über Millisekunden, nie über Kalendertage. */
 function tageSeit(iso, now) {
   if (!iso) return null
@@ -157,7 +219,7 @@ function tageSeit(iso, now) {
  * gerendert — der Skill liest das Format direkt, und so gibt es keine zweite
  * Formatierungslogik neben der Cockpit-Seite.
  */
-export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX) {
+export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, nachfassen = null) {
   // Gleiche Rangfolge wie `dringlichkeit` in prioritaet.ts: Stern zuerst, dann
   // der am längsten Wartende. Nur so decken die entworfenen Threads exakt die
   // obersten Posten der Arbeitsliste ab — sonst hinge der Entwurf am falschen Namen.
@@ -173,22 +235,42 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX) {
       return ta - tb
     })
 
+  const basis = (t) => ({
+    thread_key: t.thread_key,
+    contact_id: t.contact_id ?? null,
+    name: t.name,
+    company: t.company,
+    profile_url: t.profile_url,
+    preview: t.preview,
+    verlauf: Array.isArray(t.verlauf) ? t.verlauf : [],
+    tage_seit_antwort: tageSeit(t.last_message_at, now),
+    followup_stage: t.followup_stage,
+    starred: Boolean(t.starred),
+    loom_status: t.loom_status ?? 'offen',
+  })
+
+  // Nachfassen kommt NACH den Antworten und hat einen eigenen Deckel: Wer
+  // geschrieben hat, wartet dringender als der, dem Kevin zuletzt schrieb.
+  const antwortenJeLead = nachfassen?.antwortenJeLead ?? new Map()
+  const fassen = (nachfassen?.threads ?? [])
+    .filter((t) => istNachfassFall(t, now, antwortenJeLead) && !hatFrischenEntwurf(t))
+    .sort((a, b) => new Date(a.last_message_at).getTime() - new Date(b.last_message_at).getTime())
+  const fassenMax = nachfassen?.max ?? NACHFASSEN_MAX
+
   return {
     weitereWarten: Math.max(0, dran.length - max),
+    weitereNachfassen: Math.max(0, fassen.length - fassenMax),
     input: {
-      threads: dran.slice(0, max).map((t) => ({
-        thread_key: t.thread_key,
-        contact_id: t.contact_id ?? null,
-        name: t.name,
-        company: t.company,
-        profile_url: t.profile_url,
-        preview: t.preview,
-        verlauf: Array.isArray(t.verlauf) ? t.verlauf : [],
-        tage_seit_antwort: tageSeit(t.last_message_at, now),
-        followup_stage: t.followup_stage,
-        starred: Boolean(t.starred),
-        loom_status: t.loom_status ?? 'offen',
-      })),
+      threads: [
+        ...dran.slice(0, max).map((t) => ({ art: 'antwort', ...basis(t) })),
+        ...fassen.slice(0, fassenMax).map((t) => ({
+          art: 'nachfassen',
+          ...basis(t),
+          tage_seit_antwort: null,
+          tage_seit_kevin: tageSeit(t.last_message_at, now),
+          letzte_antwort_lead: letzteAntwortDesLeads(t, antwortenJeLead),
+        })),
+      ],
     },
   }
 }
@@ -208,18 +290,62 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
   const [brand] = await br.json()
   if (!brand?.id) throw new Error(`Kein Brand mit slug="${brandSlug}"`)
 
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.them` +
+  const rows = await holeAlle(
+    supabaseUrl,
+    headers,
+    `linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.them` +
       `&status=in.(active,waiting_reply)&select=*&order=last_message_at.asc`,
-    { headers },
   )
-  if (!res.ok) throw new Error(`linkedin_threads HTTP ${res.status}`)
-  const rows = await res.json()
+  const [endLeads, antwortEreignisse, kevinZuletzt] = await Promise.all([
+    holeAlle(supabaseUrl, headers, `leads?brand_id=eq.${brand.id}&lead_status=in.(${[...LEAD_ENDSTATUS].join(',')})&select=id&order=id`),
+    holeAlle(
+      supabaseUrl,
+      headers,
+      `lead_ereignisse?brand_id=eq.${brand.id}&typ=eq.antwort_erhalten&select=lead_id,at,details&order=at.asc`,
+    ).catch(() => []),
+    holeAlle(
+      supabaseUrl,
+      headers,
+      `linkedin_threads?brand_id=eq.${brand.id}&last_from=eq.me&followup_stage=lt.3` +
+        `&status=in.(active,waiting_reply)&select=*&order=last_message_at.asc`,
+    ),
+  ])
+  const amEnde = new Set(endLeads.map((l) => l.id))
+  const keinEndLead = (t) => !(t.lead_id && amEnde.has(t.lead_id))
+
+  // Aufsteigend sortiert: die jüngste Antwort überschreibt die älteren.
+  const antwortenJeLead = new Map()
+  for (const e of antwortEreignisse) {
+    if (!e.lead_id) continue
+    antwortenJeLead.set(e.lead_id, { text: String(e.details?.auszug ?? ''), ts: e.at ?? null })
+  }
 
   const wartend = rows.filter((t) => istDuBistDran(t, now))
-  const threads = wartend.filter((t) => istZielgruppe(t) && !istAkquiseVersuch(t))
+  const threads = wartend.filter((t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t))
+  // Nachfassen nur, wo die Follow-up-Spur im Cockpit ihn auch zeigt: Zielgruppe,
+  // kein Akquise-Versuch und kein reiner Kontakt (Spiegel von `followupPosten`).
+  const nachfassen = kevinZuletzt.filter(
+    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && t.agent_urteil !== 'kontakt' && keinEndLead(t),
+  )
   // Die Zahl gehört ins Lauf-Ergebnis, nicht ins Nichts: Wenn der Filter eines
   // Tages zu scharf greift, sieht man es an dieser Zeile und nicht daran, dass
   // ein Kunde nie eine Antwort bekam.
-  return { brandId: brand.id, threads, uebersprungenOffIcp: wartend.length - threads.length }
+  return {
+    brandId: brand.id,
+    threads,
+    uebersprungenOffIcp: wartend.length - threads.length,
+    nachfassen: { threads: nachfassen, antwortenJeLead },
+  }
+}
+
+/** PostgREST liefert höchstens 1000 Zeilen je Abfrage — seitenweise holen. */
+async function holeAlle(supabaseUrl, headers, pfad, seite = 1000) {
+  const alle = []
+  for (let offset = 0; ; offset += seite) {
+    const res = await fetch(`${supabaseUrl}/rest/v1/${pfad}&limit=${seite}&offset=${offset}`, { headers })
+    if (!res.ok) throw new Error(`${pfad.split('?')[0]} HTTP ${res.status}`)
+    const teil = await res.json()
+    alle.push(...teil)
+    if (teil.length < seite) return alle
+  }
 }

@@ -243,6 +243,12 @@ export function followupPosten(
    * heißt „nichts bekannt" — dann kein Badge und die alte Reihenfolge.
    */
   klassen: ReadonlyMap<string, LeadKlassenInfo> = new Map(),
+  /**
+   * Thread-IDs, deren Lead schon einmal geantwortet hat (`lead_ereignisse.typ =
+   * 'antwort_erhalten'`, 29.09.2026, `useLeadsMitAntwort`). Leer heißt „nichts
+   * bekannt" — dann entscheidet allein der Verlauf am Thread.
+   */
+  beantworteteThreads: ReadonlySet<string> = new Set(),
 ): Posten[] {
   const kunden = kundenSchluessel(kontakte)
   return threads
@@ -279,7 +285,20 @@ export function followupPosten(
        * geantwortet hat, gibt einem Agenten keinen Anhaltspunkt, auf den er
        * individuell eingehen könnte.
        */
-      entwurf: entwurfVon(t) ?? followupVorlage(t, gesichteteThreads.has(t.id)),
+      /**
+       * Die Einschränkung dazu (29.09.2026): Die kalte Vorlage gilt nur, wo
+       * nie jemand geantwortet hat. Im laufenden Gespräch bot sie Valerius
+       * sechs Monate nach „die Seite wird überarbeitet" eine Analyse der
+       * alten Seite an. Dort schreibt die Nachtrunde einen Text, der am
+       * Gespräch anknüpft (`istNachfassFall` im Runner); bis er da ist, lieber
+       * kein Text als der falsche. Die Loom-Reihe bleibt: Die ist genau für
+       * Leute gebaut, die Ja gesagt haben.
+       */
+      entwurf:
+        entwurfVon(t) ??
+        (imGespraech(t, beantworteteThreads) && t.loom_status !== 'verschickt'
+          ? undefined
+          : followupVorlage(t, gesichteteThreads.has(t.id))),
       ...klasseVon(t.lead_id, klassen),
     }))
     /**
@@ -290,6 +309,12 @@ export function followupPosten(
      */
     // Innerhalb der Klasse die höchsten Punkte zuerst (Lead-Bewertung, 24.09.2026).
     .sort((a, b) => klassenRang(a.klasse) - klassenRang(b.klasse) || (b.klassePunkte ?? -1) - (a.klassePunkte ?? -1))
+}
+
+/** Hat der Lead in diesem Gespräch je geschrieben? Spiegel von `hatGeantwortet` im Runner. */
+export function imGespraech(t: LinkedinThread, beantworteteThreads: ReadonlySet<string>): boolean {
+  if (beantworteteThreads.has(t.id)) return true
+  return verlaufVon(t).some((m) => m.sender === 'them')
 }
 
 function klasseVon(leadId: string | null | undefined, klassen: ReadonlyMap<string, LeadKlassenInfo>): Pick<Posten, 'klasse' | 'klasseGrund' | 'klassePunkte'> {

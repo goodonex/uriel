@@ -146,6 +146,27 @@ function check(label: string, actual: unknown, expected: unknown) {
   check('3b id mit thread-praefix', posten[0]?.id, 'thread:t1')
 }
 
+// 3c. Laufendes Gespräch (29.09.2026, Fall Valerius): keine kalte Vorlage,
+// wenn der Lead schon einmal geantwortet hat — die Loom-Reihe bleibt.
+{
+  const threads = [
+    makeThread({ id: 'kalt', name: 'Felix Range', followup_stage: 0, last_message_at: dayAgo(4) }),
+    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(4) }),
+    makeThread({ id: 'loom', name: 'Jan Loom', followup_stage: 0, last_message_at: dayAgo(4), loom_status: 'verschickt' }),
+    makeThread({
+      id: 'verlauf', name: 'Janis Stomeo', followup_stage: 0, last_message_at: dayAgo(4),
+      verlauf: [{ sender: 'them', text: 'passt soweit', ts: dayAgo(5) }] as LinkedinThread['verlauf'],
+    }),
+  ]
+  const posten = followupPosten(threads, NOW, [], new Set(), new Map(), new Set(['warm', 'loom']))
+  const text = (id: string) => posten.find((p) => p.id === `thread:${id}`)?.entwurf?.text ?? null
+  check('3c1 nie geantwortet → Vorlage', text('kalt')?.includes('untergegangen'), true)
+  check('3c2 Antwort in der Lead-Kartei → keine Vorlage', text('warm'), null)
+  check('3c3 Antwort im Verlauf → keine Vorlage', text('verlauf'), null)
+  check('3c4 Loom verschickt → Loom-Reihe bleibt', text('loom')?.includes('Analyse liegt noch im Chat'), true)
+  check('3c5 der Posten selbst bleibt in der Liste', posten.length, 4)
+}
+
 // 4. erstnachrichtPosten: nur offen, Reihenfolge nach sort_index.
 {
   const leads = [

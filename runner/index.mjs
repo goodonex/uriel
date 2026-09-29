@@ -873,7 +873,7 @@ async function runsListe(limit, mitInhalt = false) {
  */
 async function antwortEntwuerfeInput(now = new Date()) {
   if (!SNAPSHOT_ENABLED) return null
-  const { threads, uebersprungenOffIcp } = await holeAntwortThreads({
+  const { threads, uebersprungenOffIcp, nachfassen } = await holeAntwortThreads({
     supabaseUrl: SUPABASE_URL,
     headers: supabaseHeaders(),
     brandSlug: process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann',
@@ -884,8 +884,12 @@ async function antwortEntwuerfeInput(now = new Date()) {
   if (uebersprungenOffIcp > 0) {
     console.log(`[runner] antwort-entwuerfe: ${uebersprungenOffIcp} Off-ICP übersprungen (kein Entwurf)`)
   }
-  if (!threads.length) return null
-  const gebaut = baueAntwortInput(threads, now)
+  // 29.09.2026: Dieselbe Runde schreibt auch das Nachfassen in laufenden
+  // Gesprächen — die festen Vorlagen passen dort nicht (`istNachfassFall`).
+  const gebaut = baueAntwortInput(threads, now, undefined, nachfassen)
+  if (gebaut.weitereNachfassen) {
+    console.log(`[runner] antwort-entwuerfe: ${gebaut.weitereNachfassen} Nachfass-Gespräche über dem Limit (nächste Runde)`)
+  }
   // Alle wartenden Threads haben bereits einen frischen Entwurf → nichts zu tun.
   // Ein Lauf mit leerer Liste wäre nur eine Zeile Rauschen in der Freigaben-Queue.
   if (!gebaut.input.threads.length) return null

@@ -16,6 +16,7 @@ import { useLinkedinNetzwerk } from './useLinkedinNetzwerk'
 import { useLinkedinThreads } from './useLinkedinThreads'
 import { useLeadKlassen } from './useLeadKlassen'
 import { useLoomGesichtet } from './useLoomGesichtet'
+import { useLeadsMitAntwort } from './useLeadsMitAntwort'
 import { useTasks } from './useTasks'
 
 /**
@@ -66,6 +67,9 @@ export function usePosten(slug: string | undefined): UsePostenResult {
   const loomGesichtet = useLoomGesichtet(slug)
   // Klasse A/B/C je Lead — ordnet die Follow-ups (22.09.2026, Migration 0092).
   const leadKlassen = useLeadKlassen(slug)
+  // Wer schon einmal geantwortet hat, bekommt beim Nachfassen keine kalte
+  // Vorlage, sondern den Text der Nachtrunde (29.09.2026).
+  const leadsMitAntwort = useLeadsMitAntwort(slug)
 
   // Minutentakt statt Date.now() bei jedem Render — sonst rechnen die useMemos
   // unten bei jedem Tastendruck neu.
@@ -109,9 +113,18 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     return menge
   }, [linkedinThreads.items, loomGesichtet.leadIds])
 
+  const beantworteteThreads = useMemo(() => {
+    const menge = new Set<string>()
+    for (const t of linkedinThreads.items) {
+      if (t.lead_id && leadsMitAntwort.leadIds.has(t.lead_id)) menge.add(t.id)
+    }
+    return menge
+  }, [linkedinThreads.items, leadsMitAntwort.leadIds])
+
   const followupListe = useMemo(
-    () => followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen),
-    [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen],
+    () =>
+      followupPosten(linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen, beantworteteThreads),
+    [linkedinThreads.items, jetzt, contacts.items, gesichteteThreads, leadKlassen.klassen, beantworteteThreads],
   )
   // Threads gegenrechnen: eine verschickte Nachricht bleibt sonst ewig „offen",
   // wenn Kevin sie vom Handy geschickt und den Haken nicht gesetzt hat (17.08.).
