@@ -266,7 +266,7 @@ export function followupPosten(
     .filter((t) => istArbeitsVorrat(icpUrteil(t.company, t.name).urteil))
     .filter((t) => t.agent_urteil !== 'akquise' && t.agent_urteil !== 'kontakt')
     .map((t) => ({
-      ...threadZuPosten(t, 'followup', 'thread', t.preview || `Follow-up an ${t.name || 'den Lead'}.`),
+      ...threadZuPosten(t, 'followup', 'thread', deineLetzteNachricht(t)),
       /**
        * Ein Agent-Entwurf schlägt die Vorlage — aber die Vorlage springt ein,
        * wenn keiner da ist (25.08.2026).
@@ -344,6 +344,22 @@ export function botAnalyseAn(t: LinkedinThread): boolean {
  * abarbeiten kann.
  */
 export const FOLLOWUP_NUR_SENDEFERTIG: FollowupOptionen = { nurMitText: true, neuerTextVor: '2026-09-16', nurNachAnalyseAngebot: true }
+
+/**
+ * Was über dem Entwurf steht: Kevins eigene letzte Nachricht, als solche
+ * beschriftet (29.09.2026). Unbeschriftet las Kevin seine Erstnachricht vom
+ * Juli — mit Geviertstrichen, „Darf ich …?" und Grußformel — als neuen Text:
+ * *„wieso wurde die Nachricht so geschrieben?"*
+ */
+function deineLetzteNachricht(t: LinkedinThread): string {
+  const text = (t.preview ?? '').trim()
+  if (!text) return `Follow-up an ${t.name || 'den Lead'}.`
+  const d = t.last_message_at ? new Date(t.last_message_at) : null
+  const datum = d && !Number.isNaN(d.getTime())
+    ? `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+    : null
+  return `${datum ? `Deine Nachricht vom ${datum}` : 'Deine letzte Nachricht'} (schon verschickt):\n\n${text}`
+}
 
 /** Hat der Lead in diesem Gespräch je geschrieben? Spiegel von `hatGeantwortet` im Runner. */
 export function imGespraech(t: LinkedinThread, beantworteteThreads: ReadonlySet<string>): boolean {
