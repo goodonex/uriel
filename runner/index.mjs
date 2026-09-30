@@ -4640,6 +4640,15 @@ async function spiegleRunde({ sofort = false } = {}) {
   if (!sofort && Date.now() - letzterRundeSpiegel < RUNDE_SPIEGEL_MS) return
   letzterRundeSpiegel = Date.now()
   const stand = rundeStand()
+  /**
+   * Lebenszeichen trotz gleichem Inhalt (30.09.2026). `pushSnapshotKey`
+   * überspringt unveränderte Daten — aber die Live-Seite misst am
+   * `updated_at`, ob der Rechner noch arbeitet (`SPIEGEL_GILT_MS`, zwei
+   * Minuten). Eine Etappe, die schweigend arbeitet (Erstnachrichten: der
+   * Agent schreibt minutenlang Texte ohne Zwischenstand), sah dort deshalb
+   * wie abgerissen aus: der Knopf sprang auf „heute 11:08" zurück, bei 89 %.
+   */
+  if (stand.laeuft) letzteSpiegelSig.delete('runde_stand')
   await pushSnapshotKey('runde_stand', async () => ({ ...stand, chrome: await chromeErreichbar() }))
 }
 
@@ -5151,6 +5160,15 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzah
     void spiegleRunde({ sofort: true })
   }, (RUNDE_LIMIT_MIN + 10) * 60_000)
   notbremse.unref?.()
+  /**
+   * Eigener Puls für den Spiegel (30.09.2026): Der Minutentakt von
+   * `mirrorAll` allein reicht knapp nicht — er wartet auf alle anderen
+   * Spiegel davor, und die Live-Seite gibt nach zwei Minuten auf.
+   */
+  const puls = setInterval(() => {
+    if (!verwaist()) void spiegleRunde({ sofort: true })
+  }, 30_000)
+  puls.unref?.()
   let vollNoetig = false
   try {
     const chromeDa = await chromeErreichbar()
@@ -5239,6 +5257,7 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzah
     rundeAbbruchGrund ??= 'Fehler im Runner'
   } finally {
     clearTimeout(notbremse)
+    clearInterval(puls)
   }
   // Hat die Notbremse die Runde schon geschlossen, oder läuft längst eine neue, bleibt es dabei.
   if (verwaist()) return rundeStand()
