@@ -229,6 +229,16 @@ function thread(over: Partial<LinkedinThread> = {}): LinkedinThread {
   check('9e frisch, aber ohne Analyse-Angebot → neu prüfen', istNeuPruefFall(offline, spaeter), true)
   check('9d nur der alte kommt mit, als neu_pruefen', gemischt.input.threads.map((t: { art: string }) => t.art), ['neu_pruefen'])
 
+  // 9f–9h. Wochenfrist (30.09.2026): 18 Threads kamen als neu_pruefen, in denen
+  // Kevin gestern selbst eine offene Frage ohne Analyse-Angebot geschrieben hatte.
+  const frage = 'Wie läuft das bei euch aktuell mit neuen Eigentümern?'
+  const gestern = thread({ lead_id: 'L-g', last_from: 'me', last_message_at: '2026-09-28T12:00:00Z', preview: frage, verlauf: [{ sender: 'me', text: frage, ts: '2026-09-28T12:00:00Z' }] } as Partial<LinkedinThread>)
+  const achtTage = { ...gestern, thread_key: 'key-acht', last_message_at: '2026-09-21T12:00:00Z' }
+  check('9f gestern offene Frage ohne Analyse-Angebot → nicht neu prüfen', istNeuPruefFall(gestern, spaeter), false)
+  check('9g dieselbe Frage vor 8 Tagen → neu prüfen', istNeuPruefFall(achtTage, spaeter), true)
+  const frist = baueAntwortInput([], spaeter, undefined, { threads: [gestern, achtTage], antwortenJeLead: new Map() })
+  check('9h nur der 8 Tage alte geht an den Agenten', frist.input.threads.map((t: { thread_key: string }) => t.thread_key), ['key-acht'])
+
   // 10. Unabgeschriebene Sprachnachricht: kein Agent-Lauf, Kevin hört selbst.
   check('10a Platzhalter allein', nurPlatzhalter({ preview: '[Sprachnachricht]' }), true)
   check('10b Datei mit Namen', nurPlatzhalter({ preview: '[Datei: Expose.pdf]' }), true)

@@ -222,6 +222,26 @@ export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
 export const RECHERCHE_NEU_AB = '2026-09-16'
 
 /**
+ * Neu prüfen frühestens eine Woche nach Kevins letzter Nachricht (30.09.2026).
+ *
+ * Anlass: Die Läufe vom 30.09. (03:05 und 08:04) legten 18 Threads als
+ * `neu_pruefen` vor, in denen Kevin gestern oder heute selbst geschrieben
+ * hatte (`tage_seit_kevin` 0 oder 1). Die Bedingung „kein Analyse-Angebot"
+ * trifft auf jede offene Frage zu — auch auf die, die der neu_pruefen-Lauf vom
+ * Vortag selbst geschrieben hatte. Der Agent lehnte jeden Entwurf zu Recht ab,
+ * kostete aber zweimal täglich Geld und füllte das Protokoll mit Warnungen.
+ *
+ * Eine Sperre „letzte eigene Nachricht stammt aus einem neu_pruefen-Lauf"
+ * gibt das Datenmodell nicht her: Am Thread steht nur `entwurf_run_id`, und
+ * derselbe Lauf schreibt Antworten, Nachfassen und neu_pruefen gemischt — die
+ * Art wird nirgends gespeichert, und was Kevin tatsächlich abschickt, kommt
+ * über den LinkedIn-Abgleich ohne Bezug zum Entwurf zurück. Die Wochenfrist
+ * reicht: Ein frisch neu geschriebener Text bekommt so sieben Tage Zeit, bevor
+ * ihn jemand anfasst.
+ */
+export const NEU_PRUEFEN_AB_TAGEN = 7
+
+/**
  * Kalter Thread (nie geantwortet) auf einer Erstnachricht vor dem Stichtag:
  * Der Agent prüft die Seite neu und schreibt einen frischen Text, statt dass
  * die Vorlage die alte, womöglich falsche Nachricht hochholt. Kevin: *„dann
@@ -235,6 +255,8 @@ export function istNeuPruefFall(thread, now, antwortenJeLead = new Map(), sticht
   if (thread.loom_status === 'verschickt') return false
   if (thread.starred && thread.loom_status === 'offen') return false
   if (hatGeantwortet(thread, antwortenJeLead)) return false
+  const tage = tageSeit(thread.last_message_at, now)
+  if (tage == null || tage < NEU_PRUEFEN_AB_TAGEN) return false
   // Ohne Analyse-Angebot passt die Vorlage nicht (Seite offline, keine Seite,
   // Fokus-Frage): Spiegel von `botAnalyseAn` im Cockpit.
   if (!botAnalyseAn(thread)) return true
