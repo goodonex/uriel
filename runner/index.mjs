@@ -2192,6 +2192,9 @@ async function spiegleErstnachrichten() {
 }
 
 /** Führt genau einen Auftrag aus. Rückgabe landet als `result` am Auftrag. */
+/** Welche Schlüssel `geheimnis_setzen` schreiben darf. */
+const GEHEIMNISSE_ERLAUBT = new Set(['GROQ_API_KEY'])
+
 async function fuehreJobAus(job) {
   // Der Weg vom Handy: dort gibt es keinen Draht auf 127.0.0.1, der Auftrag
   // kommt über `runner_jobs`. Hier darf gewartet werden — anders als am
@@ -2219,6 +2222,31 @@ async function fuehreJobAus(job) {
     brecheRundeAb('von Hand')
     await spiegleRunde({ sofort: true })
     return rundeStand()
+  }
+
+  /**
+   * Einen Schlüssel in die .env des Runners schreiben (30.09.2026).
+   *
+   * Anlass: Der Groq-Schlüssel für Sprachnachrichten musste auf den Mini, und
+   * Kevin war nicht im selben WLAN. Ein Mini-Auftrag hätte ihn in die
+   * Auftragsdateien im Vault geschrieben, die per Git abgeglichen werden. Hier
+   * schreibt der Runner selbst, und die Nutzlast wird danach geleert
+   * (`pollJobs`). Nur ausdrücklich erlaubte Namen; der Wert kommt nie zurück.
+   */
+  if (job.kind === 'geheimnis_setzen') {
+    const name = String(job.payload?.name ?? '')
+    const wert = String(job.payload?.wert ?? '')
+    if (!GEHEIMNISSE_ERLAUBT.has(name)) throw new Error(`Name nicht erlaubt: ${name}`)
+    if (!/^[A-Za-z0-9_-]{10,200}$/.test(wert)) throw new Error('Wert hat kein gültiges Format')
+    const datei = fileURLToPath(new URL('.env', import.meta.url))
+    const alt = existsSync(datei) ? readFileSync(datei, 'utf8') : ''
+    const zeile = `${name}=${wert}`
+    const neu = new RegExp(`^${name}=.*$`, 'm').test(alt)
+      ? alt.replace(new RegExp(`^${name}=.*$`, 'm'), zeile)
+      : `${alt.replace(/\n*$/, '\n')}${zeile}\n`
+    writeFileSync(datei, neu)
+    process.env[name] = wert
+    return { gesetzt: name }
   }
 
   if (job.kind === 'linkedin_netzwerk_sync') {
@@ -2322,7 +2350,8 @@ async function pollJobs() {
     await fetch(`${SUPABASE_URL}/rest/v1/runner_jobs?id=eq.${job.id}`, {
       method: 'PATCH',
       headers: supabaseHeaders({ Prefer: 'return=minimal' }),
-      body: JSON.stringify({ ...patch, finished_at: new Date().toISOString() }),
+      // Ein Schlüssel bleibt nicht im Auftrag liegen (siehe `geheimnis_setzen`).
+      body: JSON.stringify({ ...patch, ...(job.kind === 'geheimnis_setzen' ? { payload: {} } : {}), finished_at: new Date().toISOString() }),
     })
   } catch (e) {
     /**

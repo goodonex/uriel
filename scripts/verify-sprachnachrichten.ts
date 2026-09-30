@@ -58,6 +58,23 @@ check(
   check('3d Link bleibt am Eintrag', body.verlauf?.[1]?.medien_url, 'https://dms.licdn.com/audio/1')
 }
 
+// 3e. LinkedIn antwortet ohne Sitzung mit 401 → Abruf im angemeldeten Browser.
+{
+  let imBrowserGeholt = ''
+  const fetchImpl = async (url: string, init: RequestInit = {}) => {
+    if (url.includes('/rest/v1/linkedin_threads?brand_id')) {
+      return new Response(JSON.stringify([{ id: 't1', name: 'Hartmut', preview: '[Sprachnachricht]', verlauf: [{ sender: 'them', text: '[Sprachnachricht]', ts: 'b', medien_url: 'https://www.linkedin.com/dms/prv/x' }] }]), { status: 200 })
+    }
+    if (url.startsWith('https://www.linkedin.com/dms/')) return new Response('', { status: 401 })
+    if (url === GROQ_URL) return new Response('Moin Kevin, läuft inzwischen.', { status: 200 })
+    return new Response('[]', { status: init.method === 'PATCH' ? 204 : 200 })
+  }
+  const imBrowser = async (url: string) => { imBrowserGeholt = url; return { daten: new Uint8Array([1]).buffer, typ: 'application/octet-stream' } }
+  const r = await sprachnachrichtenAbschreiben({ supabaseUrl: 'https://supa', headers: {}, brandId: 'b', groqKey: 'gsk_test', fetchImpl: fetchImpl as typeof fetch, imBrowser })
+  check('3e über den Browser geholt', imBrowserGeholt, 'https://www.linkedin.com/dms/prv/x')
+  check('3f abgeschrieben', r.abgeschrieben, 1)
+}
+
 // 4. Audio nicht ladbar → Fehler gemeldet, nichts geschrieben, nächster Abgleich versucht es wieder.
 {
   const gesendet: string[] = []
@@ -68,7 +85,8 @@ check(
     }
     return new Response('', { status: 403 })
   }
-  const r = await sprachnachrichtenAbschreiben({ supabaseUrl: 'https://supa', headers: {}, brandId: 'b', groqKey: 'gsk_test', fetchImpl: fetchImpl as typeof fetch })
+  const imBrowser = async () => { throw new Error('Audio im Browser HTTP 401') }
+  const r = await sprachnachrichtenAbschreiben({ supabaseUrl: 'https://supa', headers: {}, brandId: 'b', groqKey: 'gsk_test', fetchImpl: fetchImpl as typeof fetch, imBrowser })
   check('4a nichts abgeschrieben', r.abgeschrieben, 0)
   check('4b Fehler gemeldet', r.fehler?.length, 1)
   check('4c kein Schreibversuch', gesendet.includes('PATCH'), false)

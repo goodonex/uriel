@@ -75,6 +75,30 @@ async function findOrOpenMessaging() {
   throw new Error('Messaging-Tab kam nicht hoch')
 }
 
+/**
+ * Eine Datei mit der LinkedIn-Anmeldung des Sync-Chrome holen (30.09.2026).
+ *
+ * Sprachnachrichten liegen unter linkedin.com/dms/prv/… und antworten jedem
+ * ohne Sitzung mit 401 — auch einem Aufruf direkt im Browser, gemessen an
+ * Hartmuts Nachricht. Nur ein fetch aus einer LinkedIn-Seite heraus bekommt
+ * die Datei. Deshalb läuft der Abruf hier im Messaging-Tab und kommt als
+ * Base64 zurück (`sprachnachrichten.mjs` schickt sie dann an Groq).
+ */
+export async function holeImBrowser(url) {
+  const page = await findOrOpenMessaging()
+  const ausdruck = `(async () => {
+    const r = await fetch(${JSON.stringify(String(url))}, { credentials: 'include' });
+    if (!r.ok) return { status: r.status };
+    const b = new Uint8Array(await r.arrayBuffer());
+    let s = '';
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    return { status: r.status, typ: r.headers.get('content-type'), b64: btoa(s) };
+  })()`
+  const res = await evaluate(page.webSocketDebuggerUrl, ausdruck)
+  if (!res || res.status !== 200 || !res.b64) throw new Error(`Audio im Browser HTTP ${res?.status ?? '?'}`)
+  return { daten: Buffer.from(res.b64, 'base64'), typ: res.typ || 'audio/mp4' }
+}
+
 function evaluate(wsUrl, expression) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl)

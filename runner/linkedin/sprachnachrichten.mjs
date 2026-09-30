@@ -36,12 +36,24 @@ export function offeneSprachnachrichten(verlauf) {
   return out
 }
 
+/**
+ * Die Audiodatei holen. Erst direkt; antwortet LinkedIn ohne Sitzung (401/403,
+ * der Normalfall bei /dms/prv/), im angemeldeten Sync-Chrome (`holeImBrowser`).
+ */
+async function holeAudio(url, { fetchImpl, imBrowser }) {
+  const direkt = await fetchImpl(url).catch(() => null)
+  if (direkt?.ok) return { daten: await direkt.arrayBuffer(), typ: direkt.headers.get('content-type') || '' }
+  if (direkt && direkt.status !== 401 && direkt.status !== 403) throw new Error(`Audio HTTP ${direkt.status}`)
+  const hole = imBrowser ?? (await import('./sync.mjs')).holeImBrowser
+  return hole(url)
+}
+
 /** Eine Audiodatei holen und von Groq abschreiben lassen. Wirft bei jedem Fehler. */
-export async function schreibeAb(url, groqKey, { fetchImpl = fetch } = {}) {
-  const audio = await fetchImpl(url)
-  if (!audio.ok) throw new Error(`Audio HTTP ${audio.status}`)
-  const typ = audio.headers.get('content-type') || 'audio/mp4'
-  const daten = await audio.arrayBuffer()
+export async function schreibeAb(url, groqKey, { fetchImpl = fetch, imBrowser } = {}) {
+  const audio = await holeAudio(url, { fetchImpl, imBrowser })
+  // LinkedIn liefert application/octet-stream — Groq braucht einen Audiotyp.
+  const typ = /^audio\//.test(audio.typ) ? audio.typ : 'audio/mp4'
+  const daten = audio.daten
   const endung = /mpeg|mp3/.test(typ) ? 'mp3' : /ogg|opus/.test(typ) ? 'ogg' : /wav/.test(typ) ? 'wav' : 'm4a'
   const form = new FormData()
   form.append('file', new Blob([daten], { type: typ }), `sprachnachricht.${endung}`)
@@ -59,7 +71,7 @@ export async function schreibeAb(url, groqKey, { fetchImpl = fetch } = {}) {
  * Alle offenen Sprachnachrichten der Marke abschreiben und zurückschreiben.
  * Gibt eine Zusammenfassung zurück, nie einen Wurf.
  */
-export async function sprachnachrichtenAbschreiben({ supabaseUrl, headers, brandId, groqKey, fetchImpl = fetch }) {
+export async function sprachnachrichtenAbschreiben({ supabaseUrl, headers, brandId, groqKey, fetchImpl = fetch, imBrowser }) {
   if (!groqKey) return { abgeschrieben: 0, grund: 'kein GROQ_API_KEY' }
   const filter = encodeURIComponent(JSON.stringify([{ text: SPRACH_PLATZHALTER }]))
   const res = await fetchImpl(
@@ -79,7 +91,7 @@ export async function sprachnachrichtenAbschreiben({ supabaseUrl, headers, brand
     let geaendert = false
     for (const { index, url } of offen) {
       try {
-        const text = await schreibeAb(url, groqKey, { fetchImpl })
+        const text = await schreibeAb(url, groqKey, { fetchImpl, imBrowser })
         verlauf[index].text = `${SPRACH_PLATZHALTER} ${text}`
         geaendert = true
         abgeschrieben++
