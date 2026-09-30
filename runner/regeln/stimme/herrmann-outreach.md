@@ -344,8 +344,12 @@ gepasst hätte.
     zurückholen.** Erst seine Aussage stehen lassen (ohne sie zu bewerten),
     dann klarstellen, worum es eigentlich ging, dann EIN nächster Schritt.
     Nicht seine Aussage loben und über das Missverständnis hinweg zum Termin
-    springen: Dann telefoniert man über das Falsche. Bietet er selbst einen
-    Austausch an, ist der Schlusssatz der feste Telefonat-CTA, nicht Link und
+    springen: Dann telefoniert man über das Falsche. **Bietet er selbst einen
+    Austausch an, wird das Angebot angenommen, nicht noch einmal erfragt:**
+    „Gern austauschen" plus konkrete Bitte um Zeit und Nummer (wie Regel 13).
+    „Hast du was dagegen, wenn wir zehn Minuten telefonieren?" fragt nach
+    etwas, das er schon angeboten hat (Kevin, 30.09.2026: *„der CTA ist Müll,
+    da er am Ende sagt, wir können uns ja mal austauschen"*). Nie Link und
     Nummer zur Auswahl.
     *Fehler am 29.09.: Sven (Projektentwickler) las den Befund zu den
     Grundstückseigentümern als Frage nach Käufern („von 17 sind 11 so gut wie weg").
@@ -354,7 +358,7 @@ gepasst hätte.
     ```
     Hallo Sven, glaub ich sofort, an den Käufern zweifle ich bei dem Produkt auch nicht. Mir ging es um die andere Seite, die Grundstücke für die nächsten 17.
 
-    Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    Gern austauschen. Wann passt es dir diese Woche? Schick mir gern deine Nummer, dann ruf ich dich an.
     ```
 
 11. **Nachfassen in einem laufenden Gespräch knüpft am Gespräch an, nie an die
