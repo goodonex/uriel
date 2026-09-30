@@ -406,6 +406,27 @@ gepasst hätte.
     als Absage und wechselte mit „Alles klar. Dann eine andere Frage …" das
     Thema, statt dass Uwe sein Loom bekommt.*
 
+13. **Erzählt der Lead von einem Problem, ist das der Anlass für ein Gespräch,
+    kein „später".** Auch wenn das Problem nicht die Website ist (Software,
+    Personal, ein geplatzter Dienstleister): Kevin ist da, um Probleme zu lösen.
+    Also Verständnis in einem Satz, echtes Interesse daran, wie es gelaufen ist,
+    und direkt das Zehn-Minuten-Telefonat mit einer konkreten Bitte: Nummer und
+    Zeitvorschlag. Nicht vertagen, nicht auf die Website zurücklenken.
+    *Fehler am 30.09.: Hartmut erzählte per Sprachnachricht, die Umstellung der
+    Maklersoftware sei nach drei Monaten gescheitert, man sei im Streit
+    auseinandergegangen. Der Entwurf vertagte aufs nächste Jahr. Kevin: „ich
+    bin ja da, um Probleme zu lösen … da möchte ich direkt das zehnminütige
+    Telefonat anbieten."*
+    ```
+    Hi Hartmut, danke dir für die Nachricht. Drei Monate in so eine Umstellung stecken und dann doch wieder zurück, das ist richtig ärgerlich. Versteh ich gut, dass ihr davon erstmal die Nase voll habt.
+
+    Ich hatte gerade einen ähnlichen Fall, nur auf der anderen Seite. Deshalb finde ich spannend, wie ihr das Ganze bei euch erlebt habt, was da eigentlich schiefgelaufen ist.
+
+    Lass uns doch mal kurz austauschen, zehn Minuten reichen. Wann passt es dir diese Woche? Schick mir gern deine Nummer und einen Zeitvorschlag, dann ruf ich dich an.
+    ```
+    Antwortet der Lead per Sprachnachricht, ist die Antwort als Sprachnachricht
+    gedacht: Der Entwurf ist dann das Sprechskript.
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,
