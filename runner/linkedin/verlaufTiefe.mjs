@@ -75,5 +75,16 @@ export function conversationUrn(mailboxUrn, threadKey) {
  */
 export function brauchtTiefe(thread) {
   const v = thread?.verlauf
-  return !Array.isArray(v) || v.length <= 1
+  return !Array.isArray(v) || v.length <= 1 || nurTeilweise(thread)
+}
+
+/**
+ * Steht eine Nachricht nur aus der Postfach-Liste im Verlauf (30.09.2026)?
+ * Dann kann davor etwas fehlen — André Wackwitz schrieb zwei Nachrichten
+ * hintereinander, die Liste kannte nur die zweite. Solche Threads holt der
+ * Tiefenlauf zuerst, und der Antwort-Entwurf wartet auf ihn.
+ */
+export function nurTeilweise(thread) {
+  const v = thread?.verlauf
+  return Array.isArray(v) && v.some((e) => e?.quelle === 'liste')
 }

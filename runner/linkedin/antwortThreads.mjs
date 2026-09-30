@@ -3,6 +3,7 @@ import { statSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { icpUrteil, istArbeitsVorrat } from './icp.mjs'
+import { nurTeilweise } from './verlaufTiefe.mjs'
 
 /**
  * runner/linkedin/antwortThreads.mjs — Eingabe für den Antwort-Entwürfe-Agenten.
@@ -308,6 +309,10 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
     // Wer schon einen frischen Entwurf hat, ist erledigte Arbeit — er blockiert
     // sonst jeden Lauf und der Rückstau dahinter kommt nie dran.
     .filter((t) => istDuBistDran(t, now) && !hatFrischenEntwurf(t))
+    // Unvollständiger Verlauf: erst der Tiefenlauf, dann der Entwurf (30.09.2026,
+    // André Wackwitz — sonst antwortet der Text nur auf die letzte von zwei Nachrichten).
+    // Höchstens drei Stunden: Scheitert der Tiefenlauf an einem Thread, bekommt er trotzdem einen Entwurf.
+    .filter((t) => !(nurTeilweise(t) && now.getTime() - (Date.parse(t.last_message_at ?? '') || 0) < 3 * 60 * 60 * 1000))
     .sort((a, b) => {
       const stern = Number(Boolean(b.starred)) - Number(Boolean(a.starred))
       if (stern !== 0) return stern

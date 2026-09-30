@@ -3935,8 +3935,9 @@ async function maybePostfachSync() {
       // Als eigener Prozess, nicht inline: Der Lauf braucht mehrere Minuten und
       // haelt sonst den Sync-Zweig besetzt. Der Deckel begrenzt ihn auf die
       // Threads, die seit dem letzten Mal dazugekommen sind.
-      void verlaufNachziehen()
-      void antwortenSofort()
+      // Erst den Verlauf, dann die Entwürfe (30.09.2026): Liefen beide
+      // gleichzeitig, schrieb der Agent auf einen halben Verlauf (André Wackwitz).
+      void verlaufNachziehen().finally(() => antwortenSofort())
     } finally {
       linkedinSyncRunning = false
     }

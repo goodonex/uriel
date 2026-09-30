@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { SPRACH_PLATZHALTER, behalteTranskripte } from './verlauf.mjs'
+import { SPRACH_PLATZHALTER, verlaufZusammenfuehren } from './verlauf.mjs'
 import { sprachnachrichtenAbschreiben } from './sprachnachrichten.mjs'
 
 // ---------- Lokale .env (runner/.env, ein Verzeichnis über diesem Modul) ----------
@@ -72,7 +72,9 @@ function normalizeName(n) {
 function verlaufFuer(thread, prior) {
   // Abgeschriebene Sprachnachrichten behalten (29.09.2026) — der Sync liefert
   // jedes Mal wieder nur den Platzhalter.
-  if (Array.isArray(thread.verlauf) && thread.verlauf.length) return behalteTranskripte(thread.verlauf, prior?.verlauf)
+  // Einfügen statt ersetzen (30.09.2026): Die Liste kennt nur die letzte
+  // Nachricht, der gespeicherte Verlauf ist meist länger (verlauf.mjs).
+  if (Array.isArray(thread.verlauf) && thread.verlauf.length) return verlaufZusammenfuehren(thread.verlauf, prior?.verlauf)
   if (prior && Array.isArray(prior.verlauf)) return prior.verlauf
   return []
 }

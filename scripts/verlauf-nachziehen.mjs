@@ -12,7 +12,7 @@
  *
  * Braucht das Sync-Chrome (Alias `chrome-sync`) mit angemeldetem LinkedIn.
  */
-import { MESSAGES_QID_FALLBACK, brauchtTiefe, conversationUrn, strengKodiert } from '../runner/linkedin/verlaufTiefe.mjs'
+import { MESSAGES_QID_FALLBACK, brauchtTiefe, conversationUrn, nurTeilweise, strengKodiert } from '../runner/linkedin/verlaufTiefe.mjs'
 import { VERLAUF_MAX, VERLAUF_TEXT_MAX, behalteTranskripte, verlaufAusMessages } from '../runner/linkedin/verlauf.mjs'
 
 const CDP = 'http://127.0.0.1:9222'
@@ -28,8 +28,16 @@ const sag = (t) => console.log(`[${new Date().toLocaleTimeString('de-DE')}] ${t}
 
 // --- Threads holen -------------------------------------------------------
 const alle = await (await fetch(
-  `${SUPA}/rest/v1/linkedin_threads?select=id,thread_key,name,verlauf&limit=1000`, { headers: kopf })).json()
-const offen = alle.filter(brauchtTiefe).slice(0, LIMIT)
+  `${SUPA}/rest/v1/linkedin_threads?select=id,thread_key,name,verlauf,last_from,last_message_at&limit=1000`, { headers: kopf })).json()
+// Reihenfolge (30.09.2026): Wo eine Nachricht nur aus der Liste stammt, zuerst,
+// dann wer zuletzt selbst geschrieben hat, darin die neuesten. Vorher war die
+// Auswahl zufällig, und bei hunderten Ein-Nachricht-Threads kam eine frische
+// Antwort unter dem Deckel von 60 oft erst Runden später dran.
+const rang = (t) => (nurTeilweise(t) ? 0 : t.last_from === 'them' ? 1 : 2)
+const offen = alle
+  .filter(brauchtTiefe)
+  .sort((a, b) => rang(a) - rang(b) || String(b.last_message_at ?? '').localeCompare(String(a.last_message_at ?? '')))
+  .slice(0, LIMIT)
 sag(`${alle.length} Threads, ${alle.filter(brauchtTiefe).length} ohne echten Verlauf, dieser Lauf: ${offen.length}`)
 if (!offen.length) process.exit(0)
 

@@ -126,3 +126,41 @@ export function behalteTranskripte(neu, alt) {
   if (!fertig.size) return neu
   return neu.map((e) => (e && e.text === SPRACH_PLATZHALTER && fertig.has(e.ts) ? { ...e, text: fertig.get(e.ts) } : e))
 }
+
+/**
+ * Markiert eine Nachricht, die nur aus der Postfach-Liste stammt. Solange eine
+ * davon im Verlauf steht, ist er unvollständig: Die Liste kennt je Gespräch nur
+ * die letzte Nachricht, was davor kam, fehlt (`verlaufTiefe.brauchtTiefe`).
+ */
+export const AUS_LISTE = 'liste'
+
+/**
+ * Den Verlauf aus der Postfach-Liste in den gespeicherten einfügen, statt ihn zu
+ * ersetzen (30.09.2026).
+ *
+ * **Der Anlass.** André Wackwitz schrieb um 18:17 zwei Nachrichten hintereinander,
+ * eine lange über seinen Ankauf und direkt danach „Ich vermute es geht um
+ * irgendwelche leads oder Marketing Vorschläge. Richtig?". Der Entwurf
+ * beantwortete nur die zweite. Grund: Jeder Postfach-Sync (alle 30 Minuten)
+ * schrieb den Ein-Nachricht-Verlauf aus der Liste über den vollständigen, den
+ * `verlauf-nachziehen` vorher geholt hatte, und der Entwurf lief in der Lücke.
+ *
+ * Jetzt bleibt der gespeicherte Verlauf stehen, neue Nachrichten kommen dazu
+ * (zugeordnet über den festen Zeitstempel) und tragen `quelle: 'liste'`, bis
+ * der Tiefenlauf das Gespräch einmal vollständig geholt hat.
+ */
+export function verlaufZusammenfuehren(neu, alt, max = VERLAUF_MAX) {
+  const frisch = Array.isArray(neu) ? neu.filter(Boolean) : []
+  const bisher = Array.isArray(alt) ? alt.filter(Boolean) : []
+  if (!frisch.length) return bisher
+  const schluessel = (e) => (e.ts ? `ts:${e.ts}` : `tx:${e.sender}|${e.text}`)
+  const alle = new Map(bisher.map((e) => [schluessel(e), e]))
+  for (const e of frisch) {
+    const k = schluessel(e)
+    // Schon bekannt: der gespeicherte Eintrag gewinnt (er kann aus dem Tiefenlauf
+    // stammen und ein Transkript tragen). Neu: als Listen-Nachricht markieren.
+    if (!alle.has(k)) alle.set(k, { ...e, quelle: AUS_LISTE })
+  }
+  const zeit = (e) => Date.parse(e.ts ?? '') || 0
+  return behalteTranskripte([...alle.values()].sort((a, b) => zeit(a) - zeit(b)).slice(-max), bisher)
+}

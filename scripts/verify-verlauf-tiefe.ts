@@ -19,7 +19,9 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { brauchtTiefe, conversationUrn, strengKodiert, threadIdAus } from '../runner/linkedin/verlaufTiefe.mjs'
+import { brauchtTiefe, conversationUrn, nurTeilweise, strengKodiert, threadIdAus } from '../runner/linkedin/verlaufTiefe.mjs'
+// @ts-expect-error — .mjs ohne Typen
+import { verlaufZusammenfuehren } from '../runner/linkedin/verlauf.mjs'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 let pass = 0
@@ -69,6 +71,22 @@ console.log('\nDas Skript darf den syncToken nicht wieder einbauen')
   check('die Messaging-Seite wird bevorzugt', /url\.includes\('\/messaging'\)/.test(quelle))
   check('notfalls wird selbst ins Postfach navigiert', /Page\.navigate/.test(quelle) && /linkedin\.com\/messaging/.test(quelle))
   check('Rueckfall fuer die mailboxUrn ueber \/voyager\/api\/me', /voyager\/api\/me/.test(quelle))
+}
+
+{
+  // 30.09.2026, André Wackwitz: zwei Nachrichten hintereinander, der Sync
+  // überschrieb den vollen Verlauf mit der letzten.
+  const tief = [
+    { sender: 'me', text: 'Kommen die bei dir nur über Makler rein?', ts: '2026-09-29T10:00:00.000Z' },
+    { sender: 'them', text: 'Das meiste kommt über Makler …', ts: '2026-09-29T16:17:40.000Z' },
+    { sender: 'them', text: 'Richtig?', ts: '2026-09-29T16:17:51.000Z' },
+  ]
+  const gleich = verlaufZusammenfuehren([tief[2]], tief)
+  check('Sync mit bekannter letzter Nachricht verliert nichts', gleich.length === 3 && !nurTeilweise({ verlauf: gleich }))
+  const neu = verlaufZusammenfuehren([{ sender: 'them', text: 'Und?', ts: '2026-09-30T08:00:00.000Z' }], tief)
+  check('neue Listen-Nachricht wird angehängt und markiert', neu.length === 4 && neu[3].quelle === 'liste')
+  check('markierter Verlauf braucht den Tiefenlauf', brauchtTiefe({ verlauf: neu }))
+  check('leerer Sync überschreibt nichts', verlaufZusammenfuehren([], tief).length === 3)
 }
 
 console.log(`\nverify-verlauf-tiefe: ${pass} ok, ${fail} fehlgeschlagen`)
