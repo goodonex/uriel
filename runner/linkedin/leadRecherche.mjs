@@ -477,9 +477,16 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     // Die Seite existiert, lädt aber nicht (oder startet einen Download) — das hat der Browser gesehen, nicht ein Modell.
     // Anzeigen trotzdem prüfen: Eine kaputte Seite, auf die bezahlte Klicks laufen, ist der teuerste Befund überhaupt.
     const werbung = await pruefeWerbung(browser, ersterKaputt.url, firma)
+    /**
+     * Sicher nur, wenn die Seite vorher feststand (30.09.2026): Die Suche
+     * lieferte für Hilmer v. Bülow vonbuelow-cie.de, eine leere, frisch
+     * registrierte Domain mit SSL-Fehler; die echte Seite ist vonbuelow-co.de.
+     * Daraus wurde „die Seite lädt bei mir aber nicht". Eine tote Domain, die
+     * nur geraten ist, belegt nichts über die Firma.
+     */
     return {
       lead,
-      destillat: mitProfil({ ...leer, ...werbung, website: ersterKaputt.url, sicher: true, erreichbar: 'offline', befund: ersterKaputt.grund ?? '' }),
+      destillat: mitProfil({ ...leer, ...werbung, website: ersterKaputt.url, sicher: Boolean(bekannt), erreichbar: 'offline', befund: ersterKaputt.grund ?? '' }),
       kosten,
       token,
       grund: null,

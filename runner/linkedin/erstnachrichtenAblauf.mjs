@@ -60,6 +60,10 @@ export function ansatzFuer(lead, heute = new Date()) {
   if (String(r.geschaeftsmodell ?? '') === 'hausverwaltung') return { ansatz: 'hausverwaltung' }
 
   const website = String(r.website ?? '').trim()
+  // Offline nur über eine Seite, die sicher der Firma gehört (v. Bülow, 30.09.2026: geratene tote Domain).
+  if ((r.erreichbar === 'offline' || r.erreichbar === 'umbau') && r.sicher === false) {
+    return { zurueck: `[prüfen] ${website || 'Website'} lädt nicht und ist nicht als Firmenseite bestätigt — vor Versand googeln, ob die Firma eine andere Seite hat.` }
+  }
   if (r.erreichbar === 'offline' || r.erreichbar === 'umbau') return { ansatz: 'seite-offline' }
   if (!website || r.sicher === false) {
     const jahr = heute.getFullYear()
