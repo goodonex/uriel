@@ -31,6 +31,8 @@
  *                    passenden Ort gibt — ein Pfad vom Laptop muss auf dem Mini
  *                    nicht gelten (anderer Benutzername, anderer Vault-Pfad).
  *                    Genau daran scheiterte der erste echte Auftrag.
+ *   --modell <m>     `opus` oder `sonnet` (01.10.2026). Ohne Angabe gilt das
+ *                    Modell aus dem Agenten-Katalog des Runners (Opus).
  *   --pruefen        Nur zeigen, was gesendet würde, und nichts schreiben.
  */
 import { readFileSync } from 'node:fs'
@@ -57,6 +59,11 @@ const titel = argWert('titel')
 const nurPruefen = process.argv.includes('--pruefen')
 const ort = argWert('ort')
 const pfad = argWert('cwd')
+const modell = argWert('modell')
+if (modell && !['opus', 'sonnet'].includes(modell)) {
+  console.error(`Unbekanntes Modell "${modell}". Möglich: opus, sonnet.`)
+  process.exit(1)
+}
 
 if (!titel) {
   console.error('FEHLT: --titel "Kurzname des Auftrags"')
@@ -127,7 +134,7 @@ const stillSeitMin = gesehen ? Math.round((Date.now() - gesehen.getTime()) / 600
 const laeuft = Array.isArray(hb[0]?.running) ? hb[0].running : []
 
 if (nurPruefen) {
-  console.log(`TITEL: ${titel}\nORDNER: ${cwd}\nZEICHEN: ${auftrag.length}`)
+  console.log(`TITEL: ${titel}\nORDNER: ${cwd}\nMODELL: ${modell ?? 'Katalog (opus)'}\nZEICHEN: ${auftrag.length}`)
   console.log(`MINI: ${stillSeitMin === null ? 'kein Lebenszeichen' : `zuletzt vor ${stillSeitMin} Min gesehen`}`)
   console.log(`\n--- Auftrag ---\n${auftrag.slice(0, 600)}${auftrag.length > 600 ? '\n…' : ''}`)
   process.exit(0)
@@ -138,7 +145,7 @@ const res = await fetch(`${url}/rest/v1/runner_jobs`, {
   headers: { ...kopf, Prefer: 'return=representation' },
   body: JSON.stringify({
     kind: 'agent_run',
-    payload: { agent: 'auftrag', input: { auftrag, cwd, titel } },
+    payload: { agent: 'auftrag', input: { auftrag, cwd, titel, ...(modell ? { modell } : {}) } },
   }),
 })
 if (!res.ok) {

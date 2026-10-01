@@ -540,6 +540,9 @@ const AGENT_CATALOG = [
  */
 const AUFTRAG_WURZELN = [VAULT, resolve(join(homedir(), 'Kevin OS'))]
 
+/** Modelle, die ein Auftrag vom Laptop für sich wählen darf (Aliase der Claude-CLI). */
+const AUFTRAG_MODELLE = ['opus', 'sonnet']
+
 const AGENT_BY_ID = new Map(AGENT_CATALOG.map((a) => [a.id, a]))
 
 /**
@@ -602,7 +605,13 @@ function agentConfig(agent, input = null) {
       // JSON-Block darunter — dieselbe Form, die jeder andere Agent bekommt.
       buildPrompt: (inputBlock) => `${text}${inputBlock}`,
       extraArgs: [
-        ...(a.modell ? ['--model', a.modell] : []),
+        // 01.10.2026: Ein Auftrag darf sein Modell mitbringen (`input.modell`),
+        // aber nur aus dieser Liste — Kevin wollte die laplace-Kette auf Sonnet
+        // probieren. Alles andere fällt still auf den Katalog-Wert zurück.
+        ...(() => {
+          const m = AUFTRAG_MODELLE.includes(input?.modell) ? input.modell : a.modell
+          return m ? ['--model', m] : []
+        })(),
         ...(a.effort ? ['--effort', a.effort] : []),
         '--max-budget-usd',
         String(a.budget ?? RUN_BUDGET_USD),
