@@ -10,6 +10,7 @@
 import type { Erstnachricht } from '../../hooks/useErstnachrichten'
 import type { LinkedinThread } from '../../types/db'
 import { echtOffeneErstnachrichten, profilNachName } from './erstnachrichtenOffen'
+import { brauchtPruefung } from './erstnachrichtenPruefung'
 import { icpUrteil, istArbeitsVorrat } from './icp'
 import { istKunde, kundenSchluessel, type KundenKontakt } from './kundenAbgleich'
 import { bucketOf } from './linkedinFollowups'
@@ -387,6 +388,9 @@ export function erstnachrichtPosten(
 ): Posten[] {
   const profile = profilNachName(netzwerk)
   return echtOffeneErstnachrichten(leads, threads)
+    // Ungeprüfte Fälle (PRÜFEN-Hinweis, keine Website) stehen erst nach Kevins Haken
+    // hier — ein Text in dieser Spur geht blind raus (01.10.2026, Stufe „Prüfen").
+    .filter((l) => !brauchtPruefung(l))
     // Reihenfolge aus der Quelldatei = Kevins Abarbeitungsreihenfolge (sort_index).
     .sort((a, b) => a.sort_index - b.sort_index)
     .map((l): Posten => ({

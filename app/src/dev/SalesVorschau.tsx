@@ -8,6 +8,7 @@ import { HeuteDeck } from '../cockpit/components/HeuteDeck'
 import { FlowZeile, KachelFenster, type FlowZeileDef } from '../cockpit/pages/SalesDashboard'
 import { FunnelCanvas } from '../cockpit/components/sales/FunnelCanvas'
 import { TagesListe } from '../cockpit/components/sales/TagesListe'
+import { PruefListe } from '../cockpit/components/sales/PruefListe'
 import { KartenNamen } from '../cockpit/components/sales/KartenNamen'
 import type { FunnelKarte } from '../cockpit/lib/funnelKarten'
 import type { KartenLead } from '../cockpit/lib/funnelKarten'
@@ -193,7 +194,20 @@ export function SalesVorschau() {
    * gedrosselte Portion mit sichtbarem Rückstand, und die Projekte stehen
    * leise unten.
    */
+  const pruefFaelle = [
+    { id: 'p1', gruppe: 'g', name: 'Angeline Elisa Dhillon', firma: 'Sellavie Immobilien GmbH · PRÜFEN: sellavie.ch zeigt nur eine Coming-Soon-Seite', website: '', nachricht: 'Moin Angeline,\n\nSellavie Immobilien ist noch ganz frisch, Glückwunsch zum Start.\n\nWann soll die neue Seite live gehen?', sort_index: 1, status: 'offen' as const, sent_at: null },
+    { id: 'p2', gruppe: 'g', name: 'Daniel Bamert', firma: 'Bamert Real Estate GmbH · PRÜFEN: Google-Ads liefen einmal bis 25.07.2026, aktuell keine', website: 'bamert-realestate.ch', nachricht: 'Moin Daniel,\n\nich hab mir die Seite angeschaut.', sort_index: 2, status: 'offen' as const, sent_at: null },
+  ]
   const zeilen: FlowZeileDef[] = [
+    {
+      id: 'pruefen',
+      nummer: 0,
+      titel: 'Prüfen · vor den Anfragen',
+      zustand: 'aktiv',
+      kennzahl: `0 von ${pruefFaelle.length}`,
+      unterzeile: `${pruefFaelle.length} Texte warten auf deinen Blick auf die Website`,
+      inhalt: () => <PruefListe leads={pruefFaelle} onGeprueft={() => undefined} onAussortiert={() => undefined} />,
+    },
     {
       id: 'vernetzungsanfragen',
       nummer: 1,

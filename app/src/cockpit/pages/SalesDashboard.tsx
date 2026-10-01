@@ -14,6 +14,9 @@ import { FunnelCanvas } from '../components/sales/FunnelCanvas'
 import { PhasenRing } from '../components/sales/PhasenRing'
 import { KartenNamen } from '../components/sales/KartenNamen'
 import { TagesListe } from '../components/sales/TagesListe'
+import { PruefListe } from '../components/sales/PruefListe'
+import { teileErstnachrichten } from '../lib/erstnachrichtenOffen'
+import { brauchtPruefung, heuteGeprueft } from '../lib/erstnachrichtenPruefung'
 import { PipelineBoard } from '../components/sales/PipelineBoard'
 import { KadenzPanel } from '../components/sales/KadenzPanel'
 import { GebauteSeiten } from '../components/sales/GebauteSeiten'
@@ -1567,7 +1570,40 @@ export function SalesDashboard() {
       }
     })
 
-  const alleZeilen = [...flowZeilen, ...projektZeilen]
+  /**
+   * Stufe 0 „Prüfen" (01.10.2026, Kevins Diktat): Erstnachrichten mit PRÜFEN-Hinweis
+   * oder ohne Website stehen NICHT in der Erstnachrichten-Stufe, sondern hier.
+   * Kevin sieht selbst nach, setzt den Haken, danach geht der Text blind raus.
+   * Bewusst keine Stufe in `TAGES_FLOW`: Sie zählt nichts in `daily_metrics` und
+   * hat kein Soll, nur eine Liste, die sich leert.
+   */
+  const pruefOffen = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items).offen.filter(brauchtPruefung)
+  const pruefHeute = erstnachrichten.items.filter((e) => heuteGeprueft(e, jetzt)).length
+  const pruefZeile: FlowZeileDef = {
+    id: 'pruefen',
+    titel: 'Prüfen · vor den Anfragen',
+    nummer: 0,
+    zustand: flow.laedt ? 'offen' : pruefOffen.length === 0 ? 'erledigt' : 'aktiv',
+    kennzahl: zahl(`${pruefHeute} von ${pruefHeute + pruefOffen.length}`),
+    unterzeile:
+      pruefOffen.length > 0
+        ? `${pruefOffen.length} ${pruefOffen.length === 1 ? 'Text wartet' : 'Texte warten'} auf deinen Blick auf die Website`
+        : 'Alles geprüft, die Erstnachrichten gehen blind raus.',
+    inhalt: () => (
+      <PruefListe
+        leads={pruefOffen}
+        onGeprueft={(id) => void erstnachrichten.markiereGeprueft(id)}
+        onAussortiert={(id) => void erstnachrichten.setzeStatus(id, 'uebersprungen')}
+      />
+    ),
+  }
+  // Zwei „dran"-Zeilen gleichzeitig wären Rauschen: solange etwas zu prüfen ist, ist Prüfen dran.
+  const flowMitPruefen: FlowZeileDef[] = [
+    pruefZeile,
+    ...flowZeilen.map((z) => (pruefZeile.zustand === 'aktiv' && z.zustand === 'aktiv' ? { ...z, zustand: 'offen' as const } : z)),
+  ]
+
+  const alleZeilen = [...flowMitPruefen, ...projektZeilen]
   const offenKachel =
     alleZeilen.find((k) => k.id === offenKachelId) ??
     followupKacheln.find((k) => k.id === offenKachelId) ??
@@ -1789,7 +1825,7 @@ export function SalesDashboard() {
         </div>
       ) : null}
       <TagesListe
-        zeilen={flowZeilen}
+        zeilen={flowMitPruefen}
         onOeffnen={(id) => oeffneKachel(id, `kachel-${id}`)}
         fortschritt={tagesFortschritt}
         laedt={flow.laedt}

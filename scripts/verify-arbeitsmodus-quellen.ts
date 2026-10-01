@@ -47,7 +47,7 @@ function makeLead(overrides: Partial<Erstnachricht>): Erstnachricht {
     gruppe: 'Gruppe A',
     name: 'Lead Name',
     firma: '',
-    website: '',
+    website: 'beispiel.de',
     nachricht: 'Hallo …',
     sort_index: 0,
     status: 'offen',

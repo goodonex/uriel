@@ -18,6 +18,8 @@ export interface Erstnachricht {
   last_synced_at?: string | null
   /** 0076: Verweis auf den Lead. */
   lead_id?: string | null
+  /** 0094: Wann Kevin den PRÜFEN-Hinweis selbst abgehakt hat (NULL = ungeprüft). */
+  geprueft_at?: string | null
 }
 
 interface Result {
@@ -31,6 +33,8 @@ interface Result {
   alleDavorErledigen: (sortIndex: number) => Promise<void>
   /** Mehrere Zeilen auf einmal als verschickt verbuchen (Postfach-Abgleich, 17.08.). */
   erledigeViele: (ids: string[]) => Promise<void>
+  /** Setzt den Prüf-Haken (0094): Der Text rückt damit in die Erstnachrichten-Stufe. */
+  markiereGeprueft: (id: string) => Promise<void>
 }
 
 /** Versandfertige LinkedIn-Erstnachrichten aus dem Vault (Migration 0060). */
@@ -142,5 +146,19 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
     [reload],
   )
 
-  return { items, loading, tableMissing, error, reload, setzeStatus, alleDavorErledigen, erledigeViele }
+  const markiereGeprueft = useCallback(
+    async (id: string) => {
+      if (!supabase) return
+      const jetzt = new Date().toISOString()
+      setItems((cur) => cur.map((i) => (i.id === id ? { ...i, geprueft_at: jetzt } : i)))
+      const { error: err } = await supabase.from('linkedin_erstnachrichten').update({ geprueft_at: jetzt }).eq('id', id)
+      if (err) {
+        setError(err.message)
+        await reload()
+      }
+    },
+    [reload],
+  )
+
+  return { items, loading, tableMissing, error, reload, setzeStatus, alleDavorErledigen, erledigeViele, markiereGeprueft }
 }

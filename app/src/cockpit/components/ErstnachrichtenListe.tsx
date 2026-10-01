@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useErstnachrichten, type Erstnachricht } from '../../hooks/useErstnachrichten'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import { teileErstnachrichten } from '../lib/erstnachrichtenOffen'
+import { brauchtPruefung } from '../lib/erstnachrichtenPruefung'
 import { EntscheiderListe } from './EntscheiderListe'
 import { useRundeTor } from './RundeTor'
 import { ERSTNACHRICHTEN_RUNDE } from '../lib/tagesFlow'
@@ -164,10 +165,12 @@ export function ErstnachrichtenListe({ brandSlug }: { brandSlug: string | undefi
 
   // Der Haken im Cockpit ist nur die halbe Wahrheit — das Postfach ist die
   // andere (17.08.2026). Wer dort einen Thread hat, ist angeschrieben.
-  const { offen, schonRaus, hatGeantwortet } = useMemo(
+  const { offen: offenAlle, schonRaus, hatGeantwortet } = useMemo(
     () => teileErstnachrichten(q.items, threads.items),
     [q.items, threads.items],
   )
+  // Ungeprüfte Fälle warten in der Stufe „Prüfen" (Sales-Dashboard), nicht hier.
+  const offen = useMemo(() => offenAlle.filter((l) => !brauchtPruefung(l)), [offenAlle])
   const erledigt = q.items.filter((i) => i.status !== 'offen').length
   const ausPostfach = [...schonRaus, ...hatGeantwortet]
   const sichtbar = offen.slice(0, anzahlSichtbar)
