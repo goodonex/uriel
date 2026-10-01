@@ -180,6 +180,25 @@ check('mehr Zeilen als Leads in der Quelldatei wird gemeldet',
 check('gleich viele sind in Ordnung',
   schluessel({ ...sauber, erstnachrichtenMeta: { versandfertig: 1 } })
     .includes('erstnachrichten_gedoppelt') === false)
+check('DER FALL 01.10.: eine von Hand angelegte Zeile ist kein Doppler',
+  schluessel({
+    ...sauber,
+    erstnachrichten: [
+      { name: 'A', status: 'offen', quelle_datei: 'Erstnachrichten.md' },
+      { name: 'B', status: 'gesendet', quelle_datei: 'von Hand: Session 30.09.2026' },
+      { name: 'C', status: 'offen', quelle_datei: 'agent:linkedin-erstnachrichten' },
+    ],
+    erstnachrichtenMeta: { datei: 'Erstnachrichten.md', versandfertig: 1 },
+  }).includes('erstnachrichten_gedoppelt') === false)
+check('mit Datei-Stempel schlägt ein echter Doppler weiter an',
+  schluessel({
+    ...sauber,
+    erstnachrichten: [
+      { name: 'A', status: 'offen', quelle_datei: 'Erstnachrichten.md' },
+      { name: 'A', status: 'offen', quelle_datei: 'Erstnachrichten.md' },
+    ],
+    erstnachrichtenMeta: { datei: 'Erstnachrichten.md', versandfertig: 1 },
+  }).includes('erstnachrichten_gedoppelt'))
 check('ohne Meta wird nichts behauptet',
   schluessel({ ...sauber, erstnachrichtenMeta: {} }).includes('erstnachrichten_gedoppelt') === false)
 

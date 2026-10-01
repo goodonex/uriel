@@ -325,8 +325,18 @@ export function pruefeWidersprueche(daten, jetzt = new Date()) {
    * nur 140 in der Datei"), obwohl nichts gedoppelt war: Die Differenz waren
    * exakt die Agenten-Texte. Verglichen wird nur, was der Spiegel aus der
    * Datei erzeugt hat.
+   *
+   * 01.10.: Derselbe Fehlalarm noch einmal („141 statt 140") — diesmal durch
+   * eine Zeile, die eine Session am 30.09. von Hand angelegt hatte
+   * (`quelle_datei: 'von Hand: …'`). Statt jede weitere Nicht-Datei-Quelle
+   * einzeln auszunehmen, zählt die Regel jetzt nur Zeilen, deren Quelle exakt
+   * die Datei ist, die der Spiegel in `erstnachrichten_meta.datei` meldet.
+   * Ohne diesen Stempel bleibt der alte Filter als Rückfall.
    */
-  const ausDatei = erstnachrichten.filter((e) => !String(e.quelle_datei ?? '').startsWith('agent:'))
+  const spiegelDatei = daten.erstnachrichtenMeta?.datei
+  const ausDatei = spiegelDatei
+    ? erstnachrichten.filter((e) => e.quelle_datei === spiegelDatei)
+    : erstnachrichten.filter((e) => !String(e.quelle_datei ?? '').startsWith('agent:'))
   if (versandfertig > 0 && ausDatei.length > versandfertig) {
     melde(
       'erstnachrichten_gedoppelt',
