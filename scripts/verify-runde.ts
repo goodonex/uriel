@@ -296,7 +296,12 @@ console.log('\n6) Der Zeitplan bleibt aus')
   check('die drei Endpunkte der Runde stehen', /url\.pathname === '\/runde'/.test(quelle) && /'\/runde\/start'/.test(quelle) && /'\/runde\/abbrechen'/.test(quelle))
   check('der Start antwortet sofort statt zu warten', /void starteRunde\(/.test(quelle))
   check('nur ein Lauf gleichzeitig', /if \(laufendeRunde\?\.status === 'laeuft'\) return rundeStand\(\)/.test(quelle))
-  check('ein abgebrochener Lauf setzt den Stand nicht auf frisch', /if \(laufendeRunde\.status === 'fertig'\) \{\s*\n\s*markeSchreib\(RUNDE_MARKE/.test(quelle))
+  check('ein abgebrochener Lauf setzt den Stand nicht auf frisch', /if \(laufendeRunde\.status === 'fertig'( && ausloeser !== ANTWORT_TAKT_AUSLOESER)?\) \{\s*\n\s*markeSchreib\(RUNDE_MARKE/.test(quelle))
+  // 01.10.2026: Der 20-Minuten-Takt liest nur Postfach und Antworten — er darf die volle Runde nicht als erledigt markieren.
+  check('der Antworten-Takt setzt den Stand nicht auf frisch', /if \(laufendeRunde\.status === 'fertig' && ausloeser !== ANTWORT_TAKT_AUSLOESER\)/.test(quelle))
+  check('der Antworten-Takt fasst nur Postfach, Verlauf und Entwürfe an', /const ANTWORT_TAKT_ETAPPEN = \['postfach', 'verlauf', 'entwuerfe'\]/.test(quelle))
+  check('der Antworten-Takt schreibt kein Nachfassen', /nurAntworten: ausloeser === ANTWORT_TAKT_AUSLOESER/.test(quelle))
+  check('der Antworten-Takt läuft nur auf dem durchlaufenden Rechner', /if \(!RUNDE_AUTOMATIK \|\| !\(ANTWORT_TAKT_MIN > 0\)\) return/.test(quelle))
   check('die Runde öffnet Chrome nicht, sie prüft es', !/starteSyncChrome\(\)/.test(quelle.split('DIE RUNDE')[1] ?? ''))
 
   const kern = readFileSync(join(wurzel, 'runner/index.mjs'), 'utf8')

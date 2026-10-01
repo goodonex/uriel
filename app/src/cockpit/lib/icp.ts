@@ -94,3 +94,37 @@ export function icpUrteil(headline: string | null | undefined, name?: string | n
 export function istArbeitsVorrat(urteil: IcpUrteil): boolean {
   return urteil !== 'off'
 }
+
+/**
+ * Gehört dieser Thread in die Antworten- und Nachfass-Spur? (01.10.2026)
+ *
+ * Zwilling von `threadImVorrat` in `runner/linkedin/icp.mjs`, Begründung dort.
+ * Kurz: Das Urteil des Agenten (er hat die Nachricht gelesen) sticht die
+ * Headline in beide Richtungen. `kontakt`/`akquise` raus, `lead` drin, ohne
+ * Urteil entscheidet die Wortliste.
+ */
+type VorratThread = {
+  agent_urteil?: string | null
+  agent_urteil_at?: string | null
+  last_from?: string | null
+  last_message_at?: string | null
+  company?: string | null
+  name?: string | null
+}
+
+export function threadImVorrat(t: VorratThread): boolean {
+  const urteil = typeof t.agent_urteil === 'string' ? t.agent_urteil.trim() : ''
+  if (urteil === 'akquise') return false
+  // `kontakt` gilt nur bis zur nächsten Nachricht der Person (Zwilling, Begründung im Runner).
+  if (urteil === 'kontakt') return kontaktUeberholt(t) ? istArbeitsVorrat(icpUrteil(t.company, t.name).urteil) : false
+  if (urteil === 'lead') return true
+  return istArbeitsVorrat(icpUrteil(t.company, t.name).urteil)
+}
+
+/** Hat die Person NACH dem Kontakt-Urteil noch einmal geschrieben? */
+export function kontaktUeberholt(t: VorratThread): boolean {
+  if (t.last_from !== 'them') return false
+  const urteilAt = Date.parse(t.agent_urteil_at ?? '')
+  const letzte = Date.parse(t.last_message_at ?? '')
+  return Number.isFinite(urteilAt) && Number.isFinite(letzte) && letzte > urteilAt
+}

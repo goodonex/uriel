@@ -73,3 +73,39 @@ export function icpUrteil(headline, name) {
 export function istArbeitsVorrat(urteil) {
   return urteil !== 'off'
 }
+
+/**
+ * Gehört dieser THREAD in Kevins Antworten- und Nachfass-Spur? (01.10.2026)
+ *
+ * Eine Regel für Anzeige und Entwurfs-Agent, Zwilling von `threadImVorrat` in
+ * `app/src/cockpit/lib/icp.ts` (`scripts/verify-icp.ts` hält beide gleich).
+ *
+ * Anlass: Metin Moser-Balci (privates Fachwerkhaus, sucht einen Statiker) stand
+ * seit August in jedem Entwurfs-Lauf und in Kevins Antworten. Seine Headline
+ * ergibt `unklar`, und das Urteil „kontakt" des Agenten hielt ihn nur aus dem
+ * Nachfassen raus, nicht aus den Antworten. Kevin: *„so uninteressant"*. Und
+ * umgekehrt fehlte Manuel Rees: vom Agenten als `lead` erkannt, von der
+ * Headline als `off` geworfen.
+ *
+ * Darum gilt: Wer die Nachricht gelesen hat, sticht die Headline — in beide
+ * Richtungen. `kontakt` und `akquise` sind raus, `lead` ist drin. Nur ohne
+ * Agenten-Urteil entscheidet die Wortliste.
+ */
+export function threadImVorrat(thread) {
+  const urteil = typeof thread?.agent_urteil === 'string' ? thread.agent_urteil.trim() : ''
+  if (urteil === 'akquise') return false
+  // `kontakt` gilt nur für das, was der Agent gelesen hat. Schreibt die Person
+  // danach neu (der Makler, der abgesagt hatte, meldet sich doch), wird neu
+  // geurteilt, statt sie für immer auszublenden. `akquise` bleibt dauerhaft.
+  if (urteil === 'kontakt') return kontaktUeberholt(thread) ? istArbeitsVorrat(icpUrteil(thread?.company, thread?.name).urteil) : false
+  if (urteil === 'lead') return true
+  return istArbeitsVorrat(icpUrteil(thread?.company, thread?.name).urteil)
+}
+
+/** Hat die Person NACH dem Kontakt-Urteil noch einmal geschrieben? */
+export function kontaktUeberholt(thread) {
+  if (thread?.last_from !== 'them') return false
+  const urteilAt = Date.parse(thread?.agent_urteil_at ?? '')
+  const letzte = Date.parse(thread?.last_message_at ?? '')
+  return Number.isFinite(urteilAt) && Number.isFinite(letzte) && letzte > urteilAt
+}

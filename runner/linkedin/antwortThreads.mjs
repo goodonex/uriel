@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { icpUrteil, istArbeitsVorrat } from './icp.mjs'
+import { threadImVorrat } from './icp.mjs'
 import { nurTeilweise } from './verlaufTiefe.mjs'
 
 /**
@@ -59,6 +59,27 @@ export function hatFrischenEntwurf(thread, regelStand = stimmeStand()) {
 }
 
 /**
+ * Hat der Agent den Thread schon gelesen und bewusst KEINEN Text geschrieben,
+ * und ist seitdem nichts passiert? (01.10.2026)
+ *
+ * `hatFrischenEntwurf` kennt nur „Entwurf da". Lehnt der Agent ab (Ja zur
+ * Analyse, Gespräch beendet, angestellt), steht kein Entwurf am Thread, und der
+ * nächste Lauf legt ihm denselben Thread wieder vor. Bei zwei Läufen am Tag war
+ * das teuer, beim 20-Minuten-Takt für Antworten wäre es Dauerverschwendung.
+ *
+ * `ohneEntwurf`: thread_key → Zeitpunkt (ms) der Ablehnung, geführt vom Runner.
+ * Neu vorgelegt wird erst, wenn danach jemand geschrieben hat oder Kevins Stimme
+ * sich geändert hat.
+ */
+export function schonOhneEntwurfGeprueft(thread, ohneEntwurf, regelStand = stimmeStand()) {
+  const geprueft = ohneEntwurf?.get?.(thread.thread_key)
+  if (!Number.isFinite(geprueft)) return false
+  if (geprueft < regelStand) return false
+  const letzte = thread.last_message_at ? new Date(thread.last_message_at).getTime() : NaN
+  return Number.isFinite(letzte) ? geprueft >= letzte : true
+}
+
+/**
  * Seit wann gilt Kevins Stimme in ihrer jetzigen Fassung? (28.09.2026)
  *
  * Bis heute zählte ein Entwurf als frisch, solange der Lead danach nichts mehr
@@ -95,38 +116,22 @@ export function stimmeStand() {
 }
 
 /**
- * Ist die Person überhaupt Kevins Zielgruppe? (18.08.2026)
+ * Ist die Person überhaupt Kevins Zielgruppe? (18.08.2026, neu gefasst 01.10.2026)
  *
- * Der Agent schrieb bis heute für JEDEN, der zurückgeschrieben hat — auch für
- * Coaches, Recruiter und KI-Verkäufer, die Kevin akquirieren wollten. Von 30
- * erzeugten Entwürfen gingen 9 an solche Profile, darunter „Hi Angelique,
- * wonach bist du auf der Suche in der Gründerkommune?". Kevins Urteil:
- * „absolute Token-Verschwendung".
+ * Der Agent schrieb bis zum 18.08. für JEDEN, der zurückgeschrieben hat — auch
+ * für Coaches, Recruiter und KI-Verkäufer, die Kevin akquirieren wollten. Kevins
+ * Urteil: „absolute Token-Verschwendung".
  *
- * `unklar` zählt bewusst als Zielgruppe: Die Headline ist Freitext, und ein
- * fälschlich übergangener Makler ist teurer als ein Entwurf zu viel. Der
- * Thread selbst bleibt in jedem Fall sichtbar — gefiltert wird nur, wofür der
- * Agent Zeit und Token ausgibt.
+ * Seit 01.10. eine einzige Regel für Anzeige und Agent (`threadImVorrat`): Das
+ * Agenten-Urteil sticht die Headline. `akquise` UND `kontakt` bekommen keinen
+ * Entwurf mehr. Bis heute fiel nur `akquise` raus, und Metin Moser-Balci
+ * (Headline `unklar`, privates Bauvorhaben) lief so seit August durch jeden
+ * Lauf. `unklar` ohne Urteil bleibt drin: Der Agent liest die Nachricht, urteilt
+ * und schreibt bei `kontakt` keinen Text (Skill-Regel), und `entwuerfeAnThreads`
+ * verwirft zur Sicherheit jeden Entwurf, der doch kommt.
  */
 function istZielgruppe(thread) {
-  return istArbeitsVorrat(icpUrteil(thread.company, thread.name).urteil)
-}
-
-/**
- * Hat der Agent den Thread schon als Akquise-Versuch erkannt? (19.08.2026)
- *
- * Der Wortlisten-Filter oben sieht nur die Headline, und die verrät die
- * Absicht oft nicht: „Schritt für Schritt ein erfolgreiches Unternehmen
- * aufbauen" liest sich harmlos — im Chat steht ein Verkaufsversuch. Wer da
- * schreibt, weiss nur, wer die NACHRICHT gelesen hat. Genau das tut der Agent,
- * und sein Urteil (Migration 0075) gilt ab dann dauerhaft: Kevin soll denselben
- * Verkäufer nicht jeden Morgen erneut vorgelegt bekommen.
- *
- * Bewusst ohne Verfallsdatum. Schreibt ein Akquisiteur erneut, ist er immer
- * noch Akquisiteur — eine zweite Nachricht macht aus ihm keinen Lead.
- */
-function istAkquiseVersuch(thread) {
-  return thread.agent_urteil === 'akquise'
+  return threadImVorrat(thread)
 }
 
 /** Endzustände: hier ist nichts mehr zu tun (Spiegel von `isTerminal`). */
@@ -381,7 +386,7 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
  * `select=*` mit Absicht: die Spalte `verlauf` (0064) darf noch fehlen, ohne dass
  * die Abfrage mit HTTP 400 auffliegt.
  */
-export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'herrmann', now = new Date() }) {
+export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'herrmann', now = new Date(), ohneEntwurf = null }) {
   const br = await fetch(
     `${supabaseUrl}/rest/v1/brands?slug=eq.${encodeURIComponent(brandSlug)}&select=id&limit=1`,
     { headers },
@@ -431,12 +436,11 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
 
   const wartend = rows.filter((t) => istDuBistDran(t, now))
   const threads = wartend.filter(
-    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && keinEndLead(t) && !wartetAufLoom(t) && !nurPlatzhalter(t),
+    (t) => istZielgruppe(t) && keinEndLead(t) && !wartetAufLoom(t) && !nurPlatzhalter(t) && !(ohneEntwurf && schonOhneEntwurfGeprueft(t, ohneEntwurf)),
   )
-  // Nachfassen nur, wo die Follow-up-Spur im Cockpit ihn auch zeigt: Zielgruppe,
-  // kein Akquise-Versuch und kein reiner Kontakt (Spiegel von `followupPosten`).
+  // Nachfassen nur, wo die Follow-up-Spur im Cockpit ihn auch zeigt (Spiegel von `followupPosten`).
   const nachfassen = kevinZuletzt.filter(
-    (t) => istZielgruppe(t) && !istAkquiseVersuch(t) && t.agent_urteil !== 'kontakt' && keinEndLead(t),
+    (t) => istZielgruppe(t) && keinEndLead(t) && !(ohneEntwurf && schonOhneEntwurfGeprueft(t, ohneEntwurf)),
   )
   // Die Zahl gehört ins Lauf-Ergebnis, nicht ins Nichts: Wenn der Filter eines
   // Tages zu scharf greift, sieht man es an dieser Zeile und nicht daran, dass

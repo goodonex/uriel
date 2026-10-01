@@ -11,7 +11,7 @@ import type { Erstnachricht } from '../../hooks/useErstnachrichten'
 import type { LinkedinThread } from '../../types/db'
 import { echtOffeneErstnachrichten, profilNachName } from './erstnachrichtenOffen'
 import { brauchtPruefung } from './erstnachrichtenPruefung'
-import { icpUrteil, istArbeitsVorrat } from './icp'
+import { threadImVorrat } from './icp'
 import { istKunde, kundenSchluessel, type KundenKontakt } from './kundenAbgleich'
 import { bucketOf } from './linkedinFollowups'
 import { verlaufVon } from './linkedinVerlauf'
@@ -136,7 +136,8 @@ export function antwortPosten(
   return threads
     .filter((t) => wartetAufAntwort(t, heute))
     .filter((t) => !istKunde(t.name, kunden))
-    .filter((t) => istArbeitsVorrat(icpUrteil(t.company, t.name).urteil))
+    // Agenten-Urteil vor Headline, siehe `threadImVorrat` (01.10.2026, Metin Moser-Balci).
+    .filter(threadImVorrat)
     .map((t) => ({
       ...threadZuPosten(t, 'antwort', 'thread', t.preview || `Antwort an ${t.name || 'den Lead'} vorbereiten.`),
       entwurf: entwurfVon(t),
@@ -163,7 +164,7 @@ export function antwortPostenAusgeblendet(threads: LinkedinThread[], heute: Date
       (t) =>
         vorDerAkquise(t) ||
         istAkquiseVersuch(t) ||
-        !istArbeitsVorrat(icpUrteil(t.company, t.name).urteil),
+        !threadImVorrat(t),
     )
     .map((t) => ({
       ...threadZuPosten(t, 'antwort', 'thread', t.preview || `Antwort an ${t.name || 'den Lead'} vorbereiten.`),
@@ -262,10 +263,10 @@ export function followupPosten(
      * wen die Headline als Off markiert oder wen der Sortierer als
      * Akquise-Versuch bzw. reinen Kontakt eingestuft hat. `unklar` ohne
      * Sortierer-Urteil bleibt drin — ein übersehener Makler kostet mehr als ein
-     * Blick zu viel.
+     * Blick zu viel. Seit 01.10.2026 holt ein `lead`-Urteil auch eine Off-Headline
+     * zurück (`threadImVorrat`).
      */
-    .filter((t) => istArbeitsVorrat(icpUrteil(t.company, t.name).urteil))
-    .filter((t) => t.agent_urteil !== 'akquise' && t.agent_urteil !== 'kontakt')
+    .filter(threadImVorrat)
     .map((t) => ({
       ...threadZuPosten(t, 'followup', 'thread', deineLetzteNachricht(t)),
       /**

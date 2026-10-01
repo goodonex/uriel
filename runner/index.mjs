@@ -879,18 +879,50 @@ async function runsListe(limit, mitInhalt = false) {
 }
 
 /**
+ * Threads, die der Antwort-Agent gelesen und bewusst ohne Text gelassen hat
+ * (01.10.2026, siehe `schonOhneEntwurfGeprueft`). Liegt auf der Platte des
+ * Runners, damit ein Neustart nicht alle Ablehnungen vergisst und der nächste
+ * Lauf sie erneut bezahlt. Einträge älter als 60 Tage fallen raus.
+ */
+const OHNE_ENTWURF_DATEI = join(LOG_DIR, '.antwort-ohne-entwurf.json')
+const OHNE_ENTWURF_HALTBAR_MS = 60 * 24 * 60 * 60 * 1000
+
+function ohneEntwurfLies() {
+  try {
+    const roh = JSON.parse(readFileSync(OHNE_ENTWURF_DATEI, 'utf8'))
+    return new Map(Object.entries(roh).filter(([, ms]) => Number.isFinite(ms)))
+  } catch {
+    return new Map()
+  }
+}
+
+function ohneEntwurfMerke(threadKeys) {
+  if (!threadKeys.length) return
+  const karte = ohneEntwurfLies()
+  const jetzt = Date.now()
+  for (const k of threadKeys) karte.set(k, jetzt)
+  for (const [k, ms] of karte) if (jetzt - ms > OHNE_ENTWURF_HALTBAR_MS) karte.delete(k)
+  try {
+    writeFileSync(OHNE_ENTWURF_DATEI, JSON.stringify(Object.fromEntries(karte)))
+  } catch (e) {
+    console.error('[runner] Ablehnungen nicht gemerkt:', e?.message ?? e)
+  }
+}
+
+/**
  * Eingabe für `linkedin-antwort-entwuerfe`: die Threads, in denen der Lead
  * geschrieben hat und auf Kevin wartet. Wird hier im Runner gebaut, nicht im
  * Cockpit — so gibt es genau eine Fassung der Auswahlregel, und der Knopf am
  * Handy schickt keine Thread-Daten über die Brücke.
  */
-async function antwortEntwuerfeInput(now = new Date()) {
+async function antwortEntwuerfeInput(now = new Date(), { nurAntworten = false } = {}) {
   if (!SNAPSHOT_ENABLED) return null
   const { threads, uebersprungenOffIcp, nachfassen } = await holeAntwortThreads({
     supabaseUrl: SUPABASE_URL,
     headers: supabaseHeaders(),
     brandSlug: process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann',
     now,
+    ohneEntwurf: ohneEntwurfLies(),
   })
   // Sichtbar machen, was der ICP-Filter (18.08.) zurückhält. Schweigt er, sieht
   // niemand, ob er sinnvoll arbeitet oder gerade Kunden aussortiert.
@@ -899,7 +931,9 @@ async function antwortEntwuerfeInput(now = new Date()) {
   }
   // 29.09.2026: Dieselbe Runde schreibt auch das Nachfassen in laufenden
   // Gesprächen — die festen Vorlagen passen dort nicht (`istNachfassFall`).
-  const gebaut = baueAntwortInput(threads, now, undefined, nachfassen)
+  // Der 20-Minuten-Takt (`maybeAntwortTakt`) schreibt nur Antworten. Das
+  // Nachfassen bleibt bei den Zeitplan-Runden: Es wartet nicht auf Minuten.
+  const gebaut = baueAntwortInput(threads, now, undefined, nurAntworten ? null : nachfassen)
   if (gebaut.weitereNachfassen) {
     console.log(`[runner] antwort-entwuerfe: ${gebaut.weitereNachfassen} Nachfass-Gespräche über dem Limit (nächste Runde)`)
   }
@@ -1105,11 +1139,29 @@ async function urteileAnThreads(runId, markdown) {
  * Fehler hier dürfen den Lauf nicht nachträglich zum Fehlschlag machen: das
  * Markdown steht bereits in der Run-Datei und in der Freigaben-Queue.
  */
-async function entwuerfeAnThreads(runId, markdown) {
+async function entwuerfeAnThreads(runId, markdown, input = null) {
   if (!SNAPSHOT_ENABLED) return
   try {
-    const drafts = parseDraftsRoh(markdown)
     const urteile = parseUrteileRoh(markdown)
+    /**
+     * Wer als `kontakt` oder `akquise` beurteilt ist, bekommt keinen Text an
+     * den Posten (01.10.2026) — auch wenn der Agent doch einen schreibt. Am
+     * 01.10. stand für Metin Moser-Balci beides im selben Lauf: Urteil
+     * „kontakt" und ein Entwurf daneben, weil der Skill es so verlangte.
+     */
+    const raus = new Set(urteile.filter((u) => u.urteil !== 'lead').map((u) => u.thread_key))
+    const alleDrafts = parseDraftsRoh(markdown)
+    const drafts = alleDrafts.filter((d) => !(d.thread_key && raus.has(d.thread_key)))
+    if (drafts.length < alleDrafts.length) {
+      console.log(`[runner] ${runId}: ${alleDrafts.length - drafts.length} Entwürfe für Kontakt/Akquise verworfen`)
+    }
+    // Vorgelegt, gelesen, kein Text: merken, damit der nächste Lauf nicht
+    // denselben Thread noch einmal bezahlt (`schonOhneEntwurfGeprueft`).
+    // Nur bei einem lesbaren Ergebnis — ein kaputter json-Block ist kein Urteil.
+    if (Array.isArray(input?.threads) && (alleDrafts.length || urteile.length)) {
+      const mitText = new Set(drafts.map((d) => d.thread_key).filter(Boolean))
+      ohneEntwurfMerke(input.threads.map((t) => t.thread_key).filter((k) => k && !mitText.has(k)))
+    }
     // Ein Lauf ohne Entwürfe kann trotzdem etwas wert sein: Sind alle
     // vorgelegten Threads Akquise-Versuche, ist die Urteilsliste das ganze
     // Ergebnis — und genau die hält sie morgen aus Kevins Spur.
@@ -1349,7 +1401,7 @@ async function startRun(agent, input, { signal } = {}) {
         // Kevin doch einen individuellen Text will, muss der Entwurf trotzdem
         // am Posten landen und nicht im Protokoll.
         if (agent === 'linkedin-antwort-entwuerfe' || agent === 'linkedin-followup-entwuerfe') {
-          await entwuerfeAnThreads(id, ergebnis)
+          await entwuerfeAnThreads(id, ergebnis, agent === 'linkedin-antwort-entwuerfe' ? input : null)
         }
         if (agent === 'linkedin-sortierer') await urteileAnThreads(id, ergebnis)
         if (agent === 'linkedin-erstnachrichten') await erstnachrichtenAnListe(id, ergebnis)
@@ -5128,8 +5180,8 @@ const ETAPPEN_ARBEIT = {
     }
   },
 
-  entwuerfe: async ({ melde, signal }) => {
-    const gebaut = await antwortEntwuerfeInput(new Date())
+  entwuerfe: async ({ melde, signal, ausloeser }) => {
+    const gebaut = await antwortEntwuerfeInput(new Date(), { nurAntworten: ausloeser === ANTWORT_TAKT_AUSLOESER })
     if (!gebaut) return { text: 'niemand wartet auf eine Antwort' }
     melde(`${gebaut.input.threads.length} Entwürfe werden geschrieben`)
     await antwortLaeufe(gebaut, { signal })
@@ -5229,6 +5281,7 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzah
         const r = await mitFrist((signal) => ETAPPEN_ARBEIT[etappe.schluessel]({
           tief: vollNoetig,
           anzahl,
+          ausloeser,
           signal,
           melde: (text, anteil = null) => {
             // Nach dem Abbruch schreibt eine verwaiste Etappe nicht mehr in die Runde.
@@ -5278,7 +5331,9 @@ async function starteRunde({ ausloeser = 'kevin', nur = null, tief = null, anzah
   laufendeRunde = schliesseRunde(laufendeRunde, { jetzt: Date.now(), abgebrochen: rundeAbbruch, grund: rundeAbbruchGrund })
   // Der Stempel steht erst NACH dem Lauf auf der Platte: Ein abgebrochener Lauf
   // darf den Stand nicht auf „frisch" setzen, sonst fragt Uriel morgen nicht mehr.
-  if (laufendeRunde.status === 'fertig') {
+  // Der Antworten-Takt fasst nur Postfach und Entwürfe an. Er darf den Stand
+  // nicht auf „frisch" setzen, sonst entfiele die Frage nach der vollen Runde.
+  if (laufendeRunde.status === 'fertig' && ausloeser !== ANTWORT_TAKT_AUSLOESER) {
     markeSchreib(RUNDE_MARKE, Date.now())
     if (vollNoetig) {
       // Nur wenn beide Listen wirklich vollständig gelesen wurden — sonst
@@ -5335,6 +5390,50 @@ async function maybeRunde() {
     void starteRunde({ ausloeser: 'zeitplan', nur: slot.voll ? null : RUNDE_TAG_ETAPPEN })
   } catch (e) {
     console.error('[runner] Zeitplan-Runde fehlgeschlagen:', e?.message ?? e)
+  }
+}
+
+/**
+ * ---- Der Antworten-Takt (01.10.2026) ----
+ *
+ * Kevin: *„die Antworten möchte ich immer so aktuell wie möglich haben […] alle
+ * 20 Minuten neu laden […] in den Antworten steckt ja das meiste Geld drin."*
+ *
+ * Eine schmale Runde: Postfach lesen, Verläufe nachziehen, Antworten
+ * entwerfen. Kein Netzwerk, keine Erstnachrichten, kein Nachfassen, kein
+ * Sortierer (der Antwort-Agent urteilt über jeden Thread, den er sieht). Kosten
+ * entstehen nur, wenn jemand neu geschrieben hat: Wer schon einen Entwurf hat
+ * oder bewusst keinen bekam, wird erst wieder vorgelegt, wenn danach etwas
+ * Neues kam (`hatFrischenEntwurf`, `schonOhneEntwurfGeprueft`).
+ *
+ * Läuft nur mit `RUNDE_AUTOMATIK=1` (der Mini) und tagsüber; eine fällige
+ * Zeitplan-Runde hat Vorrang. `ANTWORT_TAKT_MIN=0` schaltet ihn ab.
+ */
+const ANTWORT_TAKT_AUSLOESER = 'antworten-takt'
+const ANTWORT_TAKT_MIN = Number(process.env.ANTWORT_TAKT_MIN ?? 20)
+const ANTWORT_TAKT_VON = Number(process.env.ANTWORT_TAKT_VON ?? 6)
+const ANTWORT_TAKT_BIS = Number(process.env.ANTWORT_TAKT_BIS ?? 23)
+const ANTWORT_TAKT_ETAPPEN = ['postfach', 'verlauf', 'entwuerfe']
+const ANTWORT_TAKT_MARKE = 'letzter-antworten-takt'
+
+async function maybeAntwortTakt() {
+  if (!RUNDE_AUTOMATIK || !(ANTWORT_TAKT_MIN > 0)) return
+  try {
+    if (laufendeRunde?.status === 'laeuft') return
+    const jetzt = new Date()
+    const stunde = jetzt.getHours()
+    if (stunde < ANTWORT_TAKT_VON || stunde >= ANTWORT_TAKT_BIS) return
+    // Eine fällige Zeitplan-Runde macht dieselbe Arbeit und mehr — sie zuerst.
+    const slot = faelligerSlot({ jetzt, nachtStunde: RUNDE_NACHT_STUNDE, tagStunden: RUNDE_TAG_STUNDEN })
+    if (slot && markeLies(RUNDE_SLOT_MARKE) < slot.start) return
+    // Zählt ab dem letzten Postfach-Lesen, egal wer es ausgelöst hat.
+    const zuletzt = Math.max(markeLies(ANTWORT_TAKT_MARKE), markeLies('letzter-postfach-sync'))
+    if (Date.now() - zuletzt < ANTWORT_TAKT_MIN * 60_000) return
+    if (!(await warteAufRechner(ANTWORT_TAKT_AUSLOESER, { brauchtChrome: true }))) return
+    markeSchreib(ANTWORT_TAKT_MARKE, Date.now())
+    void starteRunde({ ausloeser: ANTWORT_TAKT_AUSLOESER, nur: ANTWORT_TAKT_ETAPPEN, tief: false })
+  } catch (e) {
+    console.error('[runner] Antworten-Takt fehlgeschlagen:', e?.message ?? e)
   }
 }
 
@@ -5508,6 +5607,14 @@ server.listen(PORT, '127.0.0.1', () => {
     setTimeout(() => void maybeRunde(), 45_000)
     const zr = setInterval(() => void maybeRunde(), MORGENBRIEF_CHECK_MS)
     zr.unref?.()
+    if (ANTWORT_TAKT_MIN > 0) {
+      console.log(
+        `[runner] Antworten-Takt AKTIV — alle ${ANTWORT_TAKT_MIN} Min. von ${ANTWORT_TAKT_VON}:00 bis ${ANTWORT_TAKT_BIS}:00`,
+      )
+      // Versetzt zur Zeitplan-Runde, damit sie bei gleichem Tick zuerst greift.
+      const at = setInterval(() => void maybeAntwortTakt(), 60_000)
+      at.unref?.()
+    }
   }
 
   // OS-Map-Snapshot für die Live-Domain: einmal beim Start + periodisch spiegeln.

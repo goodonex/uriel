@@ -18,8 +18,8 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { icpUrteil, istArbeitsVorrat, type IcpUrteil } from '../app/src/cockpit/lib/icp'
-import { icpUrteil as icpUrteilRunner } from '../runner/linkedin/icp.mjs'
+import { icpUrteil, istArbeitsVorrat, threadImVorrat, type IcpUrteil } from '../app/src/cockpit/lib/icp'
+import { icpUrteil as icpUrteilRunner, threadImVorrat as threadImVorratRunner } from '../runner/linkedin/icp.mjs'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 const lies = (p: string) => readFileSync(join(wurzel, p), 'utf8')
@@ -97,6 +97,42 @@ check(
   'ein Coach FÜR Makler bleibt draußen (Wettbewerb, so steht es im Skill)',
   icpUrteil('Coaching für Immobilienmakler — mehr Abschlüsse', 'Test').urteil === 'off',
 )
+
+// --- Thread-Regel: Agenten-Urteil vor Headline (01.10.2026) --------------
+// Metin Moser-Balci stand seit August in jeder Antworten-Liste (Headline
+// `unklar`, Urteil `kontakt`), Manuel Rees fehlte (Urteil `lead`, Headline `off`).
+const METIN_HEADLINE =
+  'Gesundheits- & Sozialmanager bei HESA Statik Pulse | Prozessoptimierung, Interim Management'
+const THREAD_FAELLE: Array<{ label: string; t: Record<string, unknown>; erwartet: boolean }> = [
+  {
+    label: 'Metin: Urteil kontakt, seither nichts Neues → raus',
+    t: { name: 'Metin Moser-Balci', company: METIN_HEADLINE, agent_urteil: 'kontakt', agent_urteil_at: '2026-10-01T10:38:06Z', last_from: 'them', last_message_at: '2026-08-19T19:50:42Z' },
+    erwartet: false,
+  },
+  {
+    label: 'Kontakt schreibt NACH dem Urteil neu → wieder drin (neu urteilen)',
+    t: { name: 'Metin Moser-Balci', company: METIN_HEADLINE, agent_urteil: 'kontakt', agent_urteil_at: '2026-10-01T10:38:06Z', last_from: 'them', last_message_at: '2026-10-02T09:00:00Z' },
+    erwartet: true,
+  },
+  {
+    label: 'Akquise bleibt raus, auch nach neuer Nachricht',
+    t: { name: 'X', company: 'Immobilienmakler', agent_urteil: 'akquise', agent_urteil_at: '2026-09-01T00:00:00Z', last_from: 'them', last_message_at: '2026-10-02T09:00:00Z' },
+    erwartet: false,
+  },
+  {
+    label: 'Lead-Urteil holt eine Off-Headline zurück',
+    t: { name: 'Manuel Rees', company: '1:1 Coaching für Unternehmer', agent_urteil: 'lead', last_from: 'them' },
+    erwartet: true,
+  },
+  { label: 'ohne Urteil: unklare Headline bleibt drin', t: { name: 'Y', company: METIN_HEADLINE, agent_urteil: null }, erwartet: true },
+  { label: 'ohne Urteil: Off-Headline bleibt raus', t: { name: 'Z', company: 'Technical Recruiter / Recruiter', agent_urteil: null }, erwartet: false },
+]
+for (const f of THREAD_FAELLE) {
+  const app = threadImVorrat(f.t)
+  const runner = threadImVorratRunner(f.t)
+  check(`Thread-Regel: ${f.label}`, app === f.erwartet, `erwartet ${f.erwartet}, Oberfläche ${app}`)
+  check(`Thread-Regel gleich in Runner und Oberfläche: ${f.label}`, app === runner, `Oberfläche ${app}, Runner ${runner}`)
+}
 
 // --- Eine Regel-Datei, zwei Leser ---------------------------------------
 const appQuelle = lies('app/src/cockpit/lib/icp.ts')
