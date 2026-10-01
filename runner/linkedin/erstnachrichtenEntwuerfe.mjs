@@ -292,10 +292,11 @@ export async function schreibeErstnachrichten({
   /** Wer schon eine Zeile hat — egal in welchem Status —, wird nicht angefasst (außer veraltet, s. o.). */
   const vorhanden = new Map()
   for (let off = 0; off < 20_000; off += 1000) {
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/linkedin_erstnachrichten?brand_id=eq.${brandId}&select=id,name,status,quelle_datei&limit=1000&offset=${off}`,
-      { headers },
-    )
+    const abfrage = (felder) =>
+      fetch(`${supabaseUrl}/rest/v1/linkedin_erstnachrichten?brand_id=eq.${brandId}&select=${felder}&limit=1000&offset=${off}`, { headers })
+    // Ohne Migration 0095 gibt es `pruef_url` nicht: dann ohne die Spalte, sonst bliebe `vorhanden` leer und jeder Lead würde doppelt angelegt.
+    let res = await abfrage('id,name,status,quelle_datei,pruef_url')
+    if (!res.ok) res = await abfrage('id,name,status,quelle_datei')
     if (!res.ok) break
     const zeilen = await res.json()
     for (const z of zeilen) vorhanden.set(String(z.name ?? '').trim().toLowerCase(), z)
@@ -309,10 +310,11 @@ export async function schreibeErstnachrichten({
   /** Veraltete offene Zeile → ersetzen; sonst neu, wenn es keine gibt. @returns {boolean} ob geschrieben wird */
   const einreihen = (name, zeile) => {
     const alt = vorhanden.get(name.toLowerCase())
-    if (alt && istVeraltet(alt, quelle)) {
+    // Kevin hat in der Stufe „Prüfen" eine URL eingetragen (0095): Der Text wird für diese Adresse neu geschrieben.
+    if (alt && (istVeraltet(alt, quelle) || (alt.status === 'offen' && alt.pruef_url))) {
       const { brand_id: _b, gruppe: _g, name: _n, sort_index: _s, ...felder } = zeile
       // Neuer Text, neue Prüfung: Ein alter „geprüft"-Haken (0094) gilt nicht für den ersetzten Text.
-      ersetzen.push({ id: alt.id, felder: { ...felder, geprueft_at: null } })
+      ersetzen.push({ id: alt.id, felder: { ...felder, geprueft_at: null, ...(alt.pruef_url ? { pruef_url: null } : {}) } })
       vorhanden.set(name.toLowerCase(), { ...alt, quelle_datei: quelle, status: zeile.status })
       ersetzt++
       return true

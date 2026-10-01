@@ -1594,6 +1594,7 @@ export function SalesDashboard() {
         leads={pruefOffen}
         onGeprueft={(id) => void erstnachrichten.markiereGeprueft(id)}
         onAussortiert={(id) => void erstnachrichten.setzeStatus(id, 'uebersprungen')}
+        onNeuPruefen={erstnachrichten.neuPruefen}
       />
     ),
   }

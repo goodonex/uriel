@@ -206,7 +206,7 @@ export function SalesVorschau() {
       zustand: 'aktiv',
       kennzahl: `0 von ${pruefFaelle.length}`,
       unterzeile: `${pruefFaelle.length} Texte warten auf deinen Blick auf die Website`,
-      inhalt: () => <PruefListe leads={pruefFaelle} onGeprueft={() => undefined} onAussortiert={() => undefined} />,
+      inhalt: () => <PruefListe leads={pruefFaelle} onGeprueft={() => undefined} onAussortiert={() => undefined} onNeuPruefen={async () => true} />,
     },
     {
       id: 'vernetzungsanfragen',

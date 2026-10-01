@@ -82,7 +82,10 @@ async function main() {
       `linkedin_netzwerk?brand_id=eq.${bid}&select=name,profil_key,profile_url,status,headline,angenommen_at&order=profil_key`,
     ),
     alle<any>(`linkedin_threads?brand_id=eq.${bid}&select=name,profile_url&order=id`),
-    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei&order=id`),
+    // Ohne Migration 0095 fehlt `pruef_url`: dann ohne die Spalte weiterarbeiten statt ohne Leads.
+    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei,pruef_url&order=id`).catch(() =>
+      alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei&order=id`),
+    ),
   ])
 
   /**
@@ -103,9 +106,21 @@ async function main() {
    * alles gilt, was noch nicht rausgegangen ist.
    */
   const { quelle } = regelwerk()
-  const veraltet = new Set(
-    erst.filter((e: any) => istVeraltet(e, quelle)).map((e: { name: string }) => String(e.name).trim().toLowerCase()),
+  /**
+   * **Kevins eigene URL aus der Stufe „Prüfen"** (01.10.2026, Migration 0095):
+   * Offene Zeilen mit `pruef_url` werden wie veraltete neu bearbeitet, und die
+   * Recherche bekommt die Adresse als `website_bekannt` — sie sucht dann nicht
+   * mehr selbst (siehe `rechercheEinen`).
+   */
+  const eigeneUrl = new Map<string, string>(
+    erst
+      .filter((e: any) => e.status === 'offen' && String(e.pruef_url ?? '').trim())
+      .map((e: any) => [String(e.name).trim().toLowerCase(), String(e.pruef_url).trim()] as [string, string]),
   )
+  const veraltet = new Set([
+    ...erst.filter((e: any) => istVeraltet(e, quelle)).map((e: { name: string }) => String(e.name).trim().toLowerCase()),
+    ...eigeneUrl.keys(),
+  ])
   const schonImTopf = new Set(
     erst.map((e: { name: string }) => String(e.name).trim().toLowerCase()).filter((n: string) => !veraltet.has(n)),
   )
@@ -170,7 +185,13 @@ async function main() {
     return String(b.seit ?? '').localeCompare(String(a.seit ?? ''))
   })
   const limit = argZahl('limit', STANDARD_LIMIT)
-  const auswahl = sortiert.slice(0, limit)
+  /**
+   * Gibt es Leads mit Kevins URL, arbeitet dieser Lauf NUR sie ab: Er hat gerade
+   * auf „Neu prüfen" geklickt und wartet, und die übrigen Wartenden würden
+   * Recherche-Kosten ziehen, ohne dass er sie angefordert hat.
+   */
+  const mitUrl = sortiert.filter((p) => eigeneUrl.has(p.name.trim().toLowerCase()))
+  const auswahl = mitUrl.length ? mitUrl : sortiert.slice(0, limit)
 
   process.stdout.write(
     JSON.stringify({
@@ -185,6 +206,7 @@ async function main() {
         profile_url: p.profileUrl,
         angenommen_vor_tagen: p.tage,
         icp: icpUrteil(p.info ?? '', p.name).urteil,
+        ...(eigeneUrl.has(p.name.trim().toLowerCase()) ? { website_bekannt: eigeneUrl.get(p.name.trim().toLowerCase()) } : {}),
       })),
     }),
   )

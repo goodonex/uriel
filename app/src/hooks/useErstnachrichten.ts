@@ -20,6 +20,8 @@ export interface Erstnachricht {
   lead_id?: string | null
   /** 0094: Wann Kevin den PRÜFEN-Hinweis selbst abgehakt hat (NULL = ungeprüft). */
   geprueft_at?: string | null
+  /** 0095: Von Kevin eingetragene Website, der Mini bearbeitet den Lead damit neu (danach NULL). */
+  pruef_url?: string | null
 }
 
 interface Result {
@@ -35,6 +37,8 @@ interface Result {
   erledigeViele: (ids: string[]) => Promise<void>
   /** Setzt den Prüf-Haken (0094): Der Text rückt damit in die Erstnachrichten-Stufe. */
   markiereGeprueft: (id: string) => Promise<void>
+  /** Trägt Kevins URL ein (0095): Der Mini recherchiert den Lead damit neu und ersetzt den Text. */
+  neuPruefen: (id: string, url: string) => Promise<boolean>
 }
 
 /** Versandfertige LinkedIn-Erstnachrichten aus dem Vault (Migration 0060). */
@@ -160,5 +164,20 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
     [reload],
   )
 
-  return { items, loading, tableMissing, error, reload, setzeStatus, alleDavorErledigen, erledigeViele, markiereGeprueft }
+  const neuPruefen = useCallback(
+    async (id: string, url: string) => {
+      if (!supabase) return false
+      setItems((cur) => cur.map((i) => (i.id === id ? { ...i, pruef_url: url } : i)))
+      const { error: err } = await supabase.from('linkedin_erstnachrichten').update({ pruef_url: url }).eq('id', id)
+      if (err) {
+        setError(err.message)
+        await reload()
+        return false
+      }
+      return true
+    },
+    [reload],
+  )
+
+  return { items, loading, tableMissing, error, reload, setzeStatus, alleDavorErledigen, erledigeViele, markiereGeprueft, neuPruefen }
 }

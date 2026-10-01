@@ -19,6 +19,26 @@ const MARKE = /\s*·\s*PRÜFEN:\s*/
 
 type PruefFelder = Pick<Erstnachricht, 'status' | 'firma' | 'website'> & { geprueft_at?: string | null }
 
+/**
+ * Kevins eingetragene Adresse → Startseite der Domain, oder `null`, wenn es
+ * keine Adresse ist. „sellavie.ch", „www.sellavie.ch/team" und die volle URL
+ * ergeben alle `https://sellavie.ch/`-artige Origins; Leerzeichen und fremde
+ * Protokolle werden abgelehnt.
+ */
+export function normalisiereUrl(eingabe: string): string | null {
+  const roh = String(eingabe ?? '').trim()
+  if (!roh || /\s/.test(roh)) return null
+  const mitProtokoll = /^https?:\/\//i.test(roh) ? roh : /^[a-z][a-z0-9+.-]*:/i.test(roh) ? '' : `https://${roh}`
+  if (!mitProtokoll) return null
+  try {
+    const u = new URL(mitProtokoll)
+    if (!/^[^.]+\.[^.]+/.test(u.hostname)) return null
+    return `${u.origin}/`
+  } catch {
+    return null
+  }
+}
+
 /** Firma und Hinweis getrennt: „A GmbH · PRÜFEN: Seite im Umbau" → { firma, hinweis }. */
 export function trennePruefHinweis(firma: string | null | undefined): { firma: string; hinweis: string } {
   const roh = String(firma ?? '')

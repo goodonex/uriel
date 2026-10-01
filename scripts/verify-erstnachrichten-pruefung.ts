@@ -6,7 +6,7 @@
  * Start: npx tsx scripts/verify-erstnachrichten-pruefung.ts
  */
 import { erstnachrichtPosten } from '../app/src/cockpit/lib/arbeitsmodusQuellen'
-import { brauchtPruefung, heuteGeprueft, pruefLink, trennePruefHinweis } from '../app/src/cockpit/lib/erstnachrichtenPruefung'
+import { brauchtPruefung, heuteGeprueft, normalisiereUrl, pruefLink, trennePruefHinweis } from '../app/src/cockpit/lib/erstnachrichtenPruefung'
 import type { Erstnachricht } from '../app/src/hooks/useErstnachrichten'
 
 let pass = 0
@@ -47,6 +47,11 @@ check('Erstnachrichten-Spur zeigt nur Sauberes und Abgehaktes', ids.length === 2
 check('Link: Website, wenn es eine gibt', pruefLink(basis).href === 'https://sellavie.ch')
 check('Link: sonst Google-Suche mit Firma und Name', pruefLink(ohneSeite).href.startsWith('https://www.google.com/search?q=Sellavie'))
 check('heute abgehakt erkannt', heuteGeprueft(geprueft, new Date('2026-10-01T15:00:00Z')) && !heuteGeprueft(geprueft, new Date('2026-10-02T15:00:00Z')) && !heuteGeprueft(basis, new Date()))
+
+check('URL: nackte Domain', normalisiereUrl('sellavie.ch') === 'https://sellavie.ch/')
+check('URL: www und Unterseite werden zur Startseite', normalisiereUrl('www.sellavie.ch/team') === 'https://www.sellavie.ch/')
+check('URL: volle Adresse bleibt', normalisiereUrl('https://sellavie.ch/') === 'https://sellavie.ch/')
+check('URL: Leeres, Wörter und fremde Protokolle fliegen raus', normalisiereUrl('') === null && normalisiereUrl('sellavie') === null && normalisiereUrl('zwei worte.ch') === null && normalisiereUrl('javascript:alert(1)') === null)
 
 console.log(`\n${pass} ok, ${fail} fehlen`)
 process.exit(fail ? 1 : 0)

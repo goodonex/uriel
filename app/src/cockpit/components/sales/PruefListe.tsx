@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
-import { pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
+import { normalisiereUrl, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
+import { useRundeTor } from '../RundeTor'
 
 /**
  * Stufe 0 „Prüfen" (01.10.2026): die Erstnachrichten mit PRÜFEN-Hinweis oder
@@ -12,12 +13,37 @@ function PruefKarte({
   lead,
   onGeprueft,
   onAussortiert,
+  onNeuPruefen,
 }: {
   lead: Erstnachricht
   onGeprueft: () => void
   onAussortiert: () => void
+  onNeuPruefen: (url: string) => Promise<boolean>
 }) {
   const [textOffen, setTextOffen] = useState(false)
+  const [url, setUrl] = useState('')
+  const [fehler, setFehler] = useState<string | null>(null)
+  const [sendet, setSendet] = useState(false)
+  const { stand, runnerWeg, starteMit } = useRundeTor()
+
+  const schicke = async () => {
+    const sauber = normalisiereUrl(url)
+    if (!sauber) {
+      setFehler('Das ist keine Website-Adresse, zum Beispiel sellavie.ch')
+      return
+    }
+    setFehler(null)
+    setSendet(true)
+    const ok = await onNeuPruefen(sauber)
+    setSendet(false)
+    if (!ok) {
+      setFehler('Konnte nicht gespeichert werden')
+      return
+    }
+    setUrl('')
+    // Mit erreichbarem Mini sofort anstoßen; auf der Live-Seite wartet der Auftrag auf die nächste Runde.
+    if (!runnerWeg && stand && !stand.laeuft) starteMit({ nur: ['erstnachrichten'], anzahl: 1 })
+  }
   const { firma, hinweis } = trennePruefHinweis(lead.firma)
   const ziel = pruefLink(lead)
 
@@ -31,6 +57,50 @@ function PruefKarte({
       <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ck-warn)' }}>
         {hinweis || 'Keine Website hinterlegt. Selbst nachsehen, ob es eine gibt.'}
       </div>
+
+      {lead.pruef_url ? (
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ck-accent)' }}>
+          Wird mit {lead.pruef_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} neu geprüft. Der neue Text steht nach der nächsten Runde bei den Erstnachrichten (spätestens in ein paar Stunden).
+        </div>
+      ) : (
+        <form
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            void schicke()
+          }}
+        >
+          <input
+            type="text"
+            inputMode="url"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value)
+              setFehler(null)
+            }}
+            placeholder="Richtige Website eintragen, z. B. sellavie.ch"
+            aria-label={`Website für ${lead.name}`}
+            style={{
+              flex: 1,
+              minWidth: 200,
+              minHeight: 40,
+              padding: '0 12px',
+              fontSize: 13,
+              color: 'var(--ck-text-1)',
+              background: 'var(--ck-panel-2)',
+              border: '1px solid var(--ck-border-strong)',
+              borderRadius: 'var(--ck-radius-innen)',
+            }}
+          />
+          <button type="submit" className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }} disabled={sendet || !url.trim()}>
+            {sendet ? 'Speichert …' : 'Neu prüfen'}
+          </button>
+        </form>
+      )}
+      {fehler ? <div style={{ fontSize: 12, color: 'var(--ck-warn)' }}>{fehler}</div> : null}
 
       <button
         type="button"
@@ -88,10 +158,12 @@ export function PruefListe({
   leads,
   onGeprueft,
   onAussortiert,
+  onNeuPruefen,
 }: {
   leads: Erstnachricht[]
   onGeprueft: (id: string) => void
   onAussortiert: (id: string) => void
+  onNeuPruefen: (id: string, url: string) => Promise<boolean>
 }) {
   if (leads.length === 0) {
     return (
@@ -106,7 +178,13 @@ export function PruefListe({
         Diese {leads.length} Texte stehen erst bei den Erstnachrichten, wenn du die Seite selbst angesehen hast.
       </p>
       {leads.map((l) => (
-        <PruefKarte key={l.id} lead={l} onGeprueft={() => onGeprueft(l.id)} onAussortiert={() => onAussortiert(l.id)} />
+        <PruefKarte
+          key={l.id}
+          lead={l}
+          onGeprueft={() => onGeprueft(l.id)}
+          onAussortiert={() => onAussortiert(l.id)}
+          onNeuPruefen={(url) => onNeuPruefen(l.id, url)}
+        />
       ))}
     </div>
   )
