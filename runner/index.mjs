@@ -540,8 +540,12 @@ const AGENT_CATALOG = [
  */
 const AUFTRAG_WURZELN = [VAULT, resolve(join(homedir(), 'Kevin OS'))]
 
-/** Modelle, die ein Auftrag vom Laptop für sich wählen darf (Aliase der Claude-CLI). */
-const AUFTRAG_MODELLE = ['opus', 'sonnet']
+/**
+ * Modelle, die ein Auftrag vom Laptop für sich wählen darf. Volle IDs neben
+ * den Aliasen, weil ein Alias je nach CLI-Stand woanders hinzeigt: auf dem
+ * Mini löste `sonnet` am 01.10.2026 noch auf claude-sonnet-5 auf, nicht 5.5.
+ */
+const AUFTRAG_MODELLE = ['opus', 'sonnet', 'claude-opus-5-5', 'claude-sonnet-5-5']
 
 const AGENT_BY_ID = new Map(AGENT_CATALOG.map((a) => [a.id, a]))
 

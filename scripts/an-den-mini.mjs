@@ -31,7 +31,8 @@
  *                    passenden Ort gibt — ein Pfad vom Laptop muss auf dem Mini
  *                    nicht gelten (anderer Benutzername, anderer Vault-Pfad).
  *                    Genau daran scheiterte der erste echte Auftrag.
- *   --modell <m>     `opus` oder `sonnet` (01.10.2026). Ohne Angabe gilt das
+ *   --modell <m>     `opus`, `sonnet` oder die volle ID `claude-opus-5-5` /
+ *                    `claude-sonnet-5-5` (01.10.2026). Ohne Angabe gilt das
  *                    Modell aus dem Agenten-Katalog des Runners (Opus).
  *   --pruefen        Nur zeigen, was gesendet würde, und nichts schreiben.
  */
@@ -60,8 +61,9 @@ const nurPruefen = process.argv.includes('--pruefen')
 const ort = argWert('ort')
 const pfad = argWert('cwd')
 const modell = argWert('modell')
-if (modell && !['opus', 'sonnet'].includes(modell)) {
-  console.error(`Unbekanntes Modell "${modell}". Möglich: opus, sonnet.`)
+const MODELLE = ['opus', 'sonnet', 'claude-opus-5-5', 'claude-sonnet-5-5']
+if (modell && !MODELLE.includes(modell)) {
+  console.error(`Unbekanntes Modell "${modell}". Möglich: ${MODELLE.join(', ')}.`)
   process.exit(1)
 }
 
