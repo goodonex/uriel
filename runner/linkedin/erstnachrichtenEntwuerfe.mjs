@@ -311,7 +311,8 @@ export async function schreibeErstnachrichten({
     const alt = vorhanden.get(name.toLowerCase())
     if (alt && istVeraltet(alt, quelle)) {
       const { brand_id: _b, gruppe: _g, name: _n, sort_index: _s, ...felder } = zeile
-      ersetzen.push({ id: alt.id, felder })
+      // Neuer Text, neue Prüfung: Ein alter „geprüft"-Haken (0094) gilt nicht für den ersetzten Text.
+      ersetzen.push({ id: alt.id, felder: { ...felder, geprueft_at: null } })
       vorhanden.set(name.toLowerCase(), { ...alt, quelle_datei: quelle, status: zeile.status })
       ersetzt++
       return true
