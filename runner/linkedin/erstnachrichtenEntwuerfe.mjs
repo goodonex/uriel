@@ -422,7 +422,8 @@ export function segmentUrteil(recherche) {
   const modell = String(r.geschaeftsmodell ?? '').toLowerCase()
   const was = String(r.taetigkeit ?? '').slice(0, 120)
   // Hausverwaltungen werden seit 25.09.2026 geschrieben (Aufbau H, Frage nach dem Engpass).
-  if (modell === 'investor' || modell === 'sonstiges') {
+  // Aussortiert wird nur, was die Recherche benennen kann. Ohne Tätigkeit und Firma („unklar") entscheidet der Prüfer (02.10.2026, Ekaterina Blum).
+  if ((modell === 'investor' || modell === 'sonstiges') && (was || r.firma)) {
     return { aktion: 'ueberspringen', grund: `${modell === 'investor' ? 'Investor/Bestandshalter' : 'kein Makler'}: ${was || r.firma || 'Tätigkeit unklar'}` }
   }
   if (!String(r.website ?? '').trim() && r.erreichbar !== 'offline' && !r.nur_portal && !(r.erfahrung_gelesen && r.firma)) {

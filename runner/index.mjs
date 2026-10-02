@@ -1041,6 +1041,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
       if (u.urteil === 'ok') ok.push(n)
       // Kevin 02.10.2026: „lass mich da alles prüfen, ob die eine Nachricht bekommen sollen" — der Text geht MIT dem Hinweis des Prüfers in seine Prüf-Stufe, statt zu verschwinden.
+      else if (u.urteil === 'zurueck' && u.art === 'kein_ziel') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[übersprungen] Prüfer: ${u.hinweis}` })
       else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: `Prüfer: ${u.hinweis}`.slice(0, 280) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())

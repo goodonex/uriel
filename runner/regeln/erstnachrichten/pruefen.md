@@ -13,14 +13,27 @@ Urteile je Nachricht genau eins:
 - **`neu`** — der Ansatz stimmt, aber der Text bricht eine Regel oder der
   Befund trägt nicht. Schreib in `hinweis` konkret, was falsch ist und was
   stattdessen der Aufhänger sein soll (aus dem Destillat).
-- **`zurueck`** — diese Person sollte gar keine Nachricht bekommen (Rolle
-  falsch, kein Makler/Entwickler, Befund nicht belegbar und keine Alternative).
-  `hinweis` sagt, warum. **Nie wegen „Seite zu gut für eine Analyse"**: Seit
-  02.10.2026 gilt Kevins Satz *„zu gut für die Analyse, und die direkt aus der
-  Ansprache raus, macht doch keinen Sinn"*. Eine zu gute Seite ist `neu` mit dem
-  Feld `ansatz: "starke-seite-funnel"` (der Code wählt dann selbst zwischen S
-  und T anhand der Werbe-Felder). Der Schreiber bekommt sie mit Aufbau S oder T
-  neu.
+- **`zurueck`** — diese Person sollte keine Nachricht dieser Art bekommen.
+  `hinweis` sagt, warum. **Immer mit `art`:**
+  - `"art": "kein_ziel"` — nur wenn das Destillat es **eindeutig belegt**: die
+    Person ist nachweislich nicht Kunde (kein Makler, Projektentwickler oder
+    Verwalter: Investor, Bestandshalter, Berater, Software, Handwerk, Finanz,
+    Coach) ODER laut Impressum reine Angestellte ohne eigene Firma. Dann fällt
+    sie aus der Ansprache, ohne dass Kevin sie sieht.
+  - `"art": "unsicher"` — alles andere: Rolle unklar (`rolle_impressum`
+    `unklar`, `impressum_gf` leer), Befund nicht belegbar, Seite nicht sicher
+    zugeordnet, Destillat dünn. Die Person gehört zur Zielgruppe oder könnte
+    es sein; Kevin schaut selbst, ob sie eine Nachricht bekommt.
+  - **Im Zweifel `unsicher`.** Kevin am 02.10.2026: *„Ich will keine unnötige
+    Arbeit haben. Aber ich will auch nicht, dass auch nur einer rausfallen
+    kann, den wir eigentlich angehen könnten."* Ein fälschlich ausgesiebter
+    Makler kostet mehr als ein Blick.
+  - **Nie wegen „Seite zu gut für eine Analyse"**: Seit 02.10.2026 gilt Kevins
+    Satz *„zu gut für die Analyse, und die direkt aus der Ansprache raus,
+    macht doch keinen Sinn"*. Eine zu gute Seite ist `neu` mit dem Feld
+    `ansatz: "starke-seite-funnel"` (der Code wählt dann selbst zwischen S und
+    T anhand der Werbe-Felder). Der Schreiber bekommt sie mit Aufbau S oder T
+    neu.
 
 ## Die Fragen, in dieser Reihenfolge
 
@@ -101,11 +114,13 @@ Nur ein ```json-Block, als LETZTES:
 {
   "urteile": [
     { "profil_key": "…", "name": "…", "urteil": "ok", "hinweis": "" },
-    { "profil_key": "…", "name": "…", "urteil": "neu", "hinweis": "Seite zu gut für eine Analyse", "ansatz": "starke-seite-funnel" }
+    { "profil_key": "…", "name": "…", "urteil": "neu", "hinweis": "Seite zu gut für eine Analyse", "ansatz": "starke-seite-funnel" },
+    { "profil_key": "…", "name": "…", "urteil": "zurueck", "hinweis": "Angestellt laut Impressum, keine eigene Firma", "art": "kein_ziel" }
   ]
 }
 ```
 
 Jede vorgelegte Nachricht bekommt genau ein Urteil. `hinweis` ist bei `neu`
-und `zurueck` Pflicht, ein bis zwei Sätze. `ansatz` nur setzen, wenn eine
-Analyse auf Aufbau S/T umgelenkt werden soll.
+und `zurueck` Pflicht, ein bis zwei Sätze. `art` ist bei `zurueck` Pflicht
+(`kein_ziel` oder `unsicher`). `ansatz` nur setzen, wenn eine Analyse auf
+Aufbau S/T umgelenkt werden soll.

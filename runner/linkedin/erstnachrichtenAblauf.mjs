@@ -176,7 +176,7 @@ function fuerModell(lead) {
  * für die nächste Runde im Vorrat. Lieber ein Tag Verzug als eine
  * ungeprüfte Nachricht in Kevins Liste.
  *
- * @returns {Promise<{ urteile: Map<string, {urteil: string, hinweis: string, ansatz?: string}> | null, kosten: number }>}
+ * @returns {Promise<{ urteile: Map<string, {urteil: string, hinweis: string, ansatz?: string, art?: 'kein_ziel'|'unsicher'}> | null, kosten: number }>}
  */
 export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd }) {
   if (!nachrichten.length) return { urteile: new Map(), kosten: 0 }
@@ -194,7 +194,8 @@ export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd
   const urteile = new Map()
   for (const u of json.urteile) {
     const urteil = ['ok', 'neu', 'zurueck'].includes(u?.urteil) ? u.urteil : 'neu'
-    const eintrag = { urteil, hinweis: String(u?.hinweis ?? '').trim().slice(0, 300) }
+    // Fehlt `art`, gilt „unsicher": Lieber ein Blick von Kevin zu viel als ein verlorener Lead (02.10.2026).
+    const eintrag = { urteil, hinweis: String(u?.hinweis ?? '').trim().slice(0, 300), ...(urteil === 'zurueck' ? { art: u?.art === 'kein_ziel' ? 'kein_ziel' : 'unsicher' } : {}) }
     // Seite zu gut für eine Analyse: nicht streichen, sondern umlenken (02.10.2026). Der Code entscheidet, welcher der beiden.
     if (urteil !== 'ok' && UMLENK_ANSAETZE.includes(u?.ansatz)) {
       const lead = leadsNachName.get(String(u?.name ?? '').toLowerCase())

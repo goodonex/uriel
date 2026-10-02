@@ -12,6 +12,7 @@
  */
 // @ts-expect-error — .mjs ohne Typen
 import { ansatzFuer, ansatzStarkeSeite } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
+import { segmentUrteil } from '../runner/linkedin/erstnachrichtenEntwuerfe.mjs'
 // @ts-expect-error — .mjs ohne Typen
 import { landFuerDomain } from '../runner/linkedin/googleAds.mjs'
 // @ts-expect-error — .mjs ohne Typen
@@ -39,6 +40,8 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
   check('starke Seite, beide Werbe-Prüfungen „nein" → Aufbau S (25.09.2026)', 'ansatz' in stark && stark.ansatz === 'starke-seite', stark)
   const halb = ansatzFuer(lead({ ...ohneWerbung, meta_ads_aktiv: 'unbekannt' }), heute)
   check('starke Seite, Meta ungeprüft → Aufbau T, kein „keine Werbung"-Satz', 'ansatz' in halb && halb.ansatz === 'starke-seite-funnel', halb)
+  check('Investor mit benannter Tätigkeit → übersprungen', segmentUrteil({ geschaeftsmodell: 'investor', taetigkeit: 'kauft Mehrfamilienhäuser im Bestand', website: 'https://x.de' }).aktion === 'ueberspringen')
+  check('„sonstiges" ohne Tätigkeit und Firma → nicht aussortieren (Ekaterina Blum)', segmentUrteil({ geschaeftsmodell: 'sonstiges', website: 'https://x.de' }).aktion === 'schreiben')
   check('ansatzStarkeSeite: beide nein → S', ansatzStarkeSeite({ meta_ads_aktiv: 'nein', google_ads_aktiv: 'nein' }) === 'starke-seite')
   check('ansatzStarkeSeite: Google ja → T', ansatzStarkeSeite({ meta_ads_aktiv: 'nein', google_ads_aktiv: 'ja' }) === 'starke-seite-funnel')
   check('ansatzStarkeSeite: nichts bekannt → T', ansatzStarkeSeite({}) === 'starke-seite-funnel')
