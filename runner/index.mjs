@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { syncThreads, TIEFENSCAN_TAGE } from './linkedin/sync.mjs'
@@ -4646,8 +4646,39 @@ async function paketeAbgleichen() {
   }
 }
 
+/**
+ * Welcher Code läuft HIER gerade? (02.10.2026)
+ *
+ * Kevin: „Ich hätte gerne die Aussage, jawohl, das ist in dieser Sekunde
+ * definitiv hundertprozentig live. Nicht, dass ich draufgehe und sage: nee, doch
+ * noch nicht." Der Runner meldet deshalb nach jedem Check, welchen Commit er
+ * ausführt, welche Regel-Fassung gilt und ob etwas den Pull blockiert (eigene
+ * Änderungen im Ordner, laufender Lauf). `scripts/live-check.ts` liest das
+ * zusammen mit der Website und sagt Ja oder Nein, statt zu vermuten.
+ */
+const STARTZEIT = new Date().toISOString()
+async function meldeVersion(extra = {}) {
+  if (!SNAPSHOT_ENABLED) return
+  const commit = await git('rev-parse', 'HEAD')
+  if (!commit) return
+  const [dort, schmutzig] = [await git('rev-parse', '@{u}'), await git('status', '--porcelain')]
+  let fassung = null
+  try { fassung = regelwerk().fassung } catch { /* Regelwerk unvollständig — dann eben ohne */ }
+  await pushSnapshotKey('runner_version', async () => ({
+    commit: commit.trim(),
+    origin: dort ? dort.trim() : null,
+    fassung,
+    host: hostname(),
+    gestartet: STARTZEIT,
+    eigeneAenderungen: Boolean(schmutzig && schmutzig.trim()),
+    laufendeLaeufe: running.size,
+    ...extra,
+  }))
+}
+
 let codeCheckLaeuft = false
 async function codeCheckTick() {
+  void meldeVersion()
   if (codeCheckLaeuft || running.size > 0) return
   codeCheckLaeuft = true
   try {
@@ -5483,6 +5514,7 @@ server.listen(PORT, '127.0.0.1', () => {
    * ändert. Der erste Blick kommt nach einer Minute, danach im Takt.
    */
   void paketeAbgleichen()
+  void meldeVersion()
   if (CODE_AUTOUPDATE) {
     setTimeout(() => void codeCheckTick(), 60_000)
     const cc = setInterval(() => void codeCheckTick(), CODE_CHECK_MS)

@@ -30,3 +30,7 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Welcher Stand läuft hier? `scripts/live-check.ts` sucht diesen Commit im Bundle (02.10.2026).
+declare const __BUILD_COMMIT__: string
+;(window as unknown as { __URIEL_COMMIT__: string }).__URIEL_COMMIT__ = __BUILD_COMMIT__
