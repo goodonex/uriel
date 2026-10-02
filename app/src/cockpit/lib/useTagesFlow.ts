@@ -12,10 +12,13 @@ import { useTagesPortionen, type TagesPortionen } from './useTagesPortionen'
 import { useUiSetting } from './uiSettings'
 import {
   PORTION_STUFEN,
+  ANFRAGEN_PAUSE,
   TAGES_FLOW_ZIELE,
+  anfragenPauseAktiv,
   einzufrierendePortionen,
   flowQuellen,
   stufenStaende,
+  type AnfragenPause,
   type FlowEingabe,
   type StufenStand,
   type TagesZeile,
@@ -109,6 +112,8 @@ export function useTagesFlow(
   const { wert: ziele, geladen } = useUiSetting<ZielUeberschreibung>(TAGES_FLOW_ZIELE, KEINE_ZIELE)
   const heute = useMetrikTag()
   const portionen = useTagesPortionen(heute)
+  const { wert: pause } = useUiSetting<AnfragenPause | null>(ANFRAGEN_PAUSE, null)
+  const anfragenPausiert = anfragenPauseAktiv(pause, heute)
 
   /**
    * Das Einfrieren (Migration 0074) wohnt HIER, nicht in den Flächen: jede
@@ -123,15 +128,15 @@ export function useTagesFlow(
     if (quelleLaedt || !geladen || !portionen.geladen || portionen.tableMissing) return
     const fehlen = PORTION_STUFEN.filter((id) => portionen.heutige[id] == null)
     if (fehlen.length === 0) return
-    const alle = einzufrierendePortionen({ today, ...quellen, ziele })
+    const alle = einzufrierendePortionen({ today, ...quellen, ziele, anfragenPausiert })
     const nurFehlende = Object.fromEntries(fehlen.map((id) => [id, alle[id] ?? 0]))
     portionen.friereEin(nurFehlende)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eingefroren wird der Stand des Moments, nicht jeder neue
   }, [quelleLaedt, geladen, portionen.geladen, portionen.tableMissing, portionen.heutige])
 
   const staende = useMemo(
-    () => stufenStaende({ today, ...quellen, portionen: portionen.heutige, ziele }),
-    [today, quellen, portionen.heutige, ziele],
+    () => stufenStaende({ today, ...quellen, portionen: portionen.heutige, ziele, anfragenPausiert }),
+    [today, quellen, portionen.heutige, ziele, anfragenPausiert],
   )
 
   const laedt = quelleLaedt || !geladen || !portionen.geladen

@@ -53,7 +53,7 @@ function check(label: string, ok: boolean, hinweis = '') {
 
 /* ── 1. DIE GEGENPROBE: Vorgabewerte gegen FESTE Zahlen ─────────────────── */
 
-check('Vorgabe followupTage = [3, 7, 14]', JSON.stringify(KADENZ_STANDARD.followupTage) === '[3,7,14]')
+check('Vorgabe followupTage = [7, 10, 14]', JSON.stringify(KADENZ_STANDARD.followupTage) === '[7,10,14]')
 check('Vorgabe stillEmailTage = 30', KADENZ_STANDARD.stillEmailTage === 30)
 check('Vorgabe stillPostkarteTage = 7', KADENZ_STANDARD.stillPostkarteTage === 7)
 check('Vorgabe stillAnrufTage = 7', KADENZ_STANDARD.stillAnrufTage === 7)
@@ -75,7 +75,7 @@ check('LAUT_POSTKARTE_TAGE unverändert', LAUT_POSTKARTE_TAGE === 21)
 check('LAUT_ANRUF_TAGE unverändert', LAUT_ANRUF_TAGE === 7)
 check('MIN_ABSTAND_TAGE unverändert', MIN_ABSTAND_TAGE === 7)
 check('RUHE_MONATE unverändert', RUHE_MONATE === 4)
-check('FOLLOWUP_THRESHOLDS_DAYS unverändert', JSON.stringify(FOLLOWUP_THRESHOLDS_DAYS) === '[3,7,14]')
+check('FOLLOWUP_THRESHOLDS_DAYS unverändert', JSON.stringify(FOLLOWUP_THRESHOLDS_DAYS) === '[7,10,14]')
 
 /* ── 3. Kaputte Werte fallen auf die Vorgabe ────────────────────────────── */
 
@@ -185,20 +185,20 @@ check('die aktive Kadenz ist beim Start die Vorgabe', JSON.stringify(aktiveKaden
 }
 
 {
-  const t2 = thread({ last_message_at: vorTagen(2) })
   const t4 = thread({ last_message_at: vorTagen(4) })
-  check('Stufe 0 nach 2 Tagen: noch nicht faellig', isDue(t2, JETZT) === false)
-  check('Stufe 0 nach 4 Tagen: faellig', isDue(t4, JETZT) === true)
+  const t8 = thread({ last_message_at: vorTagen(8) })
+  check('Stufe 0 nach 4 Tagen: noch nicht faellig', isDue(t4, JETZT) === false)
+  check('Stufe 0 nach 8 Tagen: faellig', isDue(t8, JETZT) === true)
 }
 
 /* ── 6. MIT Ueberschreibung aendert sich das Verhalten — und zwar ueberall ─ */
 
 {
-  const langsam: Kadenz = { ...KADENZ_STANDARD, followupTage: [5, 10, 20] }
-  const t4 = thread({ last_message_at: vorTagen(4) })
-  check('explizit uebergebene Schwellen wirken auf isDue', isDue(t4, JETZT, langsam.followupTage) === false)
-  check('… und auf bucketOf', bucketOf(t4, JETZT, langsam.followupTage) === 'wartet')
-  check('ohne Uebergabe bleibt es bei der Vorgabe', bucketOf(t4, JETZT) === 'faellig')
+  const langsam: Kadenz = { ...KADENZ_STANDARD, followupTage: [12, 20, 30] }
+  const t8 = thread({ last_message_at: vorTagen(8) })
+  check('explizit uebergebene Schwellen wirken auf isDue', isDue(t8, JETZT, langsam.followupTage) === false)
+  check('… und auf bucketOf', bucketOf(t8, JETZT, langsam.followupTage) === 'wartet')
+  check('ohne Uebergabe bleibt es bei der Vorgabe', bucketOf(t8, JETZT) === 'faellig')
 }
 
 {
@@ -210,17 +210,17 @@ check('die aktive Kadenz ist beim Start die Vorgabe', JSON.stringify(aktiveKaden
 
 {
   // Das Modul-Singleton wirkt auf alles, was die Kadenz nicht explizit bekommt.
-  setzeAktiveKadenz({ ...KADENZ_STANDARD, followupTage: [5, 10, 20] })
-  const t4 = thread({ last_message_at: vorTagen(4) })
-  check('nach setzeAktiveKadenz gilt die neue Schwelle ohne Uebergabe', bucketOf(t4, JETZT) === 'wartet')
+  setzeAktiveKadenz({ ...KADENZ_STANDARD, followupTage: [12, 20, 30] })
+  const t8 = thread({ last_message_at: vorTagen(8) })
+  check('nach setzeAktiveKadenz gilt die neue Schwelle ohne Uebergabe', bucketOf(t8, JETZT) === 'wartet')
   setzeKadenzZurueck()
-  check('setzeKadenzZurueck stellt die Vorgabe wieder her', bucketOf(t4, JETZT) === 'faellig')
+  check('setzeKadenzZurueck stellt die Vorgabe wieder her', bucketOf(t8, JETZT) === 'faellig')
 }
 
 {
   // Auch der direkte Setzer laesst keinen Unsinn durch.
   setzeAktiveKadenz({ followupTage: [99, 2, 1], stillEmailTage: -3 })
-  check('setzeAktiveKadenz prueft: kaputte Follow-up-Tage -> Vorgabe', JSON.stringify(aktiveKadenz().followupTage) === '[3,7,14]')
+  check('setzeAktiveKadenz prueft: kaputte Follow-up-Tage -> Vorgabe', JSON.stringify(aktiveKadenz().followupTage) === '[7,10,14]')
   check('setzeAktiveKadenz prueft: negativer Wert -> Vorgabe', aktiveKadenz().stillEmailTage === 30)
   setzeKadenzZurueck()
 }
@@ -245,16 +245,16 @@ function dateien(ordner: string): string[] {
   for (const datei of dateien(join(wurzel, 'app/src'))) {
     if (datei.endsWith('kadenz.ts')) continue
     const inhalt = readFileSync(datei, 'utf8')
-    if (/\[\s*3\s*,\s*7\s*,\s*14\s*\]/.test(inhalt)) treffer.push(relative(wurzel, datei))
+    if (/\[\s*7\s*,\s*10\s*,\s*14\s*\]/.test(inhalt)) treffer.push(relative(wurzel, datei))
   }
-  check('die Schwellen [3, 7, 14] stehen nur in kadenz.ts', treffer.length === 0, treffer.join(', '))
+  check('die Schwellen [7, 10, 14] stehen nur in kadenz.ts', treffer.length === 0, treffer.join(', '))
 }
 
 {
   // Gegenprobe, dass die Wache ueberhaupt etwas sieht: kadenz.ts selbst
   // enthaelt das Muster, wurde oben aber ausdruecklich uebersprungen.
   const kadenzQuelle = readFileSync(join(wurzel, 'app/src/cockpit/lib/kadenz.ts'), 'utf8')
-  check('Gegenprobe: kadenz.ts enthaelt das gesuchte Muster', /\[\s*3\s*,\s*7\s*,\s*14\s*\]/.test(kadenzQuelle))
+  check('Gegenprobe: kadenz.ts enthaelt das gesuchte Muster', /\[\s*7\s*,\s*10\s*,\s*14\s*\]/.test(kadenzQuelle))
 }
 
 /* ── Die beiden Loom-Takte (15.09.2026) ──────────────────────────────────
@@ -279,7 +279,7 @@ function dateien(ordner: string): string[] {
   // Ein kaputtes Tripel reisst die anderen nicht mit — feldweise, wie überall.
   const geflickt = gueltigeKadenz({ loomFollowupTage: [10, 2, 5] })
   check('nicht aufsteigend = ganzes Tripel zurück auf die Vorgabe', geflickt.loomFollowupTage.join() === '2,5,10')
-  check('dabei bleibt die kalte Reihe unberührt', geflickt.followupTage.join() === '3,7,14')
+  check('dabei bleibt die kalte Reihe unberührt', geflickt.followupTage.join() === '7,10,14')
 
   const eigen = gueltigeKadenz({ loomGesichtetTage: [2, 4, 6] })
   check('eine gültige Überschreibung gilt', eigen.loomGesichtetTage.join() === '2,4,6')

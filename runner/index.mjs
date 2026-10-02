@@ -1041,7 +1041,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       else if (u.urteil === 'zurueck') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
-        if (lead) nochmal.push({ ...lead, hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
+        if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
         else raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
       }
     }

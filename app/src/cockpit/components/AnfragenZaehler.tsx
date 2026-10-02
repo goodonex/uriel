@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { EntscheiderListe } from './EntscheiderListe'
+import { useAnfragenPause } from '../lib/useAnfragenPause'
 
 /**
  * Zähler für Vernetzungsanfragen — Kevins Tagesritual läuft direkt auf
@@ -18,7 +19,8 @@ interface AnfragenZaehlerProps {
 }
 
 export function AnfragenZaehler({ heute, limit, onPlus, onMinus, vollbild, onClose }: AnfragenZaehlerProps) {
-  const fertig = heute >= limit
+  const { pausiert, pausieren, aufheben } = useAnfragenPause()
+  const fertig = pausiert || heute >= limit
 
   const zaehler = (
     <div style={{ textAlign: 'center' }}>
@@ -26,10 +28,22 @@ export function AnfragenZaehler({ heute, limit, onPlus, onMinus, vollbild, onClo
         {heute}
         <span style={{ fontSize: vollbild ? 24 : 18, fontWeight: 400, color: 'var(--ck-text-3)' }}> / {limit}</span>
       </div>
-      {fertig ? (
+      {pausiert ? (
+        <div style={{ fontSize: 13, color: 'var(--ck-accent)', marginTop: 4 }}>Wochenlimit aufgebraucht — bis Montag keine neuen Anfragen</div>
+      ) : fertig ? (
         <div style={{ fontSize: 13, color: 'var(--ck-accent)', marginTop: 4 }}>Tageslimit erreicht</div>
       ) : null}
     </div>
+  )
+
+  const wochenKnopf = pausiert ? (
+    <button type="button" className="ck-btn" style={{ minHeight: 44, color: 'var(--ck-text-3)' }} onClick={aufheben}>
+      Doch noch Anfragen möglich
+    </button>
+  ) : (
+    <button type="button" className="ck-btn" style={{ minHeight: 44 }} onClick={pausieren}>
+      Wochenlimit aufgebraucht
+    </button>
   )
 
   const plusKnopf = (hoehe: CSSProperties['height']) => (
@@ -78,7 +92,10 @@ export function AnfragenZaehler({ heute, limit, onPlus, onMinus, vollbild, onClo
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {zaehler}
         {plusKnopf(96)}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>{minusKnopf}</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {minusKnopf}
+          {wochenKnopf}
+        </div>
         {/* Wen Kevin heute anfragen soll (22.09.2026): die Geschäftsführer, deren Mitarbeiter schon in der Liste stehen. */}
         <EntscheiderListe />
       </div>
@@ -113,7 +130,10 @@ export function AnfragenZaehler({ heute, limit, onPlus, onMinus, vollbild, onClo
       <div style={{ flex: '0 0 auto', paddingTop: 24 }}>{zaehler}</div>
       {/* Der eine Knopf: füllt den Rest des Bildschirms — nicht zielen, nur drücken. */}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>{plusKnopf('100%')}</div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>{minusKnopf}</div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {minusKnopf}
+        {wochenKnopf}
+      </div>
     </div>
   )
 }

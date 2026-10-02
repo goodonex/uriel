@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useEntscheiderKandidaten } from '../../hooks/useEntscheiderKandidaten'
 import { heuteAnfragen, linkedinZiel, type EntscheiderKandidat, type EntscheiderStatus } from '../lib/entscheider'
 import { useActiveBrandOptional } from '../lib/activeBrand'
+import { useAnfragenPause } from '../lib/useAnfragenPause'
 
 /**
  * „Heute anfragen" — Geschäftsführer, die Kevin sich zuerst holen soll
@@ -19,7 +20,9 @@ import { useActiveBrandOptional } from '../lib/activeBrand'
 export function EntscheiderListe({ brandSlug }: { brandSlug?: string }) {
   const aktiv = useActiveBrandOptional()
   const q = useEntscheiderKandidaten(brandSlug ?? aktiv?.activeBrand?.slug)
-  if (q.tableMissing || q.loading) return null
+  // Wochenlimit aufgebraucht: die Kandidaten bleiben offen, werden aber bis Montag nicht gezeigt.
+  const { pausiert } = useAnfragenPause()
+  if (pausiert || q.tableMissing || q.loading) return null
   return <EntscheiderListeAnsicht items={q.items} error={q.error} onStatus={(id, s) => void q.setzeStatus(id, s)} />
 }
 

@@ -326,6 +326,9 @@ export function botAnalyseAn(t: LinkedinThread): boolean {
   const eigene = verlaufVon(t).filter((m) => m.sender === 'me')
   const text = eigene.length ? eigene[eigene.length - 1].text : t.last_from === 'me' ? (t.preview ?? '') : ''
   if (!text.trim()) return true
+  // Aufbau S/T (02.10.2026): Wer eine Skizze statt der Analyse angeboten bekam, kriegt nicht die
+  // Vorlage „Ich nehme dir eine Analyse zu eurer Website auf" (die Seite ist ja stark) — die Nachtrunde schreibt den Text.
+  if (/skizze/i.test(text) && !/analyse/i.test(text)) return false
   return /analyse|rüberschick|zusenden/i.test(text)
 }
 

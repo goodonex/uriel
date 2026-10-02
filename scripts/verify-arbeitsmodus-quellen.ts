@@ -5,6 +5,7 @@
 import {
   antwortPosten,
   antwortPostenAusgeblendet,
+  botAnalyseAn,
   erstnachrichtPosten,
   followupPosten,
   loomPosten,
@@ -138,7 +139,7 @@ function check(label: string, actual: unknown, expected: unknown) {
 // 3. followupPosten: nur faellige Threads (bucketOf === 'faellig').
 {
   const threads = [
-    makeThread({ id: 't1', followup_stage: 0, last_message_at: dayAgo(4) }), // faellig (Schwelle 3)
+    makeThread({ id: 't1', followup_stage: 0, last_message_at: dayAgo(8) }), // faellig (Schwelle 7)
     makeThread({ id: 't2', followup_stage: 0, last_message_at: dayAgo(1) }), // wartet noch
   ]
   const posten = followupPosten(threads, NOW)
@@ -150,12 +151,12 @@ function check(label: string, actual: unknown, expected: unknown) {
 // wenn der Lead schon einmal geantwortet hat — die Loom-Reihe bleibt.
 {
   const threads = [
-    makeThread({ id: 'kalt', name: 'Felix Range', followup_stage: 0, last_message_at: dayAgo(4) }),
-    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(4) }),
-    makeThread({ id: 'loom', name: 'Jan Loom', followup_stage: 0, last_message_at: dayAgo(4), loom_status: 'verschickt' }),
+    makeThread({ id: 'kalt', name: 'Felix Range', followup_stage: 0, last_message_at: dayAgo(8) }),
+    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(8) }),
+    makeThread({ id: 'loom', name: 'Jan Loom', followup_stage: 0, last_message_at: dayAgo(8), loom_status: 'verschickt' }),
     makeThread({
-      id: 'verlauf', name: 'Janis Stomeo', followup_stage: 0, last_message_at: dayAgo(4),
-      verlauf: [{ sender: 'them', text: 'passt soweit', ts: dayAgo(5) }] as LinkedinThread['verlauf'],
+      id: 'verlauf', name: 'Janis Stomeo', followup_stage: 0, last_message_at: dayAgo(8),
+      verlauf: [{ sender: 'them', text: 'passt soweit', ts: dayAgo(9) }] as LinkedinThread['verlauf'],
     }),
   ]
   const posten = followupPosten(threads, NOW, [], new Set(), new Map(), new Set(['warm', 'loom']))
@@ -171,18 +172,18 @@ function check(label: string, actual: unknown, expected: unknown) {
 // dem Stichtag bekommen keine Vorlage, und Posten ohne Text bleiben draußen.
 {
   const threads = [
-    makeThread({ id: 'frisch', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(4) }),
+    makeThread({ id: 'frisch', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(8) }),
     makeThread({ id: 'alt', name: 'Marija Schmitt', followup_stage: 0, last_message_at: dayAgo(60) }),
     makeThread({ id: 'alt-agent', name: 'Amadeus Jesinghaus', followup_stage: 0, last_message_at: dayAgo(60), entwurf: 'Moin Amadeus, jetzt hab ich deine Seite doch gefunden.', entwurf_at: NOW.toISOString() }),
-    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(4) }),
+    makeThread({ id: 'warm', name: 'Valerius Prill', followup_stage: 0, last_message_at: dayAgo(8) }),
   ]
   const stichtag = new Date(NOW.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const ids = (o: object) => followupPosten(threads, NOW, [], new Set(), new Map(), new Set(['warm']), o).map((p) => p.id).sort()
   check('3d1 ohne Optionen wie bisher', ids({}), ['thread:alt', 'thread:alt-agent', 'thread:frisch', 'thread:warm'])
   check('3d2 nur sendefertig', ids({ nurMitText: true, neuerTextVor: stichtag }), ['thread:alt-agent', 'thread:frisch'])
   const offline = [
-    makeThread({ id: 'offline', name: 'Jan Barendsma', followup_stage: 0, last_message_at: dayAgo(4), last_from: 'me', preview: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?' }),
-    makeThread({ id: 'angebot', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(4), last_from: 'me', preview: 'Ich hab dir dazu eine kurze Analyse vorbereitet. Hast du was dagegen?' }),
+    makeThread({ id: 'offline', name: 'Jan Barendsma', followup_stage: 0, last_message_at: dayAgo(8), last_from: 'me', preview: 'Ist die Seite gerade offline, oder komme nur ich nicht drauf?' }),
+    makeThread({ id: 'angebot', name: 'Janine Hardi', followup_stage: 0, last_message_at: dayAgo(8), last_from: 'me', preview: 'Ich hab dir dazu eine kurze Analyse vorbereitet. Hast du was dagegen?' }),
   ]
   check(
     '3d3 Vorlage nur nach Analyse-Angebot',
@@ -207,6 +208,14 @@ function check(label: string, actual: unknown, expected: unknown) {
 check('5a thread-praefix', zeilenId('thread:abc-123'), 'abc-123')
 check('5b loom-praefix', zeilenId('loom:xyz'), 'xyz')
 check('5c ohne praefix', zeilenId('ohnepraefix'), 'ohnepraefix')
+
+// 6. Aufbau S/T (02.10.2026): Skizze-Angebot ist kein Analyse-Angebot — keine Website-Analyse-Vorlage beim Nachfassen.
+{
+  const mit = (text: string) => makeThread({ last_from: 'me', preview: text })
+  check('6a Analyse-Angebot → Vorlage passt', botAnalyseAn(mit('Ich hab dir eine kurze Analyse vorbereitet. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?')), true)
+  check('6b Skizze-Angebot → keine Analyse-Vorlage', botAnalyseAn(mit('Ich hab dir dazu eine kurze Skizze vorbereitet. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?')), false)
+  check('6c Skizze UND Analyse → Analyse zählt', botAnalyseAn(mit('Die Analyse und eine Skizze liegen bereit, rüberschicken?')), true)
+}
 
 console.log(`${pass}/${pass + fail} Fälle korrekt`)
 if (fail > 0) process.exit(1)

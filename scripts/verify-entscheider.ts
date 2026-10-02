@@ -16,7 +16,7 @@
 import { parseStationen } from '../runner/linkedin/erfahrung.mjs'
 import { gfNamenAusImpressum, metaAdsAuswerten, firmaKern, metaAdsUrl } from '../runner/linkedin/seiteRendern.mjs'
 import { rolleAusImpressum, rolleFuerSkill, websiteStufe } from '../runner/linkedin/leadRecherche.mjs'
-import { entscheiderUrteil, namensSchluessel, grundFuer, istKonzern } from '../runner/linkedin/entscheider.mjs'
+import { entscheiderUrteil, namensSchluessel, grundFuer, istKonzern, istPersonenname } from '../runner/linkedin/entscheider.mjs'
 import { ALTE_GF_FRAGE, CTA_KATALOG, ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh } from '../runner/linkedin/erstnachrichtenEntwuerfe.mjs'
 import { heuteAnfragen, linkedinZiel, type EntscheiderKandidat } from '../app/src/cockpit/lib/entscheider'
 
@@ -192,6 +192,14 @@ check('fremde URL wird nicht verlinkt', linkedinZiel({ gf_name: 'X', firma: '', 
 const k = (id: string, status: EntscheiderKandidat['status'], created_at: string): EntscheiderKandidat => ({ id, gf_name: id, firma: '', website: '', quelle_name: '', grund: '', linkedin_url: null, status, status_at: null, created_at })
 const liste = heuteAnfragen([k('b', 'offen', '2026-09-22T10:00'), k('a', 'offen', '2026-09-21T10:00'), k('c', 'angefragt', '2026-09-20T10:00')])
 check('Heute anfragen: nur offene, älteste zuerst', liste.map((x) => x.id).join() === 'a,b', liste.map((x) => x.id))
+
+/* ── Keine Nicht-Personen als Geschäftsführer (02.10.2026) ─────────────── */
+for (const n of ['Allgemeine Geschäftsbedingungen', 'Cookie Einstellungen', 'Millennium Tower', 'Sheikh Zayed Road', 'Vereinigte Arabische Emirate', 'Eingetragener Gegenstand', 'Nicole Hö', 'Rabea Dittmar Design']) {
+  check(`kein Mensch: ${n}`, istPersonenname(n) === false)
+}
+for (const n of ['Anna Limpert-Burghardt', 'Paul-Bernd Matzker', 'Ralf-Marco Klein', 'Dr. Hans von Berg']) {
+  check(`Mensch: ${n}`, istPersonenname(n) === true)
+}
 
 console.log(`verify-entscheider: ${pass} ok, ${fail} fehlgeschlagen`)
 if (fail) process.exit(1)

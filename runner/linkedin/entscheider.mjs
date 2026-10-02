@@ -107,12 +107,30 @@ export function rolleBeiFirma(recherche) {
  *   `kandidatStatus`: gf_key → Status bereits angelegter Kandidaten
  * @returns {{ zurueckstellen: boolean, text: string, neu: {gf_name: string, gf_key: string}[], gf: string[], warum: string }}
  */
+/**
+ * Sieht das nach einem Menschen aus? (02.10.2026)
+ *
+ * Das Impressum-Auslesen lieferte „Allgemeine Geschäftsbedingungen", „Cookie
+ * Einstellungen", „Millennium Tower", „Sheikh Zayed Road", „Eingetragener
+ * Gegenstand" als Geschäftsführer — sechs der 35 Einträge in „Heute anfragen"
+ * waren keine Personen, und die Angestellten dahinter blieben deshalb
+ * zurückgestellt, ohne dass irgendjemand anfragbar war.
+ */
+export function istPersonenname(name) {
+  const n = String(name ?? '').replace(/\s+/g, ' ').trim()
+  const teile = n.split(' ')
+  if (teile.length < 2 || teile.length > 5) return false
+  if (!teile.every((t) => /^\p{Lu}/u.test(t) || /^(von|van|de|der|den|zu|zur|da|di|le|la|el)$/i.test(t))) return false
+  if ((teile[teile.length - 1].replace(/[.,]/g, '')).length < 3) return false
+  return !/geschäfts|bedingung|cookie|einstellung|gegenstand|tower|road|straße|strasse|platz|allee|emirate|vereinigte|design|gmbh|impressum|datenschutz|kontakt|telefon|haftung|register|handels|sitz\b/i.test(n)
+}
+
 export function entscheiderUrteil(lead, recherche, { bekannteLeads = new Set(), kandidatStatus = new Map() } = {}) {
   const r = recherche ?? {}
   const nichts = (warum) => ({ zurueckstellen: false, text: '', neu: [], gf: [], warum })
   if (r.rolle_impressum !== 'angestellt') return nichts('nicht als angestellt geprüft')
   if (!ZIELGRUPPE.has(String(r.geschaeftsmodell ?? '').toLowerCase())) return nichts('nicht Zielgruppe')
-  const gf = (r.impressum_gf ?? []).filter((n) => namensSchluessel(n) && !personGleich(n, lead.name)).slice(0, 2)
+  const gf = (r.impressum_gf ?? []).filter((n) => istPersonenname(n) && namensSchluessel(n) && !personGleich(n, lead.name)).slice(0, 2)
   if (!gf.length) return nichts('keine GF-Namen')
 
   // Wen Kevin verworfen hat, der zählt nicht mehr als Entscheider.

@@ -179,7 +179,7 @@ function thread(teil: Partial<LinkedinThread> = {}): LinkedinThread {
 }
 
 {
-  const r = leadStation(eingabe({ thread: thread({ last_from: 'me', last_message_at: vorTagen(5), followup_stage: 0 }) }), JETZT)
+  const r = leadStation(eingabe({ thread: thread({ last_from: 'me', last_message_at: vorTagen(8), followup_stage: 0 }) }), JETZT)
   check('nach der ersten Schwelle ist Nachfassen dran', r.station === 'wartet_auf_antwort' && r.faellig, JSON.stringify(r))
   check('der Bucket kommt aus linkedinFollowups', r.bucket !== null, JSON.stringify(r))
 }

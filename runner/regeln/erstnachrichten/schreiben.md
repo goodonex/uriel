@@ -69,7 +69,8 @@ Annehmen", nie an die Vernetzung anknüpfen.
 | `frisch-ohne-seite` | Firma frisch gegründet, keine Website | Aufbau F |
 | `keine-seite` | Keine Website gefunden oder Zuordnung unsicher | Aufbau D |
 | `seite-offline` | Seite lädt nicht oder zeigt Wartungsseite | Aufbau C |
-| `starke-seite` | `website_stufe` = `stark` oder `wow_potenzial` = `nein` | Aufbau S |
+| `starke-seite` | Seite stark (`website_stufe` = `stark` oder `wow_potenzial` = `nein`) und Meta UND Google sicher `nein` | Aufbau S |
+| `starke-seite-funnel` | Seite stark, aber Anzeigen laufen schon oder sind nicht beidseitig geprüft | Aufbau T |
 | `hausverwaltung` | `geschaeftsmodell` = `hausverwaltung` | Aufbau H |
 
 Nicht bei dir an kommen (der Code stellt sie vorher zurück):
@@ -232,8 +233,8 @@ Wartungsseite".
 ### Aufbau S — starke Seite (`starke-seite`)
 
 Seit 25.09.2026. Kommt nur bei dir an, wenn **beide** Werbe-Prüfungen sicher
-`nein` sagen (`meta_ads_aktiv` UND `google_ads_aktiv`) — der Code stellt alle
-anderen starken Seiten zurück. Kevin: *„deine Webseite ist super gut, aber du
+`nein` sagen (`meta_ads_aktiv` UND `google_ads_aktiv`) — alle anderen starken
+Seiten bekommen seit 02.10.2026 Aufbau T. Kevin: *„deine Webseite ist super gut, aber du
 schaltest halt einfach nur keine Werbung. Was bringt dir das Tool, wenn kein
 Traffic drauf kommt?"*
 
@@ -260,6 +261,38 @@ Ich hab dir dazu eine kurze Skizze vorbereitet, wie das mit Anzeigen für euch a
 - Andere `zielgruppe` als Eigentümer (Käufer, Mieter): „Eigentümer" durch die
   Zielgruppe ersetzen.
 
+### Aufbau T — starke Seite, Anzeigen laufen oder sind offen (`starke-seite-funnel`)
+
+Seit 02.10.2026. Kevin: *„Zu gut für die Analyse, und die direkt aus der
+Ansprache raus, macht doch keinen Sinn. Dafür haben wir doch die anderen
+Approaches."* Die Seite wird nicht kritisiert, und es wird nichts darüber
+behauptet, was nach dem Klick passiert. Das Thema ist der Weg vom Klick bis zur
+Anfrage und danach.
+
+```
+Moin {Vorname},
+
+ich hab mir {domain} angeschaut. {Stärke, warm und konkret, gern das Tool oder den Eigentümer-Bereich beim Namen}. Da würde ich ehrlich gesagt nichts anders bauen.
+
+{Anzeigen-Satz} Ein Eigentümer, der auf eine Anzeige klickt, braucht einen Weg, der nur für ihn gebaut ist und ihn bis zur Anfrage führt, und danach jemanden, der nachfasst.
+
+Ich hab dir dazu eine kurze Skizze vorbereitet, wie so ein Eigentümer-Funnel für euch aussehen würde. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+```
+
+- `{Anzeigen-Satz}` nach den Feldern: `google_ads_aktiv` = `ja` und `meta_ads_aktiv` =
+  `ja` → *„Ich hab gesehen, dass ihr bei Google und bei Meta schon Anzeigen
+  schaltet."* · nur Google `ja` → *„Ich hab gesehen, dass ihr bei Google schon
+  Anzeigen schaltet."* · nur Meta `ja` → *„Ich hab gesehen, dass ihr bei Meta
+  schon Anzeigen schaltet."* · sonst (nichts auf `ja`) → Satz weglassen und mit
+  *„Ein Eigentümer, der gezielt auf die Seite geschickt wird, braucht …"*
+  beginnen. Nie behaupten, dass jemand keine Anzeigen schaltet, solange eins
+  der beiden Felder nicht `nein` ist.
+- Kein Wort darüber, wohin die Anzeigen führen. Das ist von außen nicht
+  sichtbar.
+- Andere `zielgruppe` als Eigentümer: „Eigentümer" durch die Zielgruppe
+  ersetzen (Käufer, Mieter).
+- `{Stärke}` konkret aus dem Destillat, nie ausgedacht.
+
 ### Aufbau H — Hausverwaltung (`hausverwaltung`)
 
 Seit 25.09.2026. Bei Verwaltungen ist erst zu klären, wo es hakt — kein
@@ -280,7 +313,7 @@ angeschaut" entfällt.
 
 | Ansatz | letzter Satz, wortgleich |
 |---|---|
-| Analyse (A, P), starke Seite (S) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
+| Analyse (A, P), starke Seite (S, T) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
 | Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
 | keine Seite (D) | `Wo finde ich euch?` |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |

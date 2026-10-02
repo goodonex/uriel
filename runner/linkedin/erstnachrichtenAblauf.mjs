@@ -37,6 +37,30 @@ const jahrAus = (t) => {
 }
 
 /**
+ * Welcher Ansatz für eine starke Seite (02.10.2026).
+ *
+ * Kevin: *„zu gut für die Analyse, und die direkt aus der Ansprache raus,
+ * macht doch keinen Sinn. Dafür haben wir doch die anderen Approaches."* Bis
+ * dahin wurden starke Seiten mit laufender oder ungeprüfter Werbung
+ * zurückgestellt (`[zurückgestellt] … Aufhänger offen`) — am 02.10. waren das
+ * 55 passende Leads ohne Nachricht. Jetzt bekommt jede starke Seite einen
+ * Ansatz:
+ *
+ * - Meta UND Google sicher `nein` → `starke-seite` (Aufbau S: „du schaltest
+ *   keine Werbung").
+ * - sonst → `starke-seite-funnel` (Aufbau T): kein Satz über fehlende
+ *   Werbung, sondern über das, was nach dem Klick passiert.
+ */
+export function ansatzStarkeSeite(r) {
+  const meta = String(r?.meta_ads_aktiv ?? 'unbekannt')
+  const google = String(r?.google_ads_aktiv ?? 'unbekannt')
+  return meta === 'nein' && google === 'nein' ? 'starke-seite' : 'starke-seite-funnel'
+}
+
+/** Ansätze, auf die der Prüfer eine Analyse umlenken darf. */
+const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel']
+
+/**
  * Welche Art Nachricht bekommt dieser Lead? Reine Funktion, damit sie sich
  * prüfen lässt (`scripts/verify-erstnachrichten-ablauf.ts`).
  *
@@ -86,15 +110,7 @@ export function ansatzFuer(lead, heute = new Date()) {
    * schalten."* Nur wenn BEIDE sicher „nein" sagen, trägt der Satz „deine Seite
    * ist super, aber du schaltest keine Werbung".
    */
-  if (stufe === 'stark' || wow === 'nein') {
-    const meta = String(r.meta_ads_aktiv ?? 'unbekannt')
-    const google = String(r.google_ads_aktiv ?? 'unbekannt')
-    if (meta === 'nein' && google === 'nein') return { ansatz: 'starke-seite' }
-    if (meta === 'ja' || google === 'ja') {
-      return { zurueck: `[zurückgestellt] Seite stark und schaltet schon Werbung (Meta ${meta}, Google ${google}) — Aufhänger offen.` }
-    }
-    return { zurueck: `[prüfen] Seite stark, Werbung nicht vollständig geprüft (Meta ${meta}, Google ${google}).` }
-  }
+  if (stufe === 'stark' || wow === 'nein') return { ansatz: ansatzStarkeSeite(r) }
   if (wow !== 'ja' && wow !== 'knapp') {
     return { zurueck: `[prüfen] Wow-Potenzial der Seite nicht beurteilt — Recherche vor dem 23.09. oder unvollständig` }
   }
@@ -159,7 +175,7 @@ function fuerModell(lead) {
  * für die nächste Runde im Vorrat. Lieber ein Tag Verzug als eine
  * ungeprüfte Nachricht in Kevins Liste.
  *
- * @returns {Promise<{ urteile: Map<string, {urteil: string, hinweis: string}> | null, kosten: number }>}
+ * @returns {Promise<{ urteile: Map<string, {urteil: string, hinweis: string, ansatz?: string}> | null, kosten: number }>}
  */
 export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd }) {
   if (!nachrichten.length) return { urteile: new Map(), kosten: 0 }
@@ -177,7 +193,14 @@ export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd
   const urteile = new Map()
   for (const u of json.urteile) {
     const urteil = ['ok', 'neu', 'zurueck'].includes(u?.urteil) ? u.urteil : 'neu'
-    urteile.set(String(u?.name ?? '').toLowerCase(), { urteil, hinweis: String(u?.hinweis ?? '').trim().slice(0, 300) })
+    const eintrag = { urteil, hinweis: String(u?.hinweis ?? '').trim().slice(0, 300) }
+    // Seite zu gut für eine Analyse: nicht streichen, sondern umlenken (02.10.2026). Der Code entscheidet, welcher der beiden.
+    if (urteil !== 'ok' && UMLENK_ANSAETZE.includes(u?.ansatz)) {
+      const lead = leadsNachName.get(String(u?.name ?? '').toLowerCase())
+      eintrag.urteil = 'neu'
+      eintrag.ansatz = lead ? ansatzStarkeSeite(lead.recherche) : 'starke-seite-funnel'
+    }
+    urteile.set(String(u?.name ?? '').toLowerCase(), eintrag)
   }
   return { urteile, kosten }
 }

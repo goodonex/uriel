@@ -125,6 +125,34 @@ export const ANTWORT_FRISCHE_STUNDEN = 24
 /** Schlüssel in `ui_settings` (Migration 0068) für eigene Tagesziele je Stufe. */
 export const TAGES_FLOW_ZIELE = 'tagesFlowZiele'
 
+/** Schlüssel in `ui_settings`: Kevins Knopf „Wochenlimit aufgebraucht" (02.10.2026). */
+export const ANFRAGEN_PAUSE = 'anfragenPause'
+
+/** Der Eintrag dahinter: der Metrik-Tag (YYYY-MM-DD), an dem Kevin den Knopf gedrückt hat. */
+export interface AnfragenPause {
+  ab: string
+}
+
+/**
+ * Der Montag (YYYY-MM-DD) der Woche, in der `datum` liegt. Reine Datums-Rechnung
+ * ohne Zeitzone: LinkedIns Wochenlimit ist Kevins Arbeitswoche, Montag bis Sonntag.
+ */
+export function wochenStart(datum: string): string {
+  const d = new Date(`${datum}T12:00:00Z`)
+  const wochentag = (d.getUTCDay() + 6) % 7 // Montag = 0
+  d.setUTCDate(d.getUTCDate() - wochentag)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Pausiert, solange `heute` in derselben Woche liegt wie der Tag des Knopfdrucks.
+ * Ab Montag ist die Pause von selbst vorbei — Kevin muss nichts zurückstellen.
+ */
+export function anfragenPauseAktiv(pause: AnfragenPause | null | undefined, heute: string): boolean {
+  if (!pause || typeof pause.ab !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(pause.ab)) return false
+  return wochenStart(pause.ab) === wochenStart(heute)
+}
+
 export interface Stufe {
   id: StufenId
   art: StufenArt
@@ -329,6 +357,11 @@ export interface FlowEingabe {
   portionen?: Partial<Record<StufenId, number>>
   /** Eigene Ziele aus `ui_settings`, falls gesetzt. */
   ziele?: ZielUeberschreibung
+  /**
+   * Wochenlimit von LinkedIn aufgebraucht (Kevins Knopf): die Anfragen-Stufe hat
+   * bis Wochenende kein Soll mehr und steht damit als erledigt da.
+   */
+  anfragenPausiert?: boolean
 }
 
 /**
@@ -364,6 +397,7 @@ function wertVon(stufe: Stufe, eingabe: FlowEingabe): number {
  */
 export function sollFuer(stufe: Stufe, eingabe: FlowEingabe): number {
   if (stufe.art === 'frische') return 0
+  if (stufe.id === 'anfragen' && eingabe.anfragenPausiert) return 0
 
   const portion = eingabe.portionen?.[stufe.id]
   /**

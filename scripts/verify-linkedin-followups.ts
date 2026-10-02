@@ -109,13 +109,13 @@ function check(label: string, actual: unknown, expected: unknown) {
 // --- isDue / bucketOf ---
 
 // 1. Fällig: Stufe 0, 4 Tage her (Schwelle 3)
-check('1 faellig stufe0', isDue(makeThread({ followup_stage: 0, last_message_at: dayAgo(4) }), NOW), true)
+check('1 faellig stufe0', isDue(makeThread({ followup_stage: 0, last_message_at: dayAgo(8) }), NOW), true)
 
 // 2. Noch nicht fällig: Stufe 0, 2 Tage her (Schwelle 3)
 check('2 noch nicht faellig stufe0', isDue(makeThread({ followup_stage: 0, last_message_at: dayAgo(2) }), NOW), false)
 
 // 3. Fällig: Stufe 1, 8 Tage her (Schwelle 7)
-check('3 faellig stufe1', isDue(makeThread({ followup_stage: 1, last_message_at: dayAgo(8) }), NOW), true)
+check('3 faellig stufe1', isDue(makeThread({ followup_stage: 1, last_message_at: dayAgo(11) }), NOW), true)
 
 // 4. Fällig: Stufe 2, 15 Tage her (Schwelle 14)
 check('4 faellig stufe2', isDue(makeThread({ followup_stage: 2, last_message_at: dayAgo(15) }), NOW), true)
@@ -141,7 +141,7 @@ check('9 waiting_reply nicht faellig', isDue(makeThread({ status: 'waiting_reply
 
 // --- bucketOf: alle sechs Buckets ---
 
-check('10a bucket faellig', bucketOf(makeThread({ followup_stage: 0, last_message_at: dayAgo(4) }), NOW), 'faellig')
+check('10a bucket faellig', bucketOf(makeThread({ followup_stage: 0, last_message_at: dayAgo(8) }), NOW), 'faellig')
 check('10b bucket du_bist_dran', bucketOf(makeThread({ last_from: 'them', last_message_at: dayAgo(1) }), NOW), 'du_bist_dran')
 check('10c bucket wartet', bucketOf(makeThread({ last_from: 'me', last_message_at: dayAgo(1) }), NOW), 'wartet')
 check('10d bucket pruefen (unknown)', bucketOf(makeThread({ last_from: 'unknown' }), NOW), 'pruefen')
@@ -184,15 +184,15 @@ check(
 
 // 11. Zeitzonen-Stundenfehler folgenlos: 3 Tage minus 1 Stunde (Schwelle 3) darf NICHT fällig sein,
 //     3 Tage plus 1 Stunde MUSS fällig sein — Millisekunden-Vergleich, kein Kalendertag.
-const threeDaysMinusHour = new Date(NOW.getTime() - (3 * 24 - 1) * 60 * 60 * 1000).toISOString()
-const threeDaysPlusHour = new Date(NOW.getTime() - (3 * 24 + 1) * 60 * 60 * 1000).toISOString()
+const threeDaysMinusHour = new Date(NOW.getTime() - (7 * 24 - 1) * 60 * 60 * 1000).toISOString()
+const threeDaysPlusHour = new Date(NOW.getTime() - (7 * 24 + 1) * 60 * 60 * 1000).toISOString()
 check('11a knapp unter Schwelle', isDue(makeThread({ followup_stage: 0, last_message_at: threeDaysMinusHour }), NOW), false)
 check('11b knapp über Schwelle', isDue(makeThread({ followup_stage: 0, last_message_at: threeDaysPlusHour }), NOW), true)
 
 // 12. coverage(): nie_angeschrieben, ohne_kontakt, verwaist + Bucket-Zähler
 {
   const threads: LinkedinThread[] = [
-    makeThread({ id: 't1', thread_key: 'k1', contact_id: 'c1', followup_stage: 0, last_message_at: dayAgo(4) }), // faellig
+    makeThread({ id: 't1', thread_key: 'k1', contact_id: 'c1', followup_stage: 0, last_message_at: dayAgo(8) }), // faellig
     makeThread({ id: 't2', thread_key: 'k2', contact_id: null, last_from: 'them', last_message_at: dayAgo(1) }), // du_bist_dran, ohne_kontakt
     makeThread({
       id: 't3',
@@ -313,9 +313,9 @@ check('11b knapp über Schwelle', isDue(makeThread({ followup_stage: 0, last_mes
     check('14a Zeitstempel steht auf jetzt', danachFaellig.last_message_at, NOW.toISOString())
     check('14b nicht sofort wieder faellig', isDue(danachFaellig, NOW), false)
     const nachDreiTagen = new Date(NOW.getTime() + 3 * 24 * 60 * 60 * 1000)
-    check('14c nach 3 Tagen noch nicht faellig (Schwelle 7)', isDue(danachFaellig, nachDreiTagen), false)
-    const nachAchtTagen = new Date(NOW.getTime() + 8 * 24 * 60 * 60 * 1000)
-    check('14d nach 8 Tagen wieder faellig', isDue(danachFaellig, nachAchtTagen), true)
+    check('14c nach 3 Tagen noch nicht faellig (Schwelle 10)', isDue(danachFaellig, nachDreiTagen), false)
+    const nachAchtTagen = new Date(NOW.getTime() + 11 * 24 * 60 * 60 * 1000)
+    check('14d nach 11 Tagen wieder faellig', isDue(danachFaellig, nachAchtTagen), true)
 
     // Bucket „pruefen": last_from war 'unknown'. Kevin hat gerade geschrieben,
     // also gehoert der Thread danach in die normale Warteschlange.

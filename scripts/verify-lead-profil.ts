@@ -216,7 +216,7 @@ const JETZT = new Date('2026-09-22T12:00:00Z')
       company: 'Makler',
       profile_url: '',
       preview: '',
-      last_message_at: vor(5),
+      last_message_at: vor(8),
       last_from: 'me',
       unread: false,
       starred: false,

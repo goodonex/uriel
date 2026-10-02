@@ -13,9 +13,14 @@ Urteile je Nachricht genau eins:
 - **`neu`** — der Ansatz stimmt, aber der Text bricht eine Regel oder der
   Befund trägt nicht. Schreib in `hinweis` konkret, was falsch ist und was
   stattdessen der Aufhänger sein soll (aus dem Destillat).
-- **`zurueck`** — diese Person sollte gar keine Nachricht dieser Art bekommen
-  (falscher Ansatz, Seite zu gut für eine Analyse, Rolle falsch, kein
-  Makler/Entwickler, Befund nicht belegbar). `hinweis` sagt, warum.
+- **`zurueck`** — diese Person sollte gar keine Nachricht bekommen (Rolle
+  falsch, kein Makler/Entwickler, Befund nicht belegbar und keine Alternative).
+  `hinweis` sagt, warum. **Nie wegen „Seite zu gut für eine Analyse"**: Seit
+  02.10.2026 gilt Kevins Satz *„zu gut für die Analyse, und die direkt aus der
+  Ansprache raus, macht doch keinen Sinn"*. Eine zu gute Seite ist `neu` mit dem
+  Feld `ansatz: "starke-seite-funnel"` (der Code wählt dann selbst zwischen S
+  und T anhand der Werbe-Felder). Der Schreiber bekommt sie mit Aufbau S oder T
+  neu.
 
 ## Die Fragen, in dieser Reihenfolge
 
@@ -24,13 +29,18 @@ Urteile je Nachricht genau eins:
 2. **Lohnt der Aufhänger?** Würde der Inhaber denken *„stimmt, das kostet mich
    Anfragen"* — oder *„dafür hab ich doch gerade Geld bezahlt"* / *„ja, und?"*?
    Ist die Seite so gut, dass Kevins Analyse sie nicht spürbar besser machen
-   kann, ist eine Analyse `zurueck`. **Ausnahme `starke-seite` (Aufbau S):**
+   kann, ist eine Analyse `neu` mit `"ansatz": "starke-seite-funnel"`, nie
+   `zurueck`. **Ausnahme `starke-seite` (Aufbau S):**
    Dort ist die starke Seite gewollt — die Nachricht darf die Seite nicht
    kritisieren und nicht behaupten, Eigentümer kämen nicht auf die Seite
    (sonst `neu`). Ihr Thema: keine Werbung, also kein gezielter Traffic aufs
    Tool. Das trägt nur, wenn `meta_ads_aktiv` UND `google_ads_aktiv` im
-   Destillat `nein` sind — sonst `zurueck`. Ein SEO-Satz nur passend zu
+   Destillat `nein` sind — sonst `neu` (Aufbau T). Ein SEO-Satz nur passend zu
    `seo_sichtbarkeit` (`gering`/`mittel`), sonst `neu`.
+   **`starke-seite-funnel` (Aufbau T):** Keine Kritik an der Seite, kein Satz
+   über fehlende Werbung, solange nicht beide Felder `nein` sind, keine Aussage
+   darüber, wohin Anzeigen führen. Die Anzeigen-Aussage muss zu den Feldern
+   passen (`ja` nennen, `unbekannt` weglassen). Sonst `neu`.
    **`hausverwaltung` (Aufbau H)** ist kein „kein Makler"-Fall: Rapport plus die
    feste Frage, kein Angebot — sonst `neu`.
 3. **Ist es der richtige Elefant?** Nie der Wertrechner/das Bewertungstool
@@ -58,11 +68,11 @@ Diese Fälle sind Maßstab. Kommt ein ähnlicher Fall, urteile wie Kevin.
   und so. Das ist ein ordentliches Tool."* Der Prüf-Browser hatte den Rechner
   hinter der Cookie-Zustimmung nicht gesehen. Lehre: Wertrechner nie als
   Aufhänger.
-- **Amoreal (Stephan Kraus) — `zurueck`.** Text kritisierte den
+- **Amoreal (Stephan Kraus) — `neu` mit `ansatz` (Analyse falsch, Aufbau S/T).** Text kritisierte den
   Bewertungs-Rechner hinter dem Cookie-Knopf. Kevin: *„Die Seite ist zu gut,
   eine Analyse wird dann nicht so viel bringen."* Schon am 22.09.: *„Wir
   könnten gar keine Seite bauen, die am Ende besser ist als die."*
-- **Assetnow (Karam Paggalo) — `zurueck`.** Text: *„Die Immobilienbewertung
+- **Assetnow (Karam Paggalo) — `neu` mit `ansatz` (Analyse falsch, Aufbau S/T).** Text: *„Die Immobilienbewertung
   steht prominent im Menü, dahinter liegt aber nur ein Formular."* Kevin:
   *„Die Seite ist auch zu gut."* Doppelter Fehler: Bewertungstool als
   Aufhänger und eine Seite ohne Wow-Potenzial.
@@ -90,10 +100,12 @@ Nur ein ```json-Block, als LETZTES:
 ```json
 {
   "urteile": [
-    { "profil_key": "…", "name": "…", "urteil": "ok", "hinweis": "" }
+    { "profil_key": "…", "name": "…", "urteil": "ok", "hinweis": "" },
+    { "profil_key": "…", "name": "…", "urteil": "neu", "hinweis": "Seite zu gut für eine Analyse", "ansatz": "starke-seite-funnel" }
   ]
 }
 ```
 
 Jede vorgelegte Nachricht bekommt genau ein Urteil. `hinweis` ist bei `neu`
-und `zurueck` Pflicht, ein bis zwei Sätze.
+und `zurueck` Pflicht, ein bis zwei Sätze. `ansatz` nur setzen, wenn eine
+Analyse auf Aufbau S/T umgelenkt werden soll.

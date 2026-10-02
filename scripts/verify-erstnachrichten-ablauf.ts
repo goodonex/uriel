@@ -11,7 +11,7 @@
  *   node node_modules/tsx/dist/cli.mjs scripts/verify-erstnachrichten-ablauf.ts
  */
 // @ts-expect-error — .mjs ohne Typen
-import { ansatzFuer } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
+import { ansatzFuer, ansatzStarkeSeite } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
 // @ts-expect-error — .mjs ohne Typen
 import { landFuerDomain } from '../runner/linkedin/googleAds.mjs'
 // @ts-expect-error — .mjs ohne Typen
@@ -30,15 +30,21 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
 
 /* ── Kevins Fälle vom 23.09. ─────────────────────────────────────────── */
 {
-  // Amoreal / Assetnow: „Die Seite ist zu gut" — keine Nachricht, eigener Ansatz offen.
-  // Amoreal schaltet Google-Anzeigen → kein „ihr schaltet keine Werbung"-Aufhänger.
+  // Amoreal / Assetnow: „Die Seite ist zu gut" — keine Analyse, aber seit 02.10.2026 auch nicht „keine Nachricht".
+  // Amoreal schaltet Google-Anzeigen → kein „ihr schaltet keine Werbung"-Aufhänger, sondern Aufbau T.
   const kraus = ansatzFuer(lead({ website: 'https://amoreal.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'nein', rolle: 'inhaber', meta_ads_aktiv: 'nein', google_ads_aktiv: 'ja' }), heute)
-  check('Kraus (Amoreal): gute Seite mit Google-Anzeigen → zurückgestellt', 'zurueck' in kraus && /schaltet schon Werbung/.test(kraus.zurueck), kraus)
+  check('Kraus (Amoreal): gute Seite mit Google-Anzeigen → Aufbau T statt Streichung (02.10.2026)', 'ansatz' in kraus && kraus.ansatz === 'starke-seite-funnel', kraus)
   const ohneWerbung = { website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'stark', wow_potenzial: 'ja', meta_ads_aktiv: 'nein', google_ads_aktiv: 'nein' }
   const stark = ansatzFuer(lead(ohneWerbung), heute)
   check('starke Seite, beide Werbe-Prüfungen „nein" → Aufbau S (25.09.2026)', 'ansatz' in stark && stark.ansatz === 'starke-seite', stark)
   const halb = ansatzFuer(lead({ ...ohneWerbung, meta_ads_aktiv: 'unbekannt' }), heute)
-  check('starke Seite, Meta ungeprüft → prüfen statt Werbe-Aufhänger', 'zurueck' in halb && /prüfen/.test(halb.zurueck), halb)
+  check('starke Seite, Meta ungeprüft → Aufbau T, kein „keine Werbung"-Satz', 'ansatz' in halb && halb.ansatz === 'starke-seite-funnel', halb)
+  check('ansatzStarkeSeite: beide nein → S', ansatzStarkeSeite({ meta_ads_aktiv: 'nein', google_ads_aktiv: 'nein' }) === 'starke-seite')
+  check('ansatzStarkeSeite: Google ja → T', ansatzStarkeSeite({ meta_ads_aktiv: 'nein', google_ads_aktiv: 'ja' }) === 'starke-seite-funnel')
+  check('ansatzStarkeSeite: nichts bekannt → T', ansatzStarkeSeite({}) === 'starke-seite-funnel')
+  const regeln = regelwerk()
+  check('schreiben.md kennt Aufbau T', /Aufbau T/.test(regeln.schreiben) && /starke-seite-funnel/.test(regeln.schreiben))
+  check('Prüfer streicht nie wegen „zu gut für eine Analyse"', /Nie wegen „Seite zu gut für eine Analyse"/.test(regeln.pruefen))
   const knapp = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'knapp' }), heute)
   const hv = ansatzFuer(lead({ website: 'https://hv.de/', erreichbar: 'ja', geschaeftsmodell: 'hausverwaltung', website_stufe: 'stark', wow_potenzial: 'nein' }), heute)
   check('Hausverwaltung → Aufbau H, auch bei starker Seite', 'ansatz' in hv && hv.ansatz === 'hausverwaltung', hv)
