@@ -90,7 +90,7 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
   const offline = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'offline' }), heute)
   check('Seite offline → eigener Aufbau', (offline as any).ansatz === 'seite-offline', offline)
   const geraten = ansatzFuer(lead({ website: 'https://vonbuelow-cie.de/', erreichbar: 'offline', sicher: false }), heute)
-  check('Tote, nur geratene Domain → keine Offline-Nachricht (v. Bülow)', 'zurueck' in (geraten as any), geraten)
+  check('Tote, nur geratene Domain → keine Offline-Nachricht, Kevin prüft (v. Bülow, 02.10.2026)', 'ansatz' in (geraten as any) && (geraten as any).ansatz === 'keine-seite' && /googeln/.test((geraten as any).pruefen), geraten)
   const frisch = ansatzFuer(lead({ website: '', stationen: [{ firma: 'R&R Projektentwicklung', seit: 'Aug. 2026', selbststaendig: true }] }), heute)
   check('Frisch gegründet ohne Seite → erst Rapport', (frisch as any).ansatz === 'frisch-ohne-seite', frisch)
   const ohne = ansatzFuer(lead({ website: '', stationen: [{ firma: 'Alt GmbH', seit: '2012', selbststaendig: true }] }), heute)

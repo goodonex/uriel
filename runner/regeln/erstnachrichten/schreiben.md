@@ -230,67 +230,63 @@ Ist die Seite gerade offline, oder komme nur ich nicht drauf?
 Bei Wartungsseite statt „lädt bei mir aber nicht": „da steht aber nur eine
 Wartungsseite".
 
-### Aufbau S — starke Seite (`starke-seite`)
+### Aufbau S — starke Seite, keine Anzeigen (`starke-seite`)
 
-Seit 25.09.2026. Kommt nur bei dir an, wenn **beide** Werbe-Prüfungen sicher
-`nein` sagen (`meta_ads_aktiv` UND `google_ads_aktiv`) — alle anderen starken
-Seiten bekommen seit 02.10.2026 Aufbau T. Kevin: *„deine Webseite ist super gut, aber du
-schaltest halt einfach nur keine Werbung. Was bringt dir das Tool, wenn kein
-Traffic drauf kommt?"*
+Seit 25.09.2026, **seit 02.10.2026 als Frage statt als Angebot.** Kommt nur bei
+dir an, wenn **beide** Werbe-Prüfungen sicher `nein` sagen (`meta_ads_aktiv` UND
+`google_ads_aktiv`). Kevin am 02.10.: *„Ich fühle mich nicht wohl mit dem
+Approach ‚ich schick dir eine Skizze'. Selbst wenn es eine mehrseitige PDF ist,
+kann ich mir nicht vorstellen, dass die Person dann sagt: wir müssen in einen
+Termin."* Deshalb **kein Angebot, keine Skizze, kein PDF, kein Video**. Die
+Nachricht öffnet ein Gespräch; den Termin macht Kevin danach selbst.
 
 **Keine Kritik an der Seite.** Nie behaupten, Eigentümer kämen nicht auf die
-Seite — viele starke Seiten holen Eigentümer gut ab. Die Seite ist ein
-Verkaufsraum; das Thema ist, wer ihn betritt.
+Seite. Die Seite ist ein Verkaufsraum; das Thema ist, wer ihn betritt.
 
 ```
 Moin {Vorname},
 
 ich hab mir {domain} angeschaut. {Stärke, warm und konkret, gern das Tool oder den Eigentümer-Bereich beim Namen}. Da würde ich ehrlich gesagt nichts anders bauen.
 
-Was mir aufgefallen ist: Ihr schaltet weder bei Google noch bei Meta Anzeigen. {SEO-Satz} So ein Tool entfaltet seine Wirkung erst, wenn Eigentümer auch gezielt darauf geschickt werden.
+Was mir aufgefallen ist: Ihr schaltet weder bei Google noch bei Meta Anzeigen. {SEO-Satz}
 
-Ich hab dir dazu eine kurze Skizze vorbereitet, wie das mit Anzeigen für euch aussehen würde. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+Ehrliche Frage: Habt ihr das bewusst so gelassen, oder ist es bisher einfach nicht dazu gekommen?
 ```
 
 - `{SEO-Satz}` nach `seo_sichtbarkeit`: `gering` → *„Und über die normale
   Google-Suche findet man euch auch kaum."* · `mittel` → *„Über die normale
   Google-Suche kommt schon etwas, aber planbar ist das nicht."* · `stark` oder
   `unbekannt` → Satz weglassen, nie über SEO spekulieren.
-- Hat die Seite kein Tool und keinen Eigentümer-Bereich: „So ein Tool …" wird
-  zu „So eine Seite entfaltet ihre Wirkung erst, wenn …".
 - Andere `zielgruppe` als Eigentümer (Käufer, Mieter): „Eigentümer" durch die
   Zielgruppe ersetzen.
+- Die Schlussfrage ist wortgleich. Kein „Skizze", „Analyse", „rüberschicken".
 
 ### Aufbau T — starke Seite, Anzeigen laufen oder sind offen (`starke-seite-funnel`)
 
-Seit 02.10.2026. Kevin: *„Zu gut für die Analyse, und die direkt aus der
-Ansprache raus, macht doch keinen Sinn. Dafür haben wir doch die anderen
-Approaches."* Die Seite wird nicht kritisiert, und es wird nichts darüber
-behauptet, was nach dem Klick passiert. Das Thema ist der Weg vom Klick bis zur
-Anfrage und danach.
+Seit 02.10.2026, ebenfalls als Frage. Die Seite wird nicht kritisiert, und es
+wird nichts darüber behauptet, wohin Anzeigen führen oder was nach dem Klick
+passiert. Kein Angebot, keine Skizze.
 
 ```
 Moin {Vorname},
 
 ich hab mir {domain} angeschaut. {Stärke, warm und konkret, gern das Tool oder den Eigentümer-Bereich beim Namen}. Da würde ich ehrlich gesagt nichts anders bauen.
 
-{Anzeigen-Satz} Ein Eigentümer, der auf eine Anzeige klickt, braucht einen Weg, der nur für ihn gebaut ist und ihn bis zur Anfrage führt, und danach jemanden, der nachfasst.
+{Anzeigen-Satz}
 
-Ich hab dir dazu eine kurze Skizze vorbereitet, wie so ein Eigentümer-Funnel für euch aussehen würde. Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+Ehrliche Frage: {Frage}
 ```
 
-- `{Anzeigen-Satz}` nach den Feldern: `google_ads_aktiv` = `ja` und `meta_ads_aktiv` =
-  `ja` → *„Ich hab gesehen, dass ihr bei Google und bei Meta schon Anzeigen
-  schaltet."* · nur Google `ja` → *„Ich hab gesehen, dass ihr bei Google schon
-  Anzeigen schaltet."* · nur Meta `ja` → *„Ich hab gesehen, dass ihr bei Meta
-  schon Anzeigen schaltet."* · sonst (nichts auf `ja`) → Satz weglassen und mit
-  *„Ein Eigentümer, der gezielt auf die Seite geschickt wird, braucht …"*
-  beginnen. Nie behaupten, dass jemand keine Anzeigen schaltet, solange eins
-  der beiden Felder nicht `nein` ist.
-- Kein Wort darüber, wohin die Anzeigen führen. Das ist von außen nicht
-  sichtbar.
-- Andere `zielgruppe` als Eigentümer: „Eigentümer" durch die Zielgruppe
-  ersetzen (Käufer, Mieter).
+- Beide Felder `ja` → `{Anzeigen-Satz}` = *„Ich hab gesehen, dass ihr bei Google und
+  bei Meta schon Anzeigen schaltet."* · nur Google `ja` → *„… bei Google schon
+  Anzeigen schaltet."* · nur Meta `ja` → *„… bei Meta schon Anzeigen
+  schaltet."* In diesen Fällen `{Frage}` = *„Wenn darüber ein Eigentümer
+  anfragt, wer meldet sich bei ihm, und wie schnell?"*
+- Nichts auf `ja` → Anzeigen-Absatz weglassen, `{Frage}` = *„Wenn heute ein
+  Eigentümer über die Seite anfragt, wie schnell meldet ihr euch bei ihm?"*
+- Nie behaupten, dass jemand keine Anzeigen schaltet, solange nicht beide Felder
+  `nein` sind (dann gilt Aufbau S).
+- Andere `zielgruppe` als Eigentümer: „Eigentümer" ersetzen.
 - `{Stärke}` konkret aus dem Destillat, nie ausgedacht.
 
 ### Aufbau H — Hausverwaltung (`hausverwaltung`)
@@ -313,12 +309,12 @@ angeschaut" entfällt.
 
 | Ansatz | letzter Satz, wortgleich |
 |---|---|
-| Analyse (A, P), starke Seite (S, T) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
+| Analyse (A, P) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
 | Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
 | keine Seite (D) | `Wo finde ich euch?` |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
 | nur Portal (D) | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |
-| Nebenfirma (N), frisch (F), freche Variante | eine offene, konkrete Frage mit Anlass |
+| Nebenfirma (N), frisch (F), starke Seite (S, T), freche Variante | eine offene, konkrete Frage mit Anlass (bei S und T wortgleich aus dem Aufbau) |
 
 **Abgeschafft, nie schreiben:** „Wie kommen die Mandate aktuell rein?"
 (Kevin, 17.09.: *„bekommen die bestimmt von jedem"*) und „Kümmerst du dich bei

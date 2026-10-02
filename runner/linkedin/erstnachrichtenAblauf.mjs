@@ -64,7 +64,7 @@ const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel']
  * Welche Art Nachricht bekommt dieser Lead? Reine Funktion, damit sie sich
  * prüfen lässt (`scripts/verify-erstnachrichten-ablauf.ts`).
  *
- * @returns {{ ansatz: string } | { zurueck: string }}
+ * @returns {{ ansatz: string, pruefen?: string } | { zurueck: string }}
  */
 export function ansatzFuer(lead, heute = new Date()) {
   const r = lead?.recherche ?? {}
@@ -86,7 +86,8 @@ export function ansatzFuer(lead, heute = new Date()) {
   const website = String(r.website ?? '').trim()
   // Offline nur über eine Seite, die sicher der Firma gehört (v. Bülow, 30.09.2026: geratene tote Domain).
   if ((r.erreichbar === 'offline' || r.erreichbar === 'umbau') && r.sicher === false) {
-    return { zurueck: `[prüfen] ${website || 'Website'} lädt nicht und ist nicht als Firmenseite bestätigt — vor Versand googeln, ob die Firma eine andere Seite hat.` }
+    // 02.10.2026: Kevin entscheidet, ob er schreibt — der Lead landet mit Hinweis in „Prüfen vor den Anfragen", nicht im Papierkorb.
+    return { ansatz: 'keine-seite', pruefen: `${website || 'Website'} lädt nicht und ist nicht als Firmenseite bestätigt, vor Versand googeln, ob die Firma eine andere Seite hat` }
   }
   if (r.erreichbar === 'offline' || r.erreichbar === 'umbau') return { ansatz: 'seite-offline' }
   if (!website || r.sicher === false) {

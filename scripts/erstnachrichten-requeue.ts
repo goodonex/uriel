@@ -51,7 +51,7 @@ if (!anwenden) {
   console.log('Probelauf — nichts verändert. Mit --apply sichern und löschen.')
   process.exit(0)
 }
-const sicherung = join(wurzel, 'docs/backup-erstnachrichten-requeue-2026-10-02.json')
+const sicherung = join(wurzel, `docs/backup-erstnachrichten-requeue-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`)
 writeFileSync(sicherung, JSON.stringify(treffer, null, 1))
 console.log('gesichert:', sicherung)
 let weg = 0

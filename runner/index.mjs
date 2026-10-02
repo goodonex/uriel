@@ -1006,7 +1006,9 @@ async function erstnachrichtenAnListe(runId, markdown) {
       liste.map((n) => {
         const ohneGf = ohneAlteGfFrage(n.nachricht)
         if (ohneGf.korrigiert) console.log(`[runner] Erstnachrichten: ${n.name} — abgeschaffte GF-Frage entfernt`)
-        const m = { ...n, nachricht: ohneGf.text }
+        // Unsicherer Lead (Ansatz hat einen Prüf-Hinweis): Kevin sieht ihn in „Prüfen vor den Anfragen".
+        const hinweis = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())?.pruefHinweis
+        const m = { ...n, nachricht: ohneGf.text, ...(hinweis && !n.pruefen ? { pruefen: hinweis } : {}) }
         if (!angestellteVorgemerkt.has(String(n.name).toLowerCase()) || !/analyse/i.test(m.nachricht)) return m
         console.log(`[runner] Erstnachrichten: ${n.name} ist angestellt — Analyse-Angebot entfernt`)
         return { ...m, nachricht: ohneAnalyseFuerAngestellte(m.nachricht) }
@@ -1038,11 +1040,12 @@ async function erstnachrichtenAnListe(runId, markdown) {
     for (const n of erster) {
       const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
       if (u.urteil === 'ok') ok.push(n)
-      else if (u.urteil === 'zurueck') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
+      // Kevin 02.10.2026: „lass mich da alles prüfen, ob die eine Nachricht bekommen sollen" — der Text geht MIT dem Hinweis des Prüfers in seine Prüf-Stufe, statt zu verschwinden.
+      else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: `Prüfer: ${u.hinweis}`.slice(0, 280) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
         if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
-        else raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer: ${u.hinweis}` })
+        else ok.push({ ...n, pruefen: `Prüfer: ${u.hinweis}`.slice(0, 280) })
       }
     }
     if (nochmal.length) {
@@ -1056,7 +1059,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       for (const n of zweiter) {
         const u = p2.urteile?.get(String(n.name).toLowerCase())
         if (u?.urteil === 'ok') ok.push(n)
-        else raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[zurückgestellt] Prüfer, zweiter Versuch: ${u?.hinweis || 'ohne Urteil'}` })
+        else ok.push({ ...n, pruefen: `Prüfer, zweiter Versuch: ${u?.hinweis || 'ohne Urteil'}`.slice(0, 280) })
       }
       // Wen der zweite Versuch gar nicht zurückgab, bleibt ohne Zeile im Vorrat.
       for (const l of nochmal) if (!bekommen.has(String(l.name).toLowerCase())) console.warn(`[runner] Erstnachrichten: ${l.name} — zweiter Versuch ohne Text, bleibt im Vorrat`)
@@ -5120,7 +5123,7 @@ const ETAPPEN_ARBEIT = {
             zurueckAnsatz.push({ profil_key: l.profil_key, name: l.name, firma: l.recherche?.firma ?? '', website: l.recherche?.website ?? '', grund: a.zurueck })
             return null
           }
-          return { ...l, ansatz: a.ansatz }
+          return { ...l, ansatz: a.ansatz, ...(a.pruefen ? { pruefHinweis: a.pruefen } : {}) }
         })
         .filter(Boolean)
       if (zurueckAnsatz.length && SNAPSHOT_ENABLED) {
