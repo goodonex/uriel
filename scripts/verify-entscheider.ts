@@ -18,7 +18,8 @@ import { gfNamenAusImpressum, metaAdsAuswerten, firmaKern, metaAdsUrl } from '..
 import { rolleAusImpressum, rolleFuerSkill, websiteStufe } from '../runner/linkedin/leadRecherche.mjs'
 import { entscheiderUrteil, namensSchluessel, grundFuer, istKonzern, istPersonenname } from '../runner/linkedin/entscheider.mjs'
 import { ALTE_GF_FRAGE, CTA_KATALOG, ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh } from '../runner/linkedin/erstnachrichtenEntwuerfe.mjs'
-import { heuteAnfragen, linkedinZiel, type EntscheiderKandidat } from '../app/src/cockpit/lib/entscheider'
+import { heuteAnfragen, linkedinZiel, mitProfil, ohneProfil, type EntscheiderKandidat } from '../app/src/cockpit/lib/entscheider'
+import { firmenKern, profilAusTreffern } from '../runner/linkedin/gfSuche.mjs'
 
 let pass = 0
 let fail = 0
@@ -152,6 +153,32 @@ check('GF schon angefragt → kein neuer Kandidat, zurückgestellt', u3.neu.leng
 const u4 = entscheiderUrteil(charlotte, basis, { kandidatStatus: new Map([['jan paegel', 'verworfen']]) })
 check('GF verworfen → Angestellte wird normal geschrieben', !u4.zurueckstellen && u4.neu.length === 0, u4)
 
+const u4b = entscheiderUrteil(charlotte, basis, { kandidatStatus: new Map([['jan paegel', 'abgelaufen']]) })
+check('GF seit 14 Tagen ohne Annahme → Angestellte wird normal geschrieben (02.10.2026)', !u4b.zurueckstellen && u4b.neu.length === 0, u4b)
+const ohneGf = entscheiderUrteil(charlotte, { ...basis, impressum_gf: [] })
+check('Angestellt, GF unbekannt → zurückgestellt, Platzhalter-Kandidat „unbekannt"', ohneGf.zurueckstellen && ohneGf.neu.length === 1 && ohneGf.neu[0].unbekannt === true && /erst Geschäftsführer von Paegel Real Estate GmbH finden/.test(ohneGf.text), ohneGf)
+const ohneGf2 = entscheiderUrteil(charlotte, { ...basis, impressum_gf: [] }, { kandidatStatus: new Map([[ohneGf.neu[0].gf_key, 'verworfen']]) })
+check('GF-Suche verworfen → Angestellte wird normal geschrieben', !ohneGf2.zurueckstellen, ohneGf2)
+const ohneGf3 = entscheiderUrteil(charlotte, { ...basis, impressum_gf: [] }, { kandidatStatus: new Map([[ohneGf.neu[0].gf_key, 'offen']]) })
+check('Platzhalter schon da → nicht noch einmal anlegen', ohneGf3.zurueckstellen && ohneGf3.neu.length === 0, ohneGf3)
+const nebenOhneGf = entscheiderUrteil(philipp0(), { ...basis, impressum_gf: [], stationen: [{ firma: 'CheckOut', rolle: 'Inhaber', seit: '2022', selbststaendig: true }] })
+check('Angestellt mit eigener Firma, GF unbekannt → trotzdem geschrieben', !nebenOhneGf.zurueckstellen, nebenOhneGf)
+function philipp0() { return { name: 'Philipp Hilgeland', headline: 'Makler auf Sylt' } }
+
+/* ── GF auf LinkedIn finden ────────────────────────────────────────────── */
+check('Firmenkern: K-TEAM Immobilien Management GmbH → k-team', firmenKern('K-TEAM Immobilien Management GmbH') === 'k-team', firmenKern('K-TEAM Immobilien Management GmbH'))
+check('Firmenkern: nur Füllwörter → leer', firmenKern('Immobilien GmbH') === '')
+const treffer = [
+  { url: 'https://de.linkedin.com/in/alfred-krikor-123?trk=x', title: 'Alfred Krikor - Geschäftsführer - K-TEAM Immobilien | LinkedIn', description: 'Geschäftsführer bei K-TEAM Immobilien Management GmbH' },
+  { url: 'https://www.linkedin.com/in/alfred-krikor-sr', title: 'Alfred Krikor - Bauleiter - Hoch & Tief GmbH | LinkedIn', description: 'Bauleiter' },
+]
+check('Profil: Name + Firma passen → gefunden (ein Treffer, Tracking abgeschnitten)', profilAusTreffern(treffer, { name: 'Alfred Krikor', firma: 'K-TEAM Immobilien Management GmbH' })?.url === 'https://de.linkedin.com/in/alfred-krikor-123')
+check('Profil: nur Namensvetter ohne Firmenbezug → nicht gefunden', profilAusTreffern([treffer[1]], { name: 'Alfred Krikor', firma: 'K-TEAM Immobilien Management GmbH' }) === null)
+check('Profil: zwei verschiedene passende Personen → nicht raten', profilAusTreffern([treffer[0], { ...treffer[0], url: 'https://www.linkedin.com/in/alfred-krikor-zweiter' }], { name: 'Alfred Krikor', firma: 'K-TEAM Immobilien Management GmbH' }) === null)
+check('Profil: Kollegin erwähnt den Namen nur im Snippet → nicht gefunden (Ralph Justus Maus, 02.10.2026)', profilAusTreffern([{ url: 'https://de.linkedin.com/in/christina-antonia-tudsen-7aaa81209', title: 'Christina Tudsen - Immobilienmaklerin - MAUS Immobilien | LinkedIn', description: 'Makler bei MAUS Immobilien von Ralph Justus Maus' }], { name: 'Ralph Justus Maus', firma: 'MAUS Immobilien GmbH' }) === null)
+check('Profil: Seite, die kein Profil ist → nicht gefunden', profilAusTreffern([{ url: 'https://www.linkedin.com/company/k-team', title: 'Alfred Krikor K-TEAM', description: '' }], { name: 'Alfred Krikor', firma: 'K-TEAM' }) === null)
+check('Profil: nur Vorname bekannt → nicht suchen', profilAusTreffern(treffer, { name: 'Alfred', firma: 'K-TEAM' }) === null)
+
 const philipp = { name: 'Philipp Hilgeland', headline: 'Makler auf Sylt' }
 const u5 = entscheiderUrteil(philipp, { ...basis, firma: 'MAUS Immobilien', impressum_gf: ['Klaus Maus'], stationen: st })
 check('Angestellt mit eigener Firma → GF auf die Liste, aber nicht zurückgestellt', !u5.zurueckstellen && u5.neu.length === 1, u5)
@@ -192,6 +219,10 @@ check('fremde URL wird nicht verlinkt', linkedinZiel({ gf_name: 'X', firma: '', 
 const k = (id: string, status: EntscheiderKandidat['status'], created_at: string): EntscheiderKandidat => ({ id, gf_name: id, firma: '', website: '', quelle_name: '', grund: '', linkedin_url: null, status, status_at: null, created_at })
 const liste = heuteAnfragen([k('b', 'offen', '2026-09-22T10:00'), k('a', 'offen', '2026-09-21T10:00'), k('c', 'angefragt', '2026-09-20T10:00')])
 check('Heute anfragen: nur offene, älteste zuerst', liste.map((x) => x.id).join() === 'a,b', liste.map((x) => x.id))
+
+const kk = (id: string, url: string | null, such: EntscheiderKandidat['suche_ergebnis']): EntscheiderKandidat => ({ id, gf_name: id, firma: 'X GmbH', website: '', quelle_name: '', grund: '', linkedin_url: url, status: 'offen', status_at: null, created_at: '2026-10-02', suche_ergebnis: such })
+check('Liste teilt in „Heute anfragen" (Profil) und „Geschäftsführer suchen" (ohne)', mitProfil([kk('a', 'https://www.linkedin.com/in/a', 'gefunden'), kk('b', null, 'nicht_gefunden'), kk('c', null, 'unbekannt')]).length === 1 && ohneProfil([kk('a', 'https://www.linkedin.com/in/a', 'gefunden'), kk('b', null, 'nicht_gefunden'), kk('c', null, 'unbekannt')]).length === 2)
+check('Name unbekannt → Suchlink „Geschäftsführer <Firma>"', linkedinZiel({ gf_name: 'Geschäftsführer von X (Name unbekannt)', firma: 'X GmbH', linkedin_url: null, suche_ergebnis: 'unbekannt' }).includes('keywords=Gesch%C3%A4ftsf%C3%BChrer%20X'))
 
 /* ── Keine Nicht-Personen als Geschäftsführer (02.10.2026) ─────────────── */
 for (const n of ['Allgemeine Geschäftsbedingungen', 'Cookie Einstellungen', 'Millennium Tower', 'Sheikh Zayed Road', 'Vereinigte Arabische Emirate', 'Eingetragener Gegenstand', 'Nicole Hö', 'Rabea Dittmar Design']) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { EntscheiderKandidat, EntscheiderStatus } from '../cockpit/lib/entscheider'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
+import { protokolliereKevin } from '../lib/pruefProtokoll'
 import { useBrandIdStatus } from './useBrandId'
 
 interface Result {
@@ -30,7 +31,7 @@ export function useEntscheiderKandidaten(brandSlug: string | undefined): Result 
     setLoading(true)
     const { data, error: err } = await supabase
       .from('entscheider_kandidaten')
-      .select('id,gf_name,firma,website,quelle_name,grund,linkedin_url,status,status_at,created_at')
+      .select('id,gf_name,firma,website,quelle_name,grund,linkedin_url,status,status_at,created_at,suche_ergebnis')
       .eq('brand_id', brandId)
       .eq('status', 'offen')
       .order('created_at', { ascending: true })
@@ -60,6 +61,17 @@ export function useEntscheiderKandidaten(brandSlug: string | undefined): Result 
     async (id: string, status: EntscheiderStatus) => {
       if (!supabase) return
       const jetzt = new Date().toISOString()
+      const k = items.find((x) => x.id === id)
+      if (k) {
+        protokolliereKevin(brandId, {
+          art: 'entscheider_status',
+          name: k.gf_name,
+          firma: k.firma,
+          entscheidung: status,
+          grund: `${k.suche_ergebnis === 'gefunden' ? 'Profil gefunden' : k.suche_ergebnis === 'unbekannt' ? 'GF unbekannt' : 'Profil nicht gefunden'} · über ${k.quelle_name}`,
+          daten: { quelle: k.quelle_name, url: k.linkedin_url },
+        })
+      }
       // Optimistisch: der Klick soll sich sofort anfühlen, auch übers Handy.
       setItems((cur) => cur.map((k) => (k.id === id ? { ...k, status, status_at: jetzt } : k)))
       const { error: err } = await supabase.from('entscheider_kandidaten').update({ status, status_at: jetzt }).eq('id', id)
@@ -68,7 +80,7 @@ export function useEntscheiderKandidaten(brandSlug: string | undefined): Result 
         await reload()
       }
     },
-    [reload],
+    [reload, items, brandId],
   )
 
   return { items, loading, tableMissing, error, reload, setzeStatus }

@@ -22,6 +22,8 @@ import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
+import { entscheiderFreigabe, sucheKandidaten } from './linkedin/gfSuche.mjs'
+import { protokolliere } from './linkedin/protokoll.mjs'
 import { ansatzFuer, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
 import { bewerteStapel } from './linkedin/bewertungLauf.mjs'
 import { regelwerk } from './regeln/fassung.mjs'
@@ -1073,6 +1075,14 @@ async function erstnachrichtenAnListe(runId, markdown) {
     )
     const [brand] = br.ok ? await br.json() : []
     if (!brand?.id) return
+    // Protokoll (02.10.2026): was der Agent aussortiert und was er Kevin zur Prüfung vorlegt — Material für die 30-Tage-Auswertung.
+    await protokolliere(
+      { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id },
+      [
+        ...raus.map((z) => ({ art: 'aussortiert', name: z.name, firma: z.firma, entscheidung: /^\[zurückgestellt\]/.test(String(z.grund)) ? 'zurueckgestellt' : 'kein_ziel', grund: z.grund, daten: { weg: 'schreib-lauf' } })),
+        ...ok.filter((n) => n.pruefen).map((n) => ({ art: 'pruefer_urteil', name: n.name, firma: n.firma, entscheidung: 'unsicher', grund: n.pruefen, daten: { website: n.website } })),
+      ],
+    )
     const r = await schreibeErstnachrichten({
       supabaseUrl: SUPABASE_URL,
       headers: supabaseHeaders(),
@@ -4983,6 +4993,24 @@ const ETAPPEN_ARBEIT = {
     if (!dataforseoZugang()) {
       console.warn('[runner] Erstnachrichten: DATAFORSEO_LOGIN/DATAFORSEO_PASSWORD fehlen (runner/.env oder ~/.seo-skill/.env) — Google-Anzeigen bleiben „unbekannt"')
     }
+    /**
+     * Vor jeder Runde (02.10.2026): Angestellte freigeben, deren GF-Weg erledigt
+     * ist (verworfen oder seit 14 Tagen ohne Annahme), und fehlende
+     * LinkedIn-Profile der GF-Kandidaten suchen. Beides darf die Runde nie stören.
+     */
+    if (SNAPSHOT_ENABLED) {
+      try {
+        const br = await fetch(`${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`, { headers: supabaseHeaders() })
+        const [brand] = br.ok ? await br.json() : []
+        if (brand?.id) {
+          const ctx = { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id }
+          await entscheiderFreigabe(ctx)
+          await sucheKandidaten(ctx)
+        }
+      } catch (e) {
+        console.error('[runner] GF-Freigabe/Suche übersprungen:', e?.message ?? e)
+      }
+    }
     const BATCH = 13
     /**
      * **Gezählt werden fertige Texte, nicht geprüfte Leads** (25.09.2026).
@@ -5130,7 +5158,12 @@ const ETAPPEN_ARBEIT = {
             const e = await entscheiderZuerst(leads, { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id })
             if (e.zurueck.length) {
               await schreibeErstnachrichten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id, nachrichten: [], uebersprungen: e.zurueck, quelle: regelwerk().quelle })
+              await protokolliere(
+                { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id },
+                e.zurueck.map((z) => ({ art: 'aussortiert', name: z.name, firma: z.firma, entscheidung: 'zurueckgestellt', grund: z.grund, daten: { weg: 'entscheider-zuerst' } })),
+              )
             }
+            if (e.angelegt) await sucheKandidaten({ supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id })
             if (e.angelegt || e.zurueck.length) {
               console.log(`[runner] Erstnachrichten Batch ${runde + 1}: ${e.angelegt} GF auf die Anfrageliste, ${e.zurueck.length} Angestellte zurückgestellt`)
             }

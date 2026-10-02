@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useEntscheiderKandidaten } from '../../hooks/useEntscheiderKandidaten'
-import { heuteAnfragen, linkedinZiel, type EntscheiderKandidat, type EntscheiderStatus } from '../lib/entscheider'
+import { linkedinZiel, mitProfil, ohneProfil, type EntscheiderKandidat, type EntscheiderStatus } from '../lib/entscheider'
 import { useActiveBrandOptional } from '../lib/activeBrand'
 import { useAnfragenPause } from '../lib/useAnfragenPause'
 
@@ -36,22 +36,60 @@ export function EntscheiderListeAnsicht({
   error?: string | null
   onStatus: (id: string, status: EntscheiderStatus) => void
 }) {
-  const [anzahl, setAnzahl] = useState(5)
-  const offen = useMemo(() => heuteAnfragen(items), [items])
-  if (!offen.length) return null
-  const sichtbar = offen.slice(0, anzahl)
+  const mit = useMemo(() => mitProfil(items), [items])
+  const ohne = useMemo(() => ohneProfil(items), [items])
+  if (!mit.length && !ohne.length) return null
 
   return (
-    <section className="ck-panel" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Heute anfragen">
+    <>
+      {mit.length ? (
+        <Sektion
+          titel="Heute anfragen"
+          text="Geschäftsführer, deren LinkedIn-Profil gefunden ist. Erster Kontakt: vernetzen. Die Nachricht an ihre Mitarbeiter wartet, bis du hier entschieden hast."
+          liste={mit}
+          error={error}
+          onStatus={onStatus}
+          profilGefunden
+        />
+      ) : null}
+      {ohne.length ? (
+        <Sektion
+          titel="Geschäftsführer suchen"
+          text="Hier habe ich den Geschäftsführer nicht sicher auf LinkedIn gefunden oder im Impressum steht keiner. Schau selbst nach. Nach 14 Tagen ohne Annahme darf der Mitarbeiter doch angeschrieben werden."
+          liste={ohne}
+          error={mit.length ? null : error}
+          onStatus={onStatus}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function Sektion({
+  titel,
+  text,
+  liste,
+  error,
+  onStatus,
+  profilGefunden,
+}: {
+  titel: string
+  text: string
+  liste: EntscheiderKandidat[]
+  error?: string | null
+  onStatus: (id: string, status: EntscheiderStatus) => void
+  profilGefunden?: boolean
+}) {
+  const [anzahl, setAnzahl] = useState(5)
+  const sichtbar = liste.slice(0, anzahl)
+
+  return (
+    <section className="ck-panel" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label={titel}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ck-text-1)' }}>Heute anfragen</span>
-        <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>
-          {offen.length} offen
-        </span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ck-text-1)' }}>{titel}</span>
+        <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>{liste.length} offen</span>
       </div>
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--ck-text-2)' }}>
-        Geschäftsführer aus dem Impressum. Die Nachricht an ihre Mitarbeiter wartet, bis du hier entschieden hast.
-      </p>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--ck-text-2)' }}>{text}</p>
 
       {error ? <div style={{ fontSize: 11, color: 'var(--ck-warn)' }}>{error}</div> : null}
 
@@ -70,46 +108,39 @@ export function EntscheiderListeAnsicht({
           >
             <div style={{ minWidth: 0 }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ck-text-1)' }}>{k.gf_name}</span>
-              {k.firma ? <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}> · {k.firma}</span> : null}
-              {k.grund ? (
-                <div style={{ fontSize: 12, color: 'var(--ck-text-2)', marginTop: 2 }}>{k.grund}</div>
-              ) : null}
+              {k.firma && k.suche_ergebnis !== 'unbekannt' ? <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}> · {k.firma}</span> : null}
+              {k.grund ? <div style={{ fontSize: 12, color: 'var(--ck-text-2)', marginTop: 2 }}>{k.grund}</div> : null}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <a
                 href={linkedinZiel(k)}
                 target="_blank"
                 rel="noreferrer"
-                className="ck-btn ck-btn--primary"
+                className={profilGefunden ? 'ck-btn ck-btn--primary' : 'ck-btn'}
                 style={{ fontSize: 11, minHeight: 40, paddingInline: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
                 {k.linkedin_url ? 'Profil öffnen ↗' : 'Auf LinkedIn suchen ↗'}
               </a>
-              <button
-                type="button"
-                className="ck-btn"
-                style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }}
-                onClick={() => onStatus(k.id, 'angefragt')}
-              >
+              <button type="button" className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }} onClick={() => onStatus(k.id, 'angefragt')}>
                 Angefragt
               </button>
               <button
                 type="button"
                 className="ck-btn"
                 style={{ fontSize: 11, minHeight: 40, marginLeft: 'auto', color: 'var(--ck-text-3)' }}
-                title="Kommt nicht in Frage — neue Mitarbeiter dieser Firma werden dann wieder normal angeschrieben"
+                title="Kommt nicht in Frage oder nicht auffindbar — der Mitarbeiter dieser Firma wird dann normal angeschrieben"
                 onClick={() => onStatus(k.id, 'verworfen')}
               >
-                Verwerfen
+                {profilGefunden ? 'Verwerfen' : 'Nicht auffindbar'}
               </button>
             </div>
           </li>
         ))}
       </ul>
 
-      {offen.length > sichtbar.length ? (
+      {liste.length > sichtbar.length ? (
         <button type="button" className="ck-btn" style={{ fontSize: 10, alignSelf: 'flex-start' }} onClick={() => setAnzahl((n) => n + 5)}>
-          5 weitere zeigen ({offen.length - sichtbar.length} übrig)
+          5 weitere zeigen ({liste.length - sichtbar.length} übrig)
         </button>
       ) : null}
     </section>

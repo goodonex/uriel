@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { entdoppleErstnachrichten } from '../cockpit/lib/erstnachrichtenDedup'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
+import { protokolliereKevin } from '../lib/pruefProtokoll'
 import { useBrandIdStatus } from './useBrandId'
 
 export interface Erstnachricht {
@@ -154,6 +155,8 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
     async (id: string) => {
       if (!supabase) return
       const jetzt = new Date().toISOString()
+      const z = items.find((i) => i.id === id)
+      if (z) protokolliereKevin(brandId, { art: 'erstnachricht_pruefen', name: z.name, firma: z.firma ?? '', entscheidung: 'geprueft', grund: String(z.firma ?? '').split('PRÜFEN:')[1]?.trim() ?? '', daten: { website: z.website } })
       setItems((cur) => cur.map((i) => (i.id === id ? { ...i, geprueft_at: jetzt } : i)))
       const { error: err } = await supabase.from('linkedin_erstnachrichten').update({ geprueft_at: jetzt }).eq('id', id)
       if (err) {
@@ -161,12 +164,14 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
         await reload()
       }
     },
-    [reload],
+    [reload, items, brandId],
   )
 
   const neuPruefen = useCallback(
     async (id: string, url: string) => {
       if (!supabase) return false
+      const z = items.find((i) => i.id === id)
+      if (z) protokolliereKevin(brandId, { art: 'erstnachricht_pruefen', name: z.name, firma: z.firma ?? '', entscheidung: 'andere_url', grund: url, daten: { vorher: z.website } })
       setItems((cur) => cur.map((i) => (i.id === id ? { ...i, pruef_url: url } : i)))
       const { error: err } = await supabase.from('linkedin_erstnachrichten').update({ pruef_url: url }).eq('id', id)
       if (err) {
@@ -176,7 +181,7 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
       }
       return true
     },
-    [reload],
+    [reload, items, brandId],
   )
 
   return { items, loading, tableMissing, error, reload, setzeStatus, alleDavorErledigen, erledigeViele, markiereGeprueft, neuPruefen }

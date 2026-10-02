@@ -25,6 +25,9 @@
  * Nichts hier schickt etwas an LinkedIn. Die Liste ist eine Liste.
  */
 
+/** Gleicher Wert wie `GF_WARTEZEIT_TAGE` in `gfSuche.mjs` (dort nicht importierbar: Kreis). */
+const GF_WARTEZEIT_TAGE_ENTSCHEIDER = 14
+
 const ohneAkzent = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 /** Dedup-Schlüssel eines Personennamens: klein, ohne Akzente, Titel, Zusätze hinter dem Komma. */
@@ -131,16 +134,36 @@ export function entscheiderUrteil(lead, recherche, { bekannteLeads = new Set(), 
   if (r.rolle_impressum !== 'angestellt') return nichts('nicht als angestellt geprüft')
   if (!ZIELGRUPPE.has(String(r.geschaeftsmodell ?? '').toLowerCase())) return nichts('nicht Zielgruppe')
   const gf = (r.impressum_gf ?? []).filter((n) => istPersonenname(n) && namensSchluessel(n) && !personGleich(n, lead.name)).slice(0, 2)
-  if (!gf.length) return nichts('keine GF-Namen')
+  const nebenfirma = (r.stationen ?? []).some((s) => s.selbststaendig)
+  if (!gf.length && (r.impressum_gf ?? []).some((n) => personGleich(n, lead.name))) return nichts('Impressum nennt ihn selbst (Tippfehler im Namen)')
+  if (!gf.length) {
+    /**
+     * Kein Geschäftsführer im Impressum (02.10.2026): Kevin: „Wenn du den GF
+     * nicht findest, kommen die als eigenes Ding in die Prüfenliste." Der
+     * Angestellte wartet, bis Kevin den GF gefunden (oder verworfen) hat.
+     */
+    if (nebenfirma) return nichts('keine GF-Namen, eigene Firma nebenher — Rapport-Nachricht')
+    if (istKonzern(r) && MARKETING.test(`${rolleBeiFirma(r)} ${lead.headline ?? ''}`)) return nichts('keine GF-Namen, Konzern — Marketing-Ansprechpartner')
+    const firmaKey = namensSchluessel(r.firma ?? '') || namensSchluessel(lead.name)
+    const key = `unbekannt:${firmaKey}`
+    if (['verworfen', 'abgelaufen'].includes(kandidatStatus.get(key))) return nichts('GF-Suche verworfen — Angestellter wird normal angeschrieben')
+    const neu = kandidatStatus.has(key) ? [] : [{ gf_name: `Geschäftsführer von ${r.firma || 'der Firma'} (Name unbekannt)`, gf_key: key, unbekannt: true }]
+    return {
+      zurueckstellen: true,
+      text: `[zurückgestellt] erst Geschäftsführer von ${r.firma || 'der Firma'} finden, im Impressum steht keiner`,
+      neu,
+      gf: [`${r.firma || 'Firma'} (unbekannt)`],
+      warum: 'reiner Angestellter, GF unbekannt',
+    }
+  }
 
-  // Wen Kevin verworfen hat, der zählt nicht mehr als Entscheider.
-  const offen = gf.filter((n) => kandidatStatus.get(namensSchluessel(n)) !== 'verworfen')
+  // Wen Kevin verworfen hat oder wer seit 14 Tagen ohne Annahme angefragt ist, zählt nicht mehr als Entscheider.
+  const offen = gf.filter((n) => !['verworfen', 'abgelaufen'].includes(kandidatStatus.get(namensSchluessel(n))))
   const neu = offen
     .filter((n) => !kandidatStatus.has(namensSchluessel(n)) && !bekannteLeads.has(namensSchluessel(n)))
     .map((n) => ({ gf_name: n, gf_key: namensSchluessel(n) }))
-  if (!offen.length) return { zurueckstellen: false, text: '', neu: [], gf, warum: 'GF verworfen — Angestellter wird normal angeschrieben' }
+  if (!offen.length) return { zurueckstellen: false, text: '', neu: [], gf, warum: 'GF verworfen oder seit 14 Tagen ohne Annahme — Angestellter wird normal angeschrieben' }
 
-  const nebenfirma = (r.stationen ?? []).some((s) => s.selbststaendig)
   if (nebenfirma) return { zurueckstellen: false, text: '', neu, gf: offen, warum: 'eigene Firma nebenher — Rapport-Nachricht' }
 
   const rolle = rolleBeiFirma(r)
@@ -185,11 +208,17 @@ export async function ladeEntscheiderStand({ supabaseUrl, headers, brandId }) {
   const [leads, netzwerk, kandidaten] = await Promise.all([
     alleSeiten(`${supabaseUrl}/rest/v1/leads?brand_id=eq.${brandId}&select=name&order=id`, headers),
     alleSeiten(`${supabaseUrl}/rest/v1/linkedin_netzwerk?brand_id=eq.${brandId}&select=name&order=profil_key`, headers).catch(() => []),
-    alleSeiten(`${supabaseUrl}/rest/v1/entscheider_kandidaten?brand_id=eq.${brandId}&select=gf_key,status&order=id`, headers),
+    alleSeiten(`${supabaseUrl}/rest/v1/entscheider_kandidaten?brand_id=eq.${brandId}&select=gf_key,status,status_at&order=id`, headers),
   ])
   return {
     bekannteLeads: new Set([...leads, ...netzwerk].map((z) => namensSchluessel(z.name)).filter(Boolean)),
-    kandidatStatus: new Map(kandidaten.map((k) => [k.gf_key, k.status])),
+    // „angefragt" ohne Annahme seit 14 Tagen → „abgelaufen": der Angestellte ist wieder dran (02.10.2026).
+    kandidatStatus: new Map(
+      kandidaten.map((k) => [
+        k.gf_key,
+        k.status === 'angefragt' && k.status_at && Date.now() - new Date(k.status_at).getTime() >= GF_WARTEZEIT_TAGE_ENTSCHEIDER * 86_400_000 ? 'abgelaufen' : k.status,
+      ]),
+    ),
   }
 }
 
@@ -209,13 +238,14 @@ export async function entscheiderZuerst(leads, { supabaseUrl, headers, brandId, 
     for (const k of u.neu) {
       stand.kandidatStatus.set(k.gf_key, 'offen') // zweiter Mitarbeiter derselben Firma legt ihn nicht noch einmal an
       zeilen.push({
+        ...(k.unbekannt ? { suche_ergebnis: 'unbekannt', suche_at: new Date().toISOString() } : {}),
         brand_id: brandId,
         gf_name: k.gf_name,
         gf_key: k.gf_key,
         firma: l.recherche?.firma ?? '',
         website: l.recherche?.website ?? '',
         quelle_name: l.name,
-        grund: grundFuer(l, l.recherche),
+        grund: k.unbekannt ? `${l.name} (${rolleBeiFirma(l.recherche) || 'angestellt'}) hat angenommen, im Impressum steht kein Geschäftsführer` : grundFuer(l, l.recherche),
         status: 'offen',
       })
     }
