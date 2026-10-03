@@ -87,6 +87,8 @@ export function ContactListsContent({
 
   const {
     lists,
+    recherchierteListen,
+    alleListen,
     loading: listsLoading,
     error: listsErr,
     createList,
@@ -115,8 +117,8 @@ export function ContactListsContent({
   }, [contacts.items])
 
   const activeList = useMemo(
-    () => lists.find((l) => l.id === listId) ?? null,
-    [lists, listId],
+    () => alleListen.find((l) => l.id === listId) ?? null,
+    [alleListen, listId],
   )
 
   const [newListName, setNewListName] = useState('')
@@ -216,11 +218,11 @@ export function ContactListsContent({
   useEffect(() => {
     let cancelled = false
     async function loadStats() {
-      if (!slug || lists.length === 0) {
+      if (!slug || alleListen.length === 0) {
         setListStats({})
         return
       }
-      const ids = lists.map((l) => l.id)
+      const ids = alleListen.map((l) => l.id)
       if (!supabase) {
         setListStats({})
         return
@@ -252,7 +254,7 @@ export function ContactListsContent({
     return () => {
       cancelled = true
     }
-  }, [slug, lists])
+  }, [slug, alleListen])
 
   const filteredItems = useMemo(() => {
     let rows = items
@@ -733,6 +735,45 @@ export function ContactListsContent({
             })}
           </div>
         )}
+
+        {!listsLoading && recherchierteListen.length > 0 ? (
+          <section className="mt-8" aria-label="Recherchierte Leads">
+            <h2 className="font-display" style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+              Recherchierte Leads
+            </h2>
+            <p className="mt-1" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Eigene Quelle, getrennt von Kaltakquise und LinkedIn.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {recherchierteListen.map((l) => {
+                const st = listStats[l.id] ?? { total: 0, called: 0, calledToday: 0 }
+                const offen = Math.max(0, st.total - st.called)
+                return (
+                  <Link
+                    key={l.id}
+                    to={`${listsBase}/${l.id}`}
+                    className="glass-2 block rounded-2xl p-4"
+                    style={{ textDecoration: 'none', border: '1px solid var(--glass-border-1)' }}
+                  >
+                    <div className="font-display" style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {l.name}
+                    </div>
+                    {l.description ? (
+                      <div className="mt-1" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                        {l.description}
+                      </div>
+                    ) : null}
+                    <div className="mt-3 flex flex-wrap gap-3 font-mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                      <span>
+                        {offen} offen / {st.total} gesamt
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
 
         {!listsLoading && visibleLists.length === 0 ? (
           <p className="font-mono" style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>

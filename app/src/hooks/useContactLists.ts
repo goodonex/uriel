@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { generateId, loadList, saveList } from '../lib/storage'
 import {
   isMissingSupabaseTableError,
@@ -8,6 +8,10 @@ import {
 import { supabase } from '../lib/supabase'
 import type { Contact, ContactList, ContactListItem, ContactListItemStatus } from '../types/db'
 import { useBrandId } from './useBrandId'
+import { trenneListen } from '../cockpit/lib/listenQuellen'
+
+const listTypeVon = (lt: unknown): ContactList['list_type'] =>
+  lt === 'dynamic' ? 'dynamic' : lt === 'recherchiert' ? 'recherchiert' : 'static'
 
 const LISTS_KEY = 'contact-lists-store' as const
 
@@ -20,7 +24,7 @@ function rowToList(row: Record<string, unknown>): ContactList {
     description: (row.description as string | null) ?? null,
     is_favorite: Boolean(row.is_favorite),
     is_hidden: Boolean(row.is_hidden),
-    list_type: lt === 'dynamic' ? 'dynamic' : 'static',
+    list_type: listTypeVon(lt),
     filter_json:
       row.filter_json && typeof row.filter_json === 'object' && !Array.isArray(row.filter_json)
         ? (row.filter_json as Record<string, unknown>)
@@ -34,7 +38,7 @@ function normalizeList(row: ContactList): ContactList {
     ...row,
     is_favorite: Boolean(row.is_favorite),
     is_hidden: Boolean(row.is_hidden),
-    list_type: row.list_type === 'dynamic' ? 'dynamic' : 'static',
+    list_type: listTypeVon(row.list_type),
     filter_json: row.filter_json ?? null,
   }
 }
@@ -82,11 +86,13 @@ function shouldUseLocalLists(brandSlug: string | undefined, brandId: string | nu
 
 export function useContactLists(brandSlug: string | undefined) {
   const brandId = useBrandId(brandSlug)
-  const [lists, setLists] = useState<ContactList[]>([])
+  const [alleListen, setLists] = useState<ContactList[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const listsRef = useRef<ContactList[]>([])
-  listsRef.current = lists
+  listsRef.current = alleListen
+  // Kaltakquise-Listen und Recherchierte Leads sind getrennte Quellen — hier einmal trennen.
+  const { kaltakquise: lists, recherchiert: recherchierteListen } = useMemo(() => trenneListen(alleListen), [alleListen])
 
   const persistLocal = useCallback(
    (next: ContactList[]) => {
@@ -269,7 +275,7 @@ export function useContactLists(brandSlug: string | undefined) {
     [brandId, brandSlug, persistLocal, reload],
   )
 
-  return { lists, loading, error, reload, createList, updateListMeta, deleteList }
+  return { lists, recherchierteListen, alleListen, loading, error, reload, createList, updateListMeta, deleteList }
 }
 
 const ITEMS_PREFIX = 'contact-list-items' as const

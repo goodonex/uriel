@@ -16,6 +16,8 @@
  *   4 Anfrage offen          — hat die Vernetzung nicht angenommen; LinkedIn
  *                              kann ihn nicht mehr erreichen, das Telefon schon
  *   5 Kaltakquise            — aus Kevins Listen, ohne LinkedIn-Bezug
+ *   6 Recherchierte Leads    — dritte Quelle (list_type 'recherchiert'), nach der
+ *                              Kaltakquise einsortiert, gleiche Dedupe-Regeln
  *
  * Wer gerade nicht dran ist, fällt heraus — ausschließlich über die Anruf-
  * Ereignisse, nie über `lead_status`: Ein „nicht erreicht" darf den Lead nicht
@@ -25,13 +27,14 @@
  */
 import type { ContactListItem, Lead, LeadEreignis, LinkedinThread } from '../../types/db'
 
-export type AnrufGruppe = 1 | 2 | 3 | 4 | 5
+export type AnrufGruppe = 1 | 2 | 3 | 4 | 5 | 6
 export const GRUPPEN: Record<AnrufGruppe, { titel: string; hinweis: string }> = {
   1: { titel: 'Video bekommen', hinweis: 'Die Analyse ist raus — jetzt nachfassen.' },
   2: { titel: 'Zusage oder Antwort', hinweis: 'Hat geschrieben oder Ja zum Video gesagt.' },
   3: { titel: 'Angeschrieben, keine Antwort', hinweis: '„Ich hatte dir auf LinkedIn geschrieben …"' },
   4: { titel: 'Anfrage nicht angenommen', hinweis: 'Per LinkedIn nicht erreichbar — nur per Telefon.' },
   5: { titel: 'Kaltakquise', hinweis: 'Aus deinen Listen, ohne LinkedIn-Kontakt.' },
+  6: { titel: 'Recherchierte Leads', hinweis: 'Recherchiert, noch kein Kontakt — weder LinkedIn noch Kaltakquise.' },
 }
 
 export type AnrufErgebnis =
@@ -184,6 +187,8 @@ export interface AnrufEingabe {
   threads: LinkedinThread[]
   ereignisse: LeadEreignis[]
   listItems: ContactListItem[]
+  /** Einträge der Listen mit list_type 'recherchiert' (Gruppe 6). */
+  recherchierteItems?: ContactListItem[]
   jetzt?: Date
 }
 
@@ -194,7 +199,7 @@ export interface AnrufListe {
   ohneNummer: number
 }
 
-export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = new Date() }: AnrufEingabe): AnrufListe {
+export function baueAnrufListe({ leads, threads, ereignisse, listItems, recherchierteItems = [], jetzt = new Date() }: AnrufEingabe): AnrufListe {
   const threadJeLead = new Map<string, LinkedinThread>()
   for (const t of threads) if (t.lead_id) threadJeLead.set(t.lead_id, t)
   const anrufeJeLead = new Map<string, LeadEreignis[]>()
@@ -269,8 +274,13 @@ export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = 
     })
   }
 
-  // 2. Kaltakquise-Listen, ohne alles, was LinkedIn schon kennt.
-  for (const it of listItems) {
+  // 2. Kaltakquise-Listen (Gruppe 5), dann Recherchierte Leads (Gruppe 6) — beide
+  //    ohne alles, was LinkedIn oder eine vorherige Quelle schon kennt.
+  const quellen: Array<[AnrufGruppe, ContactListItem[]]> = [[5, listItems], [6, recherchierteItems]]
+  for (const [listGruppe, items] of quellen) {
+  const neueDomains: string[] = []
+  const neueFirmen: string[] = []
+  for (const it of items) {
     if (it.status === 'kein_interesse' || it.status === 'in_pipeline') continue
     const nummer = normNummer(it.phone)
     if (!nummer) continue
@@ -278,6 +288,9 @@ export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = 
     const firma = firmaNorm(it.company || it.name)
     if (bekannteNummern.has(nummer) || (domain && bekannteDomains.has(domain)) || (firma && bekannteFirmen.has(firma))) continue
     bekannteNummern.add(nummer)
+    // Domain/Firma gelten erst für die NÄCHSTE Quelle als bekannt (Verhalten innerhalb einer Liste bleibt).
+    if (domain) neueDomains.push(domain)
+    if (firma) neueFirmen.push(firma)
     if (it.called_at && new Date(it.called_at).getTime() >= heute) {
       heuteAngerufen++
       continue
@@ -285,7 +298,7 @@ export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = 
     if (it.status === 'angerufen' && it.called_at && jetzt.getTime() - new Date(it.called_at).getTime() < 2 * 86_400_000) continue
     eintraege.push({
       key: `liste:${it.id}`,
-      gruppe: 5,
+      gruppe: listGruppe,
       quelle: 'liste',
       leadId: null,
       listItemId: it.id,
@@ -303,6 +316,9 @@ export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = 
       letzterAnruf: it.called_at,
     })
   }
+  for (const d of neueDomains) bekannteDomains.add(d)
+  for (const f of neueFirmen) bekannteFirmen.add(f)
+  }
 
   eintraege.sort(
     (a, b) =>
@@ -311,7 +327,7 @@ export function baueAnrufListe({ leads, threads, ereignisse, listItems, jetzt = 
       Number(b.nummerArt === 'mobil') - Number(a.nummerArt === 'mobil') ||
       a.firma.localeCompare(b.firma),
   )
-  const jeGruppe = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<AnrufGruppe, number>
+  const jeGruppe = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 } as Record<AnrufGruppe, number>
   for (const e of eintraege) jeGruppe[e.gruppe]++
   return { eintraege, heuteAngerufen, jeGruppe, ohneNummer }
 }

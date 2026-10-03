@@ -23,6 +23,7 @@ import {
   type AnrufGruppe,
 } from '../../lib/anrufListe'
 import type { ContactListItem } from '../../../types/db'
+import { trenneListen } from '../../lib/listenQuellen'
 
 const nummerLesbar = (e164: string) =>
   e164.replace(/^\+49(\d{3,4})(\d+)$/, '0$1 $2').replace(/^\+4([13])(\d{2})(\d+)$/, '+4$1 $2 $3')
@@ -42,6 +43,7 @@ export function AnrufListePage() {
   const { bump } = useDailyMetrics()
 
   const [listItems, setListItems] = useState<ContactListItem[]>([])
+  const [recherchierteItems, setRecherchierteItems] = useState<ContactListItem[]>([])
   const [erledigt, setErledigt] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<AnrufGruppe | 0>(0)
   const [offenKey, setOffenKey] = useState<string | null>(null)
@@ -53,11 +55,15 @@ export function AnrufListePage() {
   useEffect(() => {
     if (!supabase || !brandId) return
     void (async () => {
-      const { data: listen } = await supabase.from('contact_lists').select('id').eq('brand_id', brandId)
-      const ids = (listen ?? []).map((l: { id: string }) => l.id)
-      if (!ids.length) return
-      const { data } = await supabase.from('contact_list_items').select('*').in('list_id', ids).limit(5000)
-      setListItems((data ?? []) as ContactListItem[])
+      const { data: listen } = await supabase.from('contact_lists').select('id,list_type').eq('brand_id', brandId)
+      const { kaltakquise, recherchiert } = trenneListen((listen ?? []) as Array<{ id: string; list_type: string | null }>)
+      const laden = async (ls: Array<{ id: string }>) => {
+        if (!ls.length) return [] as ContactListItem[]
+        const { data } = await supabase!.from('contact_list_items').select('*').in('list_id', ls.map((l) => l.id)).limit(5000)
+        return (data ?? []) as ContactListItem[]
+      }
+      setListItems(await laden(kaltakquise))
+      setRecherchierteItems(await laden(recherchiert))
     })()
   }, [brandId])
 
@@ -68,8 +74,9 @@ export function AnrufListePage() {
         threads: threads.items,
         ereignisse: leadsQuery.ereignisse,
         listItems,
+        recherchierteItems,
       }),
-    [leadsQuery.leads, leadsQuery.ereignisse, threads.items, listItems],
+    [leadsQuery.leads, leadsQuery.ereignisse, threads.items, listItems, recherchierteItems],
   )
   const sichtbar = useMemo(
     () => liste.eintraege.filter((e) => !erledigt.has(e.key) && (filter === 0 || e.gruppe === filter)),
@@ -101,7 +108,7 @@ export function AnrufListePage() {
         } else if (e.listItemId && supabase) {
           const status = ergebnis === 'kein_interesse' ? 'kein_interesse' : ergebnis === 'termin' || ergebnis === 'video_ja' ? 'in_pipeline' : 'angerufen'
           const zeile = `${new Date().toLocaleDateString('de-DE')} Anruf: ${ERGEBNISSE.find((x) => x.key === ergebnis)?.label}${notiz.trim() ? ` — ${notiz.trim()}` : ''}`
-          const alt = listItems.find((i) => i.id === e.listItemId)?.notes ?? ''
+          const alt = [...listItems, ...recherchierteItems].find((i) => i.id === e.listItemId)?.notes ?? ''
           const { error } = await supabase
             .from('contact_list_items')
             .update({ status, called_at: new Date().toISOString(), outcome: ergebnis, notes: alt ? `${zeile}\n${alt}` : zeile })
@@ -120,7 +127,7 @@ export function AnrufListePage() {
         setSpeichert(false)
       }
     },
-    [bump, leadsQuery, listItems, notiz, oeffne, sichtbar],
+    [bump, leadsQuery, listItems, recherchierteItems, notiz, oeffne, sichtbar],
   )
 
   const laedt = leadsQuery.loading || threads.loading
@@ -147,7 +154,7 @@ export function AnrufListePage() {
         <button type="button" className={`ck-segment${filter === 0 ? ' active' : ''}`} onClick={() => setFilter(0)}>
           Alle {liste.eintraege.length - erledigt.size}
         </button>
-        {([1, 2, 3, 4, 5] as AnrufGruppe[]).map((g) => (
+        {([1, 2, 3, 4, 5, 6] as AnrufGruppe[]).map((g) => (
           <button key={g} type="button" className={`ck-segment${filter === g ? ' active' : ''}`} onClick={() => setFilter(g)} title={GRUPPEN[g].hinweis}>
             {g} · {GRUPPEN[g].titel} {liste.jeGruppe[g]}
           </button>

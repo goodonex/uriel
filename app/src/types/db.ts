@@ -304,7 +304,7 @@ export type LeadSource =
 
 export type FollowUpType = '' | 'call' | 'meeting' | 'email' | 'other'
 
-export type ContactListType = 'static' | 'dynamic'
+export type ContactListType = 'static' | 'dynamic' | 'recherchiert'
 
 export interface Contact {
   id: string
