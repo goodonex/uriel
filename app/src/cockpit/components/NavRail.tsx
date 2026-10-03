@@ -41,6 +41,8 @@ const ARBEIT: NavItem[] = [
   { to: '/tracking', label: 'Tracking', icon: bereichIcon('/tracking') },
 ]
 
+const MARKT: NavItem = { to: '/markt', label: 'Markt', icon: bereichIcon('/markt') }
+
 const IDENTITAET: NavItem = { to: '/identitaet', label: 'Identität', icon: bereichIcon('/identitaet') }
 
 /** Ein Schwester-Programm: echter Link, neuer Tab — kein Router-Ziel. */
@@ -291,6 +293,8 @@ export function NavRail() {
             {PROGRAMME.map((p) => (
               <ProgrammEintrag key={p.id} p={p} nurZeichen={nurZeichen} />
             ))}
+            {/* Nachschlagewerk: nur am Desktop in der Leiste, mobil im „Mehr"-Sheet. */}
+            <NavEintrag item={MARKT} badge={0} nurZeichen={nurZeichen} />
             {/* Identität steht ganz unten, abgesetzt: nichts Operatives. */}
             <div className="ck-nav-trenner" role="presentation" style={{ marginTop: 'auto' }} />
             <NavEintrag item={IDENTITAET} badge={0} nurZeichen={nurZeichen} />

@@ -71,6 +71,13 @@ export const COCKPIT_BEREICHE: CockpitBereich[] = [
   // Erreichbar bleiben sie hier, bis Ads nach Gabriel umgezogen ist.
   { path: '/ads', label: 'Ads', icon: 'megafon', keywords: ['werbung', 'kampagnen', 'meta', 'gabriel'] },
   { path: '/content', label: 'Content', icon: 'bild', keywords: ['social', 'instagram', 'posts', 'batch', 'gabriel'] },
+  // Marktkarte Phase 1 (03.10.2026): Wettbewerber und ihre Referenzkunden — Nachschlagewerk.
+  {
+    path: '/markt',
+    label: 'Markt',
+    icon: 'karte',
+    keywords: ['wettbewerber', 'konkurrenz', 'agentur', 'agenturen', 'referenzen', 'marktkarte', 'radar'],
+  },
   { path: '/agenten', label: 'Agenten', icon: 'agent', keywords: ['runs', 'automation', 'runner'] },
   {
     path: '/identitaet',

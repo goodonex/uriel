@@ -30,6 +30,7 @@ import { SalesArea } from './cockpit/pages/SalesArea'
 import { ProjekteArea } from './cockpit/pages/ProjekteArea'
 import { ZaehlModus } from './cockpit/pages/ZaehlModus'
 import { TrackingArea } from './cockpit/pages/TrackingArea'
+import { MarktArea } from './cockpit/pages/MarktArea'
 import { AdsArea } from './cockpit/pages/AdsArea'
 import { SocialArea } from './cockpit/pages/SocialArea'
 import { AmbientPage } from './cockpit/pages/AmbientPage'
@@ -277,6 +278,7 @@ function App() {
               <Route path="/content/*" element={<SocialArea />} />
               <Route path="/agenten" element={<ZumCockpitReiter reiter="agenten" />} />
                 <Route path="/tracking" element={<TrackingArea />} />
+                <Route path="/markt/*" element={<MarktArea />} />
                 {/* Zähl-Modus (11.08.): Raster und Vollbild teilen sich eine
                     Komponente — mit :feld ist es das Vollbild, ohne das Raster. */}
                 <Route path="/tracking/zaehlen" element={<ZaehlModus />} />

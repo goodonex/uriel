@@ -29,6 +29,7 @@ export type BereichIconName =
   | 'mehr'
   | 'fenster'
   | 'kurve'
+  | 'karte'
 
 /** Die Pfade. Ein Eintrag = ein Zeichen, gezeichnet auf 24×24. */
 const PFADE: Record<BereichIconName, React.ReactNode> = {
@@ -108,6 +109,13 @@ const PFADE: Record<BereichIconName, React.ReactNode> = {
       <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
       <path d="M3.5 9h17" />
       <path d="M6.5 7h.01M8.7 7h.01" />
+    </>
+  ),
+  // Markt — Landkarte (gefaltet)
+  karte: (
+    <>
+      <path d="m4 6.5 5-2 6 2 5-2v13l-5 2-6-2-5 2v-13Z" />
+      <path d="M9 4.5v13M15 6.5v13" />
     </>
   ),
   // Laplace — Kursverlauf
