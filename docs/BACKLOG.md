@@ -11,6 +11,12 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **03.10.2026 — Markt Phase 1 gebaut, Migration nicht eingespielt** (Branch `cockpit-rebuild`, Migration 0097)
+
+Reiter „Markt" (`/markt`): Wettbewerber-Liste, Link einwerfen, Detail mit editierbaren Feldern und Referenzkunden. Tabellen `wettbewerber`, `wettbewerber_referenz`, `wettbewerber_signal` in `supabase/migrations/0097_wettbewerber.sql` (**nicht** per `db push` eingespielt). Seed Real Agency separat in `supabase/seed-wettbewerber.sql` (von Hand nach der Migration). Ohne Migration zeigt der Reiter einen Hinweis statt Fehler. Nicht gebaut: Signale in der Oberfläche, Footer-Lauf, Auswertung (Plan: `docs/MARKTKARTE-PLAN.md`). Live schaltet Kevin.
+
+---
+
 ## **FERTIG 22.09.2026 (abends) — Google-Anzeigen, Lead-Profil mit Klasse A/B/C, Runde von 20** (Branch `feat/lead-profil-ads`, Migration 0092)
 
 Anlass: Amoreal schaltet seit Mai Google-Anzeigen — geprüft wurde bis dahin nur
