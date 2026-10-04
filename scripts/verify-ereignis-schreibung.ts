@@ -85,8 +85,8 @@ check(
   ereignisTypFuer('inmail') === null,
 )
 check(
-  'antwort -> kein Ereignis-Typ (antwort_erhalten meint das Gegenteil)',
-  ereignisTypFuer('antwort') === null,
+  'antwort -> antwort_gesendet (NICHT antwort_erhalten, das meint das Gegenteil)',
+  ereignisTypFuer('antwort') === 'antwort_gesendet',
 )
 check('anfrage -> kein Ereignis-Typ (Zähler, kein Lead-Vorgang)', ereignisTypFuer('anfrage') === null)
 check('kundenaufgabe -> kein Ereignis-Typ (kein Lead-Vorgang)', ereignisTypFuer('kundenaufgabe') === null)
@@ -118,9 +118,9 @@ check(
     ereignisTypFuer('inmail') === null,
 )
 check(
-  'antwort zaehlt seit 0081 ein Feld, hat aber weiterhin KEINEN Ereignis-Typ',
-  metrikFeldFuer('antwort') === 'antworten_erledigt' && ereignisTypFuer('antwort') === null,
-  'Der Grund ist unveraendert: antwort_erhalten bedeutet das GEGENTEIL (der LEAD hat geschrieben). Ihn beim Haken zu schreiben waere eine Luege ueber die Historie.',
+  'antwort zaehlt ein Feld (0081) UND schreibt seit 0097 antwort_gesendet',
+  metrikFeldFuer('antwort') === 'antworten_erledigt' && ereignisTypFuer('antwort') === 'antwort_gesendet',
+  'Nie antwort_erhalten: der bedeutet das GEGENTEIL (der LEAD hat geschrieben).',
 )
 
 /* ── 4. erledigePosten ruft protokolliere GENAU EINMAL ──────────────────── */
@@ -129,6 +129,7 @@ for (const [spur, praefix, erwarteterTyp] of [
   ['erstnachricht', 'erstnachricht', 'erstnachricht'],
   ['followup', 'thread', 'followup'],
   ['loom', 'loom', 'loom_gesendet'],
+  ['antwort', 'thread', 'antwort_gesendet'],
 ] as const) {
   const { deps, aufrufe } = makeDeps()
   await erledigePosten({ posten: makePosten({ id: `${praefix}:x1`, spur }), sekunden: 10 }, deps)
@@ -141,7 +142,6 @@ for (const [spur, praefix, erwarteterTyp] of [
 /* ── 5. Die Spuren OHNE Ereignis rufen protokolliere NIE auf ────────────── */
 
 for (const [spur, praefix] of [
-  ['antwort', 'thread'],
   ['anfrage', 'anfrage'],
   ['inmail', 'inmail'],
   ['kundenaufgabe', 'task'],

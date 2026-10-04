@@ -24,6 +24,7 @@ const EREIGNIS_TITEL: Record<LeadEreignisTyp, string> = {
   erstnachricht: 'Erstnachricht geschickt',
   followup: 'Nachgefasst',
   antwort_erhalten: 'Antwort erhalten',
+  antwort_gesendet: 'Geantwortet',
   loom_zugesagt: 'Loom zugesagt',
   loom_abgelehnt: 'Loom abgelehnt',
   loom_gesendet: 'Loom geschickt',

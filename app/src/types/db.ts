@@ -1210,6 +1210,12 @@ export type LeadEreignisTyp =
   | 'erstnachricht'
   | 'followup'
   | 'antwort_erhalten'
+  /**
+   * 0097: KEVIN hat auf eine Antwort des Leads geantwortet — das Gegenstück zu
+   * `antwort_erhalten`. Ohne diesen Typ stand ein abgehakter „Du bist dran"-
+   * Eintrag nirgends in „Heute raus": der Haken änderte nur den Thread.
+   */
+  | 'antwort_gesendet'
   | 'loom_zugesagt'
   /**
    * 0081: Der Lead hat auf die Analyse verzichtet — als eigene Tatsache, nicht

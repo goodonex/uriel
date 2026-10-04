@@ -14,7 +14,7 @@ import { Tagesjournal } from '../components/linkedin/Tagesjournal'
 import { useLeads } from '../../hooks/useLeads'
 import { useActiveBrand } from '../lib/activeBrand'
 import { buildLinkedinFollowupInput } from '../lib/approvalDrafts'
-import { bucketOf, coverage, FOLLOWUP_THRESHOLDS_DAYS, istWeckbar } from '../lib/linkedinFollowups'
+import { bucketOf, coverage, FOLLOWUP_THRESHOLDS_DAYS, istWeckbar, markDonePatch } from '../lib/linkedinFollowups'
 import { RUNNER_BASE_URL, useRunnerStatus } from '../lib/useRunnerStatus'
 import { beauftrageRunner, runnerDirekt } from '../lib/runnerBridge'
 
@@ -427,6 +427,21 @@ export function LinkedinArea() {
   const [offenerLead, setOffenerLead] = useState<string | null>(null)
   const leadsQuery = useLeads(slug)
   /**
+   * „Erledigt" in den Listen: Thread umschreiben UND ins Tagesjournal
+   * schreiben. Vorher änderte der Haken nur den Thread — „Heute raus" blieb
+   * leer, obwohl Kevin den ganzen Tag Antworten rausgeschickt hatte. Der Typ
+   * hängt daran, wer zuletzt geschrieben hat: Lead → Kevin antwortet.
+   * Ohne `lead_id` (Thread nicht verknüpft) bleibt es beim Thread-Haken.
+   */
+  const markDoneMitJournal = async (thread: LinkedinThread) => {
+    const protokollieren = markDonePatch(thread) !== null && !!thread.lead_id
+    const typ = thread.last_from === 'them' ? 'antwort_gesendet' : 'followup'
+    await threadsQuery.markDone(thread)
+    if (protokollieren && thread.lead_id) {
+      await leadsQuery.protokolliere(thread.lead_id, typ, { thread_name: thread.name })
+    }
+  }
+  /**
    * Threads nach `lead_id` — die Brücke zwischen Postfach und Lead. Ohne sie
    * würde `leadStation` jeden Lead in den stillen Zweig schicken, auch den,
    * mit dem Kevin längst schreibt.
@@ -687,7 +702,7 @@ export function LinkedinArea() {
             threads={buckets.duBistDran}
             now={now}
             onSnoozeTomorrow={snoozeTomorrow}
-            onMarkDone={(th) => void threadsQuery.markDone(th)}
+            onMarkDone={(th) => void markDoneMitJournal(th)}
             onGenerateDraft={(th) => void generateDraft(th)}
             onLoomVerschickt={(th) => void threadsQuery.markLoomVerschickt(th.id)}
             onEntscheiderOffen={(th) => void threadsQuery.markEntscheiderOffen(th.id)}
@@ -702,7 +717,7 @@ export function LinkedinArea() {
             leerText="Keine fälligen Follow-ups."
             now={now}
             onSnoozeTomorrow={snoozeTomorrow}
-            onMarkDone={(th) => void threadsQuery.markDone(th)}
+            onMarkDone={(th) => void markDoneMitJournal(th)}
             onGenerateDraft={(th) => void generateDraft(th)}
             onLoomVerschickt={(th) => void threadsQuery.markLoomVerschickt(th.id)}
             onEntscheiderOffen={(th) => void threadsQuery.markEntscheiderOffen(th.id)}
@@ -716,7 +731,7 @@ export function LinkedinArea() {
             threads={buckets.abschluss}
             now={now}
             onSnoozeTomorrow={snoozeTomorrow}
-            onMarkDone={(th) => void threadsQuery.markDone(th)}
+            onMarkDone={(th) => void markDoneMitJournal(th)}
             onGenerateDraft={(th) => void generateDraft(th)}
             onLoomVerschickt={(th) => void threadsQuery.markLoomVerschickt(th.id)}
             onEntscheiderOffen={(th) => void threadsQuery.markEntscheiderOffen(th.id)}

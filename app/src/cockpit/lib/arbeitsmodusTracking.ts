@@ -50,10 +50,10 @@ export function metrikFeldFuer(spur: Spur): MetricField | null {
  * Spur-Tabelle wie `metrikFeldFuer`, aber eine eigene Funktion — nicht jede
  * Spur mit einem Metrikfeld hat auch ein passendes Ereignis:
  *
- * - **`antwort` bleibt aussen vor**, obwohl sie denselben Statusweg nimmt wie
- *   `followup` (`followupErledigt`). Es gibt keinen Ereignis-Typ für „Kevin
- *   hat geantwortet" — `antwort_erhalten` bedeutet das GEGENTEIL (der LEAD hat
- *   geschrieben). Ihn hier zu schreiben wäre eine Lüge über die Historie.
+ * - **`antwort` schreibt `antwort_gesendet`** (0097, 04.10.2026) — NICHT
+ *   `antwort_erhalten`: der bedeutet das GEGENTEIL (der LEAD hat geschrieben).
+ *   Bis 0097 gab es keinen Typ für „Kevin hat geantwortet", der Haken blieb
+ *   deshalb im Tagesjournal unsichtbar.
  * - **`inmail` bleibt aussen vor.** Der Plan sah „beim Buchen einer InMail"
  *   vor, aber die Buchung läuft über `InmailPanel.onBuchen` als reiner
  *   Pool-Zähler (+1/-1) ohne ausgewählten Lead — es gibt dort gar keine
@@ -69,6 +69,7 @@ export function ereignisTypFuer(spur: Spur): LeadEreignisTyp | null {
     case 'loom':
       return 'loom_gesendet'
     case 'antwort':
+      return 'antwort_gesendet'
     case 'anfrage':
     case 'inmail':
     case 'kundenaufgabe':

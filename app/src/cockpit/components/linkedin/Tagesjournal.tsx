@@ -19,11 +19,21 @@ import type { Lead, LeadEreignis, LeadEreignisTyp } from '../../../types/db'
  * getan — das ist die Frage, die er abends beantwortet haben will.
  */
 
-const AUSGEHEND: LeadEreignisTyp[] = ['erstnachricht', 'followup', 'inmail', 'email', 'postkarte', 'anruf', 'loom_gesendet']
+const AUSGEHEND: LeadEreignisTyp[] = [
+  'erstnachricht',
+  'followup',
+  'antwort_gesendet',
+  'inmail',
+  'email',
+  'postkarte',
+  'anruf',
+  'loom_gesendet',
+]
 
 const KANAL_TITEL: Partial<Record<LeadEreignisTyp, string>> = {
   erstnachricht: 'Erstnachrichten',
   followup: 'Nachgefasst',
+  antwort_gesendet: 'Antworten',
   loom_gesendet: 'Looms',
   inmail: 'InMails',
   email: 'E-Mails',
