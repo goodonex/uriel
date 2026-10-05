@@ -265,7 +265,8 @@ gepasst hätte.
       drei Punkte aufgefallen", höchstens mit dem Bereich dazu („rund um die
       Bewertung"). Die Punkte müssen echt sein und aus der Prüfung der Seite
       stammen (Regel 1). Genannt werden sie erst, wenn er danach fragt, dann
-      zwei, höchstens drei, je ein Satz.
+      zwei, höchstens drei, je ein Satz. **Ausnahme:** Steht im Thread schon ein
+      Analyse-Angebot oder hat Kevin den Befund genannt, gilt Regel 16.
    3. Letzter Satz fix: `Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?`
       Bei Nicht-Maklern steht statt „Eigentümer" die Kundschaft, die sie
       gewinnen wollen (Bausachverständiger: „Käufer"), sonst bleibt der Satz
@@ -461,6 +462,25 @@ gepasst hätte.
     Moin Jens, 14 Tage ist wenigstens ehrlich. Genau da gehen bei vielen Maklern die meisten Anfragen verloren.
 
     Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    ```
+
+16. **Fragt der Lead „Was würdest du konkret ändern?", wird die Beratung nicht
+    verschenkt.** Die Frage ist ein Interessensignal, kein Auftrag für eine
+    Gratis-Liste. Der Entwurf nennt den Kern in einem Satz (er steht meist schon
+    in Kevins erster Nachricht) und bietet das Konkrete an: die Analyse mit dem
+    festen CTA, bei Zeitdruck oder Gesprächslust das Telefonat. Keine
+    nummerierte Liste mit Lösungen (Kevin, 05.10.2026, Matheus De Souza: *„wäre
+    es nicht schlauer, Analyse oder Telefonat anzubieten, als ihm einfach zu
+    geben, was er will?"*; der Entwurf lieferte drei fertige Verbesserungen und
+    danach erst das Angebot).
+    ```
+    Moin Matheus,
+
+    der Kern steht schon oben: Ein Eigentümer braucht bei dir einen eigenen Einstieg mit Ablauf bis zur Anfrage. Wie der bei dir konkret aussehen müsste, zeige ich dir am besten direkt an deiner Seite.
+
+    Ich hab dir dazu eine kurze Analyse vorbereitet. Sie zeigt konkret, wo Potenzial liegen bleibt und was sich daraus für mehr planbare Eigentümer-Anfragen machen lässt.
+
+    Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
     ```
 
 ## Edge Cases
