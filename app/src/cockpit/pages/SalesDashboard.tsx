@@ -15,7 +15,7 @@ import { PhasenRing } from '../components/sales/PhasenRing'
 import { KartenNamen } from '../components/sales/KartenNamen'
 import { TagesListe } from '../components/sales/TagesListe'
 import { PruefListe } from '../components/sales/PruefListe'
-import { teileErstnachrichten } from '../lib/erstnachrichtenOffen'
+import { profilNachName, teileErstnachrichten } from '../lib/erstnachrichtenOffen'
 import { brauchtPruefung, heuteGeprueft } from '../lib/erstnachrichtenPruefung'
 import { PipelineBoard } from '../components/sales/PipelineBoard'
 import { KadenzPanel } from '../components/sales/KadenzPanel'
@@ -1604,6 +1604,7 @@ export function SalesDashboard() {
         onGeprueft={(id) => void erstnachrichten.markiereGeprueft(id)}
         onAussortiert={(id) => void erstnachrichten.setzeStatus(id, 'uebersprungen')}
         onNeuPruefen={erstnachrichten.neuPruefen}
+        profilVon={profilNachName(netzwerk.items)}
       />
     ),
   }

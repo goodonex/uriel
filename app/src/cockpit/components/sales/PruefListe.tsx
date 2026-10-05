@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
 import { normalisiereUrl, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
+import { inZwischenablage } from '../../lib/zwischenablage'
 import { useRundeTor } from '../RundeTor'
 
 /**
@@ -14,8 +15,11 @@ function PruefKarte({
   onGeprueft,
   onAussortiert,
   onNeuPruefen,
+  profil,
 }: {
   lead: Erstnachricht
+  /** LinkedIn-Profil aus dem Netzwerk, per Name zugeordnet (05.10.2026). */
+  profil?: string
   onGeprueft: () => void
   onAussortiert: () => void
   onNeuPruefen: (url: string) => Promise<boolean>
@@ -24,6 +28,7 @@ function PruefKarte({
   const [url, setUrl] = useState('')
   const [fehler, setFehler] = useState<string | null>(null)
   const [sendet, setSendet] = useState(false)
+  const [nameKopiert, setNameKopiert] = useState(false)
   const { stand, runnerWeg, starteMit } = useRundeTor()
 
   const schicke = async () => {
@@ -50,7 +55,22 @@ function PruefKarte({
   return (
     <section className="ck-panel" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ minWidth: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ck-text-1)' }}>{lead.name}</span>
+        {/* Wie in der Arbeitsliste: Tipp auf den Namen kopiert ihn für die LinkedIn-Suche (Kevin, 05.10.2026). */}
+        <button
+          type="button"
+          title={`${lead.name} kopieren`}
+          onClick={() =>
+            void inZwischenablage(lead.name).then((ok) => {
+              if (!ok) return
+              setNameKopiert(true)
+              window.setTimeout(() => setNameKopiert(false), 2000)
+            })
+          }
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 15, fontWeight: 600, color: 'var(--ck-text-1)' }}
+        >
+          {lead.name}
+        </button>
+        {nameKopiert ? <span style={{ fontSize: 12, color: 'var(--ck-accent)' }}> ✓ kopiert</span> : null}
         {firma ? <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}> · {firma}</span> : null}
       </div>
 
@@ -137,6 +157,17 @@ function PruefKarte({
         >
           {ziel.label} ↗
         </a>
+        {profil ? (
+          <a
+            href={profil}
+            target="_blank"
+            rel="noreferrer"
+            className="ck-btn"
+            style={{ fontSize: 11, minHeight: 40, paddingInline: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+          >
+            LinkedIn ↗
+          </a>
+        ) : null}
         <button type="button" className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }} onClick={onGeprueft}>
           Geprüft, Text passt
         </button>
@@ -159,8 +190,10 @@ export function PruefListe({
   onGeprueft,
   onAussortiert,
   onNeuPruefen,
+  profilVon,
 }: {
   leads: Erstnachricht[]
+  profilVon?: (name: string) => string | undefined
   onGeprueft: (id: string) => void
   onAussortiert: (id: string) => void
   onNeuPruefen: (id: string, url: string) => Promise<boolean>
@@ -181,6 +214,7 @@ export function PruefListe({
         <PruefKarte
           key={l.id}
           lead={l}
+          profil={profilVon?.(l.name)}
           onGeprueft={() => onGeprueft(l.id)}
           onAussortiert={() => onAussortiert(l.id)}
           onNeuPruefen={(url) => onNeuPruefen(l.id, url)}
