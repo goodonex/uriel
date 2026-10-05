@@ -24,12 +24,13 @@ import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 // @ts-expect-error — .mjs ohne Typen, dieselbe Fassung wie im Runner
 import { regelwerk } from '../runner/regeln/fassung.mjs'
 
 const SCHLUESSEL = 'erstnachrichtenFeedback'
 const MARKE = /\s*·\s*PRÜFEN:\s*/
-const WURZEL = new URL('..', import.meta.url).pathname
+const WURZEL = fileURLToPath(new URL('..', import.meta.url))
 
 const env = Object.fromEntries(
   readFileSync(new URL('../runner/.env', import.meta.url), 'utf8')
