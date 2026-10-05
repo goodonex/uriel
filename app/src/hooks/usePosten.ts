@@ -17,6 +17,7 @@ import { useLinkedinThreads } from './useLinkedinThreads'
 import { useLeadKlassen } from './useLeadKlassen'
 import { useLoomGesichtet } from './useLoomGesichtet'
 import { useLeadsMitAntwort } from './useLeadsMitAntwort'
+import { useLoomUrteile } from './useLoomUrteile'
 import { useTasks } from './useTasks'
 
 /**
@@ -70,6 +71,8 @@ export function usePosten(slug: string | undefined): UsePostenResult {
   // Wer schon einmal geantwortet hat, bekommt beim Nachfassen keine kalte
   // Vorlage, sondern den Text der Nachtrunde (29.09.2026).
   const leadsMitAntwort = useLeadsMitAntwort(slug)
+  // Kevins Loom-Ja/Nein — hält beantwortete Leads aus „Antworten" (03.10.2026).
+  const loomUrteile = useLoomUrteile(slug)
 
   // Minutentakt statt Date.now() bei jedem Render — sonst rechnen die useMemos
   // unten bei jedem Tastendruck neu.
@@ -96,10 +99,10 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     [projekte.items, tasks.items, contacts.items, jetzt],
   )
   const antwortListe = useMemo(
-    () => antwortPosten(linkedinThreads.items, jetzt, contacts.items),
-    [linkedinThreads.items, jetzt, contacts.items],
+    () => antwortPosten(linkedinThreads.items, jetzt, contacts.items, loomUrteile.urteile),
+    [linkedinThreads.items, jetzt, contacts.items, loomUrteile.urteile],
   )
-  const loomListe = useMemo(() => loomPosten(linkedinThreads.items), [linkedinThreads.items])
+  const loomListe = useMemo(() => loomPosten(linkedinThreads.items, loomUrteile.urteile), [linkedinThreads.items, loomUrteile.urteile])
   /**
    * Die Brücke vom Lead zurück auf den Chat: Der Player meldet an den Lead,
    * nachgefasst wird im Thread. Threads ohne `lead_id` fallen hier heraus und

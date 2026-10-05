@@ -5,6 +5,7 @@ import { useErstnachrichten } from '../../hooks/useErstnachrichten'
 import { useContacts } from '../../hooks/useContacts'
 import { useLinkedinNetzwerk } from '../../hooks/useLinkedinNetzwerk'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
+import { useLoomUrteile } from '../../hooks/useLoomUrteile'
 import { useActiveBrand } from './activeBrand'
 import { antwortPosten, erstnachrichtPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG, loomPosten } from './arbeitsmodusQuellen'
 import { useMetrikTag } from './useMetrikTag'
@@ -70,6 +71,7 @@ export interface TagesFlowStand {
 export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean } {
   const { activeBrand } = useActiveBrand()
   const threads = useLinkedinThreads(activeBrand?.slug)
+  const loomUrteile = useLoomUrteile(activeBrand?.slug)
   const erstnachrichten = useErstnachrichten(activeBrand?.slug)
   // Nur für den Profil-Link an den Erstnachrichten (18.08.2026).
   const netzwerk = useLinkedinNetzwerk(activeBrand?.slug)
@@ -93,12 +95,12 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
           )
             .filter((p) => nachStichtag(p.seit))
             .filter((p) => istArbeitsVorrat(icpUrteil(p.info ?? '', p.name).urteil)),
-          loom: loomPosten(threads.items),
-          antwort: antwortPosten(threads.items, jetzt, contacts.items),
+          loom: loomPosten(threads.items, loomUrteile.urteile),
+          antwort: antwortPosten(threads.items, jetzt, contacts.items, loomUrteile.urteile),
         },
         jetzt,
       ),
-    [threads.items, erstnachrichten.items, netzwerk.items, contacts.items, jetzt],
+    [threads.items, erstnachrichten.items, netzwerk.items, contacts.items, loomUrteile.urteile, jetzt],
   )
   return { quellen, laedt: threads.loading || erstnachrichten.loading }
 }

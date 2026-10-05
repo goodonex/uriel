@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useActiveBrand } from '../cockpit/lib/activeBrand'
 import { antwortPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG } from '../cockpit/lib/arbeitsmodusQuellen'
 import { useContacts } from './useContacts'
+import { useLoomUrteile } from './useLoomUrteile'
 import { useLinkedinThreads } from './useLinkedinThreads'
 
 /**
@@ -32,14 +33,15 @@ export function useAmbientOffen(): { antworten: number; followups: number; laedt
   const threads = useLinkedinThreads(activeBrand?.slug)
   // Kunden gehören in keine Akquise-Spur (18.08.2026, Fall Reichentrog).
   const contacts = useContacts(activeBrand?.slug)
+  const loomUrteile = useLoomUrteile(activeBrand?.slug)
 
   return useMemo(() => {
     // Der Mount-Zeitpunkt genügt: die Follow-up-Schwellen sind Tage (3/7/14).
     const jetzt = new Date()
     return {
-      antworten: antwortPosten(threads.items, jetzt, contacts.items).length,
+      antworten: antwortPosten(threads.items, jetzt, contacts.items, loomUrteile.urteile).length,
       followups: followupPosten(threads.items, jetzt, contacts.items, undefined, undefined, undefined, FOLLOWUP_NUR_SENDEFERTIG).length,
       laedt: threads.loading,
     }
-  }, [threads.items, threads.loading, contacts.items])
+  }, [threads.items, threads.loading, contacts.items, loomUrteile.urteile])
 }

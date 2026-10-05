@@ -217,5 +217,16 @@ check('5c ohne praefix', zeilenId('ohnepraefix'), 'ohnepraefix')
   check('6c Skizze UND Analyse → Analyse zählt', botAnalyseAn(mit('Die Analyse und eine Skizze liegen bereit, rüberschicken?')), true)
 }
 
+// 7. Loom-Urteil (03.10.2026): „Loom ja" schreibt nur ein Ereignis, der Stern kommt aus LinkedIn und kann fehlen.
+{
+  const urteil = (zugesagt: boolean, tageHer: number) => new Map([['lead-1', { zugesagt, at: NOW.getTime() - tageHer * 86_400_000 }]])
+  const antwortDa = makeThread({ lead_id: 'lead-1', last_from: 'them', last_message_at: dayAgo(5), starred: false })
+  check('7a ohne Urteil: wartet unter Antworten', antwortPosten([antwortDa], NOW).length, 1)
+  check('7b Loom ja ohne Stern: raus aus Antworten', antwortPosten([antwortDa], NOW, [], urteil(true, 1)).length, 0)
+  check('7c Loom ja ohne Stern: steht bei den Looms', loomPosten([antwortDa], urteil(true, 1)).length, 1)
+  check('7d Loom nein: raus aus Antworten, nicht bei Looms', [antwortPosten([antwortDa], NOW, [], urteil(false, 1)).length, loomPosten([antwortDa], urteil(false, 1)).length], [0, 0])
+  check('7e Lead schreibt nach dem Urteil erneut: wieder unter Antworten', antwortPosten([antwortDa], NOW, [], urteil(true, 9)).length, 1)
+}
+
 console.log(`${pass}/${pass + fail} Fälle korrekt`)
 if (fail > 0) process.exit(1)

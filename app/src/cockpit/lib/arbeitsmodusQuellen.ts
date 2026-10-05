@@ -105,9 +105,28 @@ function istAkquiseVersuch(t: LinkedinThread): boolean {
   return t.agent_urteil === 'akquise'
 }
 
-function wartetAufAntwort(t: LinkedinThread, heute: Date): boolean {
+/**
+ * Kevins Ja/Nein zum Loom (03.10.2026). Gilt, solange der Lead danach nicht
+ * erneut geschrieben hat — dann wartet er wieder auf eine Antwort.
+ *
+ * Der Klick schreibt nur ein Ereignis; Stern und `last_from` gehören dem Sync
+ * und springen zurück. Ohne dieses Urteil stand der Lead nach dem nächsten Lauf
+ * wieder unter „Antworten".
+ */
+export type LoomUrteile = ReadonlyMap<string, { zugesagt: boolean; at: number }>
+
+function urteilGilt(t: LinkedinThread, urteile?: LoomUrteile) {
+  const u = t.lead_id ? urteile?.get(t.lead_id) : undefined
+  if (!u) return null
+  const nachricht = t.last_message_at ? new Date(t.last_message_at).getTime() : NaN
+  // Nachricht nach dem Urteil → überholt. Unlesbares Datum → Urteil gilt.
+  return !Number.isNaN(nachricht) && nachricht > u.at ? null : u
+}
+
+function wartetAufAntwort(t: LinkedinThread, heute: Date, urteile?: LoomUrteile): boolean {
   if (bucketOf(t, heute) !== 'du_bist_dran') return false
   if (t.starred && t.loom_status === 'offen') return false
+  if (urteilGilt(t, urteile)) return false
   if (vorDerAkquise(t)) return false
   if (istAkquiseVersuch(t)) return false
   return true
@@ -131,10 +150,11 @@ export function antwortPosten(
   threads: LinkedinThread[],
   heute: Date,
   kontakte: KundenKontakt[] = [],
+  urteile?: LoomUrteile,
 ): Posten[] {
   const kunden = kundenSchluessel(kontakte)
   return threads
-    .filter((t) => wartetAufAntwort(t, heute))
+    .filter((t) => wartetAufAntwort(t, heute, urteile))
     .filter((t) => !istKunde(t.name, kunden))
     // Agenten-Urteil vor Headline, siehe `threadImVorrat` (01.10.2026, Metin Moser-Balci).
     .filter(threadImVorrat)
@@ -193,9 +213,9 @@ function letzteNachricht(t: LinkedinThread): string {
 }
 
 /** Rang 4 — Lead hat Ja zum Loom gesagt, Skript/Aufnahme steht noch aus. */
-export function loomPosten(threads: LinkedinThread[]): Posten[] {
+export function loomPosten(threads: LinkedinThread[], urteile?: LoomUrteile): Posten[] {
   return threads
-    .filter((t) => t.starred && t.loom_status === 'offen')
+    .filter((t) => t.loom_status === 'offen' && (t.starred || urteilGilt(t, urteile)?.zugesagt === true))
     .map((t) => ({
       ...threadZuPosten(t, 'loom', 'loom', letzteNachricht(t)),
       /**
