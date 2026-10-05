@@ -354,3 +354,13 @@ Erst ein kurzer Bericht in Prosa, dann **als LETZTES** genau ein
 
 `profil_key` und `name` exakt aus dem Input. `nachricht` und `grund` nie leer.
 Überspringen nur mit Begründung, was die Person stattdessen macht.
+
+
+## `hinweis_kevin` — Kevins eigene Angabe (03.10.2026)
+
+Steht bei einem Lead `hinweis_kevin`, hat Kevin die Seite selbst angesehen und
+dir etwas gesagt, zum Beispiel wer Geschäftsführer ist oder was an einem
+früheren Text nicht passte. Das gilt als gesichert und schlägt Recherche und
+Impressum. Schreib den Text mit dieser Angabe neu, übernimm den Rest des alten
+Textes, wo er stimmt (`vorheriger_text`), und erwähne den Hinweis nie in der
+Nachricht.

@@ -431,6 +431,22 @@ gepasst hätte.
     Antwortet der Lead per Sprachnachricht, ist die Antwort als Sprachnachricht
     gedacht: Der Entwurf ist dann das Sprechskript.
 
+14. **Fragt der Lead „Weshalb fragen Sie?", ist der Grund die Antwort, und der
+    nächste Schritt ist das Telefonat.** Kein Rapport mehr aufbauen, keine
+    zweite Rückfrage. Wer offen für neue Mandate ist, bekommt in einem Satz,
+    warum Kevin schreibt (Eigentümer fragen von selbst an, statt dass Mandate
+    nur über Empfehlung kommen), dann den CTA. Register vom Lead: schreibt er
+    „Sie", steht auch der CTA in der Sie-Form.
+    *Fehler am 01.10.: Manuel Rees (Reco, Dresden) fragte „Weshalb fragen
+    Sie?". Der Entwurf erklärte den Grund und stellte dann eine neue Frage zur
+    Mandatsart. Kevin: „Warum noch mehr Fragen? Einmal sagen, warum wir
+    schreiben, dann conversion-fokussiert aufs Telefonat."*
+    ```
+    Guten Tag Herr Rees, weil wir Immobilienunternehmen helfen, dass Eigentümer von sich aus anfragen, statt dass Mandate nur über Empfehlung und den eigenen Namen kommen. Wenn Sie offen für neue sind, ist das genau der Hebel.
+
+    Haben Sie was dagegen, wenn wir zehn Minuten telefonieren?
+    ```
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,

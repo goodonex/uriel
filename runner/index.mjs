@@ -24,7 +24,7 @@ import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, s
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { entscheiderFreigabe, sucheKandidaten } from './linkedin/gfSuche.mjs'
 import { protokolliere } from './linkedin/protokoll.mjs'
-import { ansatzFuer, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
+import { ansatzFuer, klartextHinweis, mitKevinsHinweis, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
 import { bewerteStapel } from './linkedin/bewertungLauf.mjs'
 import { regelwerk } from './regeln/fassung.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
@@ -1044,11 +1044,11 @@ async function erstnachrichtenAnListe(runId, markdown) {
       if (u.urteil === 'ok') ok.push(n)
       // Kevin 02.10.2026: „lass mich da alles prüfen, ob die eine Nachricht bekommen sollen" — der Text geht MIT dem Hinweis des Prüfers in seine Prüf-Stufe, statt zu verschwinden.
       else if (u.urteil === 'zurueck' && u.art === 'kein_ziel') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[übersprungen] Prüfer: ${u.hinweis}` })
-      else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: `Prüfer: ${u.hinweis}`.slice(0, 280) })
+      else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
         if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
-        else ok.push({ ...n, pruefen: `Prüfer: ${u.hinweis}`.slice(0, 280) })
+        else ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       }
     }
     if (nochmal.length) {
@@ -1062,7 +1062,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       for (const n of zweiter) {
         const u = p2.urteile?.get(String(n.name).toLowerCase())
         if (u?.urteil === 'ok') ok.push(n)
-        else ok.push({ ...n, pruefen: `Prüfer, zweiter Versuch: ${u?.hinweis || 'ohne Urteil'}`.slice(0, 280) })
+        else ok.push({ ...n, pruefen: klartextHinweis(u?.hinweis) || 'Text kurz gegenlesen' })
       }
       // Wen der zweite Versuch gar nicht zurückgab, bleibt ohne Zeile im Vorrat.
       for (const l of nochmal) if (!bekommen.has(String(l.name).toLowerCase())) console.warn(`[runner] Erstnachrichten: ${l.name} — zweiter Versuch ohne Text, bleibt im Vorrat`)
@@ -5147,6 +5147,7 @@ const ETAPPEN_ARBEIT = {
        * die Leads unverändert weiter: Der Skill stellt reine Angestellte dann
        * selbst zurück, nur die Liste bleibt leer.
        */
+      leads = leads.map(mitKevinsHinweis)
       if (SNAPSHOT_ENABLED && leads.length) {
         try {
           const br = await fetch(

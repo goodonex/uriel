@@ -128,6 +128,20 @@ export function istPersonenname(name) {
   return !/geschäfts|bedingung|cookie|einstellung|gegenstand|tower|road|straße|strasse|platz|allee|emirate|vereinigte|design|gmbh|impressum|datenschutz|kontakt|telefon|haftung|register|handels|sitz\b/i.test(n)
 }
 
+/**
+ * Namen aus Kevins Satz („ist angestellt, GF ist Anna Müller und Mag. Peter Huber").
+ * Titel und Rollenwörter fallen weg, übrig bleiben Personennamen.
+ */
+export function namenAusHinweis(hinweis, leadName = '') {
+  const roh = String(hinweis ?? '')
+    .replace(/\b(Geschäftsführer(in)?(nen)?|Geschaeftsfuehrer|Geschäftsführung|Inhaber(in)?|Gründer(in)?|Gesellschafter(in)?|GF|CEO|Mag|Dr|Prof|MSc|MBA|Herr|Frau|ist|sind|heißt|heisst|laut|Impressum|Seite)\b\.?/g, ',')
+  return roh
+    .split(/[,;:/&]|\bund\b|\boder\b/i)
+    .map((t) => t.replace(/\s+/g, ' ').trim())
+    .filter((t) => istPersonenname(t) && !personGleich(t, leadName))
+    .slice(0, 3)
+}
+
 export function entscheiderUrteil(lead, recherche, { bekannteLeads = new Set(), kandidatStatus = new Map() } = {}) {
   const r = recherche ?? {}
   const nichts = (warum) => ({ zurueckstellen: false, text: '', neu: [], gf: [], warum })
@@ -233,7 +247,10 @@ export async function entscheiderZuerst(leads, { supabaseUrl, headers, brandId, 
   const behalten = []
   const zurueck = []
   const zeilen = []
-  for (const l of leads) {
+  for (const lead of leads) {
+    // Kevins Satz nennt den Geschäftsführer: er ersetzt, was das Impressum hergibt (03.10.2026).
+    const kevinNamen = lead.hinweis_kevin ? namenAusHinweis(lead.hinweis_kevin, lead.name) : []
+    const l = kevinNamen.length && lead.recherche ? { ...lead, recherche: { ...lead.recherche, impressum_gf: kevinNamen } } : lead
     const u = entscheiderUrteil(l, l.recherche, stand)
     for (const k of u.neu) {
       stand.kandidatStatus.set(k.gf_key, 'offen') // zweiter Mitarbeiter derselben Firma legt ihn nicht noch einmal an
@@ -245,7 +262,7 @@ export async function entscheiderZuerst(leads, { supabaseUrl, headers, brandId, 
         firma: l.recherche?.firma ?? '',
         website: l.recherche?.website ?? '',
         quelle_name: l.name,
-        grund: k.unbekannt ? `${l.name} (${rolleBeiFirma(l.recherche) || 'angestellt'}) hat angenommen, im Impressum steht kein Geschäftsführer` : grundFuer(l, l.recherche),
+        grund: k.unbekannt ? `${l.name} (${rolleBeiFirma(l.recherche) || 'angestellt'}) hat angenommen, im Impressum steht kein Geschäftsführer` : kevinNamen.length ? `Von dir genannt, als Geschäftsführer bei ${l.recherche?.firma || l.name}` : grundFuer(l, l.recherche),
         status: 'offen',
       })
     }

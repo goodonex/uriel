@@ -57,6 +57,36 @@ export function ansatzStarkeSeite(r) {
   return meta === 'nein' && google === 'nein' ? 'starke-seite' : 'starke-seite-funnel'
 }
 
+/**
+ * Hinweis für Kevins Prüf-Liste ohne Interna (03.10.2026): Kevin fand die Texte
+ * „unangenehm", weil sie mit „Prüfer, zweiter Versuch: Laut Destillat …"
+ * begannen. Schneidet solche Vorsätze ab, hält den Rest bei einem Satz.
+ */
+export function klartextHinweis(roh, max = 160) {
+  let t = String(roh ?? '').trim()
+  t = t.replace(/^(Prüfer(,\s*zweiter Versuch)?|PRÜFEN)\s*:\s*/i, '').replace(/^Laut (dem )?Destillat\s*(ist|steht|sind)?,?\s*/i, '')
+  t = t.replace(/\bDestillat\b/g, 'Recherche')
+  const satz = t.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? t
+  const kurz = satz.length > max ? `${satz.slice(0, max - 1).trimEnd()}…` : satz
+  return kurz.charAt(0).toUpperCase() + kurz.slice(1)
+}
+
+/**
+ * Kevins eigener Satz aus der Prüf-Stufe (03.10.2026) gilt als gesichert.
+ * Sagt er, die Person sei Geschäftsführer/Inhaber, ist sie Entscheider, auch
+ * wenn das Impressum sie nicht nennt. Sagt er, sie sei angestellt, bleibt es bei
+ * der Angestellten-Logik.
+ */
+export function mitKevinsHinweis(lead) {
+  const h = String(lead?.hinweis_kevin ?? '').trim()
+  if (!h || !lead.recherche) return lead
+  const angestellt = /\b(angestellt|mitarbeiter|nicht (der )?(gf|geschäftsführer|inhaber))\b/i.test(h)
+  const chef = !angestellt && /\b(geschäftsführer|geschaeftsfuehrer|gf|inhaber|inhaberin|gründer|gruender|gesellschafter|ceo)\b/i.test(h)
+  if (angestellt) return { ...lead, recherche: { ...lead.recherche, rolle: 'angestellt', rolle_impressum: 'angestellt' } }
+  if (!chef) return lead
+  return { ...lead, recherche: { ...lead.recherche, rolle: 'entscheider', rolle_impressum: 'entscheider' } }
+}
+
 /** Ansätze, auf die der Prüfer eine Analyse umlenken darf. */
 const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel']
 
@@ -165,7 +195,7 @@ function lauf(prompt, { cliPath, cwd, budget }) {
 function fuerModell(lead) {
   const r = lead.recherche ?? {}
   const { profil: _p, klasse: _k, klasse_grund: _g, ...rest } = r
-  return { profil_key: lead.profil_key, name: lead.name, headline: lead.headline, ansatz: lead.ansatz, recherche: rest }
+  return { profil_key: lead.profil_key, name: lead.name, headline: lead.headline, ansatz: lead.ansatz, ...(lead.hinweis_kevin ? { hinweis_kevin: lead.hinweis_kevin } : {}), recherche: rest }
 }
 
 /**

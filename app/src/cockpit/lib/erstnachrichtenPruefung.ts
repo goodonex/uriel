@@ -39,12 +39,46 @@ export function normalisiereUrl(eingabe: string): string | null {
   }
 }
 
+/** Präfix in `pruef_url`, wenn Kevin keinen Link, sondern einen Satz eingetragen hat (kein Schema-Umbau nötig). */
+export const HINWEIS_MARKE = 'HINWEIS: '
+
+/**
+ * Was Kevin in das Feld der Prüf-Stufe schreibt: eine Adresse („sellavie.ch")
+ * oder ein Satz („ist angestellt, GF ist Anna Müller" / „Text passt, nur das
+ * Bild ist falsch"). Gespeichert wird beides in `pruef_url`.
+ */
+export function pruefEingabe(eingabe: string): { art: 'url' | 'hinweis'; wert: string } | null {
+  const roh = String(eingabe ?? '').trim()
+  if (!roh) return null
+  const url = normalisiereUrl(roh)
+  if (url) return { art: 'url', wert: url }
+  if (roh.length < 4) return null
+  return { art: 'hinweis', wert: `${HINWEIS_MARKE}${roh.slice(0, 600)}` }
+}
+
+/** Für die Anzeige: „sellavie.ch" oder der eigene Satz. */
+export function pruefEingabeKurz(gespeichert: string): string {
+  return gespeichert.startsWith(HINWEIS_MARKE)
+    ? `„${gespeichert.slice(HINWEIS_MARKE.length)}"`
+    : gespeichert.replace(/^https?:\/\//, '').replace(/\/$/, '')
+}
+
+/** Alte Hinweise tragen Interna-Vorsätze („Prüfer, zweiter Versuch: Laut Destillat …"), die Kevin nichts sagen. */
+function klartext(roh: string): string {
+  const t = roh
+    .trim()
+    .replace(/^(Prüfer(,\s*zweiter Versuch)?)\s*:\s*/i, '')
+    .replace(/^Laut (dem )?Destillat\s*(ist|steht|sind)?,?\s*/i, '')
+    .replace(/\bDestillat\b/g, 'Recherche')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
 /** Firma und Hinweis getrennt: „A GmbH · PRÜFEN: Seite im Umbau" → { firma, hinweis }. */
 export function trennePruefHinweis(firma: string | null | undefined): { firma: string; hinweis: string } {
   const roh = String(firma ?? '')
   const teile = roh.split(MARKE)
   if (teile.length < 2) return { firma: roh.trim(), hinweis: '' }
-  return { firma: teile[0].trim(), hinweis: teile.slice(1).join(' · ').trim() }
+  return { firma: teile[0].trim(), hinweis: klartext(teile.slice(1).join(' · ')) }
 }
 
 /**

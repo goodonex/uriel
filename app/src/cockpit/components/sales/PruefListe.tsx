@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
-import { normalisiereUrl, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
+import { pruefEingabe, pruefEingabeKurz, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
+import { feedbackLink, FEEDBACK_SCHLUESSEL, type FeedbackSammlung } from '../../lib/erstnachrichtenFeedback'
+import { useUiSetting } from '../../lib/uiSettings'
 import { inZwischenablage } from '../../lib/zwischenablage'
 import { useRundeTor } from '../RundeTor'
 
@@ -16,8 +18,13 @@ function PruefKarte({
   onAussortiert,
   onNeuPruefen,
   profil,
+  feedback,
+  onFeedback,
 }: {
   lead: Erstnachricht
+  /** Kevins gespeichertes Feedback zu diesem Text (05.10.2026), noch nicht abgearbeitet. */
+  feedback?: string
+  onFeedback: (text: string | null) => void
   /** LinkedIn-Profil aus dem Netzwerk, per Name zugeordnet (05.10.2026). */
   profil?: string
   onGeprueft: () => void
@@ -32,14 +39,24 @@ function PruefKarte({
   const { stand, runnerWeg, starteMit } = useRundeTor()
 
   const schicke = async () => {
-    const sauber = normalisiereUrl(url)
-    if (!sauber) {
-      setFehler('Das ist keine Website-Adresse, zum Beispiel sellavie.ch')
+    const eingabe = pruefEingabe(url)
+    if (!eingabe) {
+      setFehler('Adresse (sellavie.ch) oder ein kurzer Satz, zum Beispiel: ist Geschäftsführer, Text passt nur beim Bild nicht')
       return
     }
     setFehler(null)
+    /**
+     * Ein Satz ist Feedback (Kevin, 05.10.2026): Er wird gesammelt und von
+     * einer Session gebündelt abgearbeitet, statt je Lead den Mini anzustoßen.
+     * Nur eine Adresse geht weiter an den Mini, weil sie eine neue Recherche braucht.
+     */
+    if (eingabe.art === 'hinweis') {
+      onFeedback(url.trim().slice(0, 1500))
+      setUrl('')
+      return
+    }
     setSendet(true)
-    const ok = await onNeuPruefen(sauber)
+    const ok = await onNeuPruefen(eingabe.wert)
     setSendet(false)
     if (!ok) {
       setFehler('Konnte nicht gespeichert werden')
@@ -78,9 +95,26 @@ function PruefKarte({
         {hinweis || 'Keine Website hinterlegt. Selbst nachsehen, ob es eine gibt.'}
       </div>
 
+      {feedback ? (
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ck-accent)', display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 200 }}>Dein Feedback: „{feedback}"</span>
+          <button
+            type="button"
+            className="ck-btn"
+            style={{ fontSize: 11, color: 'var(--ck-text-3)' }}
+            onClick={() => {
+              setUrl(feedback)
+              onFeedback(null)
+            }}
+          >
+            Ändern
+          </button>
+        </div>
+      ) : null}
+
       {lead.pruef_url ? (
         <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ck-accent)' }}>
-          Wird mit {lead.pruef_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} neu geprüft. Der neue Text steht nach der nächsten Runde bei den Erstnachrichten (spätestens in ein paar Stunden).
+          Wird mit {pruefEingabeKurz(lead.pruef_url)} neu geprüft. Der neue Text steht nach der nächsten Runde bei den Erstnachrichten (spätestens in ein paar Stunden).
         </div>
       ) : (
         <form
@@ -92,8 +126,7 @@ function PruefKarte({
         >
           <input
             type="text"
-            inputMode="url"
-            autoCapitalize="none"
+                        autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
             value={url}
@@ -101,8 +134,8 @@ function PruefKarte({
               setUrl(e.target.value)
               setFehler(null)
             }}
-            placeholder="Richtige Website eintragen, z. B. sellavie.ch"
-            aria-label={`Website für ${lead.name}`}
+            placeholder="Feedback zum Text oder die richtige Website"
+            aria-label={`Feedback oder Website für ${lead.name}`}
             style={{
               flex: 1,
               minWidth: 200,
@@ -116,7 +149,7 @@ function PruefKarte({
             }}
           />
           <button type="submit" className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }} disabled={sendet || !url.trim()}>
-            {sendet ? 'Speichert …' : 'Neu prüfen'}
+            {sendet ? 'Speichert …' : 'Speichern'}
           </button>
         </form>
       )}
@@ -198,6 +231,9 @@ export function PruefListe({
   onAussortiert: (id: string) => void
   onNeuPruefen: (id: string, url: string) => Promise<boolean>
 }) {
+  const { wert: sammlung, setzen: setzeSammlung } = useUiSetting<FeedbackSammlung>(FEEDBACK_SCHLUESSEL, {})
+  // Nur Einträge zu Texten, die noch hier stehen: Abgearbeitete verlassen die Liste, ihr Eintrag zählt nicht mehr.
+  const mitFeedback = leads.filter((l) => sammlung[l.id]?.text).length
   if (leads.length === 0) {
     return (
       <p style={{ margin: 0, color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
@@ -209,12 +245,33 @@ export function PruefListe({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p style={{ margin: 0, color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
         Diese {leads.length} Texte stehen erst bei den Erstnachrichten, wenn du die Seite selbst angesehen hast.
+        Was am Text nicht passt, schreibst du ins Feld. Am Ende schickst du alles gesammelt an Claude.
       </p>
+      {mitFeedback > 0 ? (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <a
+            href={feedbackLink(mitFeedback)}
+            className="ck-btn ck-btn--primary"
+            style={{ fontSize: 11, minHeight: 40, paddingInline: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+            title="Öffnet in der Claude-App eine Session, die alle Feedbacks abarbeitet und daraus die Regeln nachschärft"
+          >
+            {mitFeedback} {mitFeedback === 1 ? 'Feedback' : 'Feedbacks'} an Claude ↗
+          </a>
+          <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>Öffnet eine Session auf diesem Mac.</span>
+        </div>
+      ) : null}
       {leads.map((l) => (
         <PruefKarte
           key={l.id}
           lead={l}
           profil={profilVon?.(l.name)}
+          feedback={sammlung[l.id]?.text}
+          onFeedback={(text) => {
+            const neu = { ...sammlung }
+            if (text) neu[l.id] = { text, name: l.name, at: new Date().toISOString() }
+            else delete neu[l.id]
+            setzeSammlung(neu)
+          }}
           onGeprueft={() => onGeprueft(l.id)}
           onAussortiert={() => onAussortiert(l.id)}
           onNeuPruefen={(url) => onNeuPruefen(l.id, url)}

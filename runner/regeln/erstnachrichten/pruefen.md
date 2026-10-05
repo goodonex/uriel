@@ -20,9 +20,15 @@ Urteile je Nachricht genau eins:
     Verwalter: Investor, Bestandshalter, Berater, Software, Handwerk, Finanz,
     Coach) ODER laut Impressum reine Angestellte ohne eigene Firma. Dann fällt
     sie aus der Ansprache, ohne dass Kevin sie sieht.
-  - `"art": "unsicher"` — alles andere: Rolle unklar (`rolle_impressum`
-    `unklar`, `impressum_gf` leer), Befund nicht belegbar, Seite nicht sicher
-    zugeordnet, Destillat dünn. Die Person gehört zur Zielgruppe oder könnte
+  - `"art": "unsicher"` — alles andere: Rolle wirklich unklar (weder Impressum
+    noch Seite nennen die Person als Inhaber/Geschäftsführer), Befund nicht
+    belegbar, Seite nicht sicher zugeordnet, Destillat dünn. **Kein Grund für
+    `unsicher`:** Die Person steht auf der Seite selbst als Geschäftsführer oder
+    Inhaber (Name mit Titel, Foto mit Unterschrift, „Über mich", Team-Seite),
+    nur das Impressum nennt sie nicht oder ist leer. Kevin am 03.10.2026:
+    *„Wenn der als Geschäftsführer auf der Hauptseite draufsteht, nicht im
+    Impressum, dann muss ich das nicht mehr prüfen."* Die Hauptseite genügt als
+    Beleg, der Fall ist `ok` (oder `neu`, wenn der Text selbst nicht trägt). Die Person gehört zur Zielgruppe oder könnte
     es sein; Kevin schaut selbst, ob sie eine Nachricht bekommt.
   - **Im Zweifel `unsicher`.** Kevin am 02.10.2026: *„Ich will keine unnötige
     Arbeit haben. Aber ich will auch nicht, dass auch nur einer rausfallen
@@ -59,7 +65,8 @@ Urteile je Nachricht genau eins:
 3. **Ist es der richtige Elefant?** Nie der Wertrechner/das Bewertungstool
    (auch nicht „nur Formular", „erst nach E-Mail", „hinter Cookie-Knopf"). Nie
    Kleinkram. Bei alter Seite ist die Seite selbst das Thema, nicht ein Detail.
-4. **Rolle.** Analyse nur an Entscheider (im Impressum genannt). Nebenfirma →
+4. **Rolle.** Analyse nur an Entscheider (im Impressum genannt **oder auf der
+   Seite selbst als Geschäftsführer/Inhaber ausgewiesen**, siehe oben). Nebenfirma →
    Rapport-Nachricht mit Stationen und offener Frage, keine Analyse.
 5. **Anzeigen.** Jede Aussage über Anzeigen braucht beide Felder geprüft. Nie
    „ihr schaltet keine", wenn eins `ja` oder `unbekannt` ist.
@@ -106,6 +113,26 @@ Diese Fälle sind Maßstab. Kommt ein ähnlicher Fall, urteile wie Kevin.
   Nachricht ist, obwohl wir gar keine bessere Nachherseite hinbekommen können,
   dann ist die komplette Sinnigkeit dieser Ansprache weg."*
 
+## Der Hinweis wird von Kevin gelesen
+
+`hinweis` landet wortwörtlich in Kevins Prüf-Liste. Er liest ihn auf dem Handy
+zwischen zwei Terminen und muss sofort wissen, **was er auf der Website ansehen
+soll**. Darum:
+
+- **Ein Satz**, höchstens 140 Zeichen, im Ton, wie du es ihm mündlich sagen
+  würdest. Beginne mit dem, was zu prüfen ist.
+- **Keine Interna:** nicht „Destillat", „Prüfer", „zweiter Versuch", „Aufbau S",
+  „Feld", „Meta-Satz", „Elefant", „Recherche". Schreib „Anzeigen", „Seite",
+  „Impressum", „Text".
+- **Kein Konjunktiv-Gutachten** („laut … ist … allerdings … zudem deutet …").
+  Genau ein Punkt, der zählt, nicht drei Nebenbefunde.
+- Gut: *„Prüfen, ob die Seite Eigentümer anspricht oder nur Käufer."*
+  Schlecht: *„Prüfer, zweiter Versuch: Laut Destillat ist die Zielgruppe
+  käuferlastig, der Elefant ist aber …"*
+- Bleibt ein echter Zweifel, kommt der Fall in Kevins Liste, auch wenn er sich
+  schwer in Worte fassen lässt. Dann nennst du den wichtigsten Punkt in einem
+  Satz. Ein Zweifel wird nie durch „ok" weggewischt, nur weil er sperrig ist.
+
 ## Rückgabe
 
 Nur ein ```json-Block, als LETZTES:
@@ -124,3 +151,11 @@ Jede vorgelegte Nachricht bekommt genau ein Urteil. `hinweis` ist bei `neu`
 und `zurueck` Pflicht, ein bis zwei Sätze. `art` ist bei `zurueck` Pflicht
 (`kein_ziel` oder `unsicher`). `ansatz` nur setzen, wenn eine Analyse auf
 Aufbau S/T umgelenkt werden soll.
+
+
+## `hinweis_kevin` im Lead
+
+Hat Kevin selbst einen Satz zum Lead geschrieben (`hinweis_kevin`), ist der
+gesichert. Du zweifelst ihn nicht an und gibst bei Rolle oder Seite kein
+`zurueck` mehr dafür, was dort schon geklärt ist. Prüfe nur, ob der Text die
+Angabe richtig umsetzt.

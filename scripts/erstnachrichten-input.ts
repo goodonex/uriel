@@ -83,7 +83,7 @@ async function main() {
     ),
     alle<any>(`linkedin_threads?brand_id=eq.${bid}&select=name,profile_url&order=id`),
     // Ohne Migration 0095 fehlt `pruef_url`: dann ohne die Spalte weiterarbeiten statt ohne Leads.
-    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei,pruef_url&order=id`).catch(() =>
+    alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei,pruef_url,website&order=id`).catch(() =>
       alle<any>(`linkedin_erstnachrichten?brand_id=eq.${bid}&select=name,status,quelle_datei&order=id`),
     ),
   ])
@@ -117,6 +117,16 @@ async function main() {
       .filter((e: any) => e.status === 'offen' && String(e.pruef_url ?? '').trim())
       .map((e: any) => [String(e.name).trim().toLowerCase(), String(e.pruef_url).trim()] as [string, string]),
   )
+  /** Kevins Eingabe: Adresse → `website_bekannt`, Satz → `hinweis_kevin` (gilt als gesichert), die Website der alten Zeile bleibt. */
+  const kevinsAngabe = (name: string): Record<string, string> => {
+    const k = name.trim().toLowerCase()
+    const roh = eigeneUrl.get(k)
+    if (!roh) return {}
+    if (!roh.startsWith('HINWEIS: ')) return { website_bekannt: roh }
+    const alt = erst.find((e: any) => String(e.name).trim().toLowerCase() === k && e.status === 'offen')
+    const seite = String(alt?.website ?? '').trim().split(' ')[0]
+    return { hinweis_kevin: roh.slice('HINWEIS: '.length), ...(seite ? { website_bekannt: /^https?:/.test(seite) ? seite : `https://${seite}` } : {}) }
+  }
   const veraltet = new Set([
     ...erst.filter((e: any) => istVeraltet(e, quelle)).map((e: { name: string }) => String(e.name).trim().toLowerCase()),
     ...eigeneUrl.keys(),
@@ -206,7 +216,7 @@ async function main() {
         profile_url: p.profileUrl,
         angenommen_vor_tagen: p.tage,
         icp: icpUrteil(p.info ?? '', p.name).urteil,
-        ...(eigeneUrl.has(p.name.trim().toLowerCase()) ? { website_bekannt: eigeneUrl.get(p.name.trim().toLowerCase()) } : {}),
+        ...kevinsAngabe(p.name),
       })),
     }),
   )
