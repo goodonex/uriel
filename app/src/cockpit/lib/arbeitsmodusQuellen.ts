@@ -113,20 +113,32 @@ function istAkquiseVersuch(t: LinkedinThread): boolean {
  * und springen zurück. Ohne dieses Urteil stand der Lead nach dem nächsten Lauf
  * wieder unter „Antworten".
  */
-export type LoomUrteile = ReadonlyMap<string, { zugesagt: boolean; at: number }>
+export type LoomUrteile = ReadonlyMap<string, { zugesagt: boolean | null; at: number; erledigtAt?: number }>
 
 function urteilGilt(t: LinkedinThread, urteile?: LoomUrteile) {
   const u = t.lead_id ? urteile?.get(t.lead_id) : undefined
-  if (!u) return null
+  if (!u || u.zugesagt === null) return null
   const nachricht = t.last_message_at ? new Date(t.last_message_at).getTime() : NaN
   // Nachricht nach dem Urteil → überholt. Unlesbares Datum → Urteil gilt.
   return !Number.isNaN(nachricht) && nachricht > u.at ? null : u
 }
 
+/**
+ * Kevins „Erledigt" an einer Antwort (05.10.2026): Er hat den Lead anders
+ * bedient (Anruf, Termin) und LinkedIn zeigt weiter die Nachricht des Leads als
+ * letzte. Gilt, bis der Lead danach erneut schreibt.
+ */
+function erledigtGilt(t: LinkedinThread, urteile?: LoomUrteile): boolean {
+  const e = t.lead_id ? urteile?.get(t.lead_id)?.erledigtAt : undefined
+  if (e == null) return false
+  const nachricht = t.last_message_at ? new Date(t.last_message_at).getTime() : NaN
+  return Number.isNaN(nachricht) || nachricht <= e
+}
+
 function wartetAufAntwort(t: LinkedinThread, heute: Date, urteile?: LoomUrteile): boolean {
   if (bucketOf(t, heute) !== 'du_bist_dran') return false
   if (t.starred && t.loom_status === 'offen') return false
-  if (urteilGilt(t, urteile)) return false
+  if (urteilGilt(t, urteile) || erledigtGilt(t, urteile)) return false
   if (vorDerAkquise(t)) return false
   if (istAkquiseVersuch(t)) return false
   return true

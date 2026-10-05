@@ -625,6 +625,20 @@ export function SalesDashboard() {
 
   const onArbeitsmodusErledigt = useCallback(
     (ergebnis: ArbeitsmodusErgebnis) => {
+      /**
+       * „Erledigt" an einer Antwort muss den Sync überleben (05.10.2026): Hat
+       * Kevin den Lead angerufen statt auf LinkedIn zu antworten, meldet LinkedIn
+       * weiter „Lead hat zuletzt geschrieben", und `markDonePatch` ist beim
+       * nächsten Lauf überschrieben. Darum zusätzlich ein Ereignis am Lead.
+       */
+      if (ergebnis.posten.spur === 'antwort' && !ergebnis.posten.nurZaehler) {
+        const leadId = linkedinThreads.items.find((t) => t.id === zeilenId(ergebnis.posten.id))?.lead_id
+        if (leadId) {
+          void Promise.resolve(leadsQuery.protokolliere(leadId, 'notiz', { art: 'antwort_erledigt' })).finally(() =>
+            window.dispatchEvent(new Event(LOOM_URTEIL_EVENT)),
+          )
+        }
+      }
       void erledigePosten(ergebnis, {
         bump: metrics.bump,
         erstnachrichtGesendet: (id) => erstnachrichten.setzeStatus(id, 'gesendet'),

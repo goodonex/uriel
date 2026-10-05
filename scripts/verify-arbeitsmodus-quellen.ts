@@ -228,5 +228,16 @@ check('5c ohne praefix', zeilenId('ohnepraefix'), 'ohnepraefix')
   check('7e Lead schreibt nach dem Urteil erneut: wieder unter Antworten', antwortPosten([antwortDa], NOW, [], urteil(true, 9)).length, 1)
 }
 
+// 8. „Erledigt" an einer Antwort (05.10.2026): überlebt den Sync, bis der Lead erneut schreibt.
+{
+  const ereig = (tageHer: number, zugesagt: boolean | null = null) =>
+    new Map([['lead-1', { zugesagt, at: zugesagt === null ? 0 : NOW.getTime() - tageHer * 86_400_000, erledigtAt: NOW.getTime() - tageHer * 86_400_000 }]])
+  const antwortDa = makeThread({ lead_id: 'lead-1', last_from: 'them', last_message_at: dayAgo(5), starred: false })
+  check('8a Erledigt: raus aus Antworten, obwohl LinkedIn „Lead zuletzt" sagt', antwortPosten([antwortDa], NOW, [], ereig(1)).length, 0)
+  check('8b Lead schreibt danach erneut: wieder unter Antworten', antwortPosten([antwortDa], NOW, [], ereig(9)).length, 1)
+  check('8c Erledigt ohne Loom-Urteil: nicht bei den Looms', loomPosten([antwortDa], ereig(1)).length, 0)
+  check('8d Loom ja, dann Erledigt: bleibt bei den Looms', [antwortPosten([antwortDa], NOW, [], ereig(1, true)).length, loomPosten([antwortDa], ereig(1, true)).length], [0, 1])
+}
+
 console.log(`${pass}/${pass + fail} Fälle korrekt`)
 if (fail > 0) process.exit(1)
