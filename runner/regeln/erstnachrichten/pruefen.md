@@ -113,6 +113,46 @@ Diese Fälle sind Maßstab. Kommt ein ähnlicher Fall, urteile wie Kevin.
   Nachricht ist, obwohl wir gar keine bessere Nachherseite hinbekommen können,
   dann ist die komplette Sinnigkeit dieser Ansprache weg."*
 
+## Prüffälle aus Kevins Feedback vom 05.10.2026 (26 Texte)
+
+- **„Seite können wir besser" schlägt „Seite zu gut".** Grossmann + Kaswurm,
+  Oppenheim, Kern, Gloy, Belano, Amrein: Der Prüfer hatte Kaswurm und
+  Oppenheim auf S/T umgelenkt, Kevin: *„Seite geht auf jeden Fall besser."* /
+  *„Die Seite können wir besser machen."* Heißt: `wow_potenzial` = `knapp` ist
+  Analyse (Aufbau A, bei Entwicklern P), nie S/T. Eine Seite ist erst „stark",
+  wenn Kevin es sagt oder sie nichts Konkretes hergibt (Beispiel: leipzig-makler.com,
+  *„sehr starke Seite"*). Ein konkreter Weg-Mangel (Startseite ohne roten Faden,
+  Projekte nur über Unterseiten, Logo statt Bild) reicht als Elefant.
+- **„Keine Website gefunden" war sieben von 26 Mal falsch** (Hochhaus, Schmid,
+  Halbe, Dahinden, Gloy, Mochow; bei Schulze stand die falsche Domain). Kevin
+  fand jede Seite als ersten bis dritten Google-Treffer. Ein Text mit Aufbau D
+  oder F ist nur `ok`, wenn das Destillat die Gegenprobe belegt. Sonst `neu`
+  mit Hinweis: *„Firma googeln, die ersten fünf Treffer ansehen."* Gibt es für
+  eine Person mehrere Domains mit gleichem Namen, gilt die, deren Ort oder
+  Impressum zur Person passt (Schulze: Treffer 3, sw-immo-gutachter.de im
+  Rhein-Main-Gebiet, nicht sw-makler.com aus Dortmund).
+- **Person fehlt auf der Seite der eigenen Firma** (Ringsmuth: LinkedIn „CEO &
+  Co-Founder", die Teamseite mit 33 Leuten nennt ihn nicht). Kevin: *„Das ist
+  maximal komisch. Den Elefanten im Raum ansprechen."* Das ist der Aufhänger,
+  nicht die Zielgruppe der Seite.
+- **Kundenstimmen nie „fake" oder „fiktiv" nennen** (Bellevue Estates). Auf der
+  Seite stand neben den Sternen „Fiktives Beispiel", Kevin: *„sieht nicht fake
+  aus."* Kein Elefant, auch wenn das Label stimmt.
+- **Kevin hält ein Profil für unseriös → raus, nicht umschreiben.** Gerhard
+  Klein (Rolle widersprach dem Impressum): *„Anscheinend lügt er, kein reales
+  Profil, bitte aussortieren."* Ebru Sayan (eine Kollegin mit einem Follower,
+  keine Beiträge, andere Firma als die Seite): *„nicht ganz legit, irgendwie
+  komisch."* Dünnes, widersprüchliches Profil plus Rollen-Widerspruch ist
+  `zurueck` mit `art: unsicher`, nicht `ok`.
+- **Nicht Entscheider laut Kevins Angabe → nicht anschreiben** (Lu-Aaron Meyer,
+  Saeger & Cie.: *„hat nichts zu sagen"*, drei andere sind GF). Kevins Namensliste
+  ersetzt das Impressum.
+- **Zertifikatsfehler ist ein Befund**, kein „Seite lädt nicht" (Haueisen:
+  selbstsigniertes Zertifikat, Safari lässt niemanden auf die Seite). Aufbau C
+  mit Zertifikats-Satz, siehe `schreiben.md`.
+- **Seite parkt oder ist leer** (Kremkau: 1blu-Platzhalter „Hier entsteht eine
+  neue Internetseite"): Dann stimmt „keine Website gefunden", der Text bleibt.
+
 ## Der Hinweis wird von Kevin gelesen
 
 `hinweis` landet wortwörtlich in Kevins Prüf-Liste. Er liest ihn auf dem Handy

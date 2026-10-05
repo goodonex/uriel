@@ -109,6 +109,13 @@ Reihenfolge:
   falsch! Genau der Umstieg auf den Comic Charakter hat meinem Unternehmen
   einen großen Boost verschafft."* Ein solches Element wird höchstens
   anerkannt, nie angegriffen.
+- **Kundenstimmen als „fake" oder „fiktiv" abtun** (Kevin, 05.10.2026, Bellevue
+  Estates: *„sieht nicht fake aus"*). Auch wenn ein Label wie „Fiktives
+  Beispiel" dasteht, ist das kein Aufhänger.
+- **Eine Seite für unterdurchschnittlich erklären, ohne dass ein konkreter
+  Weg-Mangel im Destillat steht.** Umgekehrt gilt (Kevin, 05.10., zu Kaswurm,
+  Oppenheim, Kern, Gloy, Belano: *„Seite können wir besser machen"*): Reicht
+  `wow_potenzial` = `knapp`, bleibt es bei Analyse, nicht bei S/T.
 - Eine Folge, die nicht im Destillat steht.
 
 **Anzeigen:** Etwas über Anzeigen sagen darfst du nur, wenn **beide** Felder
@@ -134,6 +141,15 @@ zwei von zehn, nie cringe.
   in derselben Liga. Ehrliche Frage: Ist die noch aus der Zeit von Herrn und
   Frau Bavcic, oder steht ein Neuanfang schon auf deiner Liste?"
 - Die freche Frage ersetzt dann den Analyse-CTA.
+- **Der Elefant im Raum** (Kevin, 05.10.2026, Markus Ringsmuth, CEO & Co-Founder
+  bei LinkedIn, auf der Teamseite seiner eigenen Firma nicht vorhanden: *„Das ist
+  maximal komisch. Text anpassen und den Elefanten im Raum ansprechen."*):
+  Fehlt der Empfänger auf der Seite seiner eigenen Firma, ist genau das der
+  Aufhänger. Ein Satz Beobachtung (wer dort steht, was bei LinkedIn steht),
+  dann die ehrliche Frage, ob das Absicht ist. Ohne Analyse-Angebot.
+- **Familienbetrieb, zweite Generation** (Hotz, 05.10.2026: Sohn des Gründers,
+  Impressum nennt den Vater): Rapport über die Generationenfolge und die
+  Hauptfokus-Frage, keine Analyse.
 
 ## 6. Die Aufbauten
 
@@ -229,6 +245,12 @@ Ist die Seite gerade offline, oder komme nur ich nicht drauf?
 
 Bei Wartungsseite statt „lädt bei mir aber nicht": „da steht aber nur eine
 Wartungsseite".
+
+Bei Zertifikatsfehler (Kevin, 05.10.2026, haueisen.de: *„Sicherheitszertifikat
+lässt es nicht zu, dass ich auf die Seite komme"*): „ich wollte mir {domain}
+anschauen, mein Browser lässt mich wegen eines Sicherheitszertifikats aber
+nicht auf die Seite. Ein Eigentümer, der euch vorher googelt, landet genau
+dort." Schlusssatz: „Ist das bei euch bekannt, oder komme nur ich nicht drauf?"
 
 ### Aufbau S — starke Seite, keine Anzeigen (`starke-seite`)
 
@@ -333,7 +355,10 @@ euch um Website und Marketing, oder liegt das bei der Geschäftsführung?"
 ## 9. Unsicher? Sag es
 
 Feld `pruefen`, ein Halbsatz: unklare Rolle, unsichere Website-Zuordnung,
-widersprüchliche Befunde. Der Hinweis steht im Cockpit neben dem Namen.
+widersprüchliche Befunde. Bei unsicherer oder fehlender Website nennt der
+Halbsatz Kevins Weg: Firma googeln und die ersten fünf Treffer ansehen (Kevin,
+05.10.2026: sieben von 26 „keine Website"-Texten waren falsch, die richtige
+Seite stand als Treffer 1 bis 3). Der Hinweis steht im Cockpit neben dem Namen.
 Mehrere Kontakte aus derselben Firma bekommen alle eine Nachricht.
 
 ## 10. Rückgabe
