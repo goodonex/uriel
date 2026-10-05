@@ -4,6 +4,7 @@ import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 import { useArbeitsDauern } from '../../hooks/useArbeitsDauern'
 import { useLeads } from '../../hooks/useLeads'
 import { usePosten } from '../../hooks/usePosten'
+import { LOOM_URTEIL_EVENT } from '../../hooks/useLoomUrteile'
 import { SALES_ZWEISPALTIG_AB, useViewport } from '../../hooks/useViewport'
 import { supabase } from '../../lib/supabase'
 import { AnfragenZaehler } from '../components/AnfragenZaehler'
@@ -836,7 +837,9 @@ export function SalesDashboard() {
         const threadId = zeilenId(p.id)
         const leadId = leadJeThread.get(threadId)
         if (!leadId) return
-        void leadsQuery.protokolliere(leadId, zugesagt ? 'loom_zugesagt' : 'loom_abgelehnt')
+        void Promise.resolve(leadsQuery.protokolliere(leadId, zugesagt ? 'loom_zugesagt' : 'loom_abgelehnt')).finally(() =>
+          window.dispatchEvent(new Event(LOOM_URTEIL_EVENT)),
+        )
         /**
          * Der `loom_status` wandert mit — und zwar nicht als Doppelung des
          * Ereignisses, sondern weil er eine andere Frage beantwortet: das
@@ -1015,6 +1018,12 @@ export function SalesDashboard() {
          */
         const wartend = posten.erstnachrichtWartend
         const blockiert = erstnachrichtStand?.blockiert ?? false
+        /**
+         * Text da, aber noch in Stufe 0 (05.10.2026). Kevin sah „Für diese 25
+         * ist noch kein Text geschrieben", obwohl alle 25 Texte bereitlagen und
+         * nur auf seinen Haken in „Prüfen" warteten.
+         */
+        const imPruefen = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items).offen.filter(brauchtPruefung).length
         return {
           ...basis,
           id: 'erstnachrichten',
@@ -1041,7 +1050,9 @@ export function SalesDashboard() {
            * wie viele hinter ihm stehen und für wie viele davon Text existiert.
            */
           unterzeile: blockiert
-            ? `${wartend.length} warten · kein Text bereit`
+            ? imPruefen > 0
+              ? `${imPruefen} Texte liegen in „Prüfen" · erst dort abhaken`
+              : `${wartend.length} warten · kein Text bereit`
             : erstnachrichtMorgen > 0
               ? `Tagesziel ${erstnachrichtenTagesSoll} · ${erstnachrichtMorgen} weitere Texte liegen für morgen bereit`
               : wartend.length > 0
@@ -1051,8 +1062,9 @@ export function SalesDashboard() {
             ? () => (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <p style={{ margin: 0, color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
-                    Für diese {wartend.length} ist noch kein Text geschrieben. Uriel legt sie beim nächsten Lauf an —
-                    oder du startest die Lead-Runde selbst.
+                    {imPruefen > 0
+                      ? `Die Texte für ${imPruefen} von diesen ${wartend.length} sind geschrieben und liegen in Stufe 0 „Prüfen". Dort kurz auf die Website schauen und abhaken, dann stehen sie hier zum Versand.`
+                      : `Für diese ${wartend.length} ist noch kein Text geschrieben. Uriel legt sie beim nächsten Lauf an — oder du startest die Lead-Runde selbst.`}
                   </p>
                   {liste(
                     wartend.slice(0, 40).map((w) => ({

@@ -77,10 +77,11 @@ export interface Kadenz {
  * bestehenden Importe und ihre Prüfskripte gültig bleiben.
  */
 export const KADENZ_STANDARD: Kadenz = {
-  // Kevin, 02.10.2026: erstes Follow-up erst nach sieben Tagen, nicht nach drei.
+  // Kevin, 05.10.2026: erstes Follow-up nach fünf Tagen (02.10. waren es sieben).
   // Die Schwellen sind der Abstand zur letzten Nachricht und müssen aufsteigend
-  // sein (gueltigeKadenz) — deshalb 7/10/14 statt 7/7/14.
-  followupTage: [7, 10, 14],
+  // sein (gueltigeKadenz). Die gespeicherte Einstellung in `ui_settings`
+  // überschreibt diese Vorgabe — am 05.10. stand dort noch 3/7/14 vom 25.08.
+  followupTage: [5, 10, 14],
   // Kevin, 15.09.2026: „enger nach loom. da gehört aber auch gesichtet in die
   // rechnung mit rein." Beide Tripel sind an jeder Stufe enger als die kalte
   // Reihe — und die gesichtete enger als die bloß verschickte.

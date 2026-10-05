@@ -53,7 +53,7 @@ function check(label: string, ok: boolean, hinweis = '') {
 
 /* ── 1. DIE GEGENPROBE: Vorgabewerte gegen FESTE Zahlen ─────────────────── */
 
-check('Vorgabe followupTage = [7, 10, 14]', JSON.stringify(KADENZ_STANDARD.followupTage) === '[7,10,14]')
+check('Vorgabe followupTage = [5, 10, 14]', JSON.stringify(KADENZ_STANDARD.followupTage) === '[5,10,14]')
 check('Vorgabe stillEmailTage = 30', KADENZ_STANDARD.stillEmailTage === 30)
 check('Vorgabe stillPostkarteTage = 7', KADENZ_STANDARD.stillPostkarteTage === 7)
 check('Vorgabe stillAnrufTage = 7', KADENZ_STANDARD.stillAnrufTage === 7)
@@ -75,7 +75,7 @@ check('LAUT_POSTKARTE_TAGE unverändert', LAUT_POSTKARTE_TAGE === 21)
 check('LAUT_ANRUF_TAGE unverändert', LAUT_ANRUF_TAGE === 7)
 check('MIN_ABSTAND_TAGE unverändert', MIN_ABSTAND_TAGE === 7)
 check('RUHE_MONATE unverändert', RUHE_MONATE === 4)
-check('FOLLOWUP_THRESHOLDS_DAYS unverändert', JSON.stringify(FOLLOWUP_THRESHOLDS_DAYS) === '[7,10,14]')
+check('FOLLOWUP_THRESHOLDS_DAYS unverändert', JSON.stringify(FOLLOWUP_THRESHOLDS_DAYS) === '[5,10,14]')
 
 /* ── 3. Kaputte Werte fallen auf die Vorgabe ────────────────────────────── */
 
@@ -220,7 +220,7 @@ check('die aktive Kadenz ist beim Start die Vorgabe', JSON.stringify(aktiveKaden
 {
   // Auch der direkte Setzer laesst keinen Unsinn durch.
   setzeAktiveKadenz({ followupTage: [99, 2, 1], stillEmailTage: -3 })
-  check('setzeAktiveKadenz prueft: kaputte Follow-up-Tage -> Vorgabe', JSON.stringify(aktiveKadenz().followupTage) === '[7,10,14]')
+  check('setzeAktiveKadenz prueft: kaputte Follow-up-Tage -> Vorgabe', JSON.stringify(aktiveKadenz().followupTage) === '[5,10,14]')
   check('setzeAktiveKadenz prueft: negativer Wert -> Vorgabe', aktiveKadenz().stillEmailTage === 30)
   setzeKadenzZurueck()
 }
@@ -254,7 +254,7 @@ function dateien(ordner: string): string[] {
   // Gegenprobe, dass die Wache ueberhaupt etwas sieht: kadenz.ts selbst
   // enthaelt das Muster, wurde oben aber ausdruecklich uebersprungen.
   const kadenzQuelle = readFileSync(join(wurzel, 'app/src/cockpit/lib/kadenz.ts'), 'utf8')
-  check('Gegenprobe: kadenz.ts enthaelt das gesuchte Muster', /\[\s*7\s*,\s*10\s*,\s*14\s*\]/.test(kadenzQuelle))
+  check('Gegenprobe: kadenz.ts enthaelt das gesuchte Muster', /\[\s*5\s*,\s*10\s*,\s*14\s*\]/.test(kadenzQuelle))
 }
 
 /* ── Die beiden Loom-Takte (15.09.2026) ──────────────────────────────────
@@ -279,7 +279,7 @@ function dateien(ordner: string): string[] {
   // Ein kaputtes Tripel reisst die anderen nicht mit — feldweise, wie überall.
   const geflickt = gueltigeKadenz({ loomFollowupTage: [10, 2, 5] })
   check('nicht aufsteigend = ganzes Tripel zurück auf die Vorgabe', geflickt.loomFollowupTage.join() === '2,5,10')
-  check('dabei bleibt die kalte Reihe unberührt', geflickt.followupTage.join() === '7,10,14')
+  check('dabei bleibt die kalte Reihe unberührt', geflickt.followupTage.join() === '5,10,14')
 
   const eigen = gueltigeKadenz({ loomGesichtetTage: [2, 4, 6] })
   check('eine gültige Überschreibung gilt', eigen.loomGesichtetTage.join() === '2,4,6')

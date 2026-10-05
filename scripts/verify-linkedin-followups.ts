@@ -184,8 +184,8 @@ check(
 
 // 11. Zeitzonen-Stundenfehler folgenlos: 3 Tage minus 1 Stunde (Schwelle 3) darf NICHT fällig sein,
 //     3 Tage plus 1 Stunde MUSS fällig sein — Millisekunden-Vergleich, kein Kalendertag.
-const threeDaysMinusHour = new Date(NOW.getTime() - (7 * 24 - 1) * 60 * 60 * 1000).toISOString()
-const threeDaysPlusHour = new Date(NOW.getTime() - (7 * 24 + 1) * 60 * 60 * 1000).toISOString()
+const threeDaysMinusHour = new Date(NOW.getTime() - (5 * 24 - 1) * 60 * 60 * 1000).toISOString()
+const threeDaysPlusHour = new Date(NOW.getTime() - (5 * 24 + 1) * 60 * 60 * 1000).toISOString()
 check('11a knapp unter Schwelle', isDue(makeThread({ followup_stage: 0, last_message_at: threeDaysMinusHour }), NOW), false)
 check('11b knapp über Schwelle', isDue(makeThread({ followup_stage: 0, last_message_at: threeDaysPlusHour }), NOW), true)
 
