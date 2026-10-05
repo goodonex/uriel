@@ -4,7 +4,6 @@ import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 import { useArbeitsDauern } from '../../hooks/useArbeitsDauern'
 import { useLeads } from '../../hooks/useLeads'
 import { usePosten } from '../../hooks/usePosten'
-import { LOOM_URTEIL_EVENT } from '../../hooks/useLoomUrteile'
 import { SALES_ZWEISPALTIG_AB, useViewport } from '../../hooks/useViewport'
 import { supabase } from '../../lib/supabase'
 import { AnfragenZaehler } from '../components/AnfragenZaehler'
@@ -837,9 +836,7 @@ export function SalesDashboard() {
         const threadId = zeilenId(p.id)
         const leadId = leadJeThread.get(threadId)
         if (!leadId) return
-        void Promise.resolve(leadsQuery.protokolliere(leadId, zugesagt ? 'loom_zugesagt' : 'loom_abgelehnt')).finally(() =>
-          window.dispatchEvent(new Event(LOOM_URTEIL_EVENT)),
-        )
+        void leadsQuery.protokolliere(leadId, zugesagt ? 'loom_zugesagt' : 'loom_abgelehnt')
         /**
          * Der `loom_status` wandert mit — und zwar nicht als Doppelung des
          * Ereignisses, sondern weil er eine andere Frage beantwortet: das
