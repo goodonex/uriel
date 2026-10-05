@@ -447,10 +447,28 @@ gepasst hätte.
     Haben Sie was dagegen, wenn wir zehn Minuten telefonieren?
     ```
 
+15. **Beantwortet der Lead Kevins Frage mit einem Scherz, der das Problem zugibt,
+    kein Nachfragen, sondern das Telefonat.** Eine Rückfrage („Wie viele
+    Eigentümer fragen im Monat an?") hält nur das Gespräch am Laufen, und der
+    Lead hat das Problem gerade selbst benannt (Kevin, 05.10.2026, Jens Anger,
+    Antwort auf „wie schnell meldet ihr euch bei ihm?": *„Ca. 14 Tage später
+    😉😂"*; der Entwurf fragte nach Anfragen im Monat. Kevin: *„die Nachricht
+    gefällt mir nicht, ist sie so fokussiert, ihn ans Telefon zu bekommen? Können
+    wir nicht direkt da den Call anbieten?"*). Aufbau: den Scherz in einem Satz
+    aufgreifen, ohne ihn auszuschlachten, in einem Satz sagen, warum genau das der
+    Hebel ist, dann den festen CTA. Kein Emoji, keine zweite Frage.
+    ```
+    Moin Jens, 14 Tage ist wenigstens ehrlich. Genau da gehen bei vielen Maklern die meisten Anfragen verloren.
+
+    Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    ```
+
 ## Edge Cases
 
-- **Lead reagiert nur mit Emojis/Floskeln:** eine kurze, konkrete Frage stellen,
-  die Antwortaufwand minimiert — nicht das volle Skript abfeuern.
+- **Lead reagiert nur mit Emojis/Floskeln, ohne Inhalt:** eine kurze, konkrete Frage stellen,
+  die Antwortaufwand minimiert — nicht das volle Skript abfeuern. **Beantwortet der
+  Scherz Kevins Frage in der Sache** („Ca. 14 Tage später 😉"), ist das keine
+  Floskel, sondern ein Geständnis: Regel 15.
 - **Lead ist gerade nicht erreichbar / Website down:** neugierig fragen, warum
   ("nicht erreichbar" als Gesprächsöffner), keine Unterstellung.
 - **Mehrsprachige Profile:** Sprache der letzten Lead-Nachricht spiegeln.
