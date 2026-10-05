@@ -19,7 +19,9 @@ das macht Kevin selbst.
 npx tsx scripts/erstnachrichten-feedback.ts holen > /tmp/feedback.json
 ```
 
-Je Text: Name, Firma, Website, Prüf-Hinweis, `alter_text`, `feedback`.
+Je Text: Name, Firma, Website, Prüf-Hinweis, `alter_text`, `feedback` und
+`screenshots` (lokale Bildpfade). **Jeden Screenshot mit Read ansehen** — oft
+steht darin, was Kevin meint, und der Text im Feedback ist nur ein Stichwort.
 `anzahl: 0` → Kevin sagen, dass nichts ansteht, und aufhören.
 
 ## 2. Lesen, bevor du schreibst

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
 import { pruefEingabe, pruefEingabeKurz, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
-import { feedbackLink, FEEDBACK_SCHLUESSEL, type FeedbackSammlung } from '../../lib/erstnachrichtenFeedback'
+import { bilderLoeschen, bildSpeichern, feedbackLink, FEEDBACK_SCHLUESSEL, type FeedbackEintrag, type FeedbackSammlung } from '../../lib/erstnachrichtenFeedback'
 import { useUiSetting } from '../../lib/uiSettings'
 import { inZwischenablage } from '../../lib/zwischenablage'
 import { useRundeTor } from '../RundeTor'
@@ -23,8 +23,9 @@ function PruefKarte({
 }: {
   lead: Erstnachricht
   /** Kevins gespeichertes Feedback zu diesem Text (05.10.2026), noch nicht abgearbeitet. */
-  feedback?: string
-  onFeedback: (text: string | null) => void
+  feedback?: FeedbackEintrag
+  /** Text setzen (`null` = Text weg), Bilder anhängen oder alle Bilder entfernen. */
+  onFeedback: (aenderung: { text?: string | null; bildDazu?: string; bilderWeg?: true }) => void
   /** LinkedIn-Profil aus dem Netzwerk, per Name zugeordnet (05.10.2026). */
   profil?: string
   onGeprueft: () => void
@@ -36,6 +37,25 @@ function PruefKarte({
   const [fehler, setFehler] = useState<string | null>(null)
   const [sendet, setSendet] = useState(false)
   const [nameKopiert, setNameKopiert] = useState(false)
+  const [vorschauen, setVorschauen] = useState<string[]>([])
+  const [laedtBild, setLaedtBild] = useState(false)
+
+  /** Screenshot per ⌘V ins Feld oder über den Knopf (Kevin, 05.10.2026). */
+  const bilderAnhaengen = async (dateien: Blob[]) => {
+    if (!dateien.length) return
+    setLaedtBild(true)
+    setFehler(null)
+    for (const d of dateien) {
+      const gespeichert = await bildSpeichern(d).catch(() => null)
+      if (!gespeichert) {
+        setFehler('Screenshot konnte nicht gespeichert werden')
+        continue
+      }
+      onFeedback({ bildDazu: gespeichert.schluessel })
+      setVorschauen((v) => [...v, gespeichert.vorschau])
+    }
+    setLaedtBild(false)
+  }
   const { stand, runnerWeg, starteMit } = useRundeTor()
 
   const schicke = async () => {
@@ -51,7 +71,7 @@ function PruefKarte({
      * Nur eine Adresse geht weiter an den Mini, weil sie eine neue Recherche braucht.
      */
     if (eingabe.art === 'hinweis') {
-      onFeedback(url.trim().slice(0, 1500))
+      onFeedback({ text: url.trim().slice(0, 1500) })
       setUrl('')
       return
     }
@@ -95,19 +115,40 @@ function PruefKarte({
         {hinweis || 'Keine Website hinterlegt. Selbst nachsehen, ob es eine gibt.'}
       </div>
 
-      {feedback ? (
+      {feedback?.text ? (
         <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ck-accent)', display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <span style={{ flex: 1, minWidth: 200 }}>Dein Feedback: „{feedback}"</span>
+          <span style={{ flex: 1, minWidth: 200 }}>Dein Feedback: „{feedback.text}"</span>
           <button
             type="button"
             className="ck-btn"
             style={{ fontSize: 11, color: 'var(--ck-text-3)' }}
             onClick={() => {
-              setUrl(feedback)
-              onFeedback(null)
+              setUrl(feedback.text)
+              onFeedback({ text: null })
             }}
           >
             Ändern
+          </button>
+        </div>
+      ) : null}
+      {feedback?.bilder?.length ? (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {vorschauen.map((v, i) => (
+            <img key={i} src={v} alt="" style={{ height: 56, borderRadius: 6, border: '1px solid var(--ck-border-strong)' }} />
+          ))}
+          <span style={{ fontSize: 12, color: 'var(--ck-accent)' }}>
+            {feedback.bilder.length} {feedback.bilder.length === 1 ? 'Screenshot' : 'Screenshots'} angehängt
+          </span>
+          <button
+            type="button"
+            className="ck-btn"
+            style={{ fontSize: 11, color: 'var(--ck-text-3)' }}
+            onClick={() => {
+              onFeedback({ bilderWeg: true })
+              setVorschauen([])
+            }}
+          >
+            Entfernen
           </button>
         </div>
       ) : null}
@@ -134,7 +175,16 @@ function PruefKarte({
               setUrl(e.target.value)
               setFehler(null)
             }}
-            placeholder="Feedback zum Text oder die richtige Website"
+            onPaste={(e) => {
+              const bilder = Array.from(e.clipboardData.items)
+                .filter((i) => i.type.startsWith('image/'))
+                .map((i) => i.getAsFile())
+                .filter((f): f is File => f !== null)
+              if (!bilder.length) return
+              e.preventDefault()
+              void bilderAnhaengen(bilder)
+            }}
+            placeholder="Feedback zum Text oder die richtige Website · Screenshot mit ⌘V einfügen"
             aria-label={`Feedback oder Website für ${lead.name}`}
             style={{
               flex: 1,
@@ -151,6 +201,19 @@ function PruefKarte({
           <button type="submit" className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }} disabled={sendet || !url.trim()}>
             {sendet ? 'Speichert …' : 'Speichern'}
           </button>
+          <label className="ck-btn" style={{ fontSize: 11, minHeight: 40, paddingInline: 16, display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+            {laedtBild ? 'Lädt …' : 'Screenshot'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                void bilderAnhaengen(Array.from(e.target.files ?? []))
+                e.target.value = ''
+              }}
+            />
+          </label>
         </form>
       )}
       {fehler ? <div style={{ fontSize: 12, color: 'var(--ck-warn)' }}>{fehler}</div> : null}
@@ -232,8 +295,10 @@ export function PruefListe({
   onNeuPruefen: (id: string, url: string) => Promise<boolean>
 }) {
   const { wert: sammlung, setzen: setzeSammlung } = useUiSetting<FeedbackSammlung>(FEEDBACK_SCHLUESSEL, {})
+  const aktuell = useRef(sammlung)
+  aktuell.current = sammlung
   // Nur Einträge zu Texten, die noch hier stehen: Abgearbeitete verlassen die Liste, ihr Eintrag zählt nicht mehr.
-  const mitFeedback = leads.filter((l) => sammlung[l.id]?.text).length
+  const mitFeedback = leads.filter((l) => sammlung[l.id]?.text || sammlung[l.id]?.bilder?.length).length
   if (leads.length === 0) {
     return (
       <p style={{ margin: 0, color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
@@ -265,11 +330,21 @@ export function PruefListe({
           key={l.id}
           lead={l}
           profil={profilVon?.(l.name)}
-          feedback={sammlung[l.id]?.text}
-          onFeedback={(text) => {
-            const neu = { ...sammlung }
-            if (text) neu[l.id] = { text, name: l.name, at: new Date().toISOString() }
+          feedback={sammlung[l.id]}
+          onFeedback={(aenderung) => {
+            // Funktional über `aktuell`, weil mehrere Screenshots kurz hintereinander eintreffen.
+            const alt = aktuell.current[l.id]
+            const text = aenderung.text === undefined ? (alt?.text ?? '') : (aenderung.text ?? '')
+            let bilder = alt?.bilder ?? []
+            if (aenderung.bilderWeg) {
+              void bilderLoeschen(bilder)
+              bilder = []
+            }
+            if (aenderung.bildDazu) bilder = [...bilder, aenderung.bildDazu]
+            const neu = { ...aktuell.current }
+            if (text || bilder.length) neu[l.id] = { text, name: l.name, at: new Date().toISOString(), bilder }
             else delete neu[l.id]
+            aktuell.current = neu
             setzeSammlung(neu)
           }}
           onGeprueft={() => onGeprueft(l.id)}

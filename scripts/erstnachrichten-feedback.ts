@@ -7,6 +7,7 @@
  *
  *   npx tsx scripts/erstnachrichten-feedback.ts holen
  *     → JSON auf stdout: je Text Name, Firma, Website, Prüf-Hinweis, alter Text, Kevins Feedback
+ *       und die Pfade seiner Screenshots (als JPEG lokal abgelegt, mit Read ansehen)
  *
  *   npx tsx scripts/erstnachrichten-feedback.ts setzen <datei.json>
  *     → <datei.json> = [{ "id": "...", "nachricht": "..." } | { "id": "...", "aussortieren": true }]
@@ -20,7 +21,9 @@
  * schriebe sie in der nächsten Runde über — Kevins Korrektur wäre weg.
  */
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 // @ts-expect-error — .mjs ohne Typen, dieselbe Fassung wie im Runner
 import { regelwerk } from '../runner/regeln/fassung.mjs'
 
@@ -45,7 +48,25 @@ async function rest(pfad: string, init: RequestInit = {}) {
   return res.status === 204 ? null : res.json()
 }
 
-type Eintrag = { text: string; name: string; at: string }
+type Eintrag = { text: string; name: string; at: string; bilder?: string[] }
+
+const BILD_ORDNER = join(tmpdir(), 'uriel-feedback-bilder')
+
+/** Lädt die Screenshots eines Eintrags und legt sie als Dateien ab. */
+async function bilderAblegen(name: string, schluessel: string[]): Promise<string[]> {
+  if (!schluessel.length) return []
+  mkdirSync(BILD_ORDNER, { recursive: true })
+  const zeilen = (await rest(
+    `ui_settings?setting_key=in.(${schluessel.map((k) => `"${k}"`).join(',')})&select=setting_key,setting_value`,
+  )) as any[]
+  const basis = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return zeilen.map((z, i) => {
+    const pfad = join(BILD_ORDNER, `${basis}-${i + 1}.jpg`)
+    const daten = String(z.setting_value?.data ?? '').replace(/^data:image\/\w+;base64,/, '')
+    writeFileSync(pfad, Buffer.from(daten, 'base64'))
+    return pfad
+  })
+}
 
 async function sammlung(): Promise<{ userId: string; werte: Record<string, Eintrag> } | null> {
   const zeilen = (await rest(`ui_settings?setting_key=eq.${SCHLUESSEL}&select=user_id,setting_value`)) as any[]
@@ -64,9 +85,9 @@ async function holen() {
     `linkedin_erstnachrichten?id=in.(${ids.join(',')})&select=id,name,firma,website,nachricht,status,geprueft_at,lead_id`,
   )) as any[]
   // Nur, was noch in der Prüf-Liste steht. Gesendetes oder Aussortiertes ist erledigt.
-  const texte = zeilen
-    .filter((z) => z.status === 'offen' && !z.geprueft_at)
-    .map((z) => {
+  const offen = zeilen.filter((z) => z.status === 'offen' && !z.geprueft_at)
+  const texte = await Promise.all(
+    offen.map(async (z) => {
       const [firma, ...hinweis] = String(z.firma ?? '').split(MARKE)
       return {
         id: z.id,
@@ -77,9 +98,11 @@ async function holen() {
         alter_text: z.nachricht,
         feedback: s!.werte[z.id].text,
         feedback_am: s!.werte[z.id].at,
+        screenshots: await bilderAblegen(z.name, s!.werte[z.id].bilder ?? []),
         lead_id: z.lead_id,
       }
-    })
+    }),
+  )
   console.log(JSON.stringify({ anzahl: texte.length, texte }, null, 2))
 }
 
@@ -114,6 +137,10 @@ async function setzen(datei: string) {
         body: JSON.stringify({ nachricht: text, firma, geprueft_at: jetzt, pruef_url: null, quelle_datei: quelle }),
       })
       geschrieben++
+    }
+    if (s?.werte[e.id]?.bilder?.length) {
+      const keys = s.werte[e.id].bilder!.map((k) => `"${k}"`).join(',')
+      await rest(`ui_settings?setting_key=in.(${keys})`, { method: 'DELETE' })
     }
     if (s) delete s.werte[e.id]
   }
