@@ -23,6 +23,25 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+/**
+ * Fremde Seiten nie im Uriel-Tab (Kevin, 05.10.2026: „alle Buttons in einem
+ * neuen Tab, nie im jetzigen, dass dann Uriel zu ist"). Die Links tragen
+ * `target="_blank"` schon einzeln — das hier fängt jeden ab, der es vergisst.
+ * Eigene Routen, `tel:`, `mailto:` und App-Links (`claude://`) bleiben unberührt.
+ */
+document.addEventListener(
+  'click',
+  (e) => {
+    if (e.defaultPrevented || e.button !== 0) return
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+    if (!a || !/^https?:$/.test(a.protocol) || a.origin === window.location.origin) return
+    if (a.target === '_blank') return
+    e.preventDefault()
+    window.open(a.href, '_blank', 'noopener')
+  },
+  true,
+)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
