@@ -29,6 +29,7 @@ const SPUR_AKTION: Record<Posten['spur'], string> = {
 
 /** Die Meta-Zeile: was diesen Posten fällig macht. */
 function meta(p: Posten): { text: string; warnung: boolean } {
+  if (p.entwurf?.zeitVeraltet && !p.entwurf.veraltet) return { text: 'Termin im Entwurf veraltet', warnung: true }
   if (p.entwurf && !p.entwurf.veraltet) return { text: 'Entwurf liegt bereit', warnung: false }
   if (p.entwurf?.veraltet) return { text: 'Entwurf veraltet — er hat nachgelegt', warnung: true }
   if (p.starred) return { text: 'Loom zugesagt', warnung: false }

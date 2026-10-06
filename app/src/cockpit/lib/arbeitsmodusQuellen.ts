@@ -18,6 +18,7 @@ import { verlaufVon } from './linkedinVerlauf'
 import type { Posten, PostenEntwurf } from './prioritaet'
 import { followupVorlage, loomVersandVorlage } from './followupVorlagen'
 import { klassenRang, type LeadKlassenInfo } from './leadKlasse'
+import { entwurfZeitAnzeige } from './entwurfZeitangaben'
 
 /**
  * Entwurf des Nacht-Agenten am Thread (Migration 0065), sofern einer anliegt.
@@ -27,15 +28,17 @@ import { klassenRang, type LeadKlassenInfo } from './leadKlasse'
  * Der Entwurf wird dann angezeigt, aber markiert — verworfen wird er nicht,
  * denn oft trägt er trotzdem.
  */
-function entwurfVon(t: LinkedinThread): PostenEntwurf | undefined {
-  const text = typeof t.entwurf === 'string' ? t.entwurf.trim() : ''
-  if (!text) return undefined
+function entwurfVon(t: LinkedinThread, jetzt: Date = new Date()): PostenEntwurf | undefined {
+  const roh = typeof t.entwurf === 'string' ? t.entwurf.trim() : ''
+  if (!roh) return undefined
   const erstelltAm = t.entwurf_at ?? null
   const veraltet =
     erstelltAm != null &&
     t.last_message_at != null &&
     new Date(t.last_message_at).getTime() > new Date(erstelltAm).getTime()
-  return { text, veraltet, erstelltAm }
+  // Zeitangaben gelten ab jetzt, nicht ab der Nacht (06.10.2026, Marco Stadelmann).
+  const zeit = entwurfZeitAnzeige(roh, erstelltAm, jetzt)
+  return { text: zeit.text, veraltet, erstelltAm, roh, zeitVeraltet: zeit.zeitVeraltet }
 }
 
 function threadZuPosten(t: LinkedinThread, spur: Posten['spur'], praefix: string, text: string): Posten {
@@ -172,7 +175,7 @@ export function antwortPosten(
     .filter(threadImVorrat)
     .map((t) => ({
       ...threadZuPosten(t, 'antwort', 'thread', t.preview || `Antwort an ${t.name || 'den Lead'} vorbereiten.`),
-      entwurf: entwurfVon(t),
+      entwurf: entwurfVon(t, heute),
     }))
 }
 
@@ -200,7 +203,7 @@ export function antwortPostenAusgeblendet(threads: LinkedinThread[], heute: Date
     )
     .map((t) => ({
       ...threadZuPosten(t, 'antwort', 'thread', t.preview || `Antwort an ${t.name || 'den Lead'} vorbereiten.`),
-      entwurf: entwurfVon(t),
+      entwurf: entwurfVon(t, heute),
     }))
 }
 
@@ -325,7 +328,7 @@ export function followupPosten(
        * kein Text als der falsche. Die Loom-Reihe bleibt: Die ist genau für
        * Leute gebaut, die Ja gesagt haben.
        */
-      entwurf: entwurfVon(t) ?? (brauchtNeuenText(t) ? undefined : followupVorlage(t, gesichteteThreads.has(t.id))),
+      entwurf: entwurfVon(t, heute) ?? (brauchtNeuenText(t) ? undefined : followupVorlage(t, gesichteteThreads.has(t.id))),
       ...klasseVon(t.lead_id, klassen),
     }))
     .filter((p) => !optionen.nurMitText || p.entwurf != null)

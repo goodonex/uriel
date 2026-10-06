@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Posten } from '../lib/prioritaet'
-import { entwurfStand, type LoomSkriptAktionen } from './Arbeitsliste'
+import type { LoomSkriptAktionen } from './Arbeitsliste'
+import { versandText, type Slot } from '../lib/entwurfZeitangaben'
+import { EntwurfBox } from './EntwurfBox'
 
 /** Ergebnis eines abgehakten Postens — Zug 4 schreibt daraus genau ein Metrik-Feld + die Dauer. */
 export interface ArbeitsmodusErgebnis {
@@ -41,6 +43,8 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
   const [erledigtCount, setErledigtCount] = useState(0)
   const [kopiert, setKopiert] = useState(false)
   const [kopierGesperrt, setKopierGesperrt] = useState(false)
+  /** Verschobene Terminvorschläge je Posten — Anzeige und Kopieren nehmen dieselben. */
+  const [zeitAenderungen, setZeitAenderungen] = useState<Record<string, (Slot | null)[]>>({})
   // Verhindert Doppelzählung bei Doppelklick — jede Posten-ID darf genau einmal
   // von 'offen' auf 'erledigt' übergehen (Wargame Zug 4, gefährlichste Stelle).
   const verarbeiteteRef = useRef<Set<string>>(new Set())
@@ -68,7 +72,9 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
   const kopieren = useCallback(async () => {
     if (!aktuell) return
     try {
-      await navigator.clipboard.writeText(aktuell.entwurf?.text ?? aktuell.text)
+      await navigator.clipboard.writeText(
+        aktuell.entwurf ? versandText(aktuell.entwurf, zeitAenderungen[aktuell.id]) : aktuell.text,
+      )
       setKopiert(true)
       setKopierGesperrt(false)
       window.setTimeout(() => setKopiert(false), 2000)
@@ -76,7 +82,7 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
       // Zwischenablage ohne sicheren Kontext/Nutzergeste gesperrt — nie stumm scheitern.
       setKopierGesperrt(true)
     }
-  }, [aktuell])
+  }, [aktuell, zeitAenderungen])
 
   const erledigt = useCallback(() => {
     if (!aktuell) return
@@ -210,28 +216,12 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
           {aktuell.text}
 
           {aktuell.entwurf ? (
-            <div
-              style={{
-                marginTop: 14,
-                border: '1px solid var(--ck-border-strong)',
-                borderRadius: 'var(--ck-radius-innen)',
-                padding: '10px 12px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                <span className="ck-label" style={{ color: 'var(--ck-accent)' }}>
-                  Entwurf
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--ck-text-3)' }}>
-                  {entwurfStand(aktuell.entwurf.erstelltAm)}
-                </span>
-              </div>
-              {aktuell.entwurf.veraltet ? (
-                <div style={{ fontSize: 12, color: 'var(--ck-warn)', marginBottom: 6 }}>
-                  Der Lead hat danach nochmal geschrieben — vor dem Senden gegenlesen.
-                </div>
-              ) : null}
-              <div style={{ color: 'var(--ck-text-1)' }}>{aktuell.entwurf.text}</div>
+            <div style={{ marginTop: 14 }}>
+              <EntwurfBox
+                entwurf={aktuell.entwurf}
+                aenderungen={zeitAenderungen[aktuell.id]}
+                onAenderungen={(naechste) => setZeitAenderungen((prev) => ({ ...prev, [aktuell.id]: naechste }))}
+              />
             </div>
           ) : null}
         </div>

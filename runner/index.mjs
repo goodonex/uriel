@@ -20,6 +20,7 @@ import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
 import { ANTWORT_MAX, baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
 import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
+import { ergaenzeAnrufVorschlaege, zeitKontext } from './linkedin/zeitangaben.mjs'
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { entscheiderFreigabe, sucheKandidaten } from './linkedin/gfSuche.mjs'
@@ -1146,6 +1147,28 @@ async function urteileAnThreads(runId, markdown) {
 }
 
 /**
+ * Der `zeit`-Block für die Entwurfs-Agenten: heutiges Datum (Berlin) und Kevins
+ * zwei Terminvorschläge aus `ui_settings.anrufFenster` (sonst Standard aus
+ * `zeitangaben.mjs`). Ohne Datenbank gilt der Standard — ein fehlendes Setting
+ * darf keinen Lauf kosten.
+ */
+async function zeitFuerLauf(now = new Date()) {
+  let fenster
+  if (SNAPSHOT_ENABLED) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/ui_settings?setting_key=eq.anrufFenster&select=setting_value&order=updated_at.desc&limit=1`,
+        { headers: supabaseHeaders() },
+      )
+      if (res.ok) fenster = (await res.json())[0]?.setting_value
+    } catch {
+      // Standard-Fenster gelten.
+    }
+  }
+  return zeitKontext(now, fenster)
+}
+
+/**
  * Nach einem fertigen `linkedin-antwort-entwuerfe`-Lauf: Entwürfe aus dem
  * Markdown lösen und an die Threads schreiben. Erst damit klebt der Entwurf am
  * Posten statt im Run — der Unterschied zwischen „ist irgendwo" und „ist da".
@@ -1164,7 +1187,9 @@ async function entwuerfeAnThreads(runId, markdown, input = null) {
      * „kontakt" und ein Entwurf daneben, weil der Skill es so verlangte.
      */
     const raus = new Set(urteile.filter((u) => u.urteil !== 'lead').map((u) => u.thread_key))
-    const alleDrafts = parseDraftsRoh(markdown)
+    // Telefonat ohne Zeitvorschlag bekommt Kevins zwei Standard-Vorschläge (06.10.2026).
+    const vorschlaege = input?.zeit?.anruf_vorschlaege ?? (await zeitFuerLauf()).anruf_vorschlaege
+    const alleDrafts = parseDraftsRoh(markdown).map((d) => ({ ...d, message: ergaenzeAnrufVorschlaege(d.message, vorschlaege) }))
     const drafts = alleDrafts.filter((d) => !(d.thread_key && raus.has(d.thread_key)))
     if (drafts.length < alleDrafts.length) {
       console.log(`[runner] ${runId}: ${alleDrafts.length - drafts.length} Entwürfe für Kontakt/Akquise verworfen`)
@@ -1253,6 +1278,12 @@ async function startRun(agent, input, { signal } = {}) {
       throw Object.assign(new Error('Keine wartenden Antworten — nichts zu entwerfen.'), { code: 'ELEER' })
     }
     input = gebaut.input
+  }
+
+  // Datum + Kevins Terminvorschläge (06.10.2026): Ohne sie schrieb der Agent
+  // „morgen um 10 Uhr" — und Kevin las es erst am nächsten Mittag.
+  if (agent === 'linkedin-antwort-entwuerfe' || agent === 'linkedin-followup-entwuerfe') {
+    input = { ...(input ?? {}), zeit: await zeitFuerLauf() }
   }
 
   // Intent in die Queue (Nachvollziehbarkeit + Debugging)

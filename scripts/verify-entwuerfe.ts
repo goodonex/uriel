@@ -192,8 +192,10 @@ ${JSON.stringify({ drafts }, null, 2)}
 {
   check('7 gerade eben', entwurfStand(stundenHer(0), NOW), 'gerade eben')
   check('7b vor 5 h', entwurfStand(stundenHer(5), NOW), 'vor 5 h')
-  check('7c von heute Nacht', entwurfStand(stundenHer(14), NOW), 'von heute Nacht')
-  check('7d von gestern', entwurfStand(tageHer(1), NOW), 'von gestern')
+  // Kalendertage in Berlin (06.10.2026): 14 h vor 11 Uhr ist gestern 21 Uhr, nicht „heute Nacht".
+  check('7c von gestern Abend', entwurfStand(stundenHer(14), NOW), 'von gestern Abend')
+  check('7c2 von heute Nacht', entwurfStand('2026-08-03T01:00:00Z', new Date('2026-08-03T14:00:00Z')), 'von heute Nacht')
+  check('7d von gestern Mittag', entwurfStand(tageHer(1), NOW), 'von gestern Mittag')
   check('7e vor 3 Tagen', entwurfStand(tageHer(3), NOW), 'vor 3 Tagen')
   check('7f ohne Zeitstempel', entwurfStand(null, NOW), 'vorbereitet')
   check('7g kaputter Zeitstempel', entwurfStand('quatsch', NOW), 'vorbereitet')

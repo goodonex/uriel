@@ -49,11 +49,16 @@ export const RANGFOLGE: Spur[] = [
  * die Oberfläche zeigt „Nachricht kopieren".
  */
 export interface PostenEntwurf {
+  /** Versandfertig für JETZT — Zeitangaben schon umgerechnet (`entwurfZeitangaben.ts`). */
   text: string
   /** Der Lead hat NACH dem Entwurf erneut geschrieben — nicht blind verschicken. */
   veraltet: boolean
   /** Wann der Entwurf entstand (ISO), für die Zeile am Posten. */
   erstelltAm: string | null
+  /** Der gespeicherte Text mit Platzhaltern `[[…]]` — nur bei Agent-Entwürfen. */
+  roh?: string
+  /** Eine Zeitangabe im Entwurf liegt schon in der Vergangenheit. */
+  zeitVeraltet?: boolean
 }
 
 /** Ein Arbeitsposten für den Arbeitsmodus (Zug 3). */
