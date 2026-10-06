@@ -1,6 +1,7 @@
 import { angenommenOhneErstnachricht, nachStichtag } from './funnelStufen'
 import { icpUrteil, istArbeitsVorrat } from './icp'
 import { useEffect, useMemo } from 'react'
+import { quellenFehler } from '../../lib/datenFrische'
 import { useErstnachrichten } from '../../hooks/useErstnachrichten'
 import { useContacts } from '../../hooks/useContacts'
 import { useLinkedinNetzwerk } from '../../hooks/useLinkedinNetzwerk'
@@ -16,6 +17,7 @@ import {
   ANFRAGEN_PAUSE,
   TAGES_FLOW_ZIELE,
   anfragenPauseAktiv,
+  darfFestschreiben,
   einzufrierendePortionen,
   flowQuellen,
   stufenStaende,
@@ -58,6 +60,12 @@ export interface TagesFlowStand {
    * springt (Auto-Advance), muss diesen Zustand abwarten.
    */
   laedt: boolean
+  /**
+   * Eine Live-Quelle hat nicht geladen oder die Brand ist nicht aufgelöst
+   * (06.10.2026). Solange gesetzt: keine Stufe mit Live-Quelle ist erledigt,
+   * nichts wird eingefroren, und die Tagesliste zeigt eine Warnung statt Zahlen.
+   */
+  fehler: string | null
   /** Die eingefrorenen Portionen mitsamt Historie — für Streak und Sales-Zeilen. */
   portionen: TagesPortionen
 }
@@ -68,7 +76,7 @@ export interface TagesFlowStand {
  * Zahlen aus denselben Posten-Funktionen ab wie die Sales-Zeilen — kein
  * zweiter Rechenweg.
  */
-export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean } {
+export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean; fehler: string | null } {
   const { activeBrand } = useActiveBrand()
   const threads = useLinkedinThreads(activeBrand?.slug)
   const loomUrteile = useLoomUrteile(activeBrand?.slug)
@@ -102,7 +110,17 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
       ),
     [threads.items, erstnachrichten.items, netzwerk.items, contacts.items, loomUrteile.urteile, jetzt],
   )
-  return { quellen, laedt: threads.loading || erstnachrichten.loading }
+  const fehler = quellenFehler([
+    { name: 'Threads', error: threads.error },
+    { name: 'Erstnachrichten', error: erstnachrichten.error },
+    { name: 'Netzwerk', error: netzwerk.error },
+    { name: 'Loom-Urteile', error: loomUrteile.error },
+  ])
+  return {
+    quellen,
+    laedt: threads.loading || erstnachrichten.loading || netzwerk.loading || loomUrteile.loading,
+    fehler,
+  }
 }
 
 /** Der Stand aller Stufen — die eine Berechnung, die Hero, Zähl-Modus und Sales teilen. */
@@ -110,6 +128,8 @@ export function useTagesFlow(
   today: TagesZeile,
   quellen: FlowLiveQuellen,
   quelleLaedt = false,
+  /** Erster Lesefehler der Live-Quellen (`quellenFehler`) — `null`, wenn alle geladen haben. */
+  quelleFehler: string | null = null,
 ): TagesFlowStand {
   const { wert: ziele, geladen } = useUiSetting<ZielUeberschreibung>(TAGES_FLOW_ZIELE, KEINE_ZIELE)
   const heute = useMetrikTag()
@@ -126,19 +146,31 @@ export function useTagesFlow(
    * eine 0 aus dem Ladezustand als Tages-Soll festgeschrieben. `friereEin`
    * schreibt nur fehlende Stufen; vorhandene Zeilen gewinnen (on conflict).
    */
+  const darfSchreiben = darfFestschreiben({
+    quelleLaedt,
+    quelleFehler,
+    zieleGeladen: geladen,
+    portionenGeladen: portionen.geladen,
+    portionenFehler: portionen.fehler,
+    tableMissing: portionen.tableMissing,
+  })
+
   useEffect(() => {
-    if (quelleLaedt || !geladen || !portionen.geladen || portionen.tableMissing) return
+    // Auch nicht bei einem Lesefehler (06.10.2026): Eine 0 aus einer leeren,
+    // weil fehlgeschlagenen Liste wäre sonst das Tages-Soll.
+    if (!darfSchreiben) return
     const fehlen = PORTION_STUFEN.filter((id) => portionen.heutige[id] == null)
     if (fehlen.length === 0) return
     const alle = einzufrierendePortionen({ today, ...quellen, ziele, anfragenPausiert })
     const nurFehlende = Object.fromEntries(fehlen.map((id) => [id, alle[id] ?? 0]))
     portionen.friereEin(nurFehlende)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- eingefroren wird der Stand des Moments, nicht jeder neue
-  }, [quelleLaedt, geladen, portionen.geladen, portionen.tableMissing, portionen.heutige])
+  }, [darfSchreiben, portionen.heutige])
 
+  const quellenUnsicher = quelleFehler !== null
   const staende = useMemo(
-    () => stufenStaende({ today, ...quellen, portionen: portionen.heutige, ziele, anfragenPausiert }),
-    [today, quellen, portionen.heutige, ziele, anfragenPausiert],
+    () => stufenStaende({ today, ...quellen, portionen: portionen.heutige, ziele, anfragenPausiert, quellenUnsicher }),
+    [today, quellen, portionen.heutige, ziele, anfragenPausiert, quellenUnsicher],
   )
 
   const laedt = quelleLaedt || !geladen || !portionen.geladen
@@ -154,13 +186,13 @@ export function useTagesFlow(
    * Moment mitgeschrieben werden, in dem er wahr ist.
    */
   useEffect(() => {
-    if (laedt || portionen.tableMissing) return
+    if (!darfSchreiben) return
     const fertig = staende
       .filter((s) => s.erledigt && (PORTION_STUFEN as readonly string[]).includes(s.stufe.id))
       .map((s) => s.stufe.id)
     if (fertig.length) portionen.merkeErledigt(fertig)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- festgehalten wird der Moment, nicht jede Neuberechnung
-  }, [laedt, portionen.tableMissing, staende])
+  }, [darfSchreiben, staende])
 
-  return { staende, laedt, portionen }
+  return { staende, laedt, fehler: quelleFehler, portionen }
 }

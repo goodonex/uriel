@@ -49,6 +49,7 @@ import {
   type StufenStand,
 } from '../lib/tagesFlow'
 import { useTagesFlow } from '../lib/useTagesFlow'
+import { fordereNeuLaden } from '../../hooks/useNeuLadenWache'
 import { wochenkontrolle } from '../lib/wochenkontrolle'
 import { WochenkontrolleTafel } from '../components/linkedin/WochenkontrolleTafel'
 import { CoachAuswertungTafel } from '../components/sales/CoachAuswertungTafel'
@@ -532,14 +533,20 @@ export function SalesDashboard() {
     () => flowQuellen({ ...quellen, erstnachrichtWartend: posten.erstnachrichtWartend }, jetzt),
     [quellen, posten.erstnachrichtWartend, jetzt],
   )
-  const flow = useTagesFlow(metrics.today, flowLive, postenLaedt || metrics.loading)
+  const flow = useTagesFlow(metrics.today, flowLive, postenLaedt || metrics.loading, posten.quellenFehler)
+  /**
+   * Die Listen konnten nicht geladen werden (06.10.2026). Dann steht auf der
+   * Tagesliste eine Warnung mit „Neu laden" — nie „0 von 0 ✓". Ladezustand
+   * geht vor: Während ein Ladelauf läuft, steht „…".
+   */
+  const datenFehlen = !flow.laedt && flow.fehler !== null
   const staende = flow.staende
   const standJeStufe = useMemo(() => {
     const map = new Map<StufenId, StufenStand>()
     for (const s of staende) map.set(s.stufe.id, s)
     return map
   }, [staende])
-  const aktivIndex = flow.laedt ? -2 : ersteOffeneStufe(staende)
+  const aktivIndex = flow.laedt || datenFehlen ? -2 : ersteOffeneStufe(staende)
 
   /** Serien je Zähl-Stufe — aus Metrik-Historie und eingefrorenen Portionen. */
   const heuteIso = useMetrikTag()
@@ -915,14 +922,17 @@ export function SalesDashboard() {
    * einer Zahl. „0 offen" und „steht" sind sonst schlicht falsch — und
    * „alles erledigt" ist die teuerste falsche Zahl, die hier stehen kann.
    */
-  const zahl = (text: string) => (flow.laedt ? '…' : text)
+  const zahl = (text: string) => (flow.laedt ? '…' : datenFehlen ? '–' : text)
 
   /** Der Zeilen-Zustand aus dem Stufen-Stand — die erste offene ist „dran". */
   const zustandVon = (stufeId: StufenId): FlowZeileDef['zustand'] => {
     const index = staende.findIndex((s) => s.stufe.id === stufeId)
     const eintrag = staende[index]
     if (!eintrag || flow.laedt) return 'offen'
+    // Bei Lesefehler sind die Live-Stufen nie erledigt (`unsicher`); die
+    // Anfragen hängen nur am Zähler und dürfen grün bleiben.
     if (eintrag.erledigt) return 'erledigt'
+    if (datenFehlen) return 'offen'
     return index === aktivIndex ? 'aktiv' : 'offen'
   }
 
@@ -1609,7 +1619,7 @@ export function SalesDashboard() {
     id: 'pruefen',
     titel: 'Prüfen · vor den Anfragen',
     nummer: 0,
-    zustand: flow.laedt ? 'offen' : pruefOffen.length === 0 ? 'erledigt' : 'aktiv',
+    zustand: flow.laedt || datenFehlen ? 'offen' : pruefOffen.length === 0 ? 'erledigt' : 'aktiv',
     kennzahl: zahl(`${pruefHeute} von ${pruefHeute + pruefOffen.length}`),
     unterzeile:
       pruefOffen.length > 0
@@ -1626,10 +1636,20 @@ export function SalesDashboard() {
     ),
   }
   // Zwei „dran"-Zeilen gleichzeitig wären Rauschen: solange etwas zu prüfen ist, ist Prüfen dran.
-  const flowMitPruefen: FlowZeileDef[] = [
+  const flowMitPruefenRoh: FlowZeileDef[] = [
     pruefZeile,
     ...flowZeilen.map((z) => (pruefZeile.zustand === 'aktiv' && z.zustand === 'aktiv' ? { ...z, zustand: 'offen' as const } : z)),
   ]
+  /**
+   * Nicht geladen: Die Unterzeilen der Live-Stufen behaupten sonst „Alles
+   * geprüft" o. ä. aus einer leeren Liste (06.10.2026). Die Anfragen hängen am
+   * Zähler, nicht an den Listen, und behalten ihren Text.
+   */
+  const flowMitPruefen: FlowZeileDef[] = datenFehlen
+    ? flowMitPruefenRoh.map((z) =>
+        z.id === 'vernetzungsanfragen' ? z : { ...z, unterzeile: 'Nicht geladen — Zahl unbekannt.' },
+      )
+    : flowMitPruefenRoh
 
   const alleZeilen = [...flowMitPruefen, ...projektZeilen]
   const offenKachel =
@@ -1687,7 +1707,7 @@ export function SalesDashboard() {
     } else if (kachelParam === 'jetzt-dran') {
       // Alte Links: „Jetzt dran" gibt es nicht mehr als Kachel — dran ist die
       // erste offene Zeile des Rituals. Solange der Flow lädt: warten.
-      if (flow.laedt) return
+      if (flow.laedt || datenFehlen) return
       const ziel = aktivIndex >= 0 ? flowZeilen[aktivIndex] : null
       // Ohne Auslöser im Bild gibt es nichts, woraus das Fenster wachsen könnte.
       if (ziel) oeffneKachel(ziel.id)
@@ -1761,7 +1781,9 @@ export function SalesDashboard() {
         <span style={{ color: flow.laedt ? 'var(--ck-text-3)' : undefined }}>
           {flow.laedt
             ? 'Tag lädt …'
-            : `Tag ${tagesFortschritt.erledigt} von ${tagesFortschritt.gesamt}`}
+            : datenFehlen
+              ? 'Tag unbekannt'
+              : `Tag ${tagesFortschritt.erledigt} von ${tagesFortschritt.gesamt}`}
         </span>
       </div>
       {/* Der Ring vor den Karten: EIN Blick auf die Verteilung, bevor die
@@ -1857,6 +1879,8 @@ export function SalesDashboard() {
         onOeffnen={(id) => oeffneKachel(id, `kachel-${id}`)}
         fortschritt={tagesFortschritt}
         laedt={flow.laedt}
+        fehler={datenFehlen ? flow.fehler : null}
+        onNeuLaden={() => fordereNeuLaden('knopf')}
       />
     </div>
   )

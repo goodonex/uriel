@@ -142,10 +142,9 @@ export function UrielHome() {
     flowLive,
     // `netzwerk` mit dabei: Die Erstnachrichten-Stufe zählt seit dem 31.08. die
     // Wartenden, und die kommen von dort (Begründung im SalesDashboard).
-    metrics.loading ||
-      posten.linkedinThreads.loading ||
-      posten.erstnachrichten.loading ||
-      posten.netzwerk.loading,
+    metrics.loading || posten.flowQuellenLaden,
+    // Lesefehler: nichts einfrieren, nichts grün (06.10.2026).
+    posten.quellenFehler,
   )
 
   const ansage = useMemo(() => tagesansage(geordnet, dauern, jetzt), [geordnet, dauern, jetzt])
@@ -221,7 +220,8 @@ export function UrielHome() {
         gruss={`${gruss(jetzt)}.`}
         datum={laedt ? datumLang(jetzt) : ansage}
         stufen={flow.staende}
-        stufenLaden={flow.laedt}
+        // Nicht geladen heißt unbekannt: lieber „…" als eine Zahl, die nicht stimmt.
+        stufenLaden={flow.laedt || flow.fehler !== null}
         onAsk={() => urielOeffnen(true)}
         onStufe={(stufe) =>
           navigate(stufe.feld ? `/tracking/zaehlen/${stufe.feld}` : '/sales?kachel=antworten')

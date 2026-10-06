@@ -9,6 +9,7 @@ import {
   liegendeProjekte,
 } from '../cockpit/lib/kundenarbeit'
 import { ordnePosten, type Posten, type PostenQuellen } from '../cockpit/lib/prioritaet'
+import { quellenFehler } from '../lib/datenFrische'
 import { useContacts, type UseContactsResult } from './useContacts'
 import { useDeliverProjects } from './useDeliverProjects'
 import { useErstnachrichten } from './useErstnachrichten'
@@ -52,6 +53,13 @@ export interface UsePostenResult {
   erstnachrichten: ReturnType<typeof useErstnachrichten>
   /** Die Annahmen aus `linkedin_netzwerk` — Grundlage der Wochenkontrolle. */
   netzwerk: ReturnType<typeof useLinkedinNetzwerk>
+  /**
+   * Erster Lesefehler der Quellen, aus denen der Tages-Flow rechnet (06.10.2026)
+   * — `null`, wenn alle geladen haben. Geht als `quelleFehler` an `useTagesFlow`.
+   */
+  quellenFehler: string | null
+  /** Laden die Flow-Quellen noch? (Threads, Erstnachrichten, Netzwerk, Loom-Urteile) */
+  flowQuellenLaden: boolean
 }
 
 export function usePosten(slug: string | undefined): UsePostenResult {
@@ -183,6 +191,15 @@ export function usePosten(slug: string | undefined): UsePostenResult {
 
   const geordnet = useMemo(() => ordnePosten(quellen, jetzt), [quellen, jetzt])
 
+  const quellenFehlerText = quellenFehler([
+    { name: 'Threads', error: linkedinThreads.error },
+    { name: 'Erstnachrichten', error: erstnachrichten.error },
+    { name: 'Netzwerk', error: netzwerk.error },
+    { name: 'Loom-Urteile', error: loomUrteile.error },
+  ])
+  const flowQuellenLaden =
+    linkedinThreads.loading || erstnachrichten.loading || netzwerk.loading || loomUrteile.loading
+
   // `netzwerk` gehört mit hinaus: Die Wochenkontrolle (19.08.2026) braucht die
   // Annahmen, und ein zweites Abonnement derselben Tabelle auf derselben Seite
   // wäre ein zweiter Ladelauf für dieselben Daten.
@@ -199,6 +216,8 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     linkedinThreads,
     erstnachrichten,
     netzwerk,
+    quellenFehler: quellenFehlerText,
+    flowQuellenLaden,
   }
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useNeuLadenWache } from '../../hooks/useNeuLadenWache'
 import { isMissingSupabaseTableError } from '../../lib/supabaseErrors'
 import { supabase } from '../../lib/supabase'
 import { useActiveBrand } from './activeBrand'
@@ -43,6 +44,12 @@ export interface TagesPortionen {
   historie: PortionsZeile[]
   geladen: boolean
   tableMissing: boolean
+  /**
+   * Lesefehler (06.10.2026). Dann ist `heutige` leer, obwohl vielleicht schon
+   * Portionen festgeschrieben sind — wer jetzt einfröre, schriebe gegen einen
+   * Stand, den er nicht kennt. `useTagesFlow` friert deshalb nicht ein.
+   */
+  fehler: boolean
   /** Schreibt fehlende Portionen für heute fest. Bereits vorhandene gewinnen. */
   friereEin: (portionen: Partial<Record<StufenId, number>>) => void
   /**
@@ -64,6 +71,11 @@ export function useTagesPortionen(heute: string): TagesPortionen {
   const [historie, setHistorie] = useState<PortionsZeile[]>([])
   const [geladen, setGeladen] = useState(false)
   const [tableMissing, setTableMissing] = useState(false)
+  const [fehler, setFehler] = useState(false)
+  /** Hochzählen = neu lesen. Nur nach einem Fehler, über die Nachlade-Wache. */
+  const [runde, setRunde] = useState(0)
+  const versuchRef = useRef(0)
+  const laeuftRef = useRef(false)
 
   const userId = user?.id
   const brandId = activeBrand?.id
@@ -79,6 +91,8 @@ export function useTagesPortionen(heute: string): TagesPortionen {
     const von = new Date(`${heute}T12:00:00`)
     von.setDate(von.getDate() - HISTORIE_TAGE)
     const vonIso = von.toISOString().slice(0, 10)
+    versuchRef.current = Date.now()
+    laeuftRef.current = true
     void sb
       .from('sales_tagesportionen')
       .select('datum, stufe, soll, erledigt_at')
@@ -86,13 +100,18 @@ export function useTagesPortionen(heute: string): TagesPortionen {
       .eq('brand_id', brandId)
       .gte('datum', vonIso)
       .then(({ data, error }) => {
+        laeuftRef.current = false
         if (!lebt) return
         if (error) {
           if (isMissingSupabaseTableError(error.message)) setTableMissing(true)
-          else console.warn('[tagesPortionen] laden fehlgeschlagen:', error.message)
+          else {
+            console.warn('[tagesPortionen] laden fehlgeschlagen:', error.message)
+            setFehler(true)
+          }
           setGeladen(true)
           return
         }
+        setFehler(false)
         setHistorie(
           (data ?? [])
             .filter((z) => istPortionsStufe(z.stufe))
@@ -109,8 +128,22 @@ export function useTagesPortionen(heute: string): TagesPortionen {
       })
     return () => {
       lebt = false
+      laeuftRef.current = false
     }
-  }, [userId, brandId, heute])
+  }, [userId, brandId, heute, runde])
+
+  // Nach einem Lesefehler beim nächsten Anstoß (Fokus, Netz, Anmeldung) neu lesen.
+  useNeuLadenWache(
+    () => {
+      if (fehler) setRunde((n) => n + 1)
+    },
+    () => ({
+      letzterErfolgMs: fehler ? 0 : Date.now(),
+      letzterVersuchMs: versuchRef.current,
+      hatFehler: fehler,
+      laeuft: laeuftRef.current,
+    }),
+  )
 
   const heutige = useMemo(() => {
     const out: Partial<Record<StufenId, number>> = {}
@@ -190,5 +223,5 @@ export function useTagesPortionen(heute: string): TagesPortionen {
     [userId, brandId, heute, tableMissing],
   )
 
-  return { heutige, historie, geladen, tableMissing, friereEin, merkeErledigt }
+  return { heutige, historie, geladen, tableMissing, fehler, friereEin, merkeErledigt }
 }

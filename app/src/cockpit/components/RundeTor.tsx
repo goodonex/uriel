@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { fordereNeuLaden } from '../../hooks/useNeuLadenWache'
 import { useRunde, type RundeOptionen, type RundeStand } from '../lib/rundeApi'
 import { Ladeschirm } from './Ladeschirm'
 
@@ -55,10 +56,32 @@ export function RundeTor({ children }: { children: ReactNode }) {
     }
   }, [stand, runnerWeg, gefragt, offen])
 
+  /**
+   * Neuer Stand oben rechts → die Listen der Seite holen nach (06.10.2026).
+   *
+   * Am 06.10. stand oben „⟳ heute 12:33", darunter aber „Antworten 0 von 0 ✓"
+   * aus einer Ladung vom Vortag: Der Knopf zeigte den frischen Sync, die Listen
+   * wussten nichts davon. Jetzt stößt jeder neue Stand (und das Ende eines
+   * Laufs) das Nachladen an.
+   */
+  const letzterStandRef = useRef<string | null | undefined>(undefined)
+  const laeuftRef = useRef(false)
+  useEffect(() => {
+    if (!stand) return
+    const neuerStand = letzterStandRef.current !== undefined && stand.letzterStand !== letzterStandRef.current
+    const laufZuEnde = laeuftRef.current && !stand.laeuft
+    letzterStandRef.current = stand.letzterStand
+    laeuftRef.current = stand.laeuft
+    if (neuerStand || laufZuEnde) fordereNeuLaden('sync')
+  }, [stand])
+
   const oeffnen = useCallback(() => setOffen(true), [])
   const jetztLaden = useCallback(() => {
     setOffen(true)
     setGefragt(true)
+    // Der Knopf heißt „jetzt aktualisieren" — das gilt auch für die Listen der
+    // Seite, nicht nur für den Lauf im Runner.
+    fordereNeuLaden('knopf')
     void starten()
   }, [starten])
 

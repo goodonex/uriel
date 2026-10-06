@@ -13,6 +13,7 @@ import {
 } from '../lib/seedBrandFoundation'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { useNeuLadenWache } from './useNeuLadenWache'
 
 const DEFAULT_BRANDS: Omit<Brand, 'id' | 'user_id' | 'created_at'>[] = [
   { name: 'Herrmann & Co.', slug: 'herrmann', color: '#3B6FE8' },
@@ -215,7 +216,7 @@ async function syncCanonicalBrandsForUser(
 }
 
 export function useBrands(): UseBrandsResult {
-  const { user } = useAuth()
+  const { user, loading: authLaedt } = useAuth()
   const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -229,6 +230,8 @@ export function useBrands(): UseBrandsResult {
    * Brands existieren. Geseedet wird nur noch nach einem geglückten Lesen.
    */
   const ladErfolgRef = useRef(false)
+  /** Wann der letzte Leseversuch begann — für die Nachlade-Wache. */
+  const versuchRef = useRef(0)
   const foundationSeedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -258,9 +261,13 @@ export function useBrands(): UseBrandsResult {
     if (!supabase || !user?.id) {
       setBrands([])
       setError(null)
-      setLoading(false)
+      // Solange die Anmeldung noch gelesen wird, ist „keine Brands" nicht
+      // wahr, sondern unbekannt (06.10.2026). Sonst meldete jeder Daten-Hook
+      // für einen Moment „Marke nicht geladen".
+      setLoading(!!supabase && authLaedt)
       return
     }
+    versuchRef.current = Date.now()
     setLoading(true)
     const sb = supabase
     const { data, error: err } = await withAuthLockRetry(() =>
@@ -289,7 +296,11 @@ export function useBrands(): UseBrandsResult {
         return
       } else {
         setError(err.message)
-        setBrands([])
+        // Bekannte Brands NICHT wegwerfen (06.10.2026): Ein einzelner
+        // Lesefehler nach dem Aufwachen (abgelaufene Anmeldung, Netz noch weg)
+        // nahm sonst jedem Daten-Hook die Brand-ID — und das Cockpit zeigte
+        // „0 von 0 ✓" statt der wartenden Antworten. Die Daten-Hooks melden
+        // ihren eigenen Fehler, und die Wache unten lädt nach.
       }
     } else {
       setError(null)
@@ -316,11 +327,29 @@ export function useBrands(): UseBrandsResult {
       setBrands(sortBrandsForDisplay(rawRows.map(mapBrand)))
     }
     setLoading(false)
-  }, [user?.id])
+  }, [user?.id, authLaedt])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  /**
+   * Nachladen nur, wenn der letzte Lesevorgang NICHT geglückt ist (06.10.2026).
+   * Ohne Brand-ID laden die Daten-Hooks gar nicht erst — sie hängen also an
+   * diesem Nachladen. Ein gesunder Stand wird nicht bei jedem Tab-Wechsel neu
+   * gelesen (fünf Instanzen pro Seite).
+   */
+  useNeuLadenWache(
+    () => {
+      if (!ladErfolgRef.current || error !== null) void reload()
+    },
+    () => ({
+      letzterErfolgMs: ladErfolgRef.current ? Date.now() : 0,
+      letzterVersuchMs: versuchRef.current,
+      hatFehler: !ladErfolgRef.current || error !== null,
+      laeuft: loading,
+    }),
+  )
 
   useEffect(() => {
     if (!supabase || !user?.id || loading) return

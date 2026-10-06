@@ -505,7 +505,10 @@ check(
 )
 check(
   'der Homescreen wartet ebenfalls auf das Netzwerk',
-  /posten\.netzwerk\.loading/.test(home),
+  // Seit 06.10.2026 gebündelt: `flowQuellenLaden` in usePosten schließt das Netzwerk ein.
+  /posten\.netzwerk\.loading/.test(home) ||
+    (/posten\.flowQuellenLaden/.test(home) &&
+      /netzwerk\.loading/.test(readFileSync(join(wurzel, 'app/src/hooks/usePosten.ts'), 'utf8'))),
   'Sonst friert eine 0 als Tages-Soll ein.',
 )
 check(

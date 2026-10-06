@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { BRAND_UNAUFGELOEST, brandLage } from '../lib/datenFrische'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
-import { useBrandId } from './useBrandId'
+import { useBrandIdStatus } from './useBrandId'
+import { useNeuLadenWache } from './useNeuLadenWache'
 import type { NetzwerkEintrag } from '../cockpit/lib/funnelStufen'
 
 /**
@@ -41,74 +43,106 @@ interface NetzwerkMeta {
 }
 
 export function useLinkedinNetzwerk(brandSlug: string | undefined): UseLinkedinNetzwerkResult {
-  const brandId = useBrandId(brandSlug)
+  const { brandId, pending: brandPending } = useBrandIdStatus(brandSlug)
   const [items, setItems] = useState<NetzwerkEintrag[]>([])
   const [meta, setMeta] = useState<NetzwerkMeta>({})
   const [loading, setLoading] = useState(true)
   const [tableMissing, setTableMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
+  /** Wann zuletzt geladen wurde — für die Nachlade-Wache (06.10.2026, `lib/datenFrische.ts`). */
+  const lade = useRef({ letzterErfolgMs: 0, letzterVersuchMs: 0, laeuft: false, lauf: 0 })
+
+  /** `laut` = mit „…"-Zustand (erstes Laden, Brand-Wechsel). Die Wache lädt leise nach. */
+  const laden = useCallback(async (laut: boolean) => {
     if (!supabase || !brandId) {
+      lade.current.lauf++
+      lade.current.laeuft = false
       setItems([])
-      setLoading(false)
+      // Wie bei Threads und Erstnachrichten (06.10.2026): Solange die Brands
+      // laden, ist das Netzwerk unbekannt — nicht leer. Vorher stand hier
+      // `setLoading(false)`, und die Erstnachrichten-Stufe sah „niemand wartet".
+      setLoading(brandPending)
+      setError(brandLage({ backend: !!supabase, brandId, brandPending }) === 'unaufgeloest' ? BRAND_UNAUFGELOEST : null)
       return
     }
-    setLoading(true)
+    const lauf = ++lade.current.lauf
+    lade.current.laeuft = true
+    lade.current.letzterVersuchMs = Date.now()
+    if (laut) setLoading(true)
 
-    /**
-     * Seitenweise laden — sonst fehlt der halbe Trichter.
-     *
-     * PostgREST deckelt eine Antwort bei 1.000 Zeilen. Kevins Netzwerk hat
-     * mehr (630 Kontakte + 876 offene Einladungen), und das Limit greift
-     * still: die App bekam eine plausible Liste, in der schlicht 500 Leute
-     * fehlten — am 12.08. gemessen, die InMail-Kachel zeigte 370 statt 876.
-     */
-    const alle: NetzwerkEintrag[] = []
-    const SEITE = 1000
-    for (let von = 0; ; von += SEITE) {
-      const { data, error: err } = await supabase
-        .from('linkedin_netzwerk')
-        .select('*')
-        .eq('brand_id', brandId)
-        .order('profil_key', { ascending: true })
-        .range(von, von + SEITE - 1)
+    try {
+      /**
+       * Seitenweise laden — sonst fehlt der halbe Trichter.
+       *
+       * PostgREST deckelt eine Antwort bei 1.000 Zeilen. Kevins Netzwerk hat
+       * mehr (630 Kontakte + 876 offene Einladungen), und das Limit greift
+       * still: die App bekam eine plausible Liste, in der schlicht 500 Leute
+       * fehlten — am 12.08. gemessen, die InMail-Kachel zeigte 370 statt 876.
+       */
+      const alle: NetzwerkEintrag[] = []
+      const SEITE = 1000
+      for (let von = 0; ; von += SEITE) {
+        const { data, error: err } = await supabase
+          .from('linkedin_netzwerk')
+          .select('*')
+          .eq('brand_id', brandId)
+          .order('profil_key', { ascending: true })
+          .range(von, von + SEITE - 1)
 
-      if (err) {
-        if (isMissingSupabaseTableError(err.message)) {
-          setTableMissing(true)
-          setItems([])
-          setError(null)
-        } else {
-          setError(err.message)
+        if (lauf !== lade.current.lauf) return
+        if (err) {
+          if (isMissingSupabaseTableError(err.message)) {
+            setTableMissing(true)
+            setItems([])
+            setError(null)
+          } else {
+            setError(err.message)
+          }
+          setLoading(false)
+          return
         }
-        setLoading(false)
-        return
+        const stapel = (data ?? []) as NetzwerkEintrag[]
+        alle.push(...stapel)
+        if (stapel.length < SEITE) break
       }
-      const stapel = (data ?? []) as NetzwerkEintrag[]
-      alle.push(...stapel)
-      if (stapel.length < SEITE) break
+
+      setTableMissing(false)
+      setError(null)
+      setItems(alle)
+
+      // Der Merker sagt, welchem Stand zu trauen ist. Fehlt er, gilt: noch kein
+      // vollständiger Lauf — dann bleibt die InMail-Liste leer statt falsch.
+      const { data: metaRow } = await supabase
+        .from('runner_snapshots')
+        .select('data')
+        .eq('key', META_KEY)
+        .maybeSingle()
+      if (lauf !== lade.current.lauf) return
+      setMeta(((metaRow as { data?: NetzwerkMeta } | null)?.data ?? {}) as NetzwerkMeta)
+
+      setLoading(false)
+      lade.current.letzterErfolgMs = Date.now()
+    } catch (e) {
+      if (lauf !== lade.current.lauf) return
+      setError(e instanceof Error ? e.message : String(e))
+      setLoading(false)
+    } finally {
+      if (lauf === lade.current.lauf) lade.current.laeuft = false
     }
+  }, [brandId, brandPending])
 
-    setTableMissing(false)
-    setError(null)
-    setItems(alle)
-
-    // Der Merker sagt, welchem Stand zu trauen ist. Fehlt er, gilt: noch kein
-    // vollständiger Lauf — dann bleibt die InMail-Liste leer statt falsch.
-    const { data: metaRow } = await supabase
-      .from('runner_snapshots')
-      .select('data')
-      .eq('key', META_KEY)
-      .maybeSingle()
-    setMeta(((metaRow as { data?: NetzwerkMeta } | null)?.data ?? {}) as NetzwerkMeta)
-
-    setLoading(false)
-  }, [brandId])
+  const reload = useCallback(() => laden(true), [laden])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  // Zurück im Tab, Netz wieder da, Anmeldung erneuert, neuer Sync-Stand: nachladen.
+  useNeuLadenWache(
+    () => void laden(false),
+    () => ({ ...lade.current, hatFehler: error !== null }),
+  )
 
   // Eine Sekunde Luft nach hinten: der Lauf stempelt alle Zeilen gleich, aber
   // die Filter vergleichen mit `>=` und Zeitstempel runden unterschiedlich.

@@ -111,7 +111,8 @@ check('Sales-Kacheln haben einen Platzhalter für den Ladezustand', /const zahl 
 check('der Platzhalter hängt am Flow-Ladezustand', /const zahl = \(text: string\) => \(flow\.laedt \?/.test(dash), true)
 check(
   'der Flow bekommt den Posten-Ladezustand mitgeteilt',
-  /useTagesFlow\(metrics\.today, flowLive, postenLaedt \|\| metrics\.loading\)/.test(dash),
+  // Seit 06.10.2026 mit viertem Argument (Quellen-Fehler, verify-daten-frische.ts).
+  /useTagesFlow\(metrics\.today, flowLive, postenLaedt \|\| metrics\.loading[,)]/.test(dash),
   true,
 )
 check(
@@ -142,7 +143,8 @@ check(
 )
 check(
   'die Zeilen-Zahlen kommen aus denselben Listen wie die Fenster dahinter',
-  /flowQuellen\(quellen, jetzt\)/.test(dash),
+  // Seit 31.08.2026 kommen die Wartenden neben den Quellen mit hinein.
+  /flowQuellen\(\{ \.\.\.quellen, erstnachrichtWartend: posten\.erstnachrichtWartend \}, jetzt\)/.test(dash),
   true,
 )
 

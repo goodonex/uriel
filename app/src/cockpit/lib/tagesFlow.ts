@@ -308,6 +308,11 @@ export interface StufenStand {
   blockiert?: boolean
   /** Wie viele versandfertige Texte bereitliegen (nur bei Erstnachrichten gesetzt). */
   material?: number | null
+  /**
+   * Die Live-Quelle dieser Stufe konnte nicht geladen werden (06.10.2026) —
+   * die Zahlen sind unbekannt, nicht 0. Eine unsichere Stufe ist NIE erledigt.
+   */
+  unsicher?: boolean
 }
 
 /**
@@ -362,6 +367,18 @@ export interface FlowEingabe {
    * bis Wochenende kein Soll mehr und steht damit als erledigt da.
    */
   anfragenPausiert?: boolean
+  /**
+   * Mindestens eine Live-Quelle (Threads, Erstnachrichten, Netzwerk,
+   * Loom-Urteile) hat nicht geladen, oder die Brand ist nicht aufgelöst
+   * (06.10.2026).
+   *
+   * **Der Fall:** Kevins seit dem Vortag offener Tab zeigte „Erstnachrichten
+   * 0 von 0 ✓, Antworten 0 von 0 ✓" — alles grün —, während 5 Antworten
+   * warteten. Die Listen waren nach dem Aufwachen des Laptops leer geladen
+   * worden, und eine leere Liste ist hier „nichts offen". Mit diesem Schalter
+   * gilt sie als unbekannt: Die betroffenen Stufen sind nicht erledigt.
+   */
+  quellenUnsicher?: boolean
 }
 
 /**
@@ -527,8 +544,12 @@ export function stufenStaende(eingabe: FlowEingabe): StufenStand[] {
     //
     // ABER NIE, solange Menschen warten und nichts für sie geschrieben ist:
     // Genau dieser Fall stand am 31.08. vier Tage lang als grüner Haken da.
-    const erledigt = !blockiert && (soll <= 0 || wert >= soll || offenJetzt === 0)
-    return { stufe, wert, soll, offenJetzt, erledigt, blockiert, material }
+    //
+    // Und nie, solange die Quelle nicht geladen hat (06.10.2026): Dann ist
+    // `offenJetzt === 0` keine Aussage, sondern eine Lücke.
+    const unsicher = !!eingabe.quellenUnsicher && PORTION_STUFEN.includes(stufe.id)
+    const erledigt = !unsicher && !blockiert && (soll <= 0 || wert >= soll || offenJetzt === 0)
+    return { stufe, wert, soll, offenJetzt, erledigt, blockiert, material, ...(unsicher ? { unsicher } : {}) }
   })
 }
 
@@ -656,4 +677,30 @@ export function einzufrierendePortionen(eingabe: FlowEingabe): Partial<Record<St
     out[stufe.id] = sollFuer(stufe, live)
   }
   return out
+}
+
+/**
+ * Darf der Flow JETZT etwas in die Datenbank schreiben — Portionen einfrieren
+ * (0074) oder „Stufe steht" vermerken (0075)? (06.10.2026)
+ *
+ * Nur, wenn ALLES sicher geladen ist. Beide Schreibwege sind „der erste Stand
+ * gewinnt": Eine 0 oder ein „erledigt" aus einer fehlgeschlagenen Ladung stünde
+ * den ganzen Tag in der Tabelle, auch nachdem der Tab sich erholt hat.
+ */
+export function darfFestschreiben(lage: {
+  quelleLaedt: boolean
+  quelleFehler: string | null | undefined
+  zieleGeladen: boolean
+  portionenGeladen: boolean
+  portionenFehler: boolean
+  tableMissing: boolean
+}): boolean {
+  return (
+    !lage.quelleLaedt &&
+    !lage.quelleFehler &&
+    lage.zieleGeladen &&
+    lage.portionenGeladen &&
+    !lage.portionenFehler &&
+    !lage.tableMissing
+  )
 }

@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { entdoppleErstnachrichten } from '../cockpit/lib/erstnachrichtenDedup'
+import { BRAND_UNAUFGELOEST, brandLage } from '../lib/datenFrische'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import { protokolliereKevin } from '../lib/pruefProtokoll'
 import { useBrandIdStatus } from './useBrandId'
+import { useNeuLadenWache } from './useNeuLadenWache'
 
 export interface Erstnachricht {
   id: string
@@ -50,48 +52,77 @@ export function useErstnachrichten(brandSlug: string | undefined): Result {
   const [tableMissing, setTableMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
+  /** Wann zuletzt geladen wurde — für die Nachlade-Wache (06.10.2026, `lib/datenFrische.ts`). */
+  const lade = useRef({ letzterErfolgMs: 0, letzterVersuchMs: 0, laeuft: false, lauf: 0 })
+
+  /** `laut` = mit „…"-Zustand (erstes Laden, Brand-Wechsel). Die Wache lädt leise nach. */
+  const laden = useCallback(async (laut: boolean) => {
     if (!supabase || !brandId) {
+      lade.current.lauf++
+      lade.current.laeuft = false
       setItems([])
       // Solange die Brand noch gesucht wird, ist die Liste nicht leer, sondern
       // unbekannt — sonst blitzt „Noch keine Erstnachrichten gespiegelt" auf.
       setLoading(brandPending)
+      // Brands durch, aber keine Brand-ID: Lesefehler, kein Leerzustand (06.10.2026).
+      setError(brandLage({ backend: !!supabase, brandId, brandPending }) === 'unaufgeloest' ? BRAND_UNAUFGELOEST : null)
       return
     }
-    setLoading(true)
-    const { data, error: err } = await supabase
-      .from('linkedin_erstnachrichten')
-      .select('*')
-      .eq('brand_id', brandId)
-      .order('sort_index', { ascending: true })
+    const lauf = ++lade.current.lauf
+    lade.current.laeuft = true
+    lade.current.letzterVersuchMs = Date.now()
+    if (laut) setLoading(true)
+    try {
+      const { data, error: err } = await supabase
+        .from('linkedin_erstnachrichten')
+        .select('*')
+        .eq('brand_id', brandId)
+        .order('sort_index', { ascending: true })
 
-    if (err) {
-      if (isMissingSupabaseTableError(err.message)) {
-        setTableMissing(true)
-        setItems([])
-        setError(null)
-      } else {
-        setError(err.message)
+      if (lauf !== lade.current.lauf) return
+      if (err) {
+        if (isMissingSupabaseTableError(err.message)) {
+          setTableMissing(true)
+          setItems([])
+          setError(null)
+        } else {
+          setError(err.message)
+        }
+        setLoading(false)
+        return
       }
+      setTableMissing(false)
+      setError(null)
+      /**
+       * Eine Person, eine Zeile. Vor 0071 lag der Schlüssel auf
+       * `(brand_id, gruppe, name)` — eine umformulierte Gruppen-Überschrift im
+       * Vault ließ den Spiegel die ganze Gruppe erneut anlegen (145 Zeilen für
+       * 118 Leads, "144 offen"). Die Entdopplung hier hält die Liste auch mit
+       * Altbestand ehrlich; die Regel ist dieselbe wie in der Migration.
+       */
+      setItems(entdoppleErstnachrichten((data ?? []) as Erstnachricht[]))
       setLoading(false)
-      return
+      lade.current.letzterErfolgMs = Date.now()
+    } catch (e) {
+      if (lauf !== lade.current.lauf) return
+      setError(e instanceof Error ? e.message : String(e))
+      setLoading(false)
+    } finally {
+      if (lauf === lade.current.lauf) lade.current.laeuft = false
     }
-    setTableMissing(false)
-    setError(null)
-    /**
-     * Eine Person, eine Zeile. Vor 0071 lag der Schlüssel auf
-     * `(brand_id, gruppe, name)` — eine umformulierte Gruppen-Überschrift im
-     * Vault ließ den Spiegel die ganze Gruppe erneut anlegen (145 Zeilen für
-     * 118 Leads, "144 offen"). Die Entdopplung hier hält die Liste auch mit
-     * Altbestand ehrlich; die Regel ist dieselbe wie in der Migration.
-     */
-    setItems(entdoppleErstnachrichten((data ?? []) as Erstnachricht[]))
-    setLoading(false)
   }, [brandId, brandPending])
+
+  const reload = useCallback(() => laden(true), [laden])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  // Zurück im Tab, Netz wieder da, Anmeldung erneuert, neuer Sync-Stand: nachladen.
+  useNeuLadenWache(
+    () => void laden(false),
+    () => ({ ...lade.current, hatFehler: error !== null }),
+  )
 
   const setzeStatus = useCallback(
     async (id: string, status: Erstnachricht['status']) => {

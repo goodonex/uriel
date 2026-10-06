@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { markDonePatch } from '../cockpit/lib/linkedinFollowups'
+import { BRAND_UNAUFGELOEST, brandLage } from '../lib/datenFrische'
 import { isMissingSupabaseTableError } from '../lib/supabaseErrors'
 import { supabase } from '../lib/supabase'
 import type { LinkedinThread } from '../types/db'
 import { useBrandIdStatus } from './useBrandId'
+import { useNeuLadenWache } from './useNeuLadenWache'
 
 interface UseLinkedinThreadsResult {
   items: LinkedinThread[]
@@ -38,58 +40,92 @@ export function useLinkedinThreads(brandSlug: string | undefined): UseLinkedinTh
   const [tableMissing, setTableMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
+  /** Wann zuletzt geladen wurde — für die Nachlade-Wache (06.10.2026, `lib/datenFrische.ts`). */
+  const lade = useRef({ letzterErfolgMs: 0, letzterVersuchMs: 0, laeuft: false, lauf: 0 })
+
+  /** `laut` = mit „…"-Zustand (erstes Laden, Brand-Wechsel). Die Wache lädt leise nach. */
+  const laden = useCallback(async (laut: boolean) => {
     if (!supabase || !brandId) {
+      // Ein noch laufender Ladelauf der alten Brand darf nichts mehr schreiben.
+      lade.current.lauf++
+      lade.current.laeuft = false
       setItems([])
       // Brand noch nicht aufgelöst → „unbekannt", nicht „keine Threads". Sonst
       // stünde auf dem Dashboard kurz „0 warten" statt der echten Zahl.
       setLoading(brandPending)
+      // Brands durch, aber keine Brand-ID: Lesefehler, kein Leerzustand
+      // (06.10.2026 — genau das stand als „Antworten 0 von 0 ✓" da).
+      setError(brandLage({ backend: !!supabase, brandId, brandPending }) === 'unaufgeloest' ? BRAND_UNAUFGELOEST : null)
       return
     }
-    setLoading(true)
+    const lauf = ++lade.current.lauf
+    lade.current.laeuft = true
+    lade.current.letzterVersuchMs = Date.now()
+    if (laut) setLoading(true)
 
-    /**
-     * Seitenweise laden — PostgREST deckelt still bei 1.000 Zeilen (am 12.08.
-     * an `linkedin_netzwerk` gemessen: 370 statt 876). Hier wäre der Schaden
-     * größer als dort: aufsteigend nach `last_message_at` fielen ausgerechnet
-     * die **neuesten** Threads weg — also die, aus denen „Antworten" und
-     * „Follow-ups fällig" entstehen.
-     */
-    const alle: LinkedinThread[] = []
-    const SEITE = 1000
-    for (let von = 0; ; von += SEITE) {
-      const { data, error: err } = await supabase
-        .from('linkedin_threads')
-        .select('*')
-        .eq('brand_id', brandId)
-        .order('last_message_at', { ascending: true })
-        .range(von, von + SEITE - 1)
+    try {
+      /**
+       * Seitenweise laden — PostgREST deckelt still bei 1.000 Zeilen (am 12.08.
+       * an `linkedin_netzwerk` gemessen: 370 statt 876). Hier wäre der Schaden
+       * größer als dort: aufsteigend nach `last_message_at` fielen ausgerechnet
+       * die **neuesten** Threads weg — also die, aus denen „Antworten" und
+       * „Follow-ups fällig" entstehen.
+       */
+      const alle: LinkedinThread[] = []
+      const SEITE = 1000
+      for (let von = 0; ; von += SEITE) {
+        const { data, error: err } = await supabase
+          .from('linkedin_threads')
+          .select('*')
+          .eq('brand_id', brandId)
+          .order('last_message_at', { ascending: true })
+          .range(von, von + SEITE - 1)
 
-      if (err) {
-        if (isMissingSupabaseTableError(err.message)) {
-          setTableMissing(true)
-          setItems([])
-          setError(null)
-        } else {
-          setError(err.message)
+        if (lauf !== lade.current.lauf) return
+        if (err) {
+          if (isMissingSupabaseTableError(err.message)) {
+            setTableMissing(true)
+            setItems([])
+            setError(null)
+          } else {
+            // Die alten Zeilen bleiben stehen — der Fehler macht sie als
+            // „nicht aktuell" kenntlich, statt sie durch eine 0 zu ersetzen.
+            setError(err.message)
+          }
+          setLoading(false)
+          return
         }
-        setLoading(false)
-        return
+        const stapel = (data ?? []) as LinkedinThread[]
+        alle.push(...stapel)
+        if (stapel.length < SEITE) break
       }
-      const stapel = (data ?? []) as LinkedinThread[]
-      alle.push(...stapel)
-      if (stapel.length < SEITE) break
-    }
 
-    setTableMissing(false)
-    setError(null)
-    setItems(alle)
-    setLoading(false)
+      setTableMissing(false)
+      setError(null)
+      setItems(alle)
+      setLoading(false)
+      lade.current.letzterErfolgMs = Date.now()
+    } catch (e) {
+      // Netz weg (Laptop gerade aufgeklappt): supabase-js wirft dann statt zu antworten.
+      if (lauf !== lade.current.lauf) return
+      setError(e instanceof Error ? e.message : String(e))
+      setLoading(false)
+    } finally {
+      if (lauf === lade.current.lauf) lade.current.laeuft = false
+    }
   }, [brandId, brandPending])
+
+  const reload = useCallback(() => laden(true), [laden])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  // Zurück im Tab, Netz wieder da, Anmeldung erneuert, neuer Sync-Stand: nachladen.
+  useNeuLadenWache(
+    () => void laden(false),
+    () => ({ ...lade.current, hatFehler: error !== null }),
+  )
 
   // Schreibfehler (z. B. RLS) dürfen nicht still verpuffen — sonst klickt Kevin
   // „Erledigt", nichts passiert, und die Stufe bleibt unbemerkt stehen.

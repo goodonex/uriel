@@ -35,6 +35,14 @@ export interface TagesListeProps {
   fortschritt: { erledigt: number; gesamt: number }
   /** Solange true, steht überall `…` statt einer Zahl. */
   laedt: boolean
+  /**
+   * Die Listen konnten nicht geladen werden (06.10.2026) — dann steht über den
+   * Zeilen eine Warnung mit „Neu laden", und keine Live-Zeile ist grün.
+   * Der Text ist der technische Grund; er steht nur im Tooltip.
+   */
+  fehler?: string | null
+  /** Der Knopf in der Warnung. */
+  onNeuLaden?: () => void
 }
 
 /** Der grüne Haken einer stehenden Zeile — dieselbe Form wie in `FlowZeile`. */
@@ -192,7 +200,7 @@ function ZeilenKnopf({ zeile, onOeffnen }: { zeile: FlowZeileDef; onOeffnen: () 
   )
 }
 
-export function TagesListe({ zeilen, onOeffnen, fortschritt, laedt }: TagesListeProps) {
+export function TagesListe({ zeilen, onOeffnen, fortschritt, laedt, fehler, onNeuLaden }: TagesListeProps) {
   return (
     <section aria-label="Heute" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div
@@ -207,9 +215,35 @@ export function TagesListe({ zeilen, onOeffnen, fortschritt, laedt }: TagesListe
       >
         <span className="ck-label">Heute</span>
         <span className="ck-zahl" style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>
-          {laedt ? '…' : `${fortschritt.erledigt} von ${fortschritt.gesamt} Stufen`}
+          {laedt ? '…' : fehler ? 'unbekannt' : `${fortschritt.erledigt} von ${fortschritt.gesamt} Stufen`}
         </span>
       </div>
+
+      {fehler ? (
+        <div
+          role="alert"
+          className="ck-panel"
+          title={fehler}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            padding: '10px 12px',
+            border: '1px solid var(--ck-warn)',
+            fontSize: 12.5,
+          }}
+        >
+          <span style={{ color: 'var(--ck-warn)' }}>
+            Daten nicht geladen — die Zahlen unten stimmen gerade nicht.
+          </span>
+          {onNeuLaden ? (
+            <button type="button" className="ck-btn" style={{ flexShrink: 0, minHeight: 32 }} onClick={onNeuLaden}>
+              Neu laden
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {zeilen.map((z) => (
         <ZeilenKnopf key={z.id} zeile={z} onOeffnen={() => onOeffnen(z.id)} />

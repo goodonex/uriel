@@ -38,7 +38,7 @@ export function ZaehlModus() {
   const gewaehlt = zaehlFeldFuer(feld)
   const metrics = useDailyMetrics()
   const live = useFlowLiveQuellen()
-  const flow = useTagesFlow(metrics.today, live.quellen, metrics.loading || live.laedt)
+  const flow = useTagesFlow(metrics.today, live.quellen, metrics.loading || live.laedt, live.fehler)
 
   return gewaehlt ? (
     <Vollbild zaehlFeld={gewaehlt} metrics={metrics} flow={flow} />
