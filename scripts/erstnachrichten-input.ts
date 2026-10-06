@@ -78,8 +78,14 @@ async function main() {
   if (!bid) throw new Error(`Keine Marke mit slug="${slug}"`)
 
   const [netzwerk, threads, erst] = await Promise.all([
+    // `richtung` (0098) trägt die Sperre für Leute, die Kevin selbst angefragt
+    // haben. Ohne die Migration ohne die Spalte weiter, statt ohne Leads.
     alle<any>(
-      `linkedin_netzwerk?brand_id=eq.${bid}&select=name,profil_key,profile_url,status,headline,angenommen_at&order=profil_key`,
+      `linkedin_netzwerk?brand_id=eq.${bid}&select=name,profil_key,profile_url,status,headline,angenommen_at,richtung&order=profil_key`,
+    ).catch(() =>
+      alle<any>(
+        `linkedin_netzwerk?brand_id=eq.${bid}&select=name,profil_key,profile_url,status,headline,angenommen_at&order=profil_key`,
+      ),
     ),
     alle<any>(`linkedin_threads?brand_id=eq.${bid}&select=name,profile_url&order=id`),
     // Ohne Migration 0095 fehlt `pruef_url`: dann ohne die Spalte weiterarbeiten statt ohne Leads.

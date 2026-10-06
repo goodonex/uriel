@@ -24,7 +24,14 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { gesamtzahlAus, istVollstaendig, karteZuEintrag } from './netzwerkParse.mjs'
+import {
+  anfrageKarteZuEintrag,
+  anfragenGesamtAus,
+  anfragenVollstaendig,
+  gesamtzahlAus,
+  istVollstaendig,
+  karteZuEintrag,
+} from './netzwerkParse.mjs'
 
 const CDP = 'http://127.0.0.1:9222'
 const HARD_TIMEOUT_MS = 120_000
@@ -77,6 +84,22 @@ export const SEITEN = {
     url: 'https://www.linkedin.com/mynetwork/invite-connect/connections/',
     muster: 'invite-connect/connections',
     status: 'angenommen',
+  },
+  /**
+   * Eingegangene Einladungen (06.10.2026) — wer Kevin von sich aus anfragt.
+   * Rein lesend wie die anderen beiden: „Annehmen" und „Ignorieren" drückt
+   * Kevin selbst. Die Liste ist kurz (am 06.10.: drei Karten) und wird bei
+   * jedem Lauf ganz gelesen; sie kann leer sein, das ist kein Ladefehler.
+   */
+  anfragen: {
+    url: 'https://www.linkedin.com/mynetwork/invitation-manager/received/',
+    muster: 'invitation-manager/received',
+    status: 'eingegangen',
+    darfLeerSein: true,
+    maxZeilen: 24,
+    karte: anfrageKarteZuEintrag,
+    gesamt: anfragenGesamtAus,
+    vollstaendig: anfragenVollstaendig,
   },
 }
 
@@ -271,7 +294,7 @@ const SCROLL_EXPR = `(() => {
   return document.querySelectorAll('a[href*="/in/"]').length;
 })()`
 
-const ERNTE_EXPR = `(() => {
+export const ernteExpr = (maxZeilen = 10) => `(() => {
   if (document.querySelector('input[type=password]') || location.href.includes('/uas/login')) {
     return { loginWall: true };
   }
@@ -299,7 +322,7 @@ const ERNTE_EXPR = `(() => {
     karten.push({
       href,
       nameAusBild: best.querySelector('img')?.getAttribute('alt') || a.querySelector('img')?.getAttribute('alt') || '',
-      zeilen: (best.innerText || '').split('\\n').map((s) => s.trim()).filter(Boolean).slice(0, 10),
+      zeilen: (best.innerText || '').split('\\n').map((s) => s.trim()).filter(Boolean).slice(0, ${maxZeilen}),
     });
   }
   return {
@@ -429,12 +452,32 @@ export async function leseListe(
       /* noch nicht so weit */
     }
   }
+  /**
+   * Eine leere Eingangsliste hat keinen einzigen Profil-Link — dann entscheidet
+   * die Kopfzeile („Alle (0)" oder „Keine ausstehenden Einladungen"). Ohne
+   * diesen Zweig wäre „niemand hat angefragt" ein Ladefehler.
+   */
+  if (!bereit && seite.darfLeerSein) {
+    try {
+      const kopf = await s.auswerten(`(() => (document.body.innerText || '').slice(0, 3000))()`, 8000)
+      if (seite.gesamt(kopf) === 0) {
+        s.schliessen()
+        return { seite: seitenName, status: seite.status, eintraege: [], gesamt: 0, runden: 0, vollstaendig: true, abbruchGrund: 'liste-zuende', karten: 0 }
+      }
+    } catch {
+      /* fällt in den Fehler darunter */
+    }
+  }
   if (!bereit) throw new Error(`Liste ${seitenName} kam nach dem Laden nicht hoch`)
   await s.befehl('Page.bringToFront').catch(() => {})
   // Nach der Navigation erneut: der Renderer ist ein anderer als vorher.
   await sichtbarMachen(s, log)
 
   const nachKey = new Map()
+  /** Karten, die gezählt, aber nicht abgelegt werden (Einladungen, einer Seite zu folgen). */
+  const uebrige = new Set()
+  const zuEintrag = seite.karte ?? karteZuEintrag
+  const ernte = ernteExpr(seite.maxZeilen ?? 10)
   let gesamt = null
   let ohneZuwachs = 0
   let runden = 0
@@ -448,7 +491,7 @@ export async function leseListe(
       // Erst scrollen, dann warten, dann ernten — siehe SCROLL_EXPR.
       await s.auswerten(SCROLL_EXPR, 15_000)
       await new Promise((r) => setTimeout(r, RUNDEN_PAUSE_MS))
-      roh = await s.auswerten(ERNTE_EXPR, 30_000)
+      roh = await s.auswerten(ernte, 30_000)
     } catch (e) {
       // Kontext weg (SPA-Rerender) — Sitzung erneuern und weitermachen.
       log(`[netzwerk] Runde ${runden}: ${e.message} — Sitzung erneuern`)
@@ -460,18 +503,22 @@ export async function leseListe(
     }
     if (roh?.loginWall) return { loginWall: true, seite: seitenName }
 
-    if (gesamt === null) gesamt = gesamtzahlAus(roh?.kopfText ?? '')
+    if (gesamt === null) gesamt = (seite.gesamt ?? gesamtzahlAus)(roh?.kopfText ?? '')
 
-    const vorher = nachKey.size
+    const vorher = nachKey.size + uebrige.size
     let neueDieseRunde = 0
     for (const karte of roh?.karten ?? []) {
-      const eintrag = karteZuEintrag(karte, jetzt)
+      const eintrag = zuEintrag(karte, jetzt)
       if (!eintrag) continue
+      if (eintrag.folgen) {
+        uebrige.add(eintrag.profilKey)
+        continue
+      }
       if (bekannt && !bekannt.has(eintrag.profilKey) && !nachKey.has(eintrag.profilKey)) neueDieseRunde++
       nachKey.set(eintrag.profilKey, eintrag)
     }
 
-    if (nachKey.size === vorher) ohneZuwachs++
+    if (nachKey.size + uebrige.size === vorher) ohneZuwachs++
     else ohneZuwachs = 0
 
     if (bekannt) {
@@ -486,7 +533,7 @@ export async function leseListe(
       /* Eine Anzeige darf einen Lauf nie zu Fall bringen. */
     }
 
-    if (gesamt && nachKey.size >= gesamt) {
+    if (gesamt !== null && (gesamt > 0 || seite.darfLeerSein) && nachKey.size + uebrige.size >= gesamt) {
       abbruchGrund = 'liste-zuende'
       break
     }
@@ -523,8 +570,12 @@ export async function leseListe(
      * Liste ja bewusst nicht zu Ende gelesen. Genau das ist gewollt: Er ergänzt
      * und aktualisiert, er nimmt niemandem seinen Status.
      */
-    vollstaendig: istVollstaendig(eintraege.length, gesamt),
+    vollstaendig: seite.vollstaendig
+      ? seite.vollstaendig(eintraege.length + uebrige.size, gesamt)
+      : istVollstaendig(eintraege.length, gesamt),
     abbruchGrund,
+    /** Alle Karten, auch die nicht abgelegten — Gegenprobe zu `gesamt`. */
+    karten: eintraege.length + uebrige.size,
   }
 }
 
@@ -560,7 +611,7 @@ export async function mitNetzwerkLock(fn) {
 // `pathToFileURL`, nicht `file://${argv[1]}` — der Repo-Pfad enthält ein
 // Leerzeichen („Kevin OS"), und nur die URL-Form kodiert es gleich.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const nurListe = process.argv.find((a) => a === 'einladungen' || a === 'kontakte')
+  const nurListe = process.argv.find((a) => a === 'einladungen' || a === 'kontakte' || a === 'anfragen')
   const log = (...a) => console.log(...a)
   const zeigen = (r) => {
     console.log(
@@ -569,7 +620,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
         ` · ${r.runden} Runden · vollständig: ${r.vollstaendig ? 'JA' : 'NEIN'}`,
     )
     for (const e of r.eintraege.slice(0, 5)) {
-      console.log(`  ${e.name.padEnd(28)} ${(e.headline || '—').slice(0, 44).padEnd(46)} ${e.eingeladenAt ?? e.angenommenAt ?? ''}`)
+      console.log(`  ${e.name.padEnd(28)} ${(e.headline || '—').slice(0, 44).padEnd(46)} ${e.eingeladenAt ?? e.angenommenAt ?? ''}${e.notiz ? ` · Notiz: ${e.notiz.slice(0, 60)}` : ''}`)
     }
   }
   if (nurListe) {

@@ -201,6 +201,60 @@ Angebot/Preis, in die Bedarfsanalyse gehen statt auszuweichen.
 kurz, bei Bedarf auf Englisch; für guten Content bedanken, gute Geschäfte
 wünschen, kein Pitch.
 
+**Eingehende Anfrage aus der Zielgruppe** (06.10.2026, Kevin: *„wenn einer
+meiner Zielgruppe mich anfragt"*): Ein Makler, Inhaber oder Geschäftsführer
+einer Maklerfirma hat Kevin VON SICH AUS eine Vernetzungsanfrage geschickt.
+Kevin nimmt an und schickt diesen Text direkt danach. Der Frame ist umgekehrt
+zur Erstnachricht: Er kam zu Kevin, also wird nichts verkauft.
+
+- **Aufbau, drei bis vier kurze Sätze:** Anrede, kurzer Dank für die Anfrage
+  (hier IMMER, sie ist frisch und kam von ihm), Bezug, genau EINE echte Frage.
+- **Hat er eine Notiz geschrieben, ist sie der Bezug.** Auf ihren Inhalt
+  eingehen, nicht nur „danke für deine Nachricht". Stellt die Notiz eine Frage,
+  wird sie beantwortet, kurz und konkret.
+- **Ohne Notiz ist seine Website der Bezug**, recherchiert wie bei der
+  Erstnachricht, aber als Beobachtung mit Interesse, nicht als Befund: was
+  auffällt, was die Firma ausmacht (Region, Spezialisierung, ein Werkzeug).
+  Keine Kritik, kein Mangel, keine Analyse. Ohne gesicherte Website gibt es
+  keinen Website-Bezug, dann trägt die Frage allein.
+- **Die Frage zielt auf seinen Anlass:** warum er sich gemeldet hat oder woran
+  er gerade arbeitet. Echte Neugier, konkret auf ihn. Richtung (nie
+  wortgleich übernehmen): „Was hat dich zu mir geführt?", „Woran arbeitet ihr
+  gerade?", „Seid ihr gerade dabei, bei der Eigentümer-Seite etwas zu ändern?"
+- **Verboten in diesem Typ:** Pitch, Analyse-Angebot, Loom, Terminvorschlag,
+  jeder CTA aus der Tabelle oben, „ich helfe Maklern …", Preise. Der erste Satz
+  über das Angebot kommt erst, wenn er geantwortet hat.
+- **Stil wie immer, hier besonders:** keine Gedankenstriche oder
+  Halbgeviertstriche (Komma oder Punkt stattdessen), keine Emojis, keine
+  Grußformel, Du, „Moin {Vorname}," als Normalfall. Siezt die Notiz, wird
+  gesiezt.
+- **Kein Text, sondern ausblenden,** wenn Notiz oder Profil zeigen, dass er
+  Kevin etwas verkaufen will (Coach, Software, Leads, Recruiting,
+  Finanzvertrieb) oder kein Immobilien-Vermittler ist. Ein Satz Grund für Kevin.
+
+Im Runner: `runner/linkedin/anfragen.mjs`, Ansicht „Anfragen an dich" in der
+Sales-Tagesliste.
+
+Beispiel mit Notiz („Hi Kevin, habe deine Posts zu Eigentümer-Leads gesehen"):
+
+```
+Moin Jana,
+
+danke für die Anfrage. Freut mich, dass die Posts bei dir ankommen.
+
+Was davon trifft bei euch in Kiel gerade einen Nerv?
+```
+
+Beispiel ohne Notiz (Website: Familienbüro seit 1998, Schwerpunkt Mehrfamilienhäuser):
+
+```
+Moin Thomas,
+
+danke für deine Anfrage. Hab gesehen, dass ihr bei Mehrfamilienhäusern im Ruhrgebiet seit über zwanzig Jahren unterwegs seid.
+
+Was hat dich zu mir geführt?
+```
+
 **Terminbestätigung nach Telefonat:** Kurz, verbindlich, Termin + Kanal
 wiederholen ("hab dir die Einladung an die info@ geschickt"). Persönliche
 Details aus dem Call (z. B. "Klettergarten") nur als ein lockerer Halbsatz,

@@ -57,7 +57,7 @@ const hole = (r: any, s: string) => r.etappen.find((e: any) => e.schluessel === 
 
 console.log('\n1) Die Etappen selbst')
 {
-  check('neun Etappen in fester Reihenfolge', ETAPPEN.length === 9)
+  check('zehn Etappen in fester Reihenfolge', ETAPPEN.length === 10)
   check('die Quellen laufen vor den Agenten', ETAPPEN.findIndex((e) => e.schluessel === 'postfach') < ETAPPEN.findIndex((e) => e.schluessel === 'entwuerfe'))
   // Eine wartende Antwort ist dringender als ein neuer Erstkontakt.
   check('Antworten vor Erstnachrichten', ETAPPEN.findIndex((e) => e.schluessel === 'entwuerfe') < ETAPPEN.findIndex((e) => e.schluessel === 'erstnachrichten'))
@@ -67,7 +67,10 @@ console.log('\n1) Die Etappen selbst')
   const laengste = [...ETAPPEN].sort((a, b) => b.gewicht - a.gewicht)[0]
   check('die Einladungsliste ist der breiteste Abschnitt', laengste.schluessel === 'einladungen', laengste.schluessel)
   check('der Wächter ist der schmalste', [...ETAPPEN].sort((a, b) => a.gewicht - b.gewicht)[0].schluessel === 'waechter')
-  check('vier Etappen brauchen Chrome', ETAPPEN.filter((e) => e.brauchtChrome).length === 4)
+  check('fünf Etappen brauchen Chrome', ETAPPEN.filter((e) => e.brauchtChrome).length === 5)
+  // 06.10.2026: Anfragen an Kevin nach den Kontakten (frisch angenommen) und vor den Erstnachrichten.
+  check('Anfragen an dich nach den Kontakten', ETAPPEN.findIndex((e) => e.schluessel === 'kontakte') < ETAPPEN.findIndex((e) => e.schluessel === 'anfragen'))
+  check('Anfragen an dich vor den Erstnachrichten', ETAPPEN.findIndex((e) => e.schluessel === 'anfragen') < ETAPPEN.findIndex((e) => e.schluessel === 'erstnachrichten'))
 }
 
 console.log('\n2) Der Balken')
@@ -81,11 +84,11 @@ console.log('\n2) Der Balken')
   // Feinfortschritt: die Einladungsliste ist zur Hälfte durch.
   r = setzeEtappe(r, 'verlauf', { status: 'fertig' })
   r = setzeEtappe(r, 'einladungen', { status: 'laeuft', anteil: 0.5 })
-  check('eine halb gelaufene Etappe zählt halb', prozent(r) === 11 + 12 + 11, String(prozent(r)))
+  check('eine halb gelaufene Etappe zählt halb', prozent(r) === 11 + 12 + 10, String(prozent(r)))
 
   // Ohne Chrome: die vier Chrome-Etappen sind übersprungen, der Rest läuft.
   let ohne = neueRunde({ jetzt: T0 })
-  for (const s of ['postfach', 'verlauf', 'einladungen', 'kontakte']) ohne = setzeEtappe(ohne, s, { status: 'uebersprungen' })
+  for (const s of ['postfach', 'verlauf', 'einladungen', 'kontakte', 'anfragen']) ohne = setzeEtappe(ohne, s, { status: 'uebersprungen' })
   for (const s of ['leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten'])
     ohne = setzeEtappe(ohne, s, { status: 'fertig' })
   check('ein Lauf ohne Chrome erreicht trotzdem 100 %', prozent(ohne) === 100, String(prozent(ohne)))
@@ -129,7 +132,7 @@ console.log('\n3) Ein Fehler kippt nicht die Runde')
    * Balken darf voll sein, die Zeile darüber nicht lügen.
    */
   let ohneChrome = neueRunde({ jetzt: T0 })
-  for (const s of ['postfach', 'verlauf', 'einladungen', 'kontakte'])
+  for (const s of ['postfach', 'verlauf', 'einladungen', 'kontakte', 'anfragen'])
     ohneChrome = setzeEtappe(ohneChrome, s, { status: 'uebersprungen', text: 'Sync-Chrome läuft nicht' })
   for (const s of ['leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten'])
     ohneChrome = setzeEtappe(ohneChrome, s, { status: 'fertig' })
@@ -155,7 +158,7 @@ console.log('\n3) Ein Fehler kippt nicht die Runde')
 
   // Gemischt (ein echter Fehler dabei) bleibt beim allgemeinen Wort.
   const gemischt = schliesseRunde(setzeEtappe(ohneChrome, 'leads', { status: 'fehler' }), { jetzt: T0 })
-  check('Fehler und Übersprungene zusammen heißen „mit Lücke"', kopfText(gemischt) === 'Fertig — 5 Etappen mit Lücke', kopfText(gemischt))
+  check('Fehler und Übersprungene zusammen heißen „mit Lücke"', kopfText(gemischt) === 'Fertig — 6 Etappen mit Lücke', kopfText(gemischt))
 
   /*
    * Eine einzelne Lücke wird nicht in den Plural gedrückt. Geprüft an einer
@@ -324,7 +327,7 @@ console.log('\n7) Der kurze Lauf — nur das Neue holen')
   check('zwei Runden ohne Neues beenden den Lauf', /const RUNDEN_OHNE_NEUE = 2/.test(netz) && /ohneNeue >= RUNDEN_OHNE_NEUE/.test(netz))
   // Die Regel, an der alles hängt: Ein kurzer Lauf darf niemandem den Status
   // nehmen. `vollstaendig` bleibt die einzige Erlaubnis dafür (netzwerkUpsert).
-  check('der kurze Lauf beansprucht keine Vollständigkeit', /vollstaendig: istVollstaendig\(eintraege\.length, gesamt\)/.test(netz))
+  check('der kurze Lauf beansprucht keine Vollständigkeit', /: istVollstaendig\(eintraege\.length, gesamt\)/.test(netz) && !/bekannt[^\n]*vollstaendig = true/.test(netz))
   check('der Abbruchgrund wird zurückgegeben', /abbruchGrund,/.test(netz))
   check('„nichts Neues" ist kein Abbruch-Fehler', /abbruchGrund === 'nichts-neues' \? '' :/.test(kern))
 
