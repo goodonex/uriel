@@ -11,6 +11,35 @@
 > Baum. Wer hier etwas als „offen" liest, prüft es bitte zuerst gegen den
 > laufenden Stand — genau diese Drift hat zwei Sessions blockiert.
 
+## **FERTIG 06.10.2026 — „Anfragen an dich": wer Kevin selbst anfragt, bekommt einen vorbereiteten Text** (Branch `feat/eingehende-anfragen`, Migration 0098, **nicht live**)
+
+Kevin: *„Ich will noch einen Reiter für wenn einer meiner Zielgruppe mich
+anfragt. Wir haben dafür noch nichts, was einen Text vorbereitet."* Bis hierher
+las der Runner nur gesendete Einladungen und Kontakte; wer Kevin anfragte,
+tauchte erst nach der Annahme auf und bekam dann die kalte Erstnachricht.
+
+| Baustein | Wo |
+|---|---|
+| Eingangsliste lesen (`/mynetwork/invitation-manager/received/`), rein lesend, unter dem Netzwerk-Lock; Einladungen, einer Firmenseite zu folgen, werden gezählt, aber nicht abgelegt; leere Liste ist kein Ladefehler | `netzwerk.mjs` (`SEITEN.anfragen`), `netzwerkParse.mjs` (`anfrageKarteZuEintrag`, `anfragenGesamtAus`) |
+| Tabelle `linkedin_anfragen` (Notiz, Zielgruppe, Text, Kevins Haken) und `linkedin_netzwerk.richtung` per Trigger | Migration 0098 |
+| Zielgruppe aus `icpRegeln.json`, Website-Recherche wie bei den Erstnachrichten (`rechercheLeads`), ein Schreib-Lauf mit Kevins Stimme, danach Wachen im Code (keine Striche, keine Emojis, keine Grußformel) | `runner/linkedin/anfragen.mjs`, neuer Typ in `regeln/stimme/herrmann-outreach.md` |
+| Neue Etappe „Anfragen an dich" nach den Kontakten (auch in den Tages-Runden) | `runde.mjs`, `index.mjs` (`tueAnfragen`) |
+| Keine zweite, kalte Erstnachricht: `richtung = 'eingehend'` fliegt aus `angenommenOhneErstnachricht` | `funnelStufen.ts`, `scripts/erstnachrichten-input.ts` |
+| Zeile „Anfragen an dich" ganz oben in der Sales-Tagesliste, Liste mit Notiz, Text, Kopieren, „Angenommen & gesendet", „Verwerfen", Rückgängig; Nicht-Zielgruppe eingeklappt mit Grund; Ladefehler heißt „nicht geladen", nie „0 von 0 ✓" | `SalesDashboard.tsx`, `components/sales/AnfragenAnDich.tsx`, `lib/anfragenAnDich.ts`, `hooks/useEingehendeAnfragen.ts`; ohne Login: `/dev/anfragen-vorschau` |
+
+Am 06.10. an Kevins echter Eingangsseite gemessen: drei Karten, davon nur eine
+Vernetzungsanfrage, zwei Einladungen zu Firmenseiten; **kein Datum** je Karte.
+Als Eingangsdatum gilt deshalb der erste Tag, an dem der Runner sie sieht.
+Drift-Wache: `scripts/verify-anfragen-an-dich.ts` (78 Prüfungen),
+`verify-runde.ts` auf zehn Etappen nachgezogen.
+
+**Offen:** Wer angenommen wird, bevor ein Lauf die Anfrage einmal gesehen hat,
+ist für Uriel nicht als eingehend erkennbar und landet im Erstnachrichten-Vorrat.
+Eine Notiz mit Inhalt lag am 06.10. auf der echten Seite nicht vor; der Leser
+nimmt alles nach der Headline als Notiz, geprüft nur an nachgebauten Karten.
+
+---
+
 ## **FERTIG 22.09.2026 (abends) — Google-Anzeigen, Lead-Profil mit Klasse A/B/C, Runde von 20** (Branch `feat/lead-profil-ads`, Migration 0092)
 
 Anlass: Amoreal schaltet seit Mai Google-Anzeigen — geprüft wurde bis dahin nur

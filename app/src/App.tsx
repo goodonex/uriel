@@ -47,6 +47,7 @@ import { AuftraegeVorschau } from './dev/AuftraegeVorschau'
 import { AngebotVorschau } from './dev/AngebotVorschau'
 import { CoachVorschau } from './dev/CoachVorschau'
 import { AmbientVorschau } from './dev/AmbientVorschau'
+import { AnfragenVorschau } from './dev/AnfragenVorschau'
 
 
 /** CRM → Sales (Juli 2026): alte /crm-Links/Bookmarks/Deep-Links auf /sales umleiten. */
@@ -256,6 +257,7 @@ function App() {
             {import.meta.env.DEV ? <Route path="/dev/identitaet-vorschau" element={<IdentitaetVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/posteingang-vorschau" element={<PosteingangVorschau />} /> : null}
             {import.meta.env.DEV ? <Route path="/dev/ambient-vorschau" element={<AmbientVorschau />} /> : null}
+            {import.meta.env.DEV ? <Route path="/dev/anfragen-vorschau" element={<AnfragenVorschau />} /> : null}
             <Route element={<OwnerWorkspaceShell />}>
               {/* Neue Cockpit-Shell (REBUILD-PLAN §5) */}
               <Route element={<CockpitShell />}>

@@ -16,6 +16,9 @@ import { PhasenRing } from '../components/sales/PhasenRing'
 import { KartenNamen } from '../components/sales/KartenNamen'
 import { TagesListe } from '../components/sales/TagesListe'
 import { PruefListe } from '../components/sales/PruefListe'
+import { AnfragenAnDich } from '../components/sales/AnfragenAnDich'
+import { anfragenZeilenText, teileAnfragen } from '../lib/anfragenAnDich'
+import { useEingehendeAnfragen } from '../../hooks/useEingehendeAnfragen'
 import { profilNachName, teileErstnachrichten } from '../lib/erstnachrichtenOffen'
 import { brauchtPruefung, heuteGeprueft } from '../lib/erstnachrichtenPruefung'
 import { PipelineBoard } from '../components/sales/PipelineBoard'
@@ -411,6 +414,8 @@ export function SalesDashboard() {
   // liest exakt dieselbe Rangfolge.
   const posten = usePosten(slug)
   const { geordnet, quellen, liegend, jetzt, tasks, linkedinThreads, erstnachrichten, netzwerk } = posten
+  /** Anfragen an dich (06.10.2026, Migration 0098) — eigene Quelle, eigene Zeile über dem Ritual. */
+  const anfragen = useEingehendeAnfragen(slug)
   /**
    * Laden noch Quellen? Dann ist `geordnet` nur ein Zwischenstand (O18).
    * Wichtig fuer `?modus=arbeit` unten — sonst startet der Arbeitsmodus mit den
@@ -1635,11 +1640,66 @@ export function SalesDashboard() {
       />
     ),
   }
-  // Zwei „dran"-Zeilen gleichzeitig wären Rauschen: solange etwas zu prüfen ist, ist Prüfen dran.
-  const flowMitPruefenRoh: FlowZeileDef[] = [
-    pruefZeile,
-    ...flowZeilen.map((z) => (pruefZeile.zustand === 'aktiv' && z.zustand === 'aktiv' ? { ...z, zustand: 'offen' as const } : z)),
-  ]
+  /**
+   * „Anfragen an dich" (06.10.2026, Kevins Diktat): wer aus der Zielgruppe ihn
+   * von sich aus angefragt hat, mit fertigem Text. Ganz oben, weil das die
+   * wärmsten Kontakte des Tages sind — sie haben sich selbst gemeldet. Wie
+   * „Prüfen" bewusst keine Stufe in `TAGES_FLOW`: kein Feld in
+   * `daily_metrics`, keine Portion, eine Liste, die sich leert.
+   *
+   * Die Kennzahl kommt aus `anfragenZeilenText`: Ein Ladefehler heißt dort
+   * „nicht geladen", nie „0 von 0" mit Haken.
+   */
+  const anfragenAufteilung = useMemo(
+    () =>
+      anfragen.loading || anfragen.error || anfragen.tableMissing
+        ? null
+        : teileAnfragen(anfragen.items, { threads: linkedinThreads.items, netzwerk: netzwerk.items, jetzt }),
+    [anfragen.loading, anfragen.error, anfragen.tableMissing, anfragen.items, linkedinThreads.items, netzwerk.items, jetzt],
+  )
+  const anfragenText = anfragenZeilenText({
+    laedt: anfragen.loading,
+    tabelleFehlt: anfragen.tableMissing,
+    fehler: anfragen.error,
+    aufteilung: anfragenAufteilung,
+  })
+  const anfragenZeile: FlowZeileDef = {
+    id: 'anfragen-an-dich',
+    titel: 'Anfragen an dich',
+    zustand: anfragenText.zustand,
+    kennzahl: anfragenText.kennzahl,
+    kennzahlFarbe: anfragenText.warnung ? 'var(--ck-warn)' : undefined,
+    unterzeile: anfragenText.unterzeile,
+    inhalt: () =>
+      anfragenAufteilung ? (
+        <AnfragenAnDich aufteilung={anfragenAufteilung} onStatus={(id, s) => void anfragen.setzeStatus(id, s)} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ margin: 0, color: 'var(--ck-text-2)', lineHeight: 1.55 }}>
+            {anfragen.tableMissing
+              ? 'Die Tabelle für eingehende Anfragen fehlt noch in der Datenbank (Migration 0098).'
+              : anfragen.error
+                ? `Die Anfragen konnten nicht geladen werden: ${anfragen.error}`
+                : 'Wird geladen …'}
+          </p>
+          {anfragen.error ? (
+            <button type="button" className="ck-btn" style={{ alignSelf: 'flex-start', minHeight: 40 }} onClick={() => void anfragen.reload()}>
+              Nochmal laden
+            </button>
+          ) : null}
+        </div>
+      ),
+  }
+  // Zwei „dran"-Zeilen gleichzeitig wären Rauschen: Die erste offene oben ist dran, alles darunter wartet.
+  const flowMitPruefenRoh: FlowZeileDef[] = (() => {
+    let schonAktiv = false
+    return [anfragenZeile, pruefZeile, ...flowZeilen].map((z) => {
+      if (z.zustand !== 'aktiv') return z
+      if (schonAktiv) return { ...z, zustand: 'offen' as const }
+      schonAktiv = true
+      return z
+    })
+  })()
   /**
    * Nicht geladen: Die Unterzeilen der Live-Stufen behaupten sonst „Alles
    * geprüft" o. ä. aus einer leeren Liste (06.10.2026). Die Anfragen hängen am
@@ -1647,7 +1707,9 @@ export function SalesDashboard() {
    */
   const flowMitPruefen: FlowZeileDef[] = datenFehlen
     ? flowMitPruefenRoh.map((z) =>
-        z.id === 'vernetzungsanfragen' ? z : { ...z, unterzeile: 'Nicht geladen — Zahl unbekannt.' },
+        z.id === 'vernetzungsanfragen' || z.id === 'anfragen-an-dich'
+          ? z
+          : { ...z, unterzeile: 'Nicht geladen — Zahl unbekannt.' },
       )
     : flowMitPruefenRoh
 

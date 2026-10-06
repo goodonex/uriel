@@ -39,6 +39,12 @@ export interface NetzwerkEintrag {
   zuletzt_gesehen_at: string
   /** 0076: Verweis auf den Lead. */
   lead_id?: string | null
+  /**
+   * 0098: `eingehend` = die Person hat Kevin angefragt, nicht umgekehrt. Sie
+   * bekommt ihren Text in „Anfragen an dich" und nie die kalte Erstnachricht.
+   * Fehlt das Feld (Migration noch nicht da), gilt `ausgehend`.
+   */
+  richtung?: 'ausgehend' | 'eingehend' | null
 }
 
 /** Eine Person in einer Funnel-Liste — das, was die Oberfläche zeigt. */
@@ -182,6 +188,13 @@ export function angenommenOhneErstnachricht(
   const raus: FunnelPerson[] = []
   for (const e of netzwerk) {
     if (e.status !== 'angenommen') continue
+    /**
+     * Wer Kevin angefragt hat, wartet nicht auf eine Erstnachricht (06.10.2026).
+     * Er hat seinen eigenen Text in „Anfragen an dich" — sonst bekäme er nach
+     * Kevins Annahme zusätzlich den kalten Einstieg, als hätte Kevin ihn
+     * angeschrieben, und stünde an zwei Stellen in der Tagesliste.
+     */
+    if (e.richtung === 'eingehend') continue
     // Ein Thread über die URL ist ein sicherer Ausschluss: hier wurde geredet.
     if (threadKeys.has(e.profil_key)) continue
 

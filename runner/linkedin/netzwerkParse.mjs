@@ -148,6 +148,107 @@ export function karteZuEintrag({ zeilen, href, nameAusBild }, jetzt = new Date()
 }
 
 /**
+ * Eine Karte der EINGEGANGENEN Einladungen (06.10.2026).
+ *
+ * Am 06.10. an Kevins echter Seite gemessen, drei Karten, zwei Sorten:
+ *
+ *   „Deniz Bilgic möchte Kontakt mit Ihnen aufnehmen" · Headline ·
+ *   „Özgür O. und 71 weitere gemeinsame Kontakte" · Ignorieren · Annehmen
+ *
+ *   „Giovanni Barone" · „hat Sie eingeladen, Lebensraum Schweiz AG zu folgen"
+ *
+ * Die zweite Sorte ist keine Vernetzungsanfrage, sondern eine Einladung, einer
+ * Firmenseite zu folgen — sie verlinkt trotzdem ein Profil (`/in/…`). Ohne
+ * Filter stünde Giovanni Barone mit „Lebensraum Schweiz AG" als Headline in
+ * Kevins Anfragen-Liste. Sie kommt als `{ folgen: true }` zurück: Der Leser
+ * zählt sie für die Vollständigkeit mit („Alle (3)" zählt sie auch), legt sie
+ * aber nicht ab.
+ *
+ * **Kein Datum.** Die Eingangsliste zeigt keins; steht doch eine Zeitzeile da
+ * („Vor 2 Tagen"), wird sie gelesen, sonst bleibt `eingegangenAt` null und die
+ * Datenbank nimmt den ersten Sichttag.
+ *
+ * **Die Notiz** ist alles, was nach Name, Headline und der Zeile mit den
+ * gemeinsamen Kontakten übrig bleibt. Gekürzte Notizen stehen per CSS
+ * abgeschnitten, aber vollständig im DOM — geklickt wird nie, auch nicht auf
+ * „mehr".
+ */
+const ANFRAGE_SATZ = /\s*möchte (?:mit Ihnen in )?Kontakt(?: mit Ihnen)? (?:aufnehmen|treten)\.?\s*$/i
+const FOLGEN_SATZ = /hat Sie eingeladen,.*(folgen|abonnieren)|eingeladen.*zu folgen|invited you to follow/i
+const GEMEINSAME = /gemeinsame[rn]? Kontakt|gemeinsamer Kontakt|mutual connection/i
+const KNOPF = /^(ignorieren|annehmen|antworten|mehr anzeigen|weniger anzeigen|…\s*mehr|mehr|nachricht senden|alle anzeigen)$/i
+const ZEIT_EINGANG = /^(vor\s+\d+|heute|gestern|\d+\s*(min|std|tag|wo|mon))/i
+/**
+ * Rauschen der Eingangsseite — bewusst enger als `RAUSCHEN`: Dort fliegt jede
+ * Zeile raus, die mit „mehr", „folgen" oder „Nachricht" ANFÄNGT. Bei einer
+ * Notiz („Mehr Eigentümer wären schön …") wäre das der halbe Text.
+ */
+const RAUSCHEN_ANFRAGE = /^(einladungen verwalten|eingegangen|gesendet|alle \(\d|gemeinsame kontakte \(\d|personen \(\d|sortieren nach|mit filtern suchen)/i
+
+export function anfrageKarteZuEintrag({ zeilen, href, nameAusBild }, jetzt = new Date()) {
+  const profilKey = profilKeyAus(href)
+  if (!profilKey) return null
+  const roh = (zeilen ?? []).map((z) => String(z).trim()).filter(Boolean)
+  // Nur echte Einladungen tragen „Annehmen". Ohne diese Bedingung würde jeder
+  // andere Profil-Link der Seite (Vorschläge „Personen, die Sie kennen
+  // könnten", Kevins eigenes Profil) zur Anfrage.
+  if (!roh.some((z) => /^(annehmen|accept)$/i.test(z))) return null
+  if (roh.some((z) => FOLGEN_SATZ.test(z))) return { folgen: true, profilKey }
+
+  const echte = roh.filter((z) => !RAUSCHEN_ANFRAGE.test(z) && !KNOPF.test(z) && !/^--$/.test(z))
+  const zeitZeile = echte.find((z) => ZEIT_EINGANG.test(z)) ?? ''
+  const gemeinsame = echte.find((z) => GEMEINSAME.test(z)) ?? ''
+  const inhalt = echte.filter((z) => z !== zeitZeile && z !== gemeinsame)
+
+  const ersteZeile = inhalt[0] ?? ''
+  const roherName = ANFRAGE_SATZ.test(ersteZeile)
+    ? ersteZeile.replace(ANFRAGE_SATZ, '')
+    : ersteZeile || nameAusProfilbild(nameAusBild, profilKey)
+  const name = String(roherName ?? '').replace(/\s*Aktueller Entitätsverlauf\s*$/i, '').trim()
+  if (!name) return null
+  // Steht der Satz „möchte Kontakt aufnehmen" als eigene Zeile, ist er Rauschen.
+  const rest = inhalt.slice(1).filter((z) => !ANFRAGE_SATZ.test(` ${z}`) && !/^möchte\b/i.test(z))
+  const headline = rest[0] ?? ''
+  const notiz = rest
+    .slice(1)
+    .join('\n')
+    .replace(/\s*(?:…|\.\.\.)\s*mehr(?: anzeigen)?$/i, '')
+    .trim()
+  const eingegangen = zeitZeile ? gesendetDatum(zeitZeile, jetzt) : null
+
+  return {
+    profilKey,
+    name,
+    headline,
+    notiz,
+    gemeinsame,
+    profileUrl: `https://www.linkedin.com/in/${profilKey}/`,
+    eingegangenAt: eingegangen ? eingegangen.toISOString() : null,
+  }
+}
+
+/**
+ * Die Gesamtzahl der Eingangsliste: „Alle (3)". Eigene Funktion statt eines
+ * dritten Zweigs in `gesamtzahlAus` — dort würde das Muster auch auf der
+ * Gesendet-Seite greifen, falls LinkedIn die Filterleiste dorthin übernimmt,
+ * und die Vollständigkeit der InMail-Liste hängt an genau dieser Zahl.
+ * „0" ist eine gültige Antwort (niemand hat angefragt), `null` heißt: nicht gelesen.
+ */
+export function anfragenGesamtAus(text) {
+  const s = String(text ?? '')
+  const m = s.match(/Alle\s*\(([\d.]+)\)/i)
+  if (m) return Number(m[1].replace(/\./g, ''))
+  if (/keine (ausstehenden |offenen )?einladungen|no pending invitations/i.test(s)) return 0
+  return null
+}
+
+/** Vollständig bei der Eingangsliste: auch null von null ist vollständig — gezählt werden alle Karten, Folge-Einladungen inklusive. */
+export function anfragenVollstaendig(karten, gesamt) {
+  if (gesamt === 0) return karten === 0
+  return istVollstaendig(karten, gesamt)
+}
+
+/**
  * Die Gesamtzahl, die die Seite selbst nennt („Personen (882)", „642 Kontakte").
  *
  * Sie ist das Abbruchkriterium des Blätterns UND die Gegenprobe: erntet der

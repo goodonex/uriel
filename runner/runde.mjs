@@ -44,8 +44,17 @@
 export const ETAPPEN = [
   { schluessel: 'postfach', titel: 'Postfach', wieLange: 'knapp eine Minute', gewicht: 11, brauchtChrome: true },
   { schluessel: 'verlauf', titel: 'Gesprächsverläufe', wieLange: 'zwei bis drei Minuten', gewicht: 12, brauchtChrome: true },
-  { schluessel: 'einladungen', titel: 'Offene Einladungen', wieLange: 'meist Sekunden', gewicht: 22, brauchtChrome: true },
-  { schluessel: 'kontakte', titel: 'Angenommene Kontakte', wieLange: 'meist Sekunden', gewicht: 16, brauchtChrome: true },
+  { schluessel: 'einladungen', titel: 'Offene Einladungen', wieLange: 'meist Sekunden', gewicht: 20, brauchtChrome: true },
+  { schluessel: 'kontakte', titel: 'Angenommene Kontakte', wieLange: 'meist Sekunden', gewicht: 14, brauchtChrome: true },
+  /**
+   * Anfragen an Kevin (06.10.2026, Migration 0098): die Eingangsliste lesen
+   * und für die Zielgruppe einen Text vorbereiten. Direkt nach den Kontakten,
+   * damit „schon angenommen" frisch ist; vor den Erstnachrichten, damit wer
+   * Kevin angefragt hat, nie in deren Vorrat rutscht (`richtung` im Netzwerk).
+   * Die vier Gewichtspunkte kommen aus den beiden Listen davor — gelesen wird
+   * hier eine Handvoll Karten, die Zeit geht in die seltenen Texte.
+   */
+  { schluessel: 'anfragen', titel: 'Anfragen an dich', wieLange: 'Sekunden, mit neuen Texten ein bis drei Minuten', gewicht: 4, brauchtChrome: true },
   { schluessel: 'leads', titel: 'Leads verbuchen', wieLange: 'unter einer Minute', gewicht: 4, brauchtChrome: false },
   { schluessel: 'waechter', titel: 'Widersprüche prüfen', wieLange: 'Sekunden', gewicht: 2, brauchtChrome: false },
   { schluessel: 'sortierer', titel: 'Neue Kontakte vorsortieren', wieLange: 'zwei bis vier Minuten', gewicht: 10, brauchtChrome: false },
@@ -81,6 +90,7 @@ export const ETAPPEN_LIMIT_MIN = {
   verlauf: 15,
   einladungen: 30,
   kontakte: 30,
+  anfragen: 20,
   leads: 10,
   waechter: 5,
   sortierer: 20,

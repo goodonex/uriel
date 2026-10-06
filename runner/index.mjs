@@ -41,6 +41,7 @@ import { laufGrund } from './laufGrund.mjs'
 import { leseListe, mitNetzwerkLock } from './linkedin/netzwerk.mjs'
 import { baueMorgenbriefInput } from './morgenbriefInput.mjs'
 import { upsertNetzwerk } from './linkedin/netzwerkUpsert.mjs'
+import { bereiteAnfragenVor, upsertAnfragen } from './linkedin/anfragen.mjs'
 import { installiereLogHygiene, kuerzeLogDatei } from './logHygiene.mjs'
 import { OUTPUT_DIR as RECHNUNG_OUT, erstelleRechnung, ladePakete, listeRechnungen, rechnungBereit } from './rechnung.mjs'
 import { WACH_KARENZ_MS, bewerteWachheit, chromeErreichbar, netzErreichbar, startBereitAus } from './startBereit.mjs'
@@ -3489,7 +3490,7 @@ const RUNDE_TAG_STUNDEN = String(process.env.RUNDE_TAG_STUNDEN ?? '8,11,14,17,20
  * Der Preis-Einwand oben galt dem Tagesbudget von 50 je Lauf; seit die Etappe
  * nur noch schreibt, wer wirklich wartet, kostet ein leerer Vorrat nichts.
  */
-const RUNDE_TAG_ETAPPEN = ['postfach', 'verlauf', 'einladungen', 'kontakte', 'leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten']
+const RUNDE_TAG_ETAPPEN = ['postfach', 'verlauf', 'einladungen', 'kontakte', 'anfragen', 'leads', 'waechter', 'sortierer', 'entwuerfe', 'erstnachrichten']
 /** Überlebt den Runner-Neustart — sonst liefe nach jedem Neustart derselbe Slot erneut. */
 const RUNDE_SLOT_MARKE = 'letzte-zeitplan-runde'
 
@@ -4878,6 +4879,78 @@ async function tueNetzwerkListe(welche, { melde = () => {}, kurz = false } = {})
 }
 
 /**
+ * Anfragen an Kevin (06.10.2026, Migration 0098): die Eingangsliste lesen und
+ * für die Zielgruppe einen Text vorbereiten.
+ *
+ * Gelesen wird unter demselben Lock wie die beiden anderen Netzwerk-Listen
+ * (gleiches Chrome), immer ganz — die Liste ist kurz. Geschrieben wird danach,
+ * außerhalb des Locks: Recherche und Schreib-Lauf brauchen Minuten, und die
+ * sollen keinen Netzwerk-Lauf blockieren.
+ *
+ * Scheitert das Lesen, werden trotzdem Texte für schon bekannte Anfragen
+ * geschrieben; die Etappe meldet den Lesefehler aber als Fehler — eine
+ * stille „0 neu" wäre hier die falsche Beruhigung.
+ */
+async function tueAnfragen({ melde = () => {}, signal } = {}) {
+  if (!SNAPSHOT_ENABLED) return { text: 'ohne Datenbank-Zugang übersprungen' }
+  const br = await fetch(
+    `${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann')}&select=id&limit=1`,
+    { headers: supabaseHeaders() },
+  )
+  const [brand] = br.ok ? await br.json() : []
+  if (!brand?.id) throw new Error('Marke nicht gefunden')
+  const ctx = { supabaseUrl: SUPABASE_URL, headers: supabaseHeaders(), brandId: brand.id }
+
+  melde('Eingegangene Anfragen werden gelesen')
+  let lesefehler = null
+  let stand = null
+  try {
+    const ergebnis = await mitNetzwerkLock(async () => {
+      const gelesen = await leseListe('anfragen', { log: (...a) => console.log(...a), maxRunden: 20 })
+      if (gelesen.loginWall) throw new Error('LinkedIn zeigt die Anmeldung — im Sync-Chrome einmal anmelden')
+      return { gelesen, geschrieben: await upsertAnfragen(gelesen, ctx) }
+    })
+    if (ergebnis?.blockiert) lesefehler = 'ein anderer Lauf hält gerade den Zugang'
+    else stand = ergebnis
+  } catch (e) {
+    lesefehler = String(e?.message ?? e)
+    if (/relation .*linkedin_anfragen|linkedin_anfragen.*does not exist|PGRST205/i.test(lesefehler)) {
+      throw new Error('Migration 0098 fehlt noch (supabase db push)')
+    }
+  }
+  if (stand) {
+    const g = stand.gelesen
+    console.log(
+      `[runner] anfragen: ${g.eintraege.length} Anfragen (${g.karten} Karten von ${g.gesamt ?? '?'})` +
+        ` · Zielgruppe ${stand.geschrieben.zielgruppe} · ausgeblendet ${stand.geschrieben.ausgeblendet}` +
+        ` · vollständig: ${g.vollstaendig ? 'ja' : 'nein'}`,
+    )
+  }
+
+  let v = { geschrieben: 0, ausgeblendet: 0, ohneText: 0, kosten: 0, versucht: 0 }
+  if (!signal?.aborted) {
+    v = await bereiteAnfragenVor(ctx, { rechercheLeads, cliPath: CLI_PATH, cwd: VAULT, signal, melde })
+    if (v.versucht) {
+      console.log(
+        `[runner] anfragen: ${v.geschrieben} Texte · ${v.ausgeblendet} vom Schreiber ausgeblendet` +
+          (v.ohneText ? ` · ${v.ohneText} ohne Text (nächste Runde)` : '') +
+          ` · $${v.kosten.toFixed(2)}`,
+      )
+    }
+  }
+  if (lesefehler) throw new Error(`Eingangsliste nicht gelesen: ${lesefehler}` + (v.geschrieben ? ` · ${v.geschrieben} Texte trotzdem geschrieben` : ''))
+  const n = stand?.gelesen.eintraege.length ?? 0
+  return {
+    text:
+      (n === 0 ? 'niemand hat angefragt' : `${n} ${n === 1 ? 'Anfrage' : 'Anfragen'} · ${stand.geschrieben.zielgruppe} aus der Zielgruppe`) +
+      (v.geschrieben ? ` · ${v.geschrieben} ${v.geschrieben === 1 ? 'Text' : 'Texte'} bereit` : '') +
+      (v.kosten ? ` · $${v.kosten.toFixed(2)}` : ''),
+    von: v.geschrieben,
+    bis: v.versucht || null,
+  }
+}
+
+/**
  * Welche Profil-Schlüssel dieser Liste kennt die Datenbank schon? (31.08.2026)
  *
  * Blättert über den 1000-Zeilen-Deckel von PostgREST hinweg — bei 1.090 offenen
@@ -4938,6 +5011,8 @@ const ETAPPEN_ARBEIT = {
   einladungen: async ({ melde, tief }) => tueNetzwerkListe('einladungen', { melde, kurz: !tief }),
 
   kontakte: async ({ melde, tief }) => tueNetzwerkListe('kontakte', { melde, kurz: !tief }),
+
+  anfragen: async ({ melde, signal }) => tueAnfragen({ melde, signal }),
 
   leads: async ({ melde, signal }) => {
     const r = await tueLeadsSync({ melde: (t) => melde(t), signal })
