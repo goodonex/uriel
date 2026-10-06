@@ -31,6 +31,7 @@
  * hält beide zusammen).
  */
 import { QUELLE_PRAEFIX, istVeraltet } from '../regeln/fassung.mjs'
+import { immobilienInhaberMitMaklerHerkunft } from '../regeln/zielgruppe.mjs'
 
 export const ANALYSE_CTA = 'Hast du was dagegen, wenn ich sie dir einmal rüberschicke?'
 
@@ -411,7 +412,9 @@ export async function schreibeErstnachrichten({
  *
  * - `makler`, `projektentwickler` → schreiben (Entwickler mit Käufer-Angle, siehe Skill)
  * - `hausverwaltung` → zurückstellen, bis der Pain geklärt ist
- * - `investor`, `sonstiges` → überspringen
+ * - `investor`, `sonstiges` → überspringen — außer Inhaber einer Immobilienfirma
+ *   mit Makler-Vergangenheit (06.10.2026, Bekiri Djelal): der wird geschrieben,
+ *   und der Prüfer kann ihn höchstens in Kevins Prüf-Liste legen
  * - keine Website gefunden, obwohl die Erfahrung nicht gelesen werden konnte →
  *   kein „keine Website gefunden"-Text, sondern Kevin prüft selbst
  *
@@ -423,7 +426,7 @@ export function segmentUrteil(recherche) {
   const was = String(r.taetigkeit ?? '').slice(0, 120)
   // Hausverwaltungen werden seit 25.09.2026 geschrieben (Aufbau H, Frage nach dem Engpass).
   // Aussortiert wird nur, was die Recherche benennen kann. Ohne Tätigkeit und Firma („unklar") entscheidet der Prüfer (02.10.2026, Ekaterina Blum).
-  if ((modell === 'investor' || modell === 'sonstiges') && (was || r.firma)) {
+  if ((modell === 'investor' || modell === 'sonstiges') && (was || r.firma) && !immobilienInhaberMitMaklerHerkunft(r)) {
     return { aktion: 'ueberspringen', grund: `${modell === 'investor' ? 'Investor/Bestandshalter' : 'kein Makler'}: ${was || r.firma || 'Tätigkeit unklar'}` }
   }
   if (!String(r.website ?? '').trim() && r.erreichbar !== 'offline' && !r.nur_portal && !(r.erfahrung_gelesen && r.firma)) {

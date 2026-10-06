@@ -27,6 +27,7 @@ import { protokolliere } from './linkedin/protokoll.mjs'
 import { ansatzFuer, klartextHinweis, mitKevinsHinweis, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
 import { bewerteStapel } from './linkedin/bewertungLauf.mjs'
 import { regelwerk } from './regeln/fassung.mjs'
+import { immobilienInhaberMitMaklerHerkunft } from './regeln/zielgruppe.mjs'
 import { rechercheLeads } from './linkedin/leadRecherche.mjs'
 import { speichereProfile } from './linkedin/leadProfil.mjs'
 import { dataforseoZugang } from './linkedin/googleAds.mjs'
@@ -1043,7 +1044,8 @@ async function erstnachrichtenAnListe(runId, markdown) {
       const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
       if (u.urteil === 'ok') ok.push(n)
       // Kevin 02.10.2026: „lass mich da alles prüfen, ob die eine Nachricht bekommen sollen" — der Text geht MIT dem Hinweis des Prüfers in seine Prüf-Stufe, statt zu verschwinden.
-      else if (u.urteil === 'zurueck' && u.art === 'kein_ziel') raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[übersprungen] Prüfer: ${u.hinweis}` })
+      // Inhaber einer Immobilienfirma mit Makler-Vergangenheit fällt nie ohne Kevins Blick raus (06.10.2026, Bekiri Djelal).
+      else if (u.urteil === 'zurueck' && u.art === 'kein_ziel' && !immobilienInhaberMitMaklerHerkunft(erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())?.recherche)) raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[übersprungen] Prüfer: ${u.hinweis}` })
       else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())

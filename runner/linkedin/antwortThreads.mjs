@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { istTerminWunsch } from './antwortAbsicht.mjs'
 import { threadImVorrat } from './icp.mjs'
 import { nurTeilweise } from './verlaufTiefe.mjs'
 
@@ -213,7 +214,7 @@ export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
   if (thread.last_from !== 'me') return false
   if (!Number.isInteger(thread.followup_stage) || thread.followup_stage < 0 || thread.followup_stage >= 3) return false
   if (thread.loom_status === 'verschickt') return false
-  if (thread.starred && thread.loom_status === 'offen') return false
+  if (wartetAufLoom(thread)) return false
   const tage = tageSeit(thread.last_message_at, now)
   if (tage == null || tage < NACHFASSEN_AB_TAGEN) return false
   return hatGeantwortet(thread, antwortenJeLead)
@@ -259,7 +260,7 @@ export function istNeuPruefFall(thread, now, antwortenJeLead = new Map(), sticht
   if (thread.last_from !== 'me') return false
   if (!Number.isInteger(thread.followup_stage) || thread.followup_stage < 0 || thread.followup_stage >= 3) return false
   if (thread.loom_status === 'verschickt') return false
-  if (thread.starred && thread.loom_status === 'offen') return false
+  if (wartetAufLoom(thread)) return false
   if (hatGeantwortet(thread, antwortenJeLead)) return false
   const tage = tageSeit(thread.last_message_at, now)
   if (tage == null || tage < NEU_PRUEFEN_AB_TAGEN) return false
@@ -464,7 +465,9 @@ export async function holeAntwortThreads({ supabaseUrl, headers, brandSlug = 'he
  * Filters in `antwortPosten`; diese Leute stehen in der Loom-Spur.
  */
 export function wartetAufLoom(thread) {
-  return Boolean(thread.starred) && thread.loom_status === 'offen'
+  // Ein Termin-Wunsch mit Stern wartet nicht auf ein Loom, sondern auf eine
+  // Antwort (06.10.2026, Manuel Rees). Spiegel von `sternIstLoomJa` im Cockpit.
+  return Boolean(thread.starred) && thread.loom_status === 'offen' && !istTerminWunsch(thread)
 }
 
 /**

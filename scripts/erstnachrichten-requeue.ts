@@ -14,6 +14,11 @@
  *   npx tsx scripts/erstnachrichten-requeue.ts          # nur Probelauf
  *   npx tsx scripts/erstnachrichten-requeue.ts --apply  # sichern + löschen
  *
+ * Eine andere Namensliste als die vom 02.10. geht als Pfad mit (06.10.2026,
+ * Bekiri Djelal — aussortiert als „kein Makler", siehe runner/regeln/zielgruppe.mjs):
+ *
+ *   npx tsx scripts/erstnachrichten-requeue.ts docs/lead-requeue-2026-10-06.json --apply
+ *
  * Es werden nur Zeilen mit Status `uebersprungen` angefasst. Gesendete und
  * offene bleiben immer stehen.
  */
@@ -30,7 +35,8 @@ const env = Object.fromEntries(
 const url = env.SUPABASE_URL
 const kopf = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` }
 const anwenden = process.argv.includes('--apply')
-const namen: string[] = JSON.parse(readFileSync(join(wurzel, 'docs/lead-requeue-2026-10-02.json'), 'utf8'))
+const liste = process.argv.slice(2).find((a) => a.endsWith('.json')) ?? 'docs/lead-requeue-2026-10-02.json'
+const namen: string[] = JSON.parse(readFileSync(join(wurzel, liste), 'utf8'))
 const norm = (s: string) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 const gesucht = new Set(namen.map(norm))
 
