@@ -19,6 +19,8 @@ import { landFuerDomain } from '../runner/linkedin/googleAds.mjs'
 import { seoAuswerten } from '../runner/linkedin/seo.mjs'
 // @ts-expect-error — .mjs ohne Typen
 import { istVeraltet, regelwerk, QUELLE_PRAEFIX } from '../runner/regeln/fassung.mjs'
+// @ts-expect-error — .mjs ohne Typen
+import { GESCHAEFTSMODELL_REGEL, immobilienInhaberMitMaklerHerkunft } from '../runner/regeln/zielgruppe.mjs'
 
 let fehler = 0
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -120,6 +122,32 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
   check('offen, aktuelle Fassung → nicht veraltet', !istVeraltet({ status: 'offen', quelle_datei: q }, q))
   check('gesendet bleibt immer unberührt', !istVeraltet({ status: 'gesendet', quelle_datei: QUELLE_PRAEFIX }, q))
   check('von Hand angelegt bleibt unberührt', !istVeraltet({ status: 'offen', quelle_datei: 'LinkedIn-Leads Erstnachrichten (Juli 2026).md' }, q))
+}
+
+/* ── Bekiri Djelal (06.10.2026): Inhaber einer Immobilienfirma mit Makler-Vergangenheit ── */
+{
+  // Wörtlich der Grund, mit dem er am 06.10. aussortiert wurde (`linkedin_erstnachrichten`).
+  const djelal = {
+    geschaeftsmodell: 'sonstiges',
+    firma: 'B.I.G. Swiss Immo',
+    taetigkeit: 'Inhaber/CEO zweier eigener Firmen (Immo und Finance) seit 03/2024; vorher Teamleiter bei Betterhomes, davor langjährig M',
+    website: 'https://raumvisionen.de/',
+  }
+  check('Djelal: als Inhaber mit Makler-Vergangenheit erkannt', immobilienInhaberMitMaklerHerkunft(djelal))
+  check('Djelal: wird geschrieben statt übersprungen', segmentUrteil(djelal).aktion === 'schreiben', segmentUrteil(djelal))
+  check(
+    'Djelal als „investor" eingestuft: ebenfalls geschrieben',
+    segmentUrteil({ ...djelal, geschaeftsmodell: 'investor' }).aktion === 'schreiben',
+  )
+  check(
+    'Aus der Station gelesen (selbstständig, Immo-Firma, vorher Engel & Völkers)',
+    immobilienInhaberMitMaklerHerkunft({ taetigkeit: 'führt zwei Firmen', firma: '', stationen: [{ firma: 'Nordlicht Immobilien', rolle: 'Gründer', selbststaendig: true }, { firma: 'Engel & Völkers', rolle: 'Immobilienberater', selbststaendig: false }] }),
+  )
+  // Die Gegenprobe: was vorher zu Recht rausfiel, fällt weiter raus.
+  check('reiner Bestandshalter bleibt übersprungen', segmentUrteil({ geschaeftsmodell: 'investor', taetigkeit: 'Inhaber, kauft Mehrfamilienhäuser im Bestand', firma: 'Nord Capital', website: 'https://x.de' }).aktion === 'ueberspringen')
+  check('Finanzierungsvermittler ohne Makler-Vergangenheit bleibt übersprungen', segmentUrteil({ geschaeftsmodell: 'sonstiges', taetigkeit: 'Inhaber einer Baufinanzierungs-Vermittlung für Immobilienkäufer', firma: 'Y Finanz', website: 'https://y.de' }).aktion === 'ueberspringen')
+  check('angestellter Makler ohne eigene Firma: nicht als Inhaber gezählt', !immobilienInhaberMitMaklerHerkunft({ rolle: 'angestellt', taetigkeit: 'Makler im Team', firma: 'Engel & Völkers' }))
+  check('Recherche-Prompt nennt die Regel (Inhaber mit Makler-Vergangenheit → makler)', /Inhaber, Gründer oder CEO einer eigenen Immobilienfirma/.test(GESCHAEFTSMODELL_REGEL) && /Betterhomes/.test(GESCHAEFTSMODELL_REGEL))
 }
 
 console.log(fehler ? `\n${fehler} Prüfung(en) fehlgeschlagen` : '\nAlles grün.')

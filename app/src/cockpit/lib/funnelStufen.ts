@@ -1,5 +1,6 @@
 import type { Erstnachricht } from '../../hooks/useErstnachrichten'
 import type { LinkedinThread } from '../../types/db'
+import { istTerminWunsch } from './antwortAbsicht'
 import { bucketOf } from './linkedinFollowups'
 
 /**
@@ -256,7 +257,8 @@ export function ohneAntwort(
  */
 export function wartetAufLoom(threads: LinkedinThread[], jetzt: Date = new Date()): FunnelPerson[] {
   return threads
-    .filter((t) => t.starred && t.loom_status === 'offen')
+    // Ein Termin-Wunsch mit Stern ist kein Loom-Ja (06.10.2026, `antwortAbsicht.ts`).
+    .filter((t) => t.starred && t.loom_status === 'offen' && !istTerminWunsch(t))
     .map((t) => personAusThread(t, jetzt))
     .sort((a, b) => (b.tage ?? -1) - (a.tage ?? -1))
 }

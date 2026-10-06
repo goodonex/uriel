@@ -46,6 +46,7 @@ import { personGleich, wortGleich } from './entscheider.mjs'
 import { pruefeGoogleAds } from './googleAds.mjs'
 import { pruefeSeo } from './seo.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
+import { GESCHAEFTSMODELL_REGEL } from '../regeln/zielgruppe.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 /** Alles zusammen je Lead: Finden, Rendern, Befund, Anzeigen — siehe `arbeiter`. */
@@ -111,13 +112,7 @@ Antworte mit NICHTS als diesem JSON-Block:
 
 - "firma": Firmenname. Leer, wenn unklar.
 - "taetigkeit": was die Person wirklich macht, ein Halbsatz. Die Headline lügt oft — Coach, Recruiter, Agentur, Software, Finanzierung ohne Maklergeschäft genau so benennen. Die Erfahrung ist dafür die beste Quelle.
-- "geschaeftsmodell": genau einer von
-  - "makler" — vermittelt Wohnimmobilien von Eigentümern (Verkauf/Vermietung), auch mit Verwaltung als Nebengeschäft
-  - "projektentwickler" — kauft Grundstücke/Objekte, baut oder saniert und verkauft Einheiten (Bauträger, Aufteiler)
-  - "hausverwaltung" — Verwaltung (WEG/Miet) ist das Hauptgeschäft
-  - "investor" — Bestandshalter, Asset-/Fondsmanager, Family Office, Capital, Holding ohne Vertrieb an Endkunden
-  - "sonstiges" — Bank, Berater, Gutachter, Institut, Software/KI, Coach, Agentur, Student/Werkstudent, alles andere
-  Nach dem, was die Firma TUT, nicht nach Wörtern im Namen („Real Estate GmbH" kann alles sein).
+${GESCHAEFTSMODELL_REGEL}
 - "rolle": "inhaber" (Inhaber, Gründer, Geschäftsführer, Vorstand der eigenen Firma), "angestellt" (Abteilungsleiter, Makler im Team, Manager, Mitarbeiter) oder "unklar". Angestellte bekommen keine Analyse — im Zweifel "unklar", nie raten.
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
 - "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.

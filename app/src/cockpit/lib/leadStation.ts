@@ -21,6 +21,7 @@
  * `npx tsx scripts/verify-lead-station.ts`.
  */
 import type { LeadEreignisTyp, LeadStatus, LinkedinThread } from '../../types/db'
+import { istTerminWunsch } from './antwortAbsicht'
 import { KADENZ_STANDARD, aktiveKadenz, type Kadenz } from './kadenz'
 import { bucketOf, type FollowupBucket } from './linkedinFollowups'
 
@@ -131,7 +132,7 @@ export interface LeadStationEingabe {
   thread?: Pick<
     LinkedinThread,
     'status' | 'last_from' | 'last_message_at' | 'followup_stage' | 'snoozed_until' | 'starred' | 'loom_status'
-  > | null
+  > & Partial<Pick<LinkedinThread, 'verlauf' | 'preview'>> | null
 }
 
 /**
@@ -481,7 +482,18 @@ export function leadStation(
      * nimmt den Lead heraus, bis geklaert ist, wer ueber die Website
      * entscheidet (0077), `verschickt`/`entfaellt` sind durch.
      */
-    const zugesagt = thread.starred || (urteil?.zugesagt === true && !nachUrteil)
+    /*
+     * Will die letzte Nachricht einen Termin (06.10.2026, Manuel Rees: „Machen
+     * Sie gerne einen Termin mit meiner Kollegin"), ist der Stern kein Ja zum
+     * Loom — und das daraus abgeleitete `loom_zugesagt` auch nicht, denn der
+     * Sync stempelt es mit genau dieser Nachricht. Es zaehlt dann nur ein Ja,
+     * das Kevin NACH der Nachricht gegeben hat. Der Lead steht unter „Antwort da".
+     */
+    const termin = istTerminWunsch(thread)
+    const nachricht = thread.last_message_at != null ? new Date(thread.last_message_at).getTime() : NaN
+    const zugesagt = termin
+      ? urteil?.zugesagt === true && !Number.isNaN(nachricht) && urteil.at > nachricht
+      : thread.starred || (urteil?.zugesagt === true && !nachUrteil)
     if (zugesagt && thread.loom_status === 'offen') {
       return {
         ...basis,

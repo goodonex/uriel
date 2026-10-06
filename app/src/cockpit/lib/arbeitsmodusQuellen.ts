@@ -9,6 +9,7 @@
  */
 import type { Erstnachricht } from '../../hooks/useErstnachrichten'
 import type { LinkedinThread } from '../../types/db'
+import { istTerminWunsch } from './antwortAbsicht'
 import { echtOffeneErstnachrichten, profilNachName } from './erstnachrichtenOffen'
 import { brauchtPruefung } from './erstnachrichtenPruefung'
 import { threadImVorrat } from './icp'
@@ -39,6 +40,9 @@ function entwurfVon(t: LinkedinThread): PostenEntwurf | undefined {
 }
 
 function threadZuPosten(t: LinkedinThread, spur: Posten['spur'], praefix: string, text: string): Posten {
+  // Ein Termin-Wunsch unter „Antworten" sagt das gleich vorne — und trägt
+  // keinen Stern, der in der Oberfläche „Loom zugesagt" hieße (06.10.2026).
+  const termin = spur === 'antwort' && istTerminWunsch(t)
   return {
     id: `${praefix}:${t.id}`,
     spur,
@@ -47,9 +51,9 @@ function threadZuPosten(t: LinkedinThread, spur: Posten['spur'], praefix: string
     // Bei Threads ist der nützliche Link das LinkedIn-Profil — dort findet
     // die eigentliche Arbeit (antworten, Loom verschicken) statt.
     website: t.profile_url || undefined,
-    text,
+    text: termin ? `Will einen Termin: ${text}` : text,
     timestamp: t.last_message_at,
-    starred: t.starred,
+    starred: termin ? false : t.starred,
   }
 }
 
@@ -124,6 +128,33 @@ function urteilGilt(t: LinkedinThread, urteile?: LoomUrteile) {
 }
 
 /**
+ * Der Stern als Loom-Ja — außer der Lead will einen Termin (06.10.2026).
+ *
+ * Manuel Rees bekam ein Gesprächsangebot und antwortete „Machen Sie gerne einen
+ * Termin mit meiner Kollegin". Der Thread trug einen Stern, und der galt hier
+ * blind als „Loom zugesagt": Rees stand in der Loom-Spur statt unter
+ * „Antworten". Ein Termin-Wunsch (`antwortAbsicht.ts`) sticht den Stern.
+ */
+function sternIstLoomJa(t: LinkedinThread): boolean {
+  return Boolean(t.starred) && !istTerminWunsch(t)
+}
+
+/**
+ * `urteilGilt`, aber ein Termin-Wunsch entwertet das abgeleitete Ja.
+ *
+ * `scripts/leads-sync.ts` macht aus dem Stern ein `loom_zugesagt` und stempelt
+ * es mit dem Zeitpunkt der Nachricht selbst. Will diese Nachricht einen Termin,
+ * zählt nur ein Ja, das Kevin DANACH gegeben hat („Loom ja" im Cockpit, „Video
+ * ja" in der Anrufliste) — das ist dann seine Entscheidung, nicht die des Sterns.
+ */
+function loomUrteilGilt(t: LinkedinThread, urteile?: LoomUrteile) {
+  const u = urteilGilt(t, urteile)
+  if (!u || u.zugesagt !== true || !istTerminWunsch(t)) return u
+  const nachricht = t.last_message_at ? new Date(t.last_message_at).getTime() : NaN
+  return !Number.isNaN(nachricht) && u.at > nachricht ? u : null
+}
+
+/**
  * Kevins „Erledigt" an einer Antwort (05.10.2026): Er hat den Lead anders
  * bedient (Anruf, Termin) und LinkedIn zeigt weiter die Nachricht des Leads als
  * letzte. Gilt, bis der Lead danach erneut schreibt.
@@ -137,8 +168,8 @@ function erledigtGilt(t: LinkedinThread, urteile?: LoomUrteile): boolean {
 
 function wartetAufAntwort(t: LinkedinThread, heute: Date, urteile?: LoomUrteile): boolean {
   if (bucketOf(t, heute) !== 'du_bist_dran') return false
-  if (t.starred && t.loom_status === 'offen') return false
-  if (urteilGilt(t, urteile) || erledigtGilt(t, urteile)) return false
+  if (sternIstLoomJa(t) && t.loom_status === 'offen') return false
+  if (loomUrteilGilt(t, urteile) || erledigtGilt(t, urteile)) return false
   if (vorDerAkquise(t)) return false
   if (istAkquiseVersuch(t)) return false
   return true
@@ -191,7 +222,7 @@ export function antwortPosten(
 export function antwortPostenAusgeblendet(threads: LinkedinThread[], heute: Date): Posten[] {
   return threads
     .filter((t) => bucketOf(t, heute) === 'du_bist_dran')
-    .filter((t) => !(t.starred && t.loom_status === 'offen'))
+    .filter((t) => !(sternIstLoomJa(t) && t.loom_status === 'offen'))
     .filter(
       (t) =>
         vorDerAkquise(t) ||
@@ -227,7 +258,7 @@ function letzteNachricht(t: LinkedinThread): string {
 /** Rang 4 — Lead hat Ja zum Loom gesagt, Skript/Aufnahme steht noch aus. */
 export function loomPosten(threads: LinkedinThread[], urteile?: LoomUrteile): Posten[] {
   return threads
-    .filter((t) => t.loom_status === 'offen' && (t.starred || urteilGilt(t, urteile)?.zugesagt === true))
+    .filter((t) => t.loom_status === 'offen' && (sternIstLoomJa(t) || loomUrteilGilt(t, urteile)?.zugesagt === true))
     .map((t) => ({
       ...threadZuPosten(t, 'loom', 'loom', letzteNachricht(t)),
       /**

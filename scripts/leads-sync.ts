@@ -26,6 +26,7 @@ import {
   urlKern,
   type LeadKandidat,
 } from '../app/src/cockpit/lib/leadIdentitaet'
+import { istTerminWunsch } from '../app/src/cockpit/lib/antwortAbsicht'
 import { verlaufVon } from '../app/src/cockpit/lib/linkedinVerlauf'
 import { istKunde, kundenSchluessel, type KundenKontakt } from '../app/src/cockpit/lib/kundenAbgleich'
 
@@ -388,7 +389,10 @@ for (const t of threadsFrisch) {
     else if (!schonPerUiErfasst(t.lead_id, 'erstnachricht', t.last_message_at))
       merke(t.lead_id, 'erstnachricht', t.last_message_at)
   }
-  if (t.starred && t.last_message_at) merke(t.lead_id, 'loom_zugesagt', t.last_message_at)
+  // Der Stern heisst „Loom zugesagt" — ausser die Nachricht will einen Termin
+  // (06.10.2026, Manuel Rees: „Machen Sie gerne einen Termin mit meiner
+  // Kollegin"). Dann bleibt der Thread eine offene Antwort.
+  if (t.starred && t.last_message_at && !istTerminWunsch({ last_from: t.last_from as never, verlauf: t.verlauf as never })) merke(t.lead_id, 'loom_zugesagt', t.last_message_at)
   if (!schonPerUiErfasst(t.lead_id, 'loom_gesendet', t.loom_erledigt_at))
     merke(t.lead_id, 'loom_gesendet', t.loom_erledigt_at)
 }
