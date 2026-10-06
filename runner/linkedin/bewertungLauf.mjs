@@ -52,6 +52,19 @@ export function naechsteKontakte(netzwerk, mitProfil, limit) {
 }
 
 /**
+ * Leads, die auf LinkedIn geantwortet haben und noch kein fertiges Profil
+ * tragen. Neueste Antwort zuerst.
+ */
+export async function antworterOhneProfil(supabaseUrl, headers, brandId, fertig) {
+  const threads = await alle(supabaseUrl, headers,
+    `linkedin_threads?brand_id=eq.${brandId}&lead_id=not.is.null&select=lead_id,name,company,last_message_at,verlauf&order=id`)
+  return threads
+    .filter((t) => !fertig.has(t.lead_id) && Array.isArray(t.verlauf) && t.verlauf.some((m) => m?.sender === 'them'))
+    .sort((a, b) => String(b.last_message_at ?? '').localeCompare(String(a.last_message_at ?? '')))
+    .map((t) => ({ lead_id: t.lead_id, name: t.name, headline: t.company ?? '' }))
+}
+
+/**
  * Einen Stapel bewerten.
  * @returns {Promise<{ bewertet: number, rest: number, kosten: number, toepfe: Record<string, number> }>}
  */
@@ -61,8 +74,16 @@ export async function bewerteStapel({ supabaseUrl, headers, brandId, limit = 40,
     alle(supabaseUrl, headers, `leads?brand_id=eq.${brandId}&profil=not.is.null&select=id,fassung:profil->stufe1_fassung,website:profil->>website,stufe2:profil->>stufe2_at,stand:profil->>stand&order=id`),
   ])
   const fertig = mitProfil.filter((l) => !brauchtNeueFassung(l)).map((l) => l.id)
-  const dran = naechsteKontakte(netzwerk, fertig, limit)
-  const rest = naechsteKontakte(netzwerk, fertig, 1e9).length - dran.length
+  // Vorrang (06.10.2026): Wer geantwortet hat, ist der heißeste Lead und wird
+  // zuerst bewertet, auch wenn er nicht (mehr) in linkedin_netzwerk steht. Vorher
+  // hatten 89 von 152 Antwortern keine Klasse, weil die Auswahl nur nach
+  // Annahme-Datum sortierte. Felix Range (fragte nach dem Preis) war einer davon.
+  const antworter = await antworterOhneProfil(supabaseUrl, headers, brandId, new Set(fertig))
+  const imVorrang = new Set(antworter.map((a) => a.lead_id))
+  const normal = naechsteKontakte(netzwerk.filter((n) => !imVorrang.has(n.lead_id)), fertig, 1e9)
+  const alleDran = [...antworter, ...normal]
+  const dran = alleDran.slice(0, limit)
+  const rest = alleDran.length - dran.length
   if (!dran.length) return { bewertet: 0, rest: 0, kosten: 0, toepfe: {} }
 
   const browser = await starteBrowser().catch(() => null)

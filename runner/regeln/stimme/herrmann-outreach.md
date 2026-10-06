@@ -550,7 +550,10 @@ gepasst hätte.
     Antwort auf „wie schnell meldet ihr euch bei ihm?": *„Ca. 14 Tage später
     😉😂"*; der Entwurf fragte nach Anfragen im Monat. Kevin: *„die Nachricht
     gefällt mir nicht, ist sie so fokussiert, ihn ans Telefon zu bekommen? Können
-    wir nicht direkt da den Call anbieten?"*). Aufbau: den Scherz in einem Satz
+    wir nicht direkt da den Call anbieten?"*). **Korrektur 06.10.:** Jens
+    schrieb danach, das sei Ironie gewesen, bei ihm gehe sofort jemand ran. Die
+    Regel gilt deshalb nur, wenn der Scherz erkennbar ein Eingeständnis ist.
+    Bleibt unklar, ob Ironie oder Geständnis, gilt Regel 17. Aufbau: den Scherz in einem Satz
     aufgreifen, ohne ihn auszuschlachten, in einem Satz sagen, warum genau das der
     Hebel ist, dann den festen CTA. Kein Emoji, keine zweite Frage.
     ```
@@ -577,6 +580,33 @@ gepasst hätte.
     Ich hab dir dazu eine kurze Analyse vorbereitet. Sie zeigt konkret, wo Potenzial liegen bleibt und was sich daraus für mehr planbare Eigentümer-Anfragen machen lässt.
 
     Hast du was dagegen, wenn ich sie dir einmal rüberschicke?
+    ```
+
+17. **Sagt der Lead Nein zur Analyse oder war der Einstieg misslungen: erst
+    schriftlich setten, dann telefonieren.** Gilt bei Abwehr, begründeter
+    Absage, Missverständnis oder Ironie, die danebenging (Kevin, 06.10.2026:
+    *„wenn die Nein sagen, müssen wir die schriftlich setten, damit wir die
+    Informationen rausbekommen, die so ein Telefonat rechtfertigen"*; Anlass:
+    Jens Anger und Christian Schneider, bei beiden war der Einstieg schon
+    schwach). Der Telefon-CTA steht in dieser Nachricht NICHT.
+    - Die Nachricht stellt **eine** Frage, die aus seiner eigenen Aussage
+      folgt und zwei Dinge leistet: Sie holt eine Zahl oder Tatsache heraus, die
+      ein Telefonat trägt (Eigentümer-Anfragen pro Monat, Anteil Empfehlung,
+      woher das nächste Objekt kommt), und sie macht ihm das Problem selbst
+      bewusst, ohne dass Kevin es behauptet.
+    - Sein Argument wird zum Beleg, nie zum Gegner: „Bei euch geht sofort
+      jemand ran" ist die Vorlage für „und wie viele Eigentümer rufen an, die
+      euch vorher nicht kannten?".
+    - Erst wenn die Antwort eine Lücke zeigt (kaum direkte Anfragen,
+      Abhängigkeit von Empfehlung), kommt in der NÄCHSTEN Nachricht
+      `Hast du was dagegen, wenn wir zehn Minuten telefonieren?`.
+    - Gilt nicht, wenn der Lead selbst ein Problem nennt oder zugibt (Regel
+      13, 14, 15): Dort bleibt das Telefonat der direkte nächste Schritt.
+    ```
+    Jens, dann geht bei euch sofort jemand ran, das schafft kaum einer. Wie viele Eigentümer rufen im Monat an, die euch vorher nicht kannten?
+    ```
+    ```
+    Hallo Christian, verstanden, das ist dein Spiel. Wenn du ein Objekt gedreht hast: Woher kommt das nächste, aus deinem Netzwerk oder melden sich Eigentümer auch direkt bei dir?
     ```
 
 ## Edge Cases

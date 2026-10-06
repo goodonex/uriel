@@ -4120,7 +4120,7 @@ function verlaufNachziehen({ melde = () => {}, signal } = {}) {
   verlaufLaeuft = true
   return new Promise((fertig) => {
     try {
-      const p = spawn(process.execPath, [join(REPO_WURZEL, 'scripts', 'verlauf-nachziehen.mjs'), '--limit=60'], {
+      const p = spawn(process.execPath, [join(REPO_WURZEL, 'scripts', 'verlauf-nachziehen.mjs'), '--limit=400'], {
         cwd: REPO_WURZEL,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],

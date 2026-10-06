@@ -6,6 +6,7 @@ import { nachrichtStand, type Posten } from '../lib/prioritaet'
 import type { ArbeitsmodusErgebnis } from './Arbeitsmodus'
 import { ListenZeile } from './home/ListenZeile'
 import { KlassenBadge } from './KlassenBadge'
+import { neuPruefenLink } from '../lib/neuPruefen'
 import { inZwischenablage as textInDieAblage } from '../lib/zwischenablage'
 
 /**
@@ -485,6 +486,16 @@ export function Arbeitsliste({
                     >
                       {kopiertId === p.id ? '✓ Kopiert' : 'Nachricht kopieren'}
                     </button>
+                  ) : null}
+                  {kopierbar && !mobil ? (
+                    <a
+                      className="ck-btn"
+                      style={{ minHeight: 40, display: 'inline-flex', alignItems: 'center' }}
+                      href={neuPruefenLink(p)}
+                      title="Öffnet in der Claude-App eine Session mit Lead, Nachricht und Entwurf"
+                    >
+                      Neu prüfen ↗
+                    </a>
                   ) : null}
                   {p.spur === 'loom' && loom ? (
                     skriptUrl ? (

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Erstnachricht } from '../../../hooks/useErstnachrichten'
 import { pruefEingabe, pruefEingabeKurz, pruefLink, trennePruefHinweis } from '../../lib/erstnachrichtenPruefung'
-import { bilderLoeschen, bildSpeichern, feedbackLink, FEEDBACK_SCHLUESSEL, type FeedbackEintrag, type FeedbackSammlung } from '../../lib/erstnachrichtenFeedback'
+import { bilderLoeschen, bildSpeichern, feedbackLink, feedbackPrompt, FEEDBACK_SCHLUESSEL, type FeedbackEintrag, type FeedbackSammlung } from '../../lib/erstnachrichtenFeedback'
 import { useUiSetting } from '../../lib/uiSettings'
 import { inZwischenablage } from '../../lib/zwischenablage'
 import { useRundeTor } from '../RundeTor'
@@ -297,6 +297,7 @@ export function PruefListe({
   const { wert: sammlung, setzen: setzeSammlung } = useUiSetting<FeedbackSammlung>(FEEDBACK_SCHLUESSEL, {})
   const aktuell = useRef(sammlung)
   aktuell.current = sammlung
+  const [auftragKopiert, setAuftragKopiert] = useState(false)
   // Nur Einträge zu Texten, die noch hier stehen: Abgearbeitete verlassen die Liste, ihr Eintrag zählt nicht mehr.
   const mitFeedback = leads.filter((l) => sammlung[l.id]?.text || sammlung[l.id]?.bilder?.length).length
   if (leads.length === 0) {
@@ -314,15 +315,24 @@ export function PruefListe({
       </p>
       {mitFeedback > 0 ? (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <a
-            href={feedbackLink(mitFeedback)}
+          {/* Der Auftrag liegt zusätzlich in der Zwischenablage: Öffnet der Browser den App-Link nicht (Safari, 05.10.2026: „passiert nichts"), geht es per ⌘V. */}
+          <button
+            type="button"
             className="ck-btn ck-btn--primary"
-            style={{ fontSize: 11, minHeight: 40, paddingInline: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+            style={{ fontSize: 11, minHeight: 40, paddingInline: 16 }}
             title="Öffnet in der Claude-App eine Session, die alle Feedbacks abarbeitet und daraus die Regeln nachschärft"
+            onClick={() => {
+              void inZwischenablage(feedbackPrompt(mitFeedback)).then((ok) => setAuftragKopiert(ok))
+              window.location.href = feedbackLink(mitFeedback)
+            }}
           >
             {mitFeedback} {mitFeedback === 1 ? 'Feedback' : 'Feedbacks'} an Claude ↗
-          </a>
-          <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>Öffnet eine Session auf diesem Mac.</span>
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--ck-text-3)' }}>
+            {auftragKopiert
+              ? 'Auftrag kopiert. Öffnet sich keine Session, in der Claude-App eine neue im Ordner „uriel" starten und mit ⌘V einfügen.'
+              : 'Öffnet eine Session auf diesem Mac.'}
+          </span>
         </div>
       ) : null}
       {leads.map((l) => (

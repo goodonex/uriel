@@ -34,9 +34,18 @@ const alle = await (await fetch(
 // Auswahl zufällig, und bei hunderten Ein-Nachricht-Threads kam eine frische
 // Antwort unter dem Deckel von 60 oft erst Runden später dran.
 const rang = (t) => (nurTeilweise(t) ? 0 : t.last_from === 'them' ? 1 : 2)
+// 06.10.2026: Rang 2 (Kevin schrieb zuletzt, Lead still) bleibt mit einer
+// Nachricht dauerhaft "offen". Mit "neueste zuerst" holte jeder Lauf dieselben 60,
+// ältere kamen nie dran: Felix Range (Nachricht vom 22.01., seine Preisfrage
+// fehlte im Verlauf) stand auf Platz 259 von 282. Darum innerhalb Rang 2
+// gemischt; eine eingehende Antwort landet ohnehin in Rang 0/1.
+const mischen = new Map(alle.map((t) => [t.id, Math.random()]))
 const offen = alle
   .filter(brauchtTiefe)
-  .sort((a, b) => rang(a) - rang(b) || String(b.last_message_at ?? '').localeCompare(String(a.last_message_at ?? '')))
+  .sort((a, b) => rang(a) - rang(b)
+    || (rang(a) === 2
+      ? mischen.get(a.id) - mischen.get(b.id)
+      : String(b.last_message_at ?? '').localeCompare(String(a.last_message_at ?? ''))))
   .slice(0, LIMIT)
 sag(`${alle.length} Threads, ${alle.filter(brauchtTiefe).length} ohne echten Verlauf, dieser Lauf: ${offen.length}`)
 if (!offen.length) process.exit(0)
