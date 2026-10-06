@@ -153,12 +153,51 @@ aber ebenfalls einen festen:
 | **Analyse anbieten** — Standard: Website da, Befund steht | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
 | **Kein Auftritt auffindbar** — Kevin will die Adresse, um doch zu schauen | `Wo finde ich euch?` |
 | **Seite kaputt, leer oder im Umbau** | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
-| **Ohne Seite ist ein Video sinnlos** — nächster Schritt ist ein Gespräch | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |
+| **Ohne Seite ist ein Video sinnlos** — nächster Schritt ist ein Gespräch | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` plus zwei Zeitfenster (siehe „Telefonat anbieten“) |
 | **Bewusst noch kein Angebot** — Seite ist gut, kein Befund trägt | Eine offene, konkrete Frage mit Anlass von SEINER Seite (z. B. zu Anzeigen, zu einem Werkzeug, das er anbietet). **Abgeschafft seit 17.09.2026:** „Wie kommen die Mandate aktuell rein?" (Kevin: *„bekommen die bestimmt von jedem"*), siehe `erstnachrichten/schreiben.md`. |
 | **Angestellte** (kein Inhaber/GF laut Impressum) | Kein Zuständigkeits-CTA mehr (abgeschafft 22.09.2026, peinlich wenn es doch der GF ist). Nebenfirma vorhanden → offene Frage zu den Stationen („Wo liegt bei dir gerade der Hauptfokus?"); sonst zurückstellen und erst den GF anfragen. |
 
 Ist der Loom raus, holt der Terminlink als Button unter dem Video den Termin;
 Fallback bleiben zwei Zeitvorschläge im Chat.
+
+## Telefonat anbieten = immer direkt zwei konkrete Zeitfenster (06.10.2026)
+
+Jedes Gesprächsangebot nennt sofort zwei Zeitfenster, nie „Wann passt es dir?"
+und nie „Schick mir einen Zeitvorschlag". Kevins Wortlaut:
+
+```
+Hast du was dagegen, wenn wir uns kurz austauschen? Mir würde zum Beispiel morgen Nachmittag oder übermorgen ganz gut passen.
+```
+
+Gilt hinter jedem Telefonat-CTA (auch `Hast du was dagegen, wenn wir zehn
+Minuten telefonieren?` und „Gern austauschen"). Der Satz mit den zwei
+Fenstern folgt direkt auf die Frage, danach höchstens die Bitte um die Nummer.
+
+**Wochentag statt „morgen" im gespeicherten Text.** Ein Entwurf wird oft erst
+Stunden später verschickt. Am 06.10.2026 bot der Entwurf für Marco Stadelmann
+(Montag 20:10) „Morgen um 10 Uhr" an, Kevin las ihn Dienstag 12:40: „morgen"
+war Mittwoch, 10 Uhr vorbei. Deshalb im gespeicherten Entwurf:
+
+- Nie „heute", „morgen", „übermorgen", „nächste Woche". Andere Tage als
+  Wochentag + Datum („Mittwoch, 7.10.").
+- Zeitfenster als Platzhalter mit echtem Datum: `[[Mittwoch, 7.10.2026, nachmittags]]`.
+  Fenster: `vormittags`, `nachmittags`, `ganztägig`, `um 14 Uhr`, `ab 15 Uhr`.
+  Das Cockpit zeigt daraus beim Öffnen „morgen Nachmittag" — gerechnet ab dem
+  Moment, in dem Kevin liest. Kevin kann jedes Fenster dort noch verschieben.
+- Standard sind die zwei Vorschläge aus den Eingabedaten (`zeit.anruf_vorschlaege`,
+  heute: nächster Werktag nachmittags, der Werktag danach ganztägig), wörtlich
+  übernommen. Eigene Fenster nur, wenn der Lead selbst Zeiten genannt hat
+  („geht nur freitags") — dann zwei passende in derselben Form.
+- Das heutige Datum steht in `zeit.heute`. Ohne diesen Block (Chat mit Kevin,
+  er schickt sofort) normal schreiben: „morgen Nachmittag oder übermorgen".
+
+Gespeichert sieht der Satz so aus (die Daten in allen Beispielen dieser Datei
+sind Muster vom 06.10.2026 — nie abschreiben, immer `zeit.anruf_vorschlaege`
+nehmen):
+
+```
+Hast du was dagegen, wenn wir zehn Minuten telefonieren? Mir würde zum Beispiel [[Mittwoch, 7.10.2026, nachmittags]] oder [[Donnerstag, 8.10.2026, ganztägig]] ganz gut passen.
+```
 
 **Keine Grußformel am Ende** (Kevin, 10.09.2026). Auf LinkedIn steht der
 Absender am Profil — „Beste Grüße / Kevin" liest sich dort nach
@@ -275,7 +314,8 @@ gepasst hätte.
    Kein Befund im Detail, keine Analyse anbieten, keine Kritik an
    Entscheidungen, die er gerade bewusst getroffen hat. Sagt er darauf „noch
    nicht" oder „über Empfehlung", ist der nächste Schritt das Telefonat:
-   `Hast du was dagegen, wenn wir zehn Minuten telefonieren?`
+   `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` plus die zwei
+   Zeitfenster (siehe „Telefonat anbieten").
    *Fehler am 29.09.: Auf „Ist bereits live :)" kam eine Seitenbesprechung
    (Navigation, Ablauf, Team, dann der Befund „Rechenweg statt schneller
    Online-Zahl") und das Analyse-Angebot. Kevin: „Wieso nicht Glückwunsch zur
@@ -347,7 +387,8 @@ gepasst hätte.
     Nicht seine Aussage loben und über das Missverständnis hinweg zum Termin
     springen: Dann telefoniert man über das Falsche. **Bietet er selbst einen
     Austausch an, wird das Angebot angenommen, nicht noch einmal erfragt:**
-    „Gern austauschen" plus konkrete Bitte um Zeit und Nummer (wie Regel 13).
+    „Gern austauschen" plus zwei konkrete Zeitfenster und die Bitte um die
+    Nummer (wie Regel 13).
     „Hast du was dagegen, wenn wir zehn Minuten telefonieren?" fragt nach
     etwas, das er schon angeboten hat (Kevin, 30.09.2026: *„der CTA ist Müll,
     da er am Ende sagt, wir können uns ja mal austauschen"*). Nie Link und
@@ -359,7 +400,7 @@ gepasst hätte.
     ```
     Hallo Sven, glaub ich sofort, an den Käufern zweifle ich bei dem Produkt auch nicht. Mir ging es um die andere Seite, die Grundstücke für die nächsten 17.
 
-    Gern austauschen. Wann passt es dir diese Woche? Schick mir gern deine Nummer, dann ruf ich dich an.
+    Gern austauschen. Mir würde zum Beispiel [[Mittwoch, 7.10.2026, nachmittags]] oder [[Donnerstag, 8.10.2026, ganztägig]] ganz gut passen. Schick mir gern deine Nummer, dann ruf ich dich an.
     ```
 
 11. **Nachfassen in einem laufenden Gespräch knüpft am Gespräch an, nie an die
@@ -415,8 +456,8 @@ gepasst hätte.
     kein „später".** Auch wenn das Problem nicht die Website ist (Software,
     Personal, ein geplatzter Dienstleister): Kevin ist da, um Probleme zu lösen.
     Also Verständnis in einem Satz, echtes Interesse daran, wie es gelaufen ist,
-    und direkt das Zehn-Minuten-Telefonat mit einer konkreten Bitte: Nummer und
-    Zeitvorschlag. Nicht vertagen, nicht auf die Website zurücklenken.
+    und direkt das Zehn-Minuten-Telefonat mit zwei konkreten Zeitfenstern und
+    der Bitte um die Nummer. Nicht vertagen, nicht auf die Website zurücklenken.
     *Fehler am 30.09.: Hartmut erzählte per Sprachnachricht, die Umstellung der
     Maklersoftware sei nach drei Monaten gescheitert, man sei im Streit
     auseinandergegangen. Der Entwurf vertagte aufs nächste Jahr. Kevin: „ich
@@ -427,7 +468,7 @@ gepasst hätte.
 
     Ich hatte gerade einen ähnlichen Fall, nur auf der anderen Seite. Deshalb finde ich spannend, wie ihr das Ganze bei euch erlebt habt, was da eigentlich schiefgelaufen ist.
 
-    Lass uns doch mal kurz austauschen, zehn Minuten reichen. Wann passt es dir diese Woche? Schick mir gern deine Nummer und einen Zeitvorschlag, dann ruf ich dich an.
+    Lass uns doch mal kurz austauschen, zehn Minuten reichen. Mir würde zum Beispiel [[Mittwoch, 7.10.2026, nachmittags]] oder [[Donnerstag, 8.10.2026, ganztägig]] ganz gut passen. Schick mir gern deine Nummer, dann ruf ich dich an.
     ```
     Antwortet der Lead per Sprachnachricht, ist die Antwort als Sprachnachricht
     gedacht: Der Entwurf ist dann das Sprechskript.
@@ -445,7 +486,7 @@ gepasst hätte.
     ```
     Guten Tag Herr Rees, weil wir Immobilienunternehmen helfen, dass Eigentümer von sich aus anfragen, statt dass Mandate nur über Empfehlung und den eigenen Namen kommen. Wenn Sie offen für neue sind, ist das genau der Hebel.
 
-    Haben Sie was dagegen, wenn wir zehn Minuten telefonieren?
+    Haben Sie was dagegen, wenn wir zehn Minuten telefonieren? Mir würde zum Beispiel [[Mittwoch, 7.10.2026, nachmittags]] oder [[Donnerstag, 8.10.2026, ganztägig]] gut passen.
     ```
 
 15. **Beantwortet der Lead Kevins Frage mit einem Scherz, der das Problem zugibt,
@@ -461,14 +502,15 @@ gepasst hätte.
     ```
     Moin Jens, 14 Tage ist wenigstens ehrlich. Genau da gehen bei vielen Maklern die meisten Anfragen verloren.
 
-    Hast du was dagegen, wenn wir zehn Minuten telefonieren?
+    Hast du was dagegen, wenn wir zehn Minuten telefonieren? Mir würde zum Beispiel [[Mittwoch, 7.10.2026, nachmittags]] oder [[Donnerstag, 8.10.2026, ganztägig]] ganz gut passen.
     ```
 
 16. **Fragt der Lead „Was würdest du konkret ändern?", wird die Beratung nicht
     verschenkt.** Die Frage ist ein Interessensignal, kein Auftrag für eine
     Gratis-Liste. Der Entwurf nennt den Kern in einem Satz (er steht meist schon
     in Kevins erster Nachricht) und bietet das Konkrete an: die Analyse mit dem
-    festen CTA, bei Zeitdruck oder Gesprächslust das Telefonat. Keine
+    festen CTA, bei Zeitdruck oder Gesprächslust das Telefonat (mit zwei
+    Zeitfenstern). Keine
     nummerierte Liste mit Lösungen (Kevin, 05.10.2026, Matheus De Souza: *„wäre
     es nicht schlauer, Analyse oder Telefonat anzubieten, als ihm einfach zu
     geben, was er will?"*; der Entwurf lieferte drei fertige Verbesserungen und

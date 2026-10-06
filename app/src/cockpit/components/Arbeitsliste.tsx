@@ -1,4 +1,6 @@
 import { useCallback, useState } from 'react'
+import { versandText, type Slot } from '../lib/entwurfZeitangaben'
+import { EntwurfBox } from './EntwurfBox'
 import { useIsMobile } from '../../hooks/useViewport'
 import { nachrichtStand, type Posten } from '../lib/prioritaet'
 import type { ArbeitsmodusErgebnis } from './Arbeitsmodus'
@@ -116,19 +118,8 @@ export function inTagen(tage: number, jetzt: Date = new Date()): string {
   return d.toISOString()
 }
 
-/** „von heute Nacht" trägt mehr als ein Zeitstempel — das ist die Frage dahinter. */
-export function entwurfStand(erstelltAm: string | null, jetzt: Date = new Date()): string {
-  if (!erstelltAm) return 'vorbereitet'
-  const t = new Date(erstelltAm).getTime()
-  if (Number.isNaN(t)) return 'vorbereitet'
-  const stunden = Math.floor((jetzt.getTime() - t) / (60 * 60 * 1000))
-  if (stunden < 1) return 'gerade eben'
-  if (stunden < 12) return `vor ${stunden} h`
-  const tage = Math.floor(stunden / 24)
-  if (tage < 1) return 'von heute Nacht'
-  if (tage === 1) return 'von gestern'
-  return `vor ${tage} Tagen`
-}
+/** Seit 06.10.2026 in `lib/entwurfZeitangaben.ts` (Kalendertage statt Stunden/24). */
+export { entwurfStand } from '../lib/entwurfZeitangaben'
 
 export function Arbeitsliste({
   posten,
@@ -151,6 +142,8 @@ export function Arbeitsliste({
   const [nameKopiertId, setNameKopiertId] = useState<string | null>(null)
   const [kopierGesperrt, setKopierGesperrt] = useState(false)
   const [spaeterOffen, setSpaeterOffen] = useState<string | null>(null)
+  /** Kevins verschobene Terminvorschläge je Posten — gelten für Anzeige UND Kopieren. */
+  const [zeitAenderungen, setZeitAenderungen] = useState<Record<string, (Slot | null)[]>>({})
 
   const toggle = useCallback((id: string) => {
     setOffenId((prev) => (prev === id ? null : id))
@@ -214,14 +207,15 @@ export function Arbeitsliste({
   // Entwurf — `p.text` ist bei Antworten die Nachricht des Leads.
   const kopiere = useCallback(
     async (p: Posten) => {
-      if (!(await inZwischenablage(p.entwurf?.text ?? p.text))) {
+      const text = p.entwurf ? versandText(p.entwurf, zeitAenderungen[p.id]) : p.text
+      if (!(await inZwischenablage(text))) {
         setKopierGesperrt(true)
         return
       }
       setKopiertId(p.id)
       window.setTimeout(() => setKopiertId((prev) => (prev === p.id ? null : prev)), 2000)
     },
-    [inZwischenablage],
+    [inZwischenablage, zeitAenderungen],
   )
 
   if (posten.length === 0) {
@@ -278,6 +272,7 @@ export function Arbeitsliste({
                     // fast jeder Antwort an und sagt deshalb nichts. Nur die
                     // Ausnahme — veraltet — ist eine Information.
                     p.entwurf?.veraltet ? 'Entwurf veraltet' : null,
+                    p.entwurf?.zeitVeraltet ? 'Termin veraltet' : null,
                   ]
                     .filter(Boolean)
                     .join(' · ') || undefined
@@ -398,6 +393,9 @@ export function Arbeitsliste({
                 {p.entwurf?.veraltet ? (
                   <span style={{ fontSize: 11, flexShrink: 0, color: 'var(--ck-warn)' }}>Entwurf veraltet</span>
                 ) : null}
+                {p.entwurf?.zeitVeraltet ? (
+                  <span style={{ fontSize: 11, flexShrink: 0, color: 'var(--ck-warn)' }}>Termin veraltet</span>
+                ) : null}
               </button>
               <button
                 type="button"
@@ -465,42 +463,12 @@ export function Arbeitsliste({
                   {p.text}
                 </div>
                 {p.entwurf ? (
-                  <div
-                    style={{
-                      border: '1px solid var(--ck-border-strong)',
-                      borderRadius: 'var(--ck-radius-innen)',
-                      padding: '10px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                      <span className="ck-label" style={{ color: 'var(--ck-accent)' }}>
-                        Entwurf
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--ck-text-3)' }}>
-                        {entwurfStand(p.entwurf.erstelltAm)}
-                      </span>
-                    </div>
-                    {p.entwurf.veraltet ? (
-                      <span style={{ fontSize: 12, color: 'var(--ck-warn)' }}>
-                        Der Lead hat danach nochmal geschrieben — vor dem Senden gegenlesen.
-                      </span>
-                    ) : null}
-                    <div
-                      style={{
-                        whiteSpace: 'pre-wrap',
-                        fontSize: 13,
-                        lineHeight: 1.6,
-                        color: 'var(--ck-text-1)',
-                        maxHeight: 260,
-                        overflowY: 'auto',
-                      }}
-                    >
-                      {p.entwurf.text}
-                    </div>
-                  </div>
+                  <EntwurfBox
+                    entwurf={p.entwurf}
+                    aenderungen={zeitAenderungen[p.id]}
+                    onAenderungen={(naechste) => setZeitAenderungen((prev) => ({ ...prev, [p.id]: naechste }))}
+                    textStil={{ fontSize: 13, lineHeight: 1.6, maxHeight: 260, overflowY: 'auto' }}
+                  />
                 ) : null}
                 {kopierGesperrt ? (
                   <span style={{ fontSize: 12, color: 'var(--ck-warn)' }}>

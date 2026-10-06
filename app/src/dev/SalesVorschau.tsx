@@ -14,6 +14,7 @@ import type { FunnelKarte } from '../cockpit/lib/funnelKarten'
 import type { KartenLead } from '../cockpit/lib/funnelKarten'
 import type { Posten } from '../cockpit/lib/prioritaet'
 import { medianeJeSpur, tagesansage } from '../cockpit/lib/tagesansage'
+import { berlinZeit, entwurfZeitAnzeige, slotToken, werktageWeiter } from '../cockpit/lib/entwurfZeitangaben'
 
 /**
  * Dev-Vorschau (nur import.meta.env.DEV, ohne Login): rendert die neuen
@@ -39,8 +40,45 @@ const ERSTNACHRICHT_POSTEN: Posten[] = [
   { id: 'erstnachricht:2', spur: 'erstnachricht', name: 'Thomas Brandt', firma: 'Brandt & Söhne', website: 'brandt-soehne.de', text: 'Moin Thomas, euer Portfolio in Blankenese ist beeindruckend. Eine Sache fiel mir auf: Auf dem Handy bricht eure Startseite — genau da, wo Eigentümer zuerst schauen. Kurze Loom-Analyse dazu?', timestamp: null },
 ]
 
+/** Terminvorschläge als Platzhalter (06.10.2026) — so schreibt der Nacht-Agent sie. */
+const HEUTE_TAG = berlinZeit(new Date()).tag
+const SLOT_ROH =
+  'Moin Marco, gern. Hast du was dagegen, wenn wir zehn Minuten telefonieren? Mir würde zum Beispiel ' +
+  `${slotToken({ tag: werktageWeiter(HEUTE_TAG, 1), fenster: { art: 'nachmittags' } })} oder ` +
+  `${slotToken({ tag: werktageWeiter(HEUTE_TAG, 2), fenster: { art: 'ganztaegig' } })} ganz gut passen.`
+const ALT_ROH = 'Morgen um 10 Uhr oder Mittwoch um 14 Uhr, was passt dir besser? Schick mir deine Nummer, dann ruf ich dich an.'
+const ALT_AT = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+
 /** Etappe 3: Antwort-Posten mit dem Entwurf des Nacht-Agenten am Namen. */
 const ANTWORT_POSTEN: Posten[] = [
+  {
+    id: 'thread:zeit1',
+    spur: 'antwort',
+    name: 'Marco Stadelmann',
+    firma: 'Stadelmann Immobilien',
+    text: 'Ja wann hast du Zeit?',
+    timestamp: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
+    entwurf: {
+      text: entwurfZeitAnzeige(SLOT_ROH, null).text,
+      roh: SLOT_ROH,
+      veraltet: false,
+      erstelltAm: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
+    },
+  },
+  {
+    id: 'thread:zeit2',
+    spur: 'antwort',
+    name: 'Sven Sommerfeld',
+    firma: 'Sommerfeld Projektbau',
+    text: 'Können wir gern machen.',
+    timestamp: ALT_AT,
+    entwurf: {
+      ...(({ text, zeitVeraltet }) => ({ text, zeitVeraltet }))(entwurfZeitAnzeige(ALT_ROH, ALT_AT)),
+      roh: ALT_ROH,
+      veraltet: false,
+      erstelltAm: ALT_AT,
+    },
+  },
   {
     id: 'thread:1',
     spur: 'antwort',

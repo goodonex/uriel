@@ -15,6 +15,7 @@ import {
   type DraftChannel,
   type FollowupDraft,
 } from '../lib/approvalDrafts'
+import { entwurfZeitAnzeige } from '../lib/entwurfZeitangaben'
 import {
   clearDraftStatus,
   draftKey,
@@ -148,6 +149,8 @@ export function FreigabenArea() {
             if (status !== 'pending' && detail.id !== latestRun?.id) return
             naechste.push({
               ...d,
+              // Terminvorschläge [[…]] als „morgen Nachmittag" ab jetzt (06.10.2026).
+              message: entwurfZeitAnzeige(d.message, null).text,
               key: key++,
               id,
               runId: detail.id,
