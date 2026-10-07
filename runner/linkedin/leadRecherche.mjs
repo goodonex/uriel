@@ -44,6 +44,7 @@ import { starteBrowser, rendereKandidat, pruefeMetaAds } from './seiteRendern.mj
 import { leseErfahrung } from './erfahrung.mjs'
 import { personGleich, wortGleich } from './entscheider.mjs'
 import { pruefeGoogleAds } from './googleAds.mjs'
+import { googleTrefferDach } from './googleTreffer.mjs'
 import { pruefeSeo } from './seo.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
 import { GESCHAEFTSMODELL_REGEL } from '../regeln/zielgruppe.mjs'
@@ -66,10 +67,14 @@ const BUDGET_BEFUND = Number(process.env.RECHERCHE_BUDGET_BEFUND_USD ?? 0.6)
 /** Sonnet statt Haiku (16.09.): Haiku fand drei von sechs existierenden Seiten nicht. */
 const MODELL = process.env.RECHERCHE_MODELL ?? 'sonnet'
 
-function baueFindenPrompt(lead, erfahrung, stationen = []) {
+function baueFindenPrompt(lead, erfahrung, stationen = [], googleListe = []) {
   const liste = stationen.length
     ? stationen.map((s) => `  - ${s.rolle || '?'} bei ${s.firma} (seit ${s.seit || '?'}${s.selbststaendig ? ', selbstständig/Inhaber' : ''})`).join('\n')
     : '  (keine erkannt)'
+
+  const google = googleListe.length
+    ? `\nECHTE GOOGLE-TREFFER (der Runner hat die Firma schon für dich gegoogelt, Kevin 07.10.2026: „Googeln ist deine Arbeit, nicht meine"). Such zuerst HIER. Ist die eigene Seite der Firma darunter, nimm sie, auch wenn sie nicht Treffer 1 ist, und suche nicht weiter:\n${googleListe.map((t) => `  ${t.platz}. ${t.domain} | ${t.titel}`).join('\n')}\n`
+    : ''
   return `Finde die Website EINES Immobilien-Kontakts und bestimme, womit er sein Geld verdient. Kein Text an den Kontakt.
 
 Kontakt:
@@ -79,7 +84,7 @@ Kontakt:
 - LinkedIn-Erfahrung (neueste Station zuerst): ${erfahrung || '(nicht lesbar)'}
 - Aktuelle Stationen („Heute"), aus der Erfahrung gelesen:
 ${liste}
-
+${google}
 **Die Firma steht in der Erfahrung, nicht in der Headline** (Kevin, 21.09.2026). Die Headline ist oft ein Spruch („be great at what you do"). Kevins Weg: die aktuellen Stationen („Heute") ansehen, den Firmennamen googeln — fertig. Berna Ayhan: Headline „Geschäftsführerin", Erfahrung „A Group Real Estate GmbH" → Seite ist der erste Treffer. „Stealth" oder Stationen ohne Firmennamen überspringen. Mehrere aktuelle Stationen: die mit Immobilienbezug und eigener Rolle (Gründer/GF/Inhaber) zuerst.
 
 Vorgehen:
@@ -106,6 +111,7 @@ Antworte mit NICHTS als diesem JSON-Block:
   "kandidaten": [],
   "nur_portal": false,
   "groesse": "",
+  "verbund": "",
   "stationen": []
 }
 \`\`\`
@@ -117,6 +123,7 @@ ${GESCHAEFTSMODELL_REGEL}
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
 - "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.
 - "groesse": Größe der Firma, zu der die Website gehört: "klein" (Einzelmakler, Team bis ~10), "mittel" oder "konzern" (Franchise-Zentrale, AG, bundesweit, Hunderte Mitarbeiter). Leer, wenn unklar.
+- "verbund": Name der Dachmarke (z. B. Evernest, RE/MAX, Engel & Völkers, Von Poll, PMI), wenn die Person dort als Partner, Franchisenehmer, Lizenzpartner oder Vertriebspartner arbeitet und keine eigene Marke führt. Leer bei eigener Firma und leer bei Gründer/Geschäftsführer der Dachmarke selbst.
 - "stationen": ALLE aktuellen Stationen („Heute") aus der Erfahrung, auch Nebenfirmen und Selbstständigkeit, je {"firma": "", "rolle": "", "seit": "", "selbststaendig": false}. "selbststaendig": true bei eigener Firma (Inhaber, Gründer, GF, Selbstständig). Nur, was in der Erfahrung steht — nichts erfinden. Nicht lesbar: [].`
 }
 
@@ -401,6 +408,19 @@ function mitProfil(destillat, quellen = {}) {
   return { ...destillat, profil, klasse, klasse_grund: grund }
 }
 
+/**
+ * Die ersten Google-Treffer zur Firma der aktuellen Station (07.10.2026). Ohne
+ * erkennbare Firma: leer, dann sucht das Modell wie bisher selbst. Nie werfen.
+ */
+const googleTrefferVon = new WeakMap()
+async function googleListeFuer(lead, stationen) {
+  const firma = String(stationen?.find((s) => s.firma)?.firma ?? '').replace(/\s+(GmbH|UG|AG|mbH|e\.K\.|& Co\. KG|KG)\b.*$/i, '').trim()
+  if (!firma) return []
+  const { treffer } = await googleTrefferDach(/immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`).catch(() => ({ treffer: [] }))
+  googleTrefferVon.set(lead, treffer)
+  return treffer
+}
+
 /** Ein Lead, drei Stufen. */
 async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   let kosten = 0
@@ -419,7 +439,7 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   const erfahrung = gelesen.text
   const f = bekannt
     ? { json: { firma: lead.firma_bekannt ?? '', taetigkeit: lead.taetigkeit_bekannt ?? '', geschaeftsmodell: lead.geschaeftsmodell_bekannt ?? '', kandidaten: [bekannt], nur_portal: false }, kosten: 0, token: 0 }
-    : await claudeLauf(baueFindenPrompt(lead, erfahrung, gelesen.stationen), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
+    : await claudeLauf(baueFindenPrompt(lead, erfahrung, gelesen.stationen, await googleListeFuer(lead, gelesen.stationen)), { cliPath, cwd, tools: 'WebSearch', budget: BUDGET_FINDEN })
   kosten += f.kosten
   token += f.token
   if (!f.json) return { lead, destillat: null, kosten, token, grund: `Finden: ${f.grund}` }
@@ -447,9 +467,10 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   const geschaeftsmodell = String(f.json.geschaeftsmodell ?? '').trim()
   const stationen = gelesen.stationen.length ? gelesen.stationen : stationenAusModell(f.json.stationen)
   const groesse = String(f.json.groesse ?? '').trim()
+  const verbund = String(f.json.verbund ?? '').trim()
   const leer = {
     firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung),
-    rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse,
+    rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse, verbund,
     website_stufe: '', meta_ads_aktiv: 'unbekannt',
     google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null,
     eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal),
@@ -563,6 +584,7 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       erreichbar: 'ja',
       taetigkeit,
       geschaeftsmodell,
+      verbund,
       erfahrung_gelesen: Boolean(erfahrung),
       eigentuemer_bereich: String(b.json.eigentuemer_bereich ?? ''),
       bewertung: String(b.json.bewertung ?? ''),
@@ -676,7 +698,7 @@ export async function rechercheLeads(leads, { melde = () => {}, cliPath = proces
 
   const angereichert = leads.map((lead, i) => ({
     ...lead,
-    recherche: ergebnisse[i]?.destillat ?? null,
+    recherche: ergebnisse[i]?.destillat ? { ...ergebnisse[i].destillat, google_treffer: googleTrefferVon.get(lead) ?? [] } : null,
     recherche_fehler: ergebnisse[i]?.grund ?? null,
   }))
   return {

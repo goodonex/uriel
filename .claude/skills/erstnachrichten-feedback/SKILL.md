@@ -42,9 +42,15 @@ alten Text übernehmen, wo es stimmt. Regeln aus `schreiben.md` gelten weiter
 (Länge, Schlusssätze, keine Geviertstriche, Du/Sie wie im alten Text).
 Sagt das Feedback „raus", „passt nicht", „nicht anschreiben" → `aussortieren`.
 
-**Zeig Kevin die neuen Texte gesammelt** (Name, Feedback in einem Halbsatz,
-neuer Text) und warte auf sein Okay oder seine Korrekturen. Erst danach
-zurückschreiben.
+**Nicht auf Kevins Okay warten** (Kevin, 07.10.2026: alles in einer Session, ohne
+Zwischenschleifen). Die Texte stehen danach bei den Erstnachrichten und sind dort
+vor dem Versand noch einmal sichtbar. Zeig sie ihm gesammelt im Abschluss (Name,
+Feedback in einem Halbsatz, neuer Text).
+
+**Nie Kevin etwas nachsehen lassen.** Steht im Feedback „google selbst" oder
+„wieso googelst du nicht", suchst du die Seite jetzt selbst (WebSearch) und
+schreibst den Text auf Basis dessen, was du findest. Das ist der häufigste Fehler
+im Feedback vom 07.10.2026, siehe `pruefen.md`.
 
 ## 4. Lernen: Regeln nachschärfen
 

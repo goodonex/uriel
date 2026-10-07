@@ -79,6 +79,25 @@ const MARKETING = /marketing|vertrieb|sales|kommunikation|communication|brand|di
 const ZIELGRUPPE = new Set(['makler', 'projektentwickler'])
 
 /**
+ * Dachmarken, unter denen Makler als Partner/Franchisenehmer arbeiten (07.10.2026).
+ * Kevin: *„An alle, die in Verbund oder Dachfirmen sind wie Evernest, brauchen wir
+ * einen eigenen Einstieg. Ich bekomme die sonst nie als Kunden."* Diese Leute
+ * haben keine eigene Marke, die Seite gehört der Dachmarke — also weder Analyse
+ * noch GF-Suche, sondern die Frage, ob sie sich selbstständig machen wollen.
+ */
+const DACHMARKEN = /evernest|re\/max|remax|engel\s*(?:&|und)\s*völkers|engel\s*(?:&|und)\s*voelkers|von poll|dahler|\bpmi\b|promak|homeday|ohne makler/i
+
+/** Name der Dachmarke, wenn der Lead unter einer arbeitet, sonst ''. Die Zentrale selbst zählt nicht. */
+export function verbundFuer(lead, recherche) {
+  const r = recherche ?? {}
+  const modell = String(r.verbund ?? '').trim()
+  if (modell) return modell
+  if (/gründer|founder|ceo|vorstand|geschäftsführer der zentrale/i.test(String(lead?.headline ?? ''))) return ''
+  const treffer = `${r.firma ?? ''} ${lead?.headline ?? ''} ${r.taetigkeit ?? ''}`.match(DACHMARKEN)
+  return treffer ? treffer[0] : ''
+}
+
+/**
  * Ein großer Konzern? Modell-Urteil oder harte Zeichen (AG/SE, Vorstand).
  * Nicht die Zahl der GF: gladigau-immobilien.de nennt vier — ein Familienbetrieb.
  */
@@ -145,6 +164,7 @@ export function namenAusHinweis(hinweis, leadName = '') {
 export function entscheiderUrteil(lead, recherche, { bekannteLeads = new Set(), kandidatStatus = new Map() } = {}) {
   const r = recherche ?? {}
   const nichts = (warum) => ({ zurueckstellen: false, text: '', neu: [], gf: [], warum })
+  if (verbundFuer(lead, r)) return nichts('Verbund-Partner — eigener Einstieg, keine GF-Suche')
   if (r.rolle_impressum !== 'angestellt') return nichts('nicht als angestellt geprüft')
   if (!ZIELGRUPPE.has(String(r.geschaeftsmodell ?? '').toLowerCase())) return nichts('nicht Zielgruppe')
   const gf = (r.impressum_gf ?? []).filter((n) => istPersonenname(n) && namensSchluessel(n) && !personGleich(n, lead.name)).slice(0, 2)

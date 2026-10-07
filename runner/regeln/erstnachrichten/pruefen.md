@@ -60,6 +60,13 @@ Urteile je Nachricht genau eins:
    über fehlende Werbung, solange nicht beide Felder `nein` sind, keine Aussage
    darüber, wohin Anzeigen führen. Die Anzeigen-Aussage muss zu den Feldern
    passen (`ja` nennen, `unbekannt` weglassen). Sonst `neu`.
+   **`verbund` (Aufbau V)** ist die Dachmarken-Nachricht (Evernest, RE/MAX &
+   Co.). Rolle und Seite sind hier kein Prüfgrund, die Person arbeitet bewusst
+   unter der Dachmarke. Kevin 07.10.2026: *„Mich nervt das Prüfen solcher
+   Leads."* Darum `ok`, wenn Rapport-Satz stimmt und der Schlusssatz wortgleich
+   steht. Kritik an der Dachmarken-Seite, ein Angebot oder eine Analyse → `neu`.
+   Nie `unsicher` wegen „evtl. ist er selbst die Zentrale": Zentrale zeigt sich
+   an Gründer/Geschäftsführer in der Headline, sonst gilt Verbund.
    **`hausverwaltung` (Aufbau H)** ist kein „kein Makler"-Fall: Rapport plus die
    feste Frage, kein Angebot — sonst `neu`.
 3. **Ist es der richtige Elefant?** Nie der Wertrechner/das Bewertungstool
@@ -127,7 +134,7 @@ Diese Fälle sind Maßstab. Kommt ein ähnlicher Fall, urteile wie Kevin.
   Halbe, Dahinden, Gloy, Mochow; bei Schulze stand die falsche Domain). Kevin
   fand jede Seite als ersten bis dritten Google-Treffer. Ein Text mit Aufbau D
   oder F ist nur `ok`, wenn das Destillat die Gegenprobe belegt. Sonst `neu`
-  mit Hinweis: *„Firma googeln, die ersten fünf Treffer ansehen."* Gibt es für
+  (ab 07.10.2026 **ohne** Googeln-Hinweis an Kevin, siehe unten). Gibt es für
   eine Person mehrere Domains mit gleichem Namen, gilt die, deren Ort oder
   Impressum zur Person passt (Schulze: Treffer 3, sw-immo-gutachter.de im
   Rhein-Main-Gebiet, nicht sw-makler.com aus Dortmund).
@@ -187,6 +194,11 @@ Nur ein ```json-Block, als LETZTES:
 }
 ```
 
+Bei `neu` kannst du optional `"beanstandet": [{ "satz": "<wörtlich aus der Nachricht>", "grund": "…" }]`
+mitgeben (höchstens fünf). Dann ändert der Schreiber nur diese Sätze und lässt den
+Rest stehen. Nur setzen, wenn der Rest der Nachricht trägt; ist der Ansatz selbst
+falsch, lass `beanstandet` weg.
+
 Jede vorgelegte Nachricht bekommt genau ein Urteil. `hinweis` ist bei `neu`
 und `zurueck` Pflicht, ein bis zwei Sätze. `art` ist bei `zurueck` Pflicht
 (`kein_ziel` oder `unsicher`). `ansatz` nur setzen, wenn eine Analyse auf
@@ -199,3 +211,50 @@ Hat Kevin selbst einen Satz zum Lead geschrieben (`hinweis_kevin`), ist der
 gesichert. Du zweifelst ihn nicht an und gibst bei Rolle oder Seite kein
 `zurueck` mehr dafür, was dort schon geklärt ist. Prüfe nur, ob der Text die
 Angabe richtig umsetzt.
+
+## Prüffälle aus Kevins Feedback vom 07.10.2026 (19 Texte)
+
+Kevin hat 19 Prüf-Texte von Hand abgearbeitet und sich geärgert: *„Diese ganze
+Prüferei hat mich richtig genervt … genau dafür habe ich dich und das muss
+funktionieren."* Die Muster:
+
+- **Nie einen Googeln-Hinweis an Kevin.** Röper, Zollinger, Siedenburg, Kern,
+  Roß, Zollinger, Jancic: Die Seite war jedes Mal der erste Treffer. Der Prüfer
+  urteilt zuerst gegen `google_treffer` im Lead. Steht dort eine eigene Seite
+  der Firma, ist „keine Website gefunden" falsch → `neu`. Fehlen die Treffer
+  im Lead, ist das ein Fehler des Runners, kein Auftrag an Kevin: `zurueck`
+  mit `art: unsicher` und dem Grund „Google-Treffer fehlen", nie ein Hinweis
+  „googeln".
+- **Keine Kleinkram-Hinweise.** Itaj („warum müssen verkaufte Objekte unten
+  auf der Startseite stehen? Das ist doch keine Regel"), Christoffers („ob ein
+  schwebender Kontaktknopf sichtbar ist … die ganze Seite sieht aus wie
+  Kacke"), Vogt („was willst du hier von mir?"). Ein Befund muss der größte
+  Mangel sein, den ein Eigentümer sofort sieht. Bei einer hässlichen Seite
+  nie eine Randbeobachtung, bei einer guten Seite ohne Mangel Aufbau S/T statt
+  eines erfundenen Aufhängers.
+- **Verbund-Fälle gehören auf Aufbau V.** Iorio (catasto.de ist ein
+  Makler-Verbund, andere GF): *„Maklerverbund-Nachricht."* Eisenblätter (Deutsche-
+  Bank-Partner): *„auch an den eine Verbundsnachricht."* Roger Simmen (buutiq,
+  selbstständig, aber über Engel & Völkers): ebenso. Wer als selbstständiger
+  Partner unter einer Dachmarke arbeitet, bekommt Aufbau V, keine Seitenkritik
+  und kein „keine Website gefunden".
+- **Prokuristen und Angestellte sind keine Absage.** Jancic (Prokurist bei
+  Zenit): *„Prokuristen können wir aber zusätzlich anschreiben."* Das Impressum
+  nachzusehen, wer GF ist, macht der Prüfer selbst, nicht Kevin. Prokurist
+  mit Entscheidungsnähe bekommt Rapport, keine Seitenkritik.
+- **Kritik geht nur an den, der die Seite ändern kann.** Vopel (Impressum nennt
+  Benjamin Saitzek als GF): *„dann mir sagen, dass ich Benjamin Saitzek
+  anfragen soll."* Deutsche Bank Immobilien (Konzernseite): *„dann aussortieren?"*
+  Wer die Seite nicht verantwortet, bekommt keine Seitenkritik; ist die Person
+  sonst passend, Aufbau N oder V, ist sie ein Konzern, `zurueck` mit
+  `art: kein_ziel`.
+- **Rapport-Fakten müssen stimmen und zur Person passen.** Siedenburg:
+  *„Wieso Burgmeyer? Wieso Siedenburg Gruppe, wieso nicht …?"* Caruso:
+  *„Es steht doch alles auf der Website, warum fragst du mich das?"* Eine
+  Frage, deren Antwort auf der Seite steht („Hauptfokus Immobilien oder
+  Zypern?"), ist keine ehrliche Frage. Erst auf der Seite nachsehen, dann
+  fragen oder das Thema wechseln.
+- **Zertifikat/Weiterleitung nachprüfen.** Bauer (bauer-family-office.com
+  leitet auf onoffice.com): Leitet die Domain woanders hin, ist das der
+  Befund, nicht „Sicherheitszertifikat". Der Browser-Lauf hält die Weiterleitung
+  fest, bevor der Text das Zertifikat behauptet.

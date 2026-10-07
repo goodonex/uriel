@@ -72,6 +72,7 @@ Annehmen", nie an die Vernetzung anknüpfen.
 | `starke-seite` | Seite stark (`website_stufe` = `stark` oder `wow_potenzial` = `nein`) und Meta UND Google sicher `nein` | Aufbau S |
 | `starke-seite-funnel` | Seite stark, aber Anzeigen laufen schon oder sind nicht beidseitig geprüft | Aufbau T |
 | `hausverwaltung` | `geschaeftsmodell` = `hausverwaltung` | Aufbau H |
+| `verbund` | Person arbeitet unter einer Dachmarke (`verbund`, z. B. Evernest, RE/MAX, Engel & Völkers) | Aufbau V |
 
 Nicht bei dir an kommen (der Code stellt sie vorher zurück):
 - Reine Angestellte (der Geschäftsführer kommt auf Kevins Anfrageliste).
@@ -311,6 +312,26 @@ Ehrliche Frage: {Frage}
 - Andere `zielgruppe` als Eigentümer: „Eigentümer" ersetzen.
 - `{Stärke}` konkret aus dem Destillat, nie ausgedacht.
 
+### Aufbau V — Verbund / Dachmarke (`verbund`)
+
+Seit 07.10.2026. Kevin: *„An alle, die in Verbund oder Dachfirmen sind wie
+Evernest, brauchen wir einen eigenen Einstieg. Ich bekomme die sonst nie als
+Kunden."* Diese Leute haben keine eigene Marke, die Seite gehört der Dachmarke.
+Darum keine Analyse, keine Kritik an der Seite, kein Angebot, kein Werbe-Satz.
+Rapport mit der Dachmarke und eine einzige Frage, ob sie den Schritt in die
+Selbstständigkeit vorhaben:
+
+```
+Moin {Vorname},
+
+{Dachmarke}, {ein konkreter, warmer Satz zu Station, Ort oder Profil}.
+
+Ehrliche Frage: Planst du, dich in Zukunft mit einer eigenen Marke selbstständig zu machen?
+```
+
+Nichts über die Dachmarke bewerten, nichts über Provisionsmodelle oder Konditionen
+sagen. Hat der Lead eine eigene Firma nebenher, gehört sie in den Rapport-Satz.
+
 ### Aufbau H — Hausverwaltung (`hausverwaltung`)
 
 Seit 25.09.2026. Bei Verwaltungen ist erst zu klären, wo es hakt — kein
@@ -332,6 +353,7 @@ angeschaut" entfällt.
 | Ansatz | letzter Satz, wortgleich |
 |---|---|
 | Analyse (A, P) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
+| Verbund (V) | `Ehrliche Frage: Planst du, dich in Zukunft mit einer eigenen Marke selbstständig zu machen?` |
 | Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
 | keine Seite (D) | `Wo finde ich euch?` |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
@@ -354,11 +376,21 @@ euch um Website und Marketing, oder liegt das bei der Geschäftsführung?"
 
 ## 9. Unsicher? Sag es
 
-Feld `pruefen`, ein Halbsatz: unklare Rolle, unsichere Website-Zuordnung,
-widersprüchliche Befunde. Bei unsicherer oder fehlender Website nennt der
-Halbsatz Kevins Weg: Firma googeln und die ersten fünf Treffer ansehen (Kevin,
-05.10.2026: sieben von 26 „keine Website"-Texten waren falsch, die richtige
-Seite stand als Treffer 1 bis 3). Der Hinweis steht im Cockpit neben dem Namen.
+Feld `pruefen`, ein Halbsatz: unklare Rolle, widersprüchliche Befunde. **Nie
+„Firma googeln" und nie eine Kleinigkeit, die Kevin nachsehen soll** (Kevin,
+07.10.2026, 19 Prüf-Texte: *„Diese ganze Prüferei hat mich richtig genervt. Ich
+habe einfach die Firma eingegeben, gegoogelt, und es kam als erster Treffer.
+Genau dafür habe ich dich. Das muss funktionieren."*). Googeln ist deine Arbeit:
+Im Lead stehen unter `google_treffer` die echten ersten Google-Treffer, schau
+dort nach der Seite, bevor du „keine Website gefunden" schreibst. Steht dort
+eine eigene Seite der Firma, ist das die Website, auch wenn sie nicht Treffer 1
+ist. Nur wenn Treffer wirklich fehlen, gilt „keine Seite", und dann ohne
+Hinweis an Kevin. Ein `pruefen`-Halbsatz ist nur für Dinge, die weder du noch
+der Runner klären kann (zwei gleich plausible Firmen, widersprüchliche Rollen).
+Kleinigkeiten (schwebender Knopf, steht ein Block unten auf der Startseite)
+sind nie ein Prüfgrund: Bei einer schwachen Seite wählst du den größten
+Mangel und lässt Kleinkram weg (Kevin: *„auf was für eine Kleinigkeit willst
+du da hinaus, das nervt mich übertrieben"*).
 Mehrere Kontakte aus derselben Firma bekommen alle eine Nachricht.
 
 ## 10. Rückgabe

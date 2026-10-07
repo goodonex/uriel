@@ -27,13 +27,21 @@ export type FeedbackSammlung = Record<string, FeedbackEintrag>
 
 const SESSION_ORDNER = '/Users/kevin/Kevin OS/02 Projekte/uriel'
 
-/** Kurz halten: Die Daten holt die Session selbst, der Link trägt nur den Auftrag. */
+/**
+ * Der Auftrag trägt die Schritte selbst (07.10.2026). Vorher stand dort nur „lies den Skill":
+ * Kevin: *„einfacher Text, wo drin steht, dass er irgendein Skill lesen soll, das macht
+ * überhaupt keinen Sinn."* Die Daten holt die Session selbst, der Link trägt den Auftrag.
+ */
 export function feedbackPrompt(anzahl: number): string {
   return [
-    `Arbeite mein Feedback zu ${anzahl} Erstnachrichten aus der Uriel-Stufe „Prüfen" ab.`,
+    `Arbeite mein Feedback zu ${anzahl} Erstnachrichten aus der Uriel-Stufe „Prüfen" jetzt komplett ab, ohne Rückfragen und ohne auf mein Okay zu warten.`,
     ``,
-    `Lies zuerst .claude/skills/erstnachrichten-feedback/SKILL.md und geh genau so vor:`,
-    `Feedback holen, Texte neu schreiben, daraus Regeln ableiten, alles zurückschreiben.`,
+    `1. Feedback holen: npx tsx scripts/erstnachrichten-feedback.ts holen. Jeden Screenshot ansehen.`,
+    `2. Jeden Text neu schreiben. Fakten (Website, Geschäftsführer, Verbund) selbst im Netz prüfen, mich nie googeln lassen. Was ich geschrieben habe, gilt als gesichert.`,
+    `3. Aus den Mustern Regeln in runner/regeln nachschärfen, committen und pushen.`,
+    `4. Mit scripts/erstnachrichten-feedback.ts setzen zurückschreiben, sodass die Texte bei den Erstnachrichten stehen.`,
+    ``,
+    `Am Ende ein Satz Ergebnis und die neuen Regeln als kurze Liste. Details zum Vorgehen: .claude/skills/erstnachrichten-feedback/SKILL.md.`,
   ].join('\n')
 }
 

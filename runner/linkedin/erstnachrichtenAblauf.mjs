@@ -25,6 +25,7 @@
  */
 import { spawn } from 'node:child_process'
 import { regelwerk } from '../regeln/fassung.mjs'
+import { verbundFuer } from './entscheider.mjs'
 import { parseErstnachrichtenRoh } from './erstnachrichtenEntwuerfe.mjs'
 
 /** Opus: Der Prüfer ist die letzte Stelle vor Kevins Namen. */
@@ -103,6 +104,10 @@ export function ansatzFuer(lead, heute = new Date()) {
   const nebenher = stationen.filter(
     (s) => s?.selbststaendig && String(s.firma ?? '').trim() && !eigeneFirma.includes(String(s.firma).toLowerCase().slice(0, 8)),
   )
+
+  // Verbund/Dachmarke (07.10.2026): eigener Einstieg, vor allen Seiten- und Rollen-Fragen.
+  const dachmarke = verbundFuer(lead, r)
+  if (dachmarke) return { ansatz: 'verbund', dachmarke }
 
   // Nicht Entscheider der Firma, deren Seite wir sehen — aber eigene Firma nebenher (Hilgeland, 22./23.09.).
   if (r.rolle === 'angestellt' || r.rolle_impressum === 'angestellt') {
@@ -208,7 +213,7 @@ function fuerModell(lead) {
  *
  * @returns {Promise<{ urteile: Map<string, {urteil: string, hinweis: string, ansatz?: string, art?: 'kein_ziel'|'unsicher'}> | null, kosten: number }>}
  */
-export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd }) {
+async function pruefeEinmal(nachrichten, leadsNachName, { cliPath, cwd }) {
   if (!nachrichten.length) return { urteile: new Map(), kosten: 0 }
   const { pruefen, schreiben } = regelwerk()
   const vorlage = nachrichten.map((n) => {
@@ -232,7 +237,43 @@ export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd
       eintrag.urteil = 'neu'
       eintrag.ansatz = lead ? ansatzStarkeSeite(lead.recherche) : 'starke-seite-funnel'
     }
+    // Satzgenau beanstandet: Der Nachschreiber ändert dann nur diese Sätze (07.10.2026).
+    if (eintrag.urteil === 'neu' && Array.isArray(u?.beanstandet)) {
+      const b = u.beanstandet
+        .map((x) => ({ satz: String(x?.satz ?? '').trim().slice(0, 400), grund: String(x?.grund ?? '').trim().slice(0, 200) }))
+        .filter((x) => x.satz)
+        .slice(0, 5)
+      if (b.length) eintrag.beanstandet = b
+    }
     urteile.set(String(u?.name ?? '').toLowerCase(), eintrag)
+  }
+
+  return { urteile, kosten }
+}
+
+export async function pruefeEntwuerfe(nachrichten, leadsNachName, ctx) {
+  const erst = await pruefeEinmal(nachrichten, leadsNachName, ctx)
+  const { urteile } = erst
+  let kosten = erst.kosten
+  if (!urteile) return erst
+
+  // Mehrheitsentscheid beim Aussortieren (07.10.2026): `kein_ziel` fällt nur raus, wenn drei
+  // unabhängige Läufe es sagen. Kevin am 02.10.: „Ich will nicht, dass auch nur einer rausfallen
+  // kann, den wir eigentlich angehen könnten." Kostet nur die wenigen Kandidaten, nicht alle.
+  const istKeinZiel = (u) => u?.urteil === 'zurueck' && u.art === 'kein_ziel'
+  const kandidaten = nachrichten.filter((n) => istKeinZiel(urteile.get(String(n.name).toLowerCase())))
+  if (kandidaten.length) {
+    for (let runde = 0; runde < 2; runde++) {
+      const wieder = await pruefeEinmal(kandidaten, leadsNachName, ctx)
+      kosten += wieder.kosten
+      for (const n of kandidaten) {
+        const key = String(n.name).toLowerCase()
+        const alt = urteile.get(key)
+        if (!istKeinZiel(alt)) continue
+        // Kein Ergebnis oder abweichendes Urteil: im Zweifel Kevins Blick statt Aussieben.
+        if (!istKeinZiel(wieder.urteile?.get(key))) alt.art = 'unsicher'
+      }
+    }
   }
   return { urteile, kosten }
 }
@@ -246,10 +287,11 @@ export async function pruefeEntwuerfe(nachrichten, leadsNachName, { cliPath, cwd
 export async function schreibeNeu(leads, { cliPath, cwd }) {
   if (!leads.length) return { nachrichten: [], uebersprungen: [], kosten: 0 }
   const { schreiben } = regelwerk()
-  const input = { leads: leads.map((l) => ({ ...fuerModell(l), hinweis_pruefer: l.hinweis_pruefer, vorheriger_text: l.vorheriger_text })) }
+  const input = { leads: leads.map((l) => ({ ...fuerModell(l), hinweis_pruefer: l.hinweis_pruefer, vorheriger_text: l.vorheriger_text, ...(l.beanstandet?.length ? { beanstandete_saetze: l.beanstandet } : {}) })) }
   const prompt =
     `${schreiben}\n\n---\n\nZweiter Versuch: Der Prüfer hat deine ersten Texte zu diesen Leads abgelehnt. ` +
-    `Lies je Lead \`hinweis_pruefer\` und schreib neu. Wiederhole nicht, was abgelehnt wurde.\n\n` +
+    `Lies je Lead \`hinweis_pruefer\` und schreib neu. Wiederhole nicht, was abgelehnt wurde. ` +
+    `Steht bei einem Lead \`beanstandete_saetze\`, ändere NUR diese Sätze und übernimm den Rest von \`vorheriger_text\` wortgleich.\n\n` +
     `Eingabedaten (JSON):\n\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``
   const { text, kosten } = await lauf(prompt, { cliPath, cwd, budget: 1 + 0.4 * leads.length })
   const { nachrichten, uebersprungen } = parseErstnachrichtenRoh(text)

@@ -135,6 +135,7 @@ export function fuerSchreiber(zeile) {
           sicher: r.sicher ?? false,
           taetigkeit: r.taetigkeit ?? '',
           geschaeftsmodell: r.geschaeftsmodell ?? '',
+          verbund: r.verbund ?? '',
           rolle: r.rolle ?? '',
           website_stufe: r.website_stufe ?? '',
           staerke: r.staerke ?? '',

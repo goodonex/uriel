@@ -609,6 +609,32 @@ gepasst hätte.
     Hallo Christian, verstanden, das ist dein Spiel. Wenn du ein Objekt gedreht hast: Woher kommt das nächste, aus deinem Netzwerk oder melden sich Eigentümer auch direkt bei dir?
     ```
 
+18. **Der Lead verweist für den Termin an eine Kollegin oder Assistenz: Die
+    Mail geht an sie, der Termin ist aber MIT IHM** (Kevin, 06.10.2026, Manuel
+    Rees: *„Machen Sie gerne einen Termin mit meiner Kollegin
+    Sh@reco-immobilien.de"*). Die Kollegin führt das Gespräch nicht, sie
+    koordiniert den Kalender des Leads. Der erste Entwurf fragte „Wie heißt Ihre
+    Kollegin?" und der zweite erklärte der Assistenz das ganze Vorhaben, beides
+    falsch. Regeln für diese Mail:
+    - **Kein LinkedIn-Text.** Auf LinkedIn braucht der Lead keine Antwort; der
+      Entwurf ist die E-Mail an die genannte Adresse. Der Name der Kollegin ist
+      unnötig, die Adresse reicht.
+    - **Drei Sätze, kein Pitch, kein Grund.** Die Assistenz braucht nur: mit wem
+      Kevin im Austausch war, dass er einen Termin mit IHM abstimmen soll, und
+      die Bitte um drei Zeitfenster für diese Woche. Warum Kevin schreibt, sagt
+      sie nicht weiter und braucht sie nicht zu wissen.
+    - **Dauer 20 Minuten** (Kevins Formulierung), Sie-Form, Absender mit Namen.
+    - Erkennbar: eine E-Mail-Adresse, Nummer oder „meine Kollegin/Assistentin" in
+      der letzten Lead-Nachricht, dazu ein Termin- oder Rückruf-Wunsch. Nennt
+      der Lead seine Adresse für die Analyse, geht das Loom dorthin (Regel 12).
+    ```
+    Betreff: Terminabstimmung mit Herrn Rees
+
+    Guten Tag, ich war mit Herrn Rees im Austausch, und ich soll bitte einmal einen Termin mit ihm abstimmen. Können Sie mir diese Woche drei passende Zeitfenster für 20 Minuten nennen?
+
+    Kevin Herrmann
+    ```
+
 ## Edge Cases
 
 - **Lead reagiert nur mit Emojis/Floskeln, ohne Inhalt:** eine kurze, konkrete Frage stellen,
