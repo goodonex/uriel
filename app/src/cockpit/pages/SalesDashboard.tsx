@@ -1085,7 +1085,14 @@ export function SalesDashboard() {
             : erstnachrichtMorgen > 0
               ? `Tagesziel ${erstnachrichtenTagesSoll} · ${erstnachrichtMorgen} weitere Texte liegen für morgen bereit`
               : wartend.length > 0
-                ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · ${wartend.length} warten insgesamt, der Mini schreibt nach`
+                ? /**
+                   * Nur „Mini schreibt nach", wenn wirklich welche ohne Text warten (07.10.2026).
+                   * Kevin sah „27 Texte bereit · 27 warten insgesamt, der Mini schreibt nach":
+                   * dieselben 27 doppelt gezählt, und der Mini hatte nichts mehr zu schreiben.
+                   */
+                  wartend.length > erstnachrichtListe.length
+                  ? `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit · für ${wartend.length - erstnachrichtListe.length} schreibt der Mini noch`
+                  : `${erstnachrichtListe.length} ${erstnachrichtListe.length === 1 ? 'Text' : 'Texte'} bereit zum Versand, alle sind geschrieben`
                 : (zuerst(erstnachrichtListe) ?? 'Wer angenommen hat, bekommt seine Nachricht.'),
           inhalt: blockiert
             ? () => (
