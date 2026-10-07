@@ -243,7 +243,10 @@ async function pruefeEinmal(nachrichten, leadsNachName, { cliPath, cwd }) {
         .map((x) => ({ satz: String(x?.satz ?? '').trim().slice(0, 400), grund: String(x?.grund ?? '').trim().slice(0, 200) }))
         .filter((x) => x.satz)
         .slice(0, 5)
-      if (b.length) eintrag.beanstandet = b
+      if (b.length) {
+        eintrag.beanstandet = b
+        console.log(`[schnell-langsam] Satz-Reparatur: ${b.length} Satz/Sätze beanstandet bei ${u?.name}`)
+      }
     }
     urteile.set(String(u?.name ?? '').toLowerCase(), eintrag)
   }
@@ -271,7 +274,10 @@ export async function pruefeEntwuerfe(nachrichten, leadsNachName, ctx) {
         const alt = urteile.get(key)
         if (!istKeinZiel(alt)) continue
         // Kein Ergebnis oder abweichendes Urteil: im Zweifel Kevins Blick statt Aussieben.
-        if (!istKeinZiel(wieder.urteile?.get(key))) alt.art = 'unsicher'
+        if (!istKeinZiel(wieder.urteile?.get(key))) {
+          alt.art = 'unsicher'
+          console.log(`[schnell-langsam] Mehrheit: ${n.name} bleibt in Kevins Liste statt auszufallen`)
+        }
       }
     }
   }

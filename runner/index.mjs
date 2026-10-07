@@ -1051,7 +1051,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
-        if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht })
+        if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht, ...(u.beanstandet ? { beanstandet: u.beanstandet } : {}) })
         else ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       }
     }
