@@ -9,7 +9,7 @@
  * Start: npx tsx scripts/verify-entwuerfe.ts
  */
 // @ts-expect-error — .mjs ohne Typen; genau die Datei, die der Runner lädt.
-import { parseDraftsRoh } from '../runner/linkedin/entwuerfe.mjs'
+import { parseDraftsRoh, parseNichtGeprueftRoh } from '../runner/linkedin/entwuerfe.mjs'
 import {
   darfFollowupErhalten,
   draftIdentitaet,
@@ -347,6 +347,14 @@ ${JSON.stringify({ drafts }, null, 2)}
   check('9f Cem überlebt den nächsten Run', offen.includes('Cem wurde nie bearbeitet'), true)
   check('9g Anna steht genau einmal da', offen.filter((m) => m.includes('Anna')).length, 1)
   check('9h und zwar mit dem jüngeren Text', offen.includes('Neu für Anna'), true)
+}
+
+// 10 — nicht geprüfte Websites (07.10.2026): kommen im nächsten Lauf wieder
+{
+  const md = 'Bericht\n```json\n{"drafts":[],"urteile":[],"nicht_geprueft":["k1",{"thread_key":"k2"}," ",3]}\n```'
+  check('10a Liste aus Strings und Objekten', parseNichtGeprueftRoh(md), ['k1', 'k2'])
+  check('10b fehlt das Feld → leer', parseNichtGeprueftRoh('```json\n{"drafts":[]}\n```'), [])
+  check('10c kaputter Block → leer', parseNichtGeprueftRoh('```json\n{kaputt\n```'), [])
 }
 
 console.log(`${pass} bestanden, ${fail} fehlgeschlagen`)

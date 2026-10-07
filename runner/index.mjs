@@ -17,9 +17,9 @@ import { fileURLToPath } from 'node:url'
 import { syncThreads, TIEFENSCAN_TAGE } from './linkedin/sync.mjs'
 import { upsertThreads } from './linkedin/upsert.mjs'
 import { ladeErstnachrichten } from './linkedin/erstnachrichten.mjs'
-import { ANTWORT_MAX, baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
+import { NACHFASS_PAKET, baueAntwortInput, holeAntwortThreads } from './linkedin/antwortThreads.mjs'
 import { baueSortierInput, holeSortierThreads } from './linkedin/sortierThreads.mjs'
-import { parseDraftsRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
+import { parseDraftsRoh, parseNichtGeprueftRoh, parseUrteileRoh, schreibeEntwuerfe, schreibeUrteile } from './linkedin/entwuerfe.mjs'
 import { ergaenzeAnrufVorschlaege, zeitKontext } from './linkedin/zeitangaben.mjs'
 import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, schreibeErstnachrichten, segmentUrteil } from './linkedin/erstnachrichtenEntwuerfe.mjs'
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
@@ -1224,6 +1224,11 @@ async function entwuerfeAnThreads(runId, markdown, input = null) {
      * „kontakt" und ein Entwurf daneben, weil der Skill es so verlangte.
      */
     const raus = new Set(urteile.filter((u) => u.urteil !== 'lead').map((u) => u.thread_key))
+    // Website nicht geprüft (07.10.2026): kein Text an den Posten, auch wenn
+    // der Agent doch einen schreibt, und der nächste Lauf legt den Thread wieder vor.
+    const ungeprueft = new Set(parseNichtGeprueftRoh(markdown))
+    for (const k of ungeprueft) raus.add(k)
+    if (ungeprueft.size) console.warn(`[runner] ${runId}: ${ungeprueft.size} Threads ohne Website-Prüfung — kommen im nächsten Lauf wieder`)
     // Telefonat ohne Zeitvorschlag bekommt Kevins zwei Standard-Vorschläge (06.10.2026).
     const vorschlaege = input?.zeit?.anruf_vorschlaege ?? (await zeitFuerLauf()).anruf_vorschlaege
     const alleDrafts = parseDraftsRoh(markdown).map((d) => ({ ...d, message: ergaenzeAnrufVorschlaege(d.message, vorschlaege) }))
@@ -1236,7 +1241,7 @@ async function entwuerfeAnThreads(runId, markdown, input = null) {
     // Nur bei einem lesbaren Ergebnis — ein kaputter json-Block ist kein Urteil.
     if (Array.isArray(input?.threads) && (alleDrafts.length || urteile.length)) {
       const mitText = new Set(drafts.map((d) => d.thread_key).filter(Boolean))
-      ohneEntwurfMerke(input.threads.map((t) => t.thread_key).filter((k) => k && !mitText.has(k)))
+      ohneEntwurfMerke(input.threads.map((t) => t.thread_key).filter((k) => k && !mitText.has(k) && !ungeprueft.has(k)))
     }
     // Ein Lauf ohne Entwürfe kann trotzdem etwas wert sein: Sind alle
     // vorgelegten Threads Akquise-Versuche, ist die Urteilsliste das ganze
@@ -3920,11 +3925,11 @@ async function maybeAntwortEntwuerfe() {
  * Aufrufer darauf wartet (der Takt der anderen Routinen läuft weiter).
  */
 async function antwortLaeufe(gebaut, { signal } = {}) {
-  // Nachfassen in Paketen zu ANTWORT_MAX: 40 in einem Lauf sprengten die zehn
-  // Minuten, 18 sind am 28.09. in 5½ Minuten durchgelaufen.
+  // Nachfassen in Paketen zu NACHFASS_PAKET: Jeder Text braucht eine echte
+  // Website-Prüfung, 18 je Lauf reichten dafür nicht (07.10.2026).
   const nachfassen = gebaut.input.threads.filter((t) => t.art !== 'antwort')
   const pakete = []
-  for (let i = 0; i < nachfassen.length; i += ANTWORT_MAX) pakete.push(nachfassen.slice(i, i + ANTWORT_MAX))
+  for (let i = 0; i < nachfassen.length; i += NACHFASS_PAKET) pakete.push(nachfassen.slice(i, i + NACHFASS_PAKET))
   const teile = [gebaut.input.threads.filter((t) => t.art === 'antwort'), ...pakete].filter((threads) => threads.length)
   if (!teile.length) return
   const [erster, ...rest] = teile

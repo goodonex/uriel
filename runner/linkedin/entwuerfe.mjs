@@ -154,3 +154,27 @@ export async function schreibeEntwuerfe({ supabaseUrl, headers, brandId, runId, 
 
   return { geschrieben, ohneThread, nichtGefunden }
 }
+
+/**
+ * Threads, deren Website der Agent in diesem Lauf nicht wirklich geprüft hat
+ * (07.10.2026): `nicht_geprueft` im selben ```json-Block, eine Liste von
+ * `thread_key`s. Für sie gibt es keinen Text, und der Runner merkt sie NICHT als
+ * „gelesen, bewusst ohne Entwurf" — sonst kämen sie nie wieder dran. Anlass:
+ * Der Lauf vom 07.10. schrieb bei sechs Leads aus Budgetnot Fragen ohne Befund.
+ */
+export function parseNichtGeprueftRoh(content) {
+  if (!content) return []
+  const blocks = [...String(content).matchAll(/```json\s*([\s\S]*?)```/g)]
+  if (!blocks.length) return []
+  let parsed
+  try {
+    parsed = JSON.parse(blocks[blocks.length - 1][1])
+  } catch {
+    return []
+  }
+  const arr = Array.isArray(parsed?.nicht_geprueft) ? parsed.nicht_geprueft : []
+  return arr
+    .map((x) => (typeof x === 'string' ? x : typeof x?.thread_key === 'string' ? x.thread_key : ''))
+    .map((k) => k.trim())
+    .filter(Boolean)
+}

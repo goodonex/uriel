@@ -185,6 +185,18 @@ export const LEAD_ENDSTATUS = new Set(['kunde', 'disqualifiziert', 'ruht'])
 export const NACHFASSEN_MAX = 20
 
 /**
+ * Nachfassen und Neu-Prüfen gehen in Paketen zu sechs an den Agenten (07.10.2026).
+ *
+ * Jeder dieser Texte braucht eine echte Prüfung der Website. Mit 18 Threads im
+ * Drei-Dollar-Rahmen rationierte der Agent: Der Lauf vom 07.10. 08:09 schrieb
+ * „Wegen des Budgets nur knapp recherchiert" und lieferte für Kuhnert,
+ * Bartelheimer, Slabik und drei weitere Fragen ohne Befund. Bei Kuhnert
+ * ersetzte das einen geprüften Text vom Vortag; wittlinger-co.de war nie weg.
+ * Kevin: *„die sind alle nicht gut"*. Sechs je Lauf lassen gut 50 Cent je Thread.
+ */
+export const NACHFASS_PAKET = 6
+
+/**
  * Wie viele Nachfass-Texte eine Nacht schreibt, folgt Kevins Tagesziel für
  * Follow-ups (`ui_settings.tagesFlowZiele.followups`, am 29.09.2026 auf 40
  * gesetzt). Ohne Einstellung gilt `NACHFASSEN_MAX` = `FOLLOWUP_PORTION_TAG`.
