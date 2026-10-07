@@ -4705,7 +4705,7 @@ async function meldeVersion(extra = {}) {
   if (!SNAPSHOT_ENABLED) return
   const commit = await git('rev-parse', 'HEAD')
   if (!commit) return
-  const [dort, schmutzig] = [await git('rev-parse', '@{u}'), await git('status', '--porcelain')]
+  const [dort, schmutzig] = [await git('rev-parse', '@{u}'), await git('status', '--porcelain', '--untracked-files=no')]
   let fassung = null
   try { fassung = regelwerk().fassung } catch { /* Regelwerk unvollständig — dann eben ohne */ }
   await pushSnapshotKey('runner_version', async () => ({
@@ -4726,7 +4726,10 @@ async function codeCheckTick() {
   if (codeCheckLaeuft || running.size > 0) return
   codeCheckLaeuft = true
   try {
-    const schmutzig = await git('status', '--porcelain')
+    // Nur geänderte Dateien zählen (07.10.2026): Neue, nie eingecheckte Dateien (Sicherungen,
+    // Notizen) blockieren sonst das Holen tagelang, ohne dass es jemand merkt. Ein Pull, der
+    // eine solche Datei überschreiben würde, scheitert ohnehin an --ff-only und steht im Log.
+    const schmutzig = await git('status', '--porcelain', '--untracked-files=no')
     if (schmutzig === null) return
     if (schmutzig) {
       console.log('[runner] neuer Code wird nicht geholt: im Arbeitsverzeichnis liegen eigene Änderungen')
