@@ -18,7 +18,12 @@
 import { dataforseoZugang, domainAus } from './googleAds.mjs'
 
 const ENDPUNKT = 'https://api.dataforseo.com/v3/serp/google/organic/live/regular'
-const TIMEOUT_MS = Number(process.env.GOOGLE_TREFFER_TIMEOUT_MS ?? 30_000)
+/**
+ * 60 statt 30 Sekunden (07.10.2026): DataForSEO antwortet meist in 5–15 s, in Spitzen
+ * über 30. Dann brach die deutsche Suche ab, der Runner suchte in der Schweiz weiter
+ * und fand für Röper, Christoffers, Schmiegel nur Fremdes — „Google-Treffer fehlen".
+ */
+const TIMEOUT_MS = Number(process.env.GOOGLE_TREFFER_TIMEOUT_MS ?? 60_000)
 
 export const LAND_DE = 2276
 export const LAND_CH = 2756
@@ -64,11 +69,16 @@ export async function googleTreffer(suche, { land = LAND_DE, anzahl = 5, zugang 
   }
 }
 
-/** Deutschland zuerst, dann Schweiz und Österreich, bis ein Lauf Treffer liefert. */
+/**
+ * Deutschland zuerst, dann Schweiz und Österreich, bis ein Lauf Treffer liefert.
+ * Ein Abbruch oder Fehler ist kein „nichts gefunden": dasselbe Land dann einmal neu,
+ * statt ins nächste Land zu springen.
+ */
 export async function googleTrefferDach(suche, opt = {}) {
   let letzter = { treffer: [], grund: '' }
   for (const land of [LAND_DE, LAND_CH, LAND_AT]) {
     letzter = await googleTreffer(suche, { ...opt, land })
+    if (!letzter.treffer.length && letzter.grund) letzter = await googleTreffer(suche, { ...opt, land })
     if (letzter.treffer.length) return { ...letzter, land }
   }
   return letzter

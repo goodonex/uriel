@@ -418,7 +418,7 @@ const googleTrefferVon = new WeakMap()
 async function googleListeFuer(lead, stationen) {
   const firma = String(stationen?.find((s) => s.firma)?.firma ?? '').replace(/\s+(GmbH|UG|AG|mbH|e\.K\.|& Co\. KG|KG)\b.*$/i, '').trim()
   if (!firma) return []
-  const { treffer } = await googleTrefferDach(/immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`).catch(() => ({ treffer: [] }))
+  const { treffer } = await googleTrefferDach(/immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`, { anzahl: 10 }).catch(() => ({ treffer: [] }))
   googleTrefferVon.set(lead, treffer)
   return treffer
 }
