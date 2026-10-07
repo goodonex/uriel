@@ -1,0 +1,41 @@
+{
+  "gesichert_am": "2026-10-07",
+  "grund": "Verbund-Ansatz falsch gesetzt, Lead als uebersprungen gespeichert; Zeilen werden geloescht, damit die naechste Runde sie mit normalem Ansatz neu schreibt",
+  "tabelle": "linkedin_erstnachrichten",
+  "zeilen": [
+    {
+      "id": "8cc477d5-5fbd-4aa9-a168-829cc385ccaa",
+      "brand_id": "85504a8f-029c-46e1-8c2a-004aa3aa52ea",
+      "gruppe": "Von Uriel vorbereitet",
+      "name": "Markus Blumhagen",
+      "firma": "",
+      "website": "",
+      "nachricht": "[übersprungen] Geschäftsführender Gesellschafter seiner eigenen Maklerfirma ProMak Immobilien in Karlstadt (dazu mainAllrounder GbR, 3B-Immo-Invest), kein Verbund und keine Dachmarke; Ansatz 'verbund' passt nicht (F",
+      "sort_index": 2687,
+      "status": "uebersprungen",
+      "sent_at": null,
+      "quelle_datei": "agent:linkedin-erstnachrichten@ed1f6d0c0f",
+      "last_synced_at": "2026-10-07T15:54:07.897+00:00",
+      "lead_id": "522915df-498a-4b0e-9bda-f84801a3bef3",
+      "geprueft_at": null,
+      "pruef_url": null
+    },
+    {
+      "id": "d16fa8ff-e98b-464a-969e-bd4b2b8d7ccc",
+      "brand_id": "85504a8f-029c-46e1-8c2a-004aa3aa52ea",
+      "gruppe": "Von Uriel vorbereitet",
+      "name": "Mergim Neziri",
+      "firma": "",
+      "website": "",
+      "nachricht": "[übersprungen] Seit Sep. 2023 selbstständiger Makler mit eigener Firma LEAN Immobilien in Göppingen, RE/MAX ist eine frühere Station. Ansatz verbund ist falsch gesetzt, die Verbund-Frage nach der Selbstständigkeit w",
+      "sort_index": 6231,
+      "status": "uebersprungen",
+      "sent_at": null,
+      "quelle_datei": "agent:linkedin-erstnachrichten@ed1f6d0c0f",
+      "last_synced_at": "2026-10-07T15:33:26.13+00:00",
+      "lead_id": null,
+      "geprueft_at": null,
+      "pruef_url": null
+    }
+  ]
+}

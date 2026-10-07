@@ -88,6 +88,34 @@ export function mitKevinsHinweis(lead) {
   return { ...lead, recherche: { ...lead.recherche, rolle: 'entscheider', rolle_impressum: 'entscheider' } }
 }
 
+/**
+ * Verbund-Rückfall (07.10.2026). Markus Blumhagen, GF seiner eigenen ProMak
+ * Immobilien, bekam den Verbund-Ansatz; Prüfer und Schreiber erkannten, dass
+ * er nicht passt — und der Lead landete als `[übersprungen]` statt bei einer
+ * normalen Nachricht. Lehnt einer von beiden den Verbund ab, gilt der Verbund
+ * als verworfen und der Lead bekommt den Ansatz, den er ohne ihn hätte.
+ */
+const VERBUND_ABGELEHNT = /verbund|dachmarke/i
+
+/** Hat Schreiber oder Prüfer den Verbund-Ansatz dieses Leads abgelehnt? */
+export function verbundAbgelehnt(lead, text) {
+  return lead?.ansatz === 'verbund' && VERBUND_ABGELEHNT.test(String(text ?? ''))
+}
+
+/**
+ * Derselbe Lead ohne Verbund: neuer Ansatz aus `ansatzFuer`.
+ *
+ * @returns {({ lead: object } | { zurueck: string }) & { dachmarke: string }}
+ */
+export function ohneVerbund(lead, heute = new Date()) {
+  const dachmarke = verbundFuer(lead, lead?.recherche)
+  const recherche = { ...(lead?.recherche ?? {}), verbund: '', verbund_verworfen: true }
+  const a = ansatzFuer({ ...lead, recherche }, heute)
+  if ('zurueck' in a) return { zurueck: a.zurueck, dachmarke }
+  const { pruefHinweis: _alt, ...rest } = lead
+  return { lead: { ...rest, recherche, ansatz: a.ansatz, ...(a.pruefen ? { pruefHinweis: a.pruefen } : {}) }, dachmarke }
+}
+
 /** Ansätze, auf die der Prüfer eine Analyse umlenken darf. */
 const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel']
 

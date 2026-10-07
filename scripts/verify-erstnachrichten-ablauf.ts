@@ -11,7 +11,7 @@
  *   node node_modules/tsx/dist/cli.mjs scripts/verify-erstnachrichten-ablauf.ts
  */
 // @ts-expect-error — .mjs ohne Typen
-import { ansatzFuer, ansatzStarkeSeite } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
+import { ansatzFuer, ansatzStarkeSeite, ohneVerbund, verbundAbgelehnt } from '../runner/linkedin/erstnachrichtenAblauf.mjs'
 import { segmentUrteil } from '../runner/linkedin/erstnachrichtenEntwuerfe.mjs'
 // @ts-expect-error — .mjs ohne Typen
 import { landFuerDomain } from '../runner/linkedin/googleAds.mjs'
@@ -57,8 +57,34 @@ const lead = (recherche: Record<string, unknown>) => ({ name: 'X', profil_key: '
   check('Evernest-Makler → Aufbau V, kein Seiten-Ansatz (07.10.2026)', 'ansatz' in ev && ev.ansatz === 'verbund', ev)
   const zentrale = ansatzFuer({ ...lead({ firma: 'Evernest', website: 'https://evernest.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'ja' }), headline: 'CEO & Co-Founder Evernest' }, heute)
   check('Gründer der Dachmarke bekommt Aufbau V nicht', !('ansatz' in zentrale && zentrale.ansatz === 'verbund'), zentrale)
-  const vm = ansatzFuer(lead({ firma: 'Müller Immobilien', website: 'https://x.de/', erreichbar: 'ja', verbund: 'RE/MAX', website_stufe: 'solide', wow_potenzial: 'ja' }), heute)
-  check('Modell-Feld `verbund` reicht allein', 'ansatz' in vm && vm.ansatz === 'verbund', vm)
+  const vm = ansatzFuer(lead({ firma: 'Müller Immobilien', website: 'https://x.de/', erreichbar: 'ja', verbund: 'RE/MAX', verbund_beleg: 'Franchisepartner bei RE/MAX', website_stufe: 'solide', wow_potenzial: 'ja' }), heute)
+  check('Modell-Feld `verbund` mit Partner-Beleg reicht (seit 07.10.2026 nur mit Beleg)', 'ansatz' in vm && vm.ansatz === 'verbund', vm)
+  // Blumhagen (07.10.2026): GF seiner eigenen „PMI ProMak - Blumhagen Immobilien GmbH" — kein Verbund.
+  const blumhagenR = { firma: 'PMI ProMak - Blumhagen Immobilien GmbH (Promak Immobilien)', website: 'https://promak-immobilien.de/', erreichbar: 'ja', rolle_impressum: 'gf', impressum_gf: ['Markus Blumhagen'], website_stufe: 'solide', wow_potenzial: 'ja' }
+  const blumhagen = (r: Record<string, unknown>) => ansatzFuer({ name: 'Markus Blumhagen', profil_key: 'mb', headline: 'Geschäftsführer bei ProMak Immobilien', recherche: { ...blumhagenR, ...r } }, heute)
+  const bl1 = blumhagen({})
+  check('Blumhagen: eigene Firma mit „PMI ProMak" im Namen → kein Verbund', 'ansatz' in bl1 && bl1.ansatz !== 'verbund', bl1)
+  const bl2 = blumhagen({ verbund: 'ProMak', verbund_beleg: 'Franchise-Partner Karlstadt' })
+  check('Blumhagen: Modell nennt den eigenen Firmennamen als Dachmarke, Impressum nennt ihn → kein Verbund', 'ansatz' in bl2 && bl2.ansatz !== 'verbund', bl2)
+  // Neziri (07.10.2026): eigene LEAN Immobilien, RE/MAX nur frühere Station — kein Verbund.
+  const neziri = (r: Record<string, unknown>) => ansatzFuer({ name: 'Mergim Neziri', profil_key: 'mn', headline: 'Geschäftsführer', recherche: { firma: 'LEAN Immobilien', taetigkeit: 'selbstständiger Makler, vorher RE/MAX', stationen: [{ firma: 'LEAN Immobilien', rolle: 'Geschäftsführer', seit: '2023', selbststaendig: true }], website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide', wow_potenzial: 'ja', ...r } }, heute)
+  const nz1 = neziri({})
+  check('Neziri: RE/MAX nur in der Tätigkeit (früher) → kein Verbund', 'ansatz' in nz1 && nz1.ansatz !== 'verbund', nz1)
+  const nz2 = neziri({ verbund: 'RE/MAX', verbund_beleg: 'RE/MAX ist eine frühere Station' })
+  check('Neziri: Modell nennt RE/MAX mit Früher-Beleg → kein Verbund', 'ansatz' in nz2 && nz2.ansatz !== 'verbund', nz2)
+  const nz3 = neziri({ verbund: 'RE/MAX', verbund_beleg: 'Makler bei RE/MAX' })
+  check('Neziri: bekannte Marke ohne Rolle und nicht in aktueller Station → kein Verbund', 'ansatz' in nz3 && nz3.ansatz !== 'verbund', nz3)
+  const ohneBeleg = ansatzFuer(lead({ firma: 'Müller Immobilien', website: 'https://x.de/', erreichbar: 'ja', verbund: 'Irgendwas Netz', website_stufe: 'solide', wow_potenzial: 'ja' }), heute)
+  check('Unbekannte Dachmarke ohne Beleg → kein Verbund', 'ansatz' in ohneBeleg && ohneBeleg.ansatz !== 'verbund', ohneBeleg)
+  const mitBeleg = ansatzFuer(lead({ firma: 'Müller Immobilien', website: 'https://x.de/', erreichbar: 'ja', verbund: 'Catasto', verbund_beleg: 'Lizenzpartner bei Catasto', website_stufe: 'solide', wow_potenzial: 'ja' }), heute)
+  check('Unbekannte Dachmarke mit Lizenz-Beleg → Verbund', 'ansatz' in mitBeleg && mitBeleg.ansatz === 'verbund', mitBeleg)
+  const evFranchise = ansatzFuer({ name: 'Anna Beispiel', profil_key: 'ab', headline: 'Lizenzpartnerin', recherche: { firma: 'Engel & Völkers Hamburg-Blankenese', website: 'https://x.de/', erreichbar: 'ja', rolle_impressum: 'gf', impressum_gf: ['Anna Beispiel'], website_stufe: 'solide', wow_potenzial: 'ja' } }, heute)
+  check('E&V-Franchisenehmerin im eigenen Impressum bleibt Verbund', 'ansatz' in evFranchise && evFranchise.ansatz === 'verbund', evFranchise)
+  const vLead = { name: 'X', profil_key: 'x', ansatz: 'verbund', recherche: { ...blumhagenR, firma: 'Evernest', rolle_impressum: 'unklar', impressum_gf: [] } }
+  check('Rückfall: Schreiber lehnt Verbund ab → erkannt', verbundAbgelehnt(vLead, "kein Verbund und keine Dachmarke; Ansatz 'verbund' passt nicht"))
+  check('Rückfall: anderer Skip-Grund → kein Rückfall', !verbundAbgelehnt(vLead, 'Finanzberater, kein Makler'))
+  const rf = ohneVerbund(vLead, heute)
+  check('Rückfall: normaler Ansatz statt Verbund', 'lead' in rf && rf.lead.ansatz === 'analyse' && rf.dachmarke === 'Evernest', rf)
   check('schreiben.md kennt Aufbau V mit festem Schlusssatz', /Aufbau V/.test(regeln.schreiben) && /Planst du, dich in Zukunft mit einer eigenen Marke/.test(regeln.schreiben))
   check('„knapp" bekommt die Analyse (25.09.2026)', 'ansatz' in knapp && knapp.ansatz === 'analyse', knapp)
   const alt = ansatzFuer(lead({ website: 'https://x.de/', erreichbar: 'ja', website_stufe: 'solide' }), heute)

@@ -84,17 +84,66 @@ const ZIELGRUPPE = new Set(['makler', 'projektentwickler'])
  * einen eigenen Einstieg. Ich bekomme die sonst nie als Kunden."* Diese Leute
  * haben keine eigene Marke, die Seite gehört der Dachmarke — also weder Analyse
  * noch GF-Suche, sondern die Frage, ob sie sich selbstständig machen wollen.
+ *
+ * Nur echte Partner-/Franchise-Netze: „PMI" und „ProMak" standen hier bis zum
+ * Abend des 07.10. und trafen Markus Blumhagen, GF seiner eigenen „PMI ProMak -
+ * Blumhagen Immobilien GmbH".
  */
-const DACHMARKEN = /evernest|re\/max|remax|engel\s*(?:&|und)\s*völkers|engel\s*(?:&|und)\s*voelkers|von poll|dahler|\bpmi\b|promak|homeday|ohne makler/i
+const DACHMARKEN = /evernest|re\/max|remax|engel\s*(?:&|und)\s*völkers|engel\s*(?:&|und)\s*voelkers|von poll|dahler|homeday|ohne makler/i
 
-/** Name der Dachmarke, wenn der Lead unter einer arbeitet, sonst ''. Die Zentrale selbst zählt nicht. */
+/** Wörter, die eine Partner-/Franchise-/Lizenz-Rolle unter einer fremden Marke belegen. */
+const VERBUND_ROLLE = /partner|franchise|lizenz|licen[cs]e|shop|powered by|mitglied|member of|verbund|netzwerk|affiliate|associate|unter der marke|unter dem dach|im auftrag/i
+
+/** Beleg spricht von einer früheren Station (Neziri, 07.10.2026: „RE/MAX ist eine frühere Station"). */
+const FRUEHER = /früher|frueher|ehemal|vorher|zuvor|former|\bex[- ]/i
+
+/** Steht der Lead selbst im Impressum (oder hat Kevin ihn als GF bestätigt)? */
+function imImpressum(lead, r) {
+  if (r.rolle_impressum === 'gf' || r.rolle_impressum === 'entscheider') return true
+  return (r.impressum_gf ?? []).some((n) => personGleich(n, lead?.name))
+}
+
+/** Markenname ohne Rechtsform und Branchenwort, für den Vergleich mit Firmennamen. */
+const markenKern = (m) => ohneAkzent(m).replace(/\b(gmbh|ug|ag|kg|immobilien|real estate)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * Name der Dachmarke, wenn der Lead unter einer arbeitet, sonst ''. Die Zentrale selbst zählt nicht.
+ *
+ * Geschärft am 07.10.2026: Verbund nur bei belegter, AKTUELLER Rolle unter
+ * einer FREMDEN Marke. Zwei Leads fielen an dem Tag aus der Ansprache, weil
+ * der Verbund-Ansatz nicht passte: Markus Blumhagen (GF der eigenen „PMI
+ * ProMak - Blumhagen Immobilien GmbH") und Mergim Neziri (eigene LEAN
+ * Immobilien, RE/MAX nur frühere Station).
+ * - Das Modell-Feld zählt nur, wenn `verbund_beleg` eine Partner-/Franchise-/
+ *   Lizenz-Rolle zeigt oder die Marke in Firma, Headline oder einer aktuellen
+ *   Station steht — nie, wenn der Beleg von früher spricht.
+ * - Die Namensliste greift nur auf Firma, Headline und aktuelle Stationen,
+ *   nicht auf die Tätigkeits-Beschreibung (die erzählt auch Vergangenes).
+ * - Ist die „Dachmarke" der eigene Firmenname und steht der Lead im Impressum,
+ *   ist es seine eigene Marke. Bei den bekannten Netzen gilt das nicht:
+ *   RE/MAX-Franchisenehmer tragen die Marke im Firmennamen.
+ * - `verbund_verworfen`: Schreiber oder Prüfer hat den Verbund schon
+ *   abgelehnt (Rückfall in `erstnachrichtenAblauf.mjs`).
+ */
 export function verbundFuer(lead, recherche) {
   const r = recherche ?? {}
-  const modell = String(r.verbund ?? '').trim()
-  if (modell) return modell
+  if (r.verbund_verworfen) return ''
   if (/gründer|founder|ceo|vorstand|geschäftsführer der zentrale/i.test(String(lead?.headline ?? ''))) return ''
-  const treffer = `${r.firma ?? ''} ${lead?.headline ?? ''} ${r.taetigkeit ?? ''}`.match(DACHMARKEN)
-  return treffer ? treffer[0] : ''
+  const stationen = Array.isArray(r.stationen) ? r.stationen : []
+  const aktuell = [r.firma, lead?.headline, ...stationen.map((s) => `${s?.firma ?? ''} ${s?.rolle ?? ''}`)].join(' ')
+  const aktuellKern = ` ${markenKern(aktuell)} `
+  const inAktuell = (m) => {
+    const k = markenKern(m)
+    return Boolean(k) && (aktuellKern.includes(` ${k} `) || (DACHMARKEN.test(m) && DACHMARKEN.test(aktuell)))
+  }
+  const modell = String(r.verbund ?? '').trim()
+  const beleg = String(r.verbund_beleg ?? '')
+  const modellGilt = modell && !FRUEHER.test(beleg) && (VERBUND_ROLLE.test(beleg) || inAktuell(modell))
+  const treffer = aktuell.match(DACHMARKEN)
+  const marke = modellGilt ? modell : treffer ? treffer[0] : ''
+  if (!marke) return ''
+  if (!DACHMARKEN.test(marke) && imImpressum(lead, r) && aktuellKern.includes(` ${markenKern(marke)} `)) return ''
+  return marke
 }
 
 /**

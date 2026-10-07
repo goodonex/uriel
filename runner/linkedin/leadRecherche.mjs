@@ -112,6 +112,7 @@ Antworte mit NICHTS als diesem JSON-Block:
   "nur_portal": false,
   "groesse": "",
   "verbund": "",
+  "verbund_beleg": "",
   "stationen": []
 }
 \`\`\`
@@ -123,7 +124,8 @@ ${GESCHAEFTSMODELL_REGEL}
 - "kandidaten": bis zu drei vollständige URLs eigener Websites, beste zuerst. NIE geraten, nur aus Suchtreffern.
 - "nur_portal": true, wenn die Firma erkennbar nur über Portale/Social auftritt.
 - "groesse": Größe der Firma, zu der die Website gehört: "klein" (Einzelmakler, Team bis ~10), "mittel" oder "konzern" (Franchise-Zentrale, AG, bundesweit, Hunderte Mitarbeiter). Leer, wenn unklar.
-- "verbund": Name der Dachmarke (z. B. Evernest, RE/MAX, Engel & Völkers, Von Poll, PMI), wenn die Person dort als Partner, Franchisenehmer, Lizenzpartner oder Vertriebspartner arbeitet und keine eigene Marke führt. Leer bei eigener Firma und leer bei Gründer/Geschäftsführer der Dachmarke selbst.
+- "verbund": Name der Dachmarke (z. B. Evernest, RE/MAX, Engel & Völkers, Von Poll), wenn die Person dort NACHWEISLICH als Partner, Franchisenehmer, Lizenzpartner oder Vertriebspartner arbeitet und keine eigene Marke führt. Leer bei eigener Firma, leer wenn die „Marke" der eigene Firmenname ist (Markus Blumhagen, GF der eigenen „PMI ProMak - Blumhagen Immobilien GmbH": kein Verbund), leer bei Gründer/Geschäftsführer der Dachmarke selbst, im Zweifel leer.
+- "verbund_beleg": nur wenn "verbund" gesetzt: die wörtliche Stelle aus Erfahrung, Headline oder Suchtreffer, die die Partner-/Franchise-/Lizenz-Rolle zeigt (z. B. „Lizenzpartner bei Engel & Völkers"). Ohne Beleg zählt "verbund" nicht.
 - "stationen": ALLE aktuellen Stationen („Heute") aus der Erfahrung, auch Nebenfirmen und Selbstständigkeit, je {"firma": "", "rolle": "", "seit": "", "selbststaendig": false}. "selbststaendig": true bei eigener Firma (Inhaber, Gründer, GF, Selbstständig). Nur, was in der Erfahrung steht — nichts erfinden. Nicht lesbar: [].`
 }
 
@@ -468,9 +470,10 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   const stationen = gelesen.stationen.length ? gelesen.stationen : stationenAusModell(f.json.stationen)
   const groesse = String(f.json.groesse ?? '').trim()
   const verbund = String(f.json.verbund ?? '').trim()
+  const verbund_beleg = verbund ? String(f.json.verbund_beleg ?? '').trim().slice(0, 300) : ''
   const leer = {
     firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung),
-    rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse, verbund,
+    rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse, verbund, verbund_beleg,
     website_stufe: '', meta_ads_aktiv: 'unbekannt',
     google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null,
     eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal),
@@ -585,6 +588,7 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       taetigkeit,
       geschaeftsmodell,
       verbund,
+      verbund_beleg,
       erfahrung_gelesen: Boolean(erfahrung),
       eigentuemer_bereich: String(b.json.eigentuemer_bereich ?? ''),
       bewertung: String(b.json.bewertung ?? ''),

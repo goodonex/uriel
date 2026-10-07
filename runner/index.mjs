@@ -25,7 +25,7 @@ import { ohneAlteGfFrage, ohneAnalyseFuerAngestellte, parseErstnachrichtenRoh, s
 import { entscheiderZuerst } from './linkedin/entscheider.mjs'
 import { entscheiderFreigabe, sucheKandidaten } from './linkedin/gfSuche.mjs'
 import { protokolliere } from './linkedin/protokoll.mjs'
-import { ansatzFuer, klartextHinweis, mitKevinsHinweis, pruefeEntwuerfe, schreibeNeu } from './linkedin/erstnachrichtenAblauf.mjs'
+import { ansatzFuer, klartextHinweis, mitKevinsHinweis, ohneVerbund, pruefeEntwuerfe, schreibeNeu, verbundAbgelehnt } from './linkedin/erstnachrichtenAblauf.mjs'
 import { bewerteStapel } from './linkedin/bewertungLauf.mjs'
 import { regelwerk } from './regeln/fassung.mjs'
 import { immobilienInhaberMitMaklerHerkunft } from './regeln/zielgruppe.mjs'
@@ -1033,18 +1033,45 @@ async function erstnachrichtenAnListe(runId, markdown) {
      */
     const lauf = { cliPath: CLI_PATH, cwd: VAULT }
     const ok = []
-    const raus = [...schreiberRaus]
+    const raus = []
+    const nochmal = []
     let kosten = 0
+    /**
+     * Verbund-Rückfall (07.10.2026, Blumhagen): Lehnt Schreiber oder Prüfer den
+     * Verbund-Ansatz ab, bekommt der Lead den normalen Ansatz und wird neu
+     * geschrieben, statt als `[übersprungen]` aus der Ansprache zu fallen.
+     * Jeder Rückfall steht im Log und im Prüf-Protokoll (Kontrolle 14.10.2026).
+     */
+    const rueckfaelle = []
+    const verbundRueckfall = (name, quelle, text) => {
+      const key = String(name).toLowerCase()
+      const lead = erstnachrichtLeadsVorgemerkt.get(key)
+      if (!verbundAbgelehnt(lead, text)) return null
+      const r = ohneVerbund(lead)
+      const nach = 'zurueck' in r ? 'zurueckgestellt' : r.lead.ansatz
+      console.log(`[verbund-rueckfall] ${lead.name}: ${quelle} lehnt Verbund „${r.dachmarke || '?'}" ab → ${nach}`)
+      rueckfaelle.push({ art: 'verbund_rueckfall', name: lead.name, firma: lead.recherche?.firma ?? '', entscheidung: nach, grund: String(text ?? '').slice(0, 300), daten: { quelle, dachmarke: r.dachmarke } })
+      if ('zurueck' in r) return { raus: { profil_key: lead.profil_key, name: lead.name, firma: lead.recherche?.firma ?? '', website: lead.recherche?.website ?? '', grund: r.zurueck } }
+      erstnachrichtLeadsVorgemerkt.set(key, r.lead)
+      return { neu: { ...r.lead, hinweis_pruefer: `Kein Verbund, keine Dachmarke (${quelle}: ${String(text ?? '').slice(0, 200)}). Schreib die Nachricht nach dem Ansatz ${r.lead.ansatz}, ohne Dachmarke zu erwähnen.`, vorheriger_text: '' } }
+    }
+    for (const u of schreiberRaus) {
+      const rf = verbundRueckfall(u.name, 'Schreiber', u.grund)
+      if (rf?.neu) nochmal.push(rf.neu)
+      else raus.push(rf?.raus ?? u)
+    }
     const p1 = await pruefeEntwuerfe(erster, erstnachrichtLeadsVorgemerkt, lauf)
     kosten += p1.kosten
     if (!p1.urteile) {
       console.error(`[runner] Erstnachrichten: Prüfer ohne Ergebnis — ${erster.length} Texte bleiben ungeschrieben im Vorrat`)
       return
     }
-    const nochmal = []
     for (const n of erster) {
       const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
-      if (u.urteil === 'ok') ok.push(n)
+      const rf = u.urteil === 'ok' ? null : verbundRueckfall(n.name, 'Prüfer', u.hinweis)
+      if (rf?.neu) nochmal.push(rf.neu)
+      else if (rf?.raus) raus.push(rf.raus)
+      else if (u.urteil === 'ok') ok.push(n)
       // Kevin 02.10.2026: „lass mich da alles prüfen, ob die eine Nachricht bekommen sollen" — der Text geht MIT dem Hinweis des Prüfers in seine Prüf-Stufe, statt zu verschwinden.
       // Inhaber einer Immobilienfirma mit Makler-Vergangenheit fällt nie ohne Kevins Blick raus (06.10.2026, Bekiri Djelal).
       else if (u.urteil === 'zurueck' && u.art === 'kein_ziel' && !immobilienInhaberMitMaklerHerkunft(erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())?.recherche)) raus.push({ profil_key: n.profil_key, name: n.name, firma: n.firma, website: n.website, grund: `[übersprungen] Prüfer: ${u.hinweis}` })
@@ -1055,10 +1082,16 @@ async function erstnachrichtenAnListe(runId, markdown) {
         else ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       }
     }
-    if (nochmal.length) {
-      const zweit = await schreibeNeu(nochmal, lauf)
+    // Höchstens zwei Neuschreib-Runden: die zweite nur für Leads, deren Verbund der Schreiber erst hier ablehnt.
+    for (let runde = 1; nochmal.length && runde <= 2; runde++) {
+      const liste = nochmal.splice(0)
+      const zweit = await schreibeNeu(liste, lauf)
       kosten += zweit.kosten
-      raus.push(...zweit.uebersprungen)
+      for (const u of zweit.uebersprungen) {
+        const rf = runde === 1 ? verbundRueckfall(u.name, 'Schreiber', u.grund) : null
+        if (rf?.neu) nochmal.push(rf.neu)
+        else raus.push(rf?.raus ?? u)
+      }
       const zweiter = nachbearbeiten(zweit.nachrichten)
       const p2 = await pruefeEntwuerfe(zweiter, erstnachrichtLeadsVorgemerkt, lauf)
       kosten += p2.kosten
@@ -1069,7 +1102,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
         else ok.push({ ...n, pruefen: klartextHinweis(u?.hinweis) || 'Text kurz gegenlesen' })
       }
       // Wen der zweite Versuch gar nicht zurückgab, bleibt ohne Zeile im Vorrat.
-      for (const l of nochmal) if (!bekommen.has(String(l.name).toLowerCase())) console.warn(`[runner] Erstnachrichten: ${l.name} — zweiter Versuch ohne Text, bleibt im Vorrat`)
+      for (const l of liste) if (!bekommen.has(String(l.name).toLowerCase())) console.warn(`[runner] Erstnachrichten: ${l.name} — zweiter Versuch ohne Text, bleibt im Vorrat`)
     }
 
     const brandSlug = process.env.LINKEDIN_BRAND_SLUG ?? 'herrmann'
@@ -1085,6 +1118,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
       [
         ...raus.map((z) => ({ art: 'aussortiert', name: z.name, firma: z.firma, entscheidung: /^\[zurückgestellt\]/.test(String(z.grund)) ? 'zurueckgestellt' : 'kein_ziel', grund: z.grund, daten: { weg: 'schreib-lauf' } })),
         ...ok.filter((n) => n.pruefen).map((n) => ({ art: 'pruefer_urteil', name: n.name, firma: n.firma, entscheidung: 'unsicher', grund: n.pruefen, daten: { website: n.website } })),
+        ...rueckfaelle,
       ],
     )
     const r = await schreibeErstnachrichten({
