@@ -1,6 +1,6 @@
 /**
  * Wache für die Stufe „Prüfen" vor den Erstnachrichten (01.10.2026).
- * Ein Fall mit PRÜFEN-Hinweis oder ohne Website steht nicht in der
+ * Ein Fall mit PRÜFEN-Hinweis steht nicht in der
  * Erstnachrichten-Spur, bis Kevin den Haken gesetzt hat.
  *
  * Start: npx tsx scripts/verify-erstnachrichten-pruefung.ts
@@ -32,7 +32,7 @@ const gesendet = { ...mitHinweis, id: 'e', status: 'gesendet' as const }
 
 check('sauberer Text braucht keine Prüfung', !brauchtPruefung(basis))
 check('PRÜFEN-Hinweis braucht Prüfung', brauchtPruefung(mitHinweis))
-check('ohne Website braucht Prüfung', brauchtPruefung(ohneSeite))
+check('ohne Website allein braucht keine Prüfung (Runner googelt selbst, 08.10.)', !brauchtPruefung(ohneSeite))
 check('abgehakt braucht keine Prüfung mehr', !brauchtPruefung(geprueft))
 check('gesendet braucht keine Prüfung', !brauchtPruefung(gesendet))
 
@@ -42,7 +42,7 @@ check('ohne Marke bleibt die Firma ganz', trennePruefHinweis('A GmbH').hinweis =
 
 const posten = erstnachrichtPosten([basis, mitHinweis, ohneSeite, geprueft])
 const ids = posten.map((p) => p.id)
-check('Erstnachrichten-Spur zeigt nur Sauberes und Abgehaktes', ids.length === 2 && ids.includes('erstnachricht:a') && ids.includes('erstnachricht:d'))
+check('Erstnachrichten-Spur zeigt nur Sauberes und Abgehaktes', ids.length === 3 && ids.includes('erstnachricht:a') && ids.includes('erstnachricht:c') && ids.includes('erstnachricht:d'))
 
 check('Link: Website, wenn es eine gibt', pruefLink(basis).href === 'https://sellavie.ch')
 check('Link: sonst Google-Suche mit Firma und Name', pruefLink(ohneSeite).href.startsWith('https://www.google.com/search?q=Sellavie'))

@@ -222,9 +222,16 @@ funktionieren."* Die Muster:
   Roß, Zollinger, Jancic: Die Seite war jedes Mal der erste Treffer. Der Prüfer
   urteilt zuerst gegen `google_treffer` im Lead. Steht dort eine eigene Seite
   der Firma, ist „keine Website gefunden" falsch → `neu`. Fehlen die Treffer
-  im Lead, ist das ein Fehler des Runners, kein Auftrag an Kevin: `zurueck`
-  mit `art: unsicher` und dem Grund „Google-Treffer fehlen", nie ein Hinweis
-  „googeln".
+  im Lead oder passen sie nicht zur Firma, ist das ein Fehler des Runners, kein
+  Auftrag an Kevin: Urteile mit dem, was da ist (Seite im Lead → normal prüfen),
+  und schreib nie einen Hinweis über die Suche selbst („Google-Treffer fehlen",
+  „googeln", „Suche lief auf …"). Kevin, 08.10.: Diese Hinweise standen wieder
+  in seiner Liste, und er konnte nichts damit anfangen.
+- **Kein Hinweis, der nur deine eigene Arbeit beschreibt.** „Text lobt die
+  Seite ohne Mangel" (Scherer, 08.10.) ist kein Prüfgrund für Kevin, sondern
+  ein `neu` mit `ansatz` (Aufbau S/T). „Winkel gegenlesen" ohne konkrete Frage
+  ist ebenfalls keiner. Ein Hinweis an Kevin nennt immer etwas, das nur er
+  entscheiden kann (zwei plausible Firmen, Rolle widersprüchlich, Vorname fehlt).
 - **Keine Kleinkram-Hinweise.** Itaj („warum müssen verkaufte Objekte unten
   auf der Startseite stehen? Das ist doch keine Regel"), Christoffers („ob ein
   schwebender Kontaktknopf sichtbar ist … die ganze Seite sieht aus wie

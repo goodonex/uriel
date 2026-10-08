@@ -204,8 +204,9 @@ entwickelt die und verkauft dann die Einzelwohnungen."*
   Seite) → Ankauf-Winkel: Gibt es ein Ankaufsprofil, einen Weg, ein Grundstück
   oder Mehrfamilienhaus anzubieten? Angebotssatz: „…was sich daraus für mehr
   planbare Objektangebote von Eigentümern machen lässt."
-- Sonst Aufbau A mit festem CTA. `pruefen` = „Projektentwickler — Winkel
-  gegenlesen".
+- Sonst Aufbau A mit festem CTA. `pruefen` bleibt leer, wenn der Winkel
+  aus der Seite klar ist (08.10.2026: „Winkel gegenlesen" landete bei jedem
+  Projektentwickler in Kevins Prüf-Liste, ohne dass er etwas zu entscheiden hatte).
 
 ### Aufbau F — frisch gegründet, keine Seite (`frisch-ohne-seite`)
 

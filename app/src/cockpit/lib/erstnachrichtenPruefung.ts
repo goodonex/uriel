@@ -6,8 +6,8 @@ import type { Erstnachricht } from '../../hooks/useErstnachrichten'
  * Kevin: manche Erstnachrichten tragen einen PRÜFEN-Hinweis (Seite nicht
  * gefunden, Zuordnung unklar, Rolle fraglich, Seite im Umbau) und standen
  * trotzdem in der Erstnachrichten-Stufe — dort geht ein Text blind raus.
- * Seitdem gilt: Ein Fall mit Hinweis oder ohne Website gehört zuerst in die
- * Stufe „Prüfen". Kevin schaut selbst nach, setzt den Haken (`geprueft_at`),
+ * Seitdem gilt: Ein Fall mit Hinweis gehört zuerst in die Stufe „Prüfen"
+ * (bis 07.10. auch jeder ohne Website, siehe `brauchtPruefung`). Kevin schaut selbst nach, setzt den Haken (`geprueft_at`),
  * und erst dann erscheint der Text bei den Erstnachrichten.
  *
  * Der Hinweis lebt weiter im Textfeld `firma` („Firma · PRÜFEN: Grund"), so wie
@@ -82,13 +82,18 @@ export function trennePruefHinweis(firma: string | null | undefined): { firma: s
 }
 
 /**
- * Muss Kevin diesen Fall zuerst ansehen? Offen, noch nicht abgehakt, und
- * entweder mit Hinweis des Schreib-Agenten oder ohne Website (dann hat die
- * Recherche nichts gefunden, und Kevin sieht selbst nach).
+ * Muss Kevin diesen Fall zuerst ansehen? Offen, noch nicht abgehakt und mit
+ * Hinweis des Schreib-Agenten oder Prüfers.
+ *
+ * „Ohne Website" allein reicht seit 08.10.2026 nicht mehr: Der Runner googelt
+ * die Firma selbst (`runner/linkedin/googleTreffer.mjs`), Kevin am 07.10.:
+ * „Googeln ist deine Arbeit, nicht meine." Findet er trotzdem nichts, ist das
+ * genau der Fall, für den der Text „keine Website gefunden" geschrieben ist.
+ * Bleibt ein echter Zweifel, setzt der Prüfer einen Hinweis.
  */
 export function brauchtPruefung(e: PruefFelder): boolean {
   if (e.status !== 'offen' || e.geprueft_at) return false
-  return MARKE.test(String(e.firma ?? '')) || !String(e.website ?? '').trim()
+  return MARKE.test(String(e.firma ?? ''))
 }
 
 /** Heute abgehakt — für die Zahl „n von m" der Prüf-Stufe. */
