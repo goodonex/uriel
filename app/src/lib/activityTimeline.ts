@@ -58,9 +58,9 @@ export function summarizeActivity(entry: ActivityEntry): string {
       return `Presetting: Termin ${termin}${noteBit}`
     }
     case 'setting':
-      return `Setting: ${str(d.termin_stattgefunden) || '—'}${d.closing_termin_vereinbart === 'Ja' && d.closing_termin ? ` · Closing ${fmtDe(str(d.closing_termin))}` : ''}`
+      return `Setting: ${str(d.termin_stattgefunden) || '—'}${d.closing_termin_vereinbart === 'Ja' && d.closing_termin ? ` · Closing ${fmtDe(str(d.closing_termin))}` : ''}${d.zusammenfassung ? ` · ${str(d.zusammenfassung)}` : ''}`
     case 'closing':
-      return `Closing: ${str(d.ergebnis) || '—'}${d.preis ? ` · ${d.preis} €` : ''}`
+      return `Closing: ${str(d.ergebnis) || '—'}${d.preis ? ` · ${d.preis} €` : ''}${d.zusammenfassung ? ` · ${str(d.zusammenfassung)}` : ''}`
     case 'terminierung':
       return `Terminierung: ${str(d.typ) || 'Termin'} ${fmtDe(str(d.termin_datum))}`
     case 'unqualified':

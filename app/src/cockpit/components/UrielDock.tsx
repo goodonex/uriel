@@ -3,6 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useContacts } from '../../hooks/useContacts'
+import { useActivityEntries } from '../../hooks/useActivityEntries'
+import {
+  ART_LABEL,
+  kontaktPatch,
+  pruefeNachbereitung,
+  pruefeNeuenKontakt,
+  timelineEintrag,
+} from '../lib/callNachbereitung'
 import { useUrielBus } from '../../store/urielBus'
 import { useLinkedinThreads } from '../../hooks/useLinkedinThreads'
 import type { UrielTiefe } from '../lib/urielAgent'
@@ -134,6 +142,8 @@ export function UrielDock() {
   const { activeBrand, activeSlug, brands } = useActiveBrand()
   const metrics = useDailyMetrics()
   const contacts = useContacts(activeSlug)
+  // Nur zum Schreiben (call_nachbereiten) — gelesen wird die Timeline am Kontakt.
+  const aktivitaeten = useActivityEntries(activeSlug, { limit: 1 })
   // Dasselbe Postfach, das /linkedin zeigt — Uriel liest es, schreibt nie.
   const linkedinThreads = useLinkedinThreads(activeSlug)
   /**
@@ -387,6 +397,67 @@ export function UrielDock() {
           }
         }
 
+        case 'call_nachbereiten': {
+          const geprueft = pruefeNachbereitung(input)
+          if (!geprueft.ok) return { ok: false, summary: geprueft.text, data: { error: geprueft.text } }
+          const n = geprueft.wert
+
+          // Kontakt finden oder anlegen. Eine Dublette ist kein Fehler: dann
+          // gehört das Gespräch zu genau diesem bestehenden Kontakt.
+          const id = String(input.contact_id ?? '').trim()
+          let kontakt = id ? contacts.items.find((c) => c.id === id) : undefined
+          let neuAngelegt = false
+          if (!kontakt) {
+            if (id) return { ok: false, summary: 'Kontakt nicht gefunden', data: { error: 'unknown_contact_id' } }
+            const neu = pruefeNeuenKontakt(input.neuer_kontakt)
+            if (!neu) {
+              return {
+                ok: false,
+                summary: 'Weder contact_id noch neuer_kontakt',
+                data: { error: 'erst search_contacts, sonst neuer_kontakt mit name mitschicken' },
+              }
+            }
+            const teile = neu.name.split(/\s+/)
+            const res = await contacts.create({
+              name: neu.name,
+              first_name: teile.length > 1 ? teile.slice(0, -1).join(' ') : neu.name,
+              last_name: teile.length > 1 ? teile[teile.length - 1] : '',
+              company: neu.firma ?? '',
+              email: neu.email ?? '',
+              phone: neu.telefon ?? '',
+              job_title: neu.position ?? '',
+              contact_type: 'person',
+              pipeline_stage: n.pipeline_stage ?? 'conversation',
+            })
+            if (res.ok) {
+              kontakt = res.contact
+              neuAngelegt = true
+            } else if (res.duplicate) {
+              kontakt = res.duplicate
+            } else {
+              return { ok: false, summary: 'Kontakt nicht angelegt', data: { error: res.error } }
+            }
+          }
+
+          const patch = kontaktPatch(kontakt, n)
+          contacts.update(kontakt.id, patch)
+          const eintrag = timelineEintrag(n)
+          const t = await aktivitaeten.create({ contact_id: kontakt.id, ...eintrag })
+
+          return {
+            ok: !t.error,
+            summary: `${ART_LABEL[n.art]} bei ${kontakt.name} eingetragen${neuAngelegt ? ' (neu angelegt)' : ''}`,
+            data: {
+              contact_id: kontakt.id,
+              kontakt: kontakt.name,
+              neu_angelegt: neuAngelegt,
+              eingetragene_felder: Object.keys(patch).filter((k) => k !== 'last_contact_at'),
+              punkte: n.punkte.length,
+              naechster_kontakt: n.naechster_kontakt?.at ?? null,
+              timeline_fehler: t.error,
+            },
+          }
+        }
         case 'search_contacts': {
           const q = String(input.query ?? '').toLowerCase().trim()
           if (!q) return { ok: false, summary: 'Leere Suche', data: { error: 'empty_query' } }
@@ -416,7 +487,7 @@ export function UrielDock() {
           return { ok: false, summary: `Unbekanntes Werkzeug: ${name}`, data: { error: 'unknown_tool' } }
       }
     },
-    [ensureCockpit, requestGraph, navigate, brands, metrics, contacts, linkedinThreads, erstnachrichten, activeBrand, activeSlug],
+    [ensureCockpit, requestGraph, navigate, brands, metrics, contacts, aktivitaeten, linkedinThreads, erstnachrichten, activeBrand, activeSlug],
   )
 
   const send = useCallback(
@@ -430,13 +501,16 @@ export function UrielDock() {
       const withUser: DisplayTurn[] = [...turnsRef.current, { role: 'user', text: msg }]
       setTurns(withUser)
       try {
+        // Ein langes Diktat ist fast immer eine Call-Nachbereitung oder eine
+        // Analyse — da zählt Sorgfalt mehr als Tempo (08.10.2026).
+        const zugTiefe: UrielTiefe = msg.length > 600 ? 'gruendlich' : tiefe
         const result = await runUrielTurn(historyRef.current, msg, execute, {
           brandName: activeBrand?.name,
           brandSlug: activeSlug,
           date: new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }),
           area: location.pathname.replace('/', '') || 'cockpit',
           memory: memory.map((f) => f.text),
-        }, tiefe)
+        }, zugTiefe)
         historyRef.current = result.messages
         const finalText = result.finalText || '(keine Antwort)'
         const withUriel: DisplayTurn[] = [
@@ -453,7 +527,7 @@ export function UrielDock() {
         setBusy(false)
       }
     },
-    [busy, execute, activeBrand, activeSlug, location.pathname, speakReplies, voice, memory, activeThreadId],
+    [busy, execute, activeBrand, activeSlug, location.pathname, speakReplies, voice, memory, activeThreadId, tiefe],
   )
 
   const onMic = useCallback(() => {

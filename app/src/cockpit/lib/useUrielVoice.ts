@@ -49,6 +49,13 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
 }
 
 const SILENCE_MS = 2200 // so lange Stille nach Sprache → Eingabe ist „fertig"
+/**
+ * Langes Diktat (Call-Nachbereitung, 08.10.2026): wer schon über ~200 Zeichen
+ * erzählt, denkt zwischendurch nach. 2,2 s Pause hätten das Diktat mitten im
+ * Satz abgeschickt — ab dieser Länge wartet Uriel deshalb länger auf Ruhe.
+ */
+const DIKTAT_AB_ZEICHEN = 200
+const DIKTAT_SILENCE_MS = 7000
 
 function stripMarkdown(text: string): string {
   return text
@@ -143,10 +150,12 @@ export function useUrielVoice(): UrielVoice {
           if (r.isFinal) finalRef.current += txt
           else interim += txt
         }
-        onInterim((finalRef.current + interim).trim())
+        const bisher = (finalRef.current + interim).trim()
+        onInterim(bisher)
         // Silence-Timer nach jedem Ergebnis neu setzen → sendet erst bei Ruhe.
         clearSilence()
-        silenceRef.current = window.setTimeout(() => recRef.current?.stop(), SILENCE_MS)
+        const stille = bisher.length > DIKTAT_AB_ZEICHEN ? DIKTAT_SILENCE_MS : SILENCE_MS
+        silenceRef.current = window.setTimeout(() => recRef.current?.stop(), stille)
       }
       rec.onerror = () => {
         clearSilence()

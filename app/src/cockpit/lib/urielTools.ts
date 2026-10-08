@@ -205,6 +205,85 @@ export const URIEL_TOOLS: UrielTool[] = [
       required: ['query'],
     },
   },
+  // ---- Call-Nachbereitung schreiben (08.10.) ----
+  /**
+   * Kevin will nach einem Sales-Call nur noch einmal frei reinsprechen. Das
+   * Diktat ist unsortiert und voller Transkriptionsfehler — die Sortierarbeit
+   * gehört Uriel, nicht Kevin. Deshalb ist die Beschreibung so genau: jedes
+   * Feld sagt, was hineingehört, damit nichts Erzähltes verloren geht und
+   * nichts Erfundenes hineinkommt.
+   */
+  {
+    name: 'call_nachbereiten',
+    description:
+      'Trägt die Nachbereitung eines Sales-Calls in einen CRM-Kontakt ein — nutze das IMMER, wenn Kevin ' +
+      'nach einem Gespräch erzählt, wie es lief („hatte gerade den Call mit …", „Gesprächsnotizen zu …"). ' +
+      'Ablauf: erst search_contacts mit Name ODER Firma (bei keinem Treffer auch den anderen Begriff probieren); ' +
+      'gibt es den Kontakt nicht, `neuer_kontakt` mitschicken (dann wird er angelegt). EIN Aufruf pro Gespräch, alles auf einmal. ' +
+      'Regeln: (1) Jede Einzelinformation aus dem Diktat landet in `punkte` — vollständig, nichts weglassen, ' +
+      'in Kevins Sinn, aber sauber formuliert; Transkriptionsfehler sinngemäß korrigieren. (2) Nichts erfinden: ' +
+      'ein Feld, zu dem Kevin nichts gesagt hat, bleibt leer. (3) Was Kevin über SICH sagt (Pitch, Routine, ' +
+      'Skript) gehört in `learnings`, nicht in die Kunden-Felder. (4) Relative Daten („nächste Woche Donnerstag") ' +
+      'in ein echtes Datum umrechnen — das heutige Datum steht im Kontext. ' +
+      'Bestehende Texte am Kontakt werden nicht überschrieben, sondern mit Datum ergänzt. ' +
+      'Antworte danach kurz: was eingetragen ist, der nächste Termin, und was offen bleibt.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        contact_id: { type: 'string', description: 'id aus search_contacts. Leer lassen, wenn neuer_kontakt gesetzt ist.' },
+        neuer_kontakt: {
+          type: 'object',
+          description: 'Nur wenn search_contacts nichts fand. Ansprechpartner als name, Firma separat.',
+          properties: {
+            name: { type: 'string' },
+            firma: { type: 'string' },
+            email: { type: 'string' },
+            telefon: { type: 'string' },
+            position: { type: 'string' },
+          },
+          required: ['name'],
+        },
+        art: {
+          type: 'string',
+          enum: ['setting', 'closing', 'gespraech'],
+          description:
+            'setting = Erstgespräch/Qualifizierung; closing = Gespräch mit Entscheidung über das Angebot; ' +
+            'gespraech = alles dazwischen (Konzeptgespräch, Präsentation, Demo).',
+        },
+        zusammenfassung: { type: 'string', description: '2–3 Sätze: wie lief es, wo steht der Lead.' },
+        punkte: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'ALLE Einzelinformationen aus dem Diktat, je ein Punkt: Anforderungen, Fragen, Fakten, Personen.',
+        },
+        bedarf: { type: 'string', description: 'Was der Lead braucht/will (Anforderungen).' },
+        aktuelle_situation: { type: 'string', description: 'Ist-Zustand: aktuelle Tools, Abläufe, Team.' },
+        hauptproblem: { type: 'string' },
+        einwaende: { type: 'string', description: 'Bedenken, kritische Fragen, Vorbehalte.' },
+        timeline: { type: 'string', description: 'Zeitrahmen beim Lead (Übergabe, Ausstieg, Deadline).' },
+        budget: { type: 'string' },
+        naechste_schritte: { type: 'string', description: 'Was als Nächstes passiert, mit Datum.' },
+        entscheider_name: { type: 'string', description: 'Wer (mit)entscheidet, falls genannt.' },
+        ist_entscheider: { type: 'boolean', description: 'Entscheidet der Gesprächspartner allein? Nur setzen, wenn klar.' },
+        abschluss_wahrscheinlichkeit: { type: 'integer', description: '0–100, nur wenn Kevin eine Einschätzung gibt oder sie klar ableitbar ist.' },
+        potenzial_betrag: { type: 'integer', description: 'Auftragswert in EUR, nur wenn genannt.' },
+        pipeline_stage: {
+          type: 'string',
+          enum: ['first_contact', 'conversation', 'follow_up', 'proposal', 'deal', 'paused'],
+          description: 'Nur setzen, wenn sich die Stufe durch das Gespräch ändert.',
+        },
+        naechster_kontakt_datum: { type: 'string', description: 'YYYY-MM-DD oder ISO mit Uhrzeit.' },
+        naechster_kontakt_typ: { type: 'string', enum: ['call', 'meeting', 'email', 'other'] },
+        learnings: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Was Kevin über seinen eigenen Pitch/Ablauf sagt — für ihn, nicht für den Kunden.',
+        },
+        ergebnis: { type: 'string', description: 'Nur bei closing: gewonnen, verloren oder offen.' },
+      },
+      required: ['art', 'zusammenfassung', 'punkte'],
+    },
+  },
   {
     name: 'search_contacts',
     description:
