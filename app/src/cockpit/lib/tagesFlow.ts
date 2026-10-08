@@ -379,6 +379,13 @@ export interface FlowEingabe {
    * gilt sie als unbekannt: Die betroffenen Stufen sind nicht erledigt.
    */
   quellenUnsicher?: boolean
+  /**
+   * Nachrichten, die gerade bei Claude liegen (08.10.2026, `lib/nachrichtenFeedback.ts`).
+   * Sie fehlen in den Live-Listen und zählen vorerst als erledigt — Kevin: *„dass
+   * ich einmal fertig sehe"*. Kommen sie mit neuem Text zurück, sinkt der Stand
+   * wieder („32 von 36").
+   */
+  beiClaude?: Partial<Record<StufenId, number>>
 }
 
 /**
@@ -397,11 +404,15 @@ function anzahl(wert: number | undefined): number {
   return typeof wert === 'number' && Number.isFinite(wert) ? Math.max(0, Math.trunc(wert)) : 0
 }
 
-/** Der heutige Zähler-Stand eines Feldes, NaN-fest. */
+/**
+ * Der heutige Zähler-Stand eines Feldes, NaN-fest — plus was gerade bei Claude
+ * liegt. Weil das Soll `offen + wert` rechnet und die Liste genau diese Posten
+ * nicht mehr enthält, bleibt das Soll dabei stehen.
+ */
 function wertVon(stufe: Stufe, eingabe: FlowEingabe): number {
   if (!stufe.feld) return 0
   const roh = eingabe.today[stufe.feld]
-  return typeof roh === 'number' && Number.isFinite(roh) ? roh : 0
+  return (typeof roh === 'number' && Number.isFinite(roh) ? roh : 0) + anzahl(eingabe.beiClaude?.[stufe.id])
 }
 
 /**
@@ -630,11 +641,13 @@ export function flowQuellen(
      * beschönigende Verhalten, aber wenigstens kein Absturz.
      */
     erstnachrichtWartend?: ReadonlyArray<unknown>
+    /** Je Stufe, was bei Claude liegt (`usePosten().beiClaude`) — schon aus den Listen oben heraus. */
+    beiClaude?: Partial<Record<StufenId, number>>
   },
   jetzt: Date,
 ): Pick<
   FlowEingabe,
-  'faelligHeute' | 'erstnachrichtenOffen' | 'erstnachrichtenTexte' | 'loomsOffen' | 'antworten'
+  'faelligHeute' | 'erstnachrichtenOffen' | 'erstnachrichtenTexte' | 'loomsOffen' | 'antworten' | 'beiClaude'
 > {
   const antworten = quellen.antwort ?? []
   const zeiten = antworten
@@ -642,13 +655,17 @@ export function flowQuellen(
     .filter((t) => Number.isFinite(t))
   return {
     faelligHeute: (quellen.followup ?? []).length,
-    erstnachrichtenOffen: (quellen.erstnachrichtWartend ?? quellen.erstnachricht ?? []).length,
+    // Die Wartenden sind Menschen: wessen Text bei Claude liegt, wartet weiter, zählt aber vorerst als erledigt.
+    erstnachrichtenOffen: quellen.erstnachrichtWartend
+      ? Math.max(0, quellen.erstnachrichtWartend.length - anzahl(quellen.beiClaude?.erstnachrichten))
+      : (quellen.erstnachricht ?? []).length,
     erstnachrichtenTexte: (quellen.erstnachricht ?? []).length,
     loomsOffen: (quellen.loom ?? []).length,
     antworten: {
       warten: antworten.length,
       aeltesteStunden: zeiten.length ? (jetzt.getTime() - Math.min(...zeiten)) / 3_600_000 : null,
     },
+    beiClaude: quellen.beiClaude,
   }
 }
 

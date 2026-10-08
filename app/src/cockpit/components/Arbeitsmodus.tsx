@@ -3,6 +3,15 @@ import type { Posten } from '../lib/prioritaet'
 import type { LoomSkriptAktionen } from './Arbeitsliste'
 import { versandText, type Slot } from '../lib/entwurfZeitangaben'
 import { EntwurfBox } from './EntwurfBox'
+import { ClaudeFeedback } from './ClaudeFeedback'
+import { useNachrichtenFeedback, type FeedbackStufe } from '../lib/nachrichtenFeedback'
+
+const FEEDBACK_STUFE: Partial<Record<Posten['spur'], FeedbackStufe>> = {
+  erstnachricht: 'erstnachrichten',
+  antwort: 'antworten',
+  followup: 'followups',
+  loom: 'looms',
+}
 
 /** Ergebnis eines abgehakten Postens — Zug 4 schreibt daraus genau ein Metrik-Feld + die Dauer. */
 export interface ArbeitsmodusErgebnis {
@@ -51,6 +60,17 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
 
   const gesamt = posten.length
   const aktuell = index < gesamt ? posten[index] : undefined
+
+  /**
+   * An Claude gegeben (08.10.2026): Der Posten ist vorerst erledigt, der Modus
+   * geht zum nächsten. Gezählt wird nichts — der Zähler rechnet „bei Claude"
+   * selbst dazu, bis der neue Text zurück ist.
+   */
+  const feedback = useNachrichtenFeedback()
+  const anClaude = aktuell ? Boolean(feedback[aktuell.id]) : false
+  useEffect(() => {
+    if (anClaude) setIndex((i) => i + 1)
+  }, [anClaude])
 
   // Neuer Posten eingeblendet → Uhr für die Dauer-Messung neu starten (Zug 4).
   useEffect(() => {
@@ -225,6 +245,22 @@ export function Arbeitsmodus({ posten, onErledigt, onClose, loom }: Arbeitsmodus
             </div>
           ) : null}
         </div>
+
+        {FEEDBACK_STUFE[aktuell.spur] && (aktuell.entwurf || aktuell.spur === 'erstnachricht') ? (
+          <div style={{ flexShrink: 0 }}>
+            <ClaudeFeedback
+              key={aktuell.id}
+              gross
+              schluessel={aktuell.id}
+              eintrag={{
+                stufe: FEEDBACK_STUFE[aktuell.spur]!,
+                name: aktuell.name,
+                firma: aktuell.firma,
+                nachricht: aktuell.entwurf ? versandText(aktuell.entwurf, zeitAenderungen[aktuell.id]) : aktuell.text,
+              }}
+            />
+          </div>
+        ) : null}
 
         {kopierGesperrt ? (
           <div style={{ fontSize: 12, color: 'var(--ck-warn)', flexShrink: 0 }}>

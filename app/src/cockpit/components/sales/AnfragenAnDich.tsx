@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AnfrageStatus, AnfrageZeile, AnfragenAufteilung } from '../../lib/anfragenAnDich'
 import { inZwischenablage } from '../../lib/zwischenablage'
+import { BeiClaude, ClaudeFeedback } from '../ClaudeFeedback'
 
 /**
  * „Anfragen an dich" (06.10.2026): wer aus Kevins Zielgruppe ihn von sich aus
@@ -35,6 +36,8 @@ export function AnfragenAnDich({
       </p>
 
       {fehler ? <div style={{ fontSize: 12, color: 'var(--ck-warn)' }}>{fehler}</div> : null}
+
+      <BeiClaude stufen={['anfragen']} />
 
       {zuletzt ? (
         <div
@@ -185,6 +188,10 @@ function AnfrageKarte({ anfrage: a, onStatus }: { anfrage: AnfrageZeile; onStatu
             : 'Der Text wird vorbereitet. Der Mini schreibt ihn beim nächsten Lauf.'}
         </p>
       )}
+
+      {a.entwurf ? (
+        <ClaudeFeedback schluessel={`anfrage:${a.id}`} eintrag={{ stufe: 'anfragen', name: a.name, firma: firma || undefined, nachricht: a.entwurf }} />
+      ) : null}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <a

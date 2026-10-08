@@ -9,6 +9,8 @@ import {
   liegendeProjekte,
 } from '../cockpit/lib/kundenarbeit'
 import { ordnePosten, type Posten, type PostenQuellen } from '../cockpit/lib/prioritaet'
+import { ohneBeiClaude, useNachrichtenFeedback } from '../cockpit/lib/nachrichtenFeedback'
+import type { StufenId } from '../cockpit/lib/tagesFlow'
 import { quellenFehler } from '../lib/datenFrische'
 import { useContacts, type UseContactsResult } from './useContacts'
 import { useDeliverProjects } from './useDeliverProjects'
@@ -60,6 +62,11 @@ export interface UsePostenResult {
   quellenFehler: string | null
   /** Laden die Flow-Quellen noch? (Threads, Erstnachrichten, Netzwerk, Loom-Urteile) */
   flowQuellenLaden: boolean
+  /**
+   * Wie viele Nachrichten je Stufe gerade bei Claude liegen (08.10.2026). Sie
+   * fehlen in `quellen` und zählen im Tagesfluss vorerst als erledigt.
+   */
+  beiClaude: Partial<Record<StufenId, number>>
 }
 
 export function usePosten(slug: string | undefined): UsePostenResult {
@@ -166,27 +173,45 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     [netzwerk.items, linkedinThreads.items, erstnachrichten.items, jetzt],
   )
 
+  /**
+   * Nachrichten mit Kevins Feedback liegen bei Claude (08.10.2026): raus aus
+   * den Listen, im Tagesfluss vorerst erledigt. Kommen mit neuem Text zurück,
+   * sobald eine Session sie abgearbeitet hat.
+   */
+  const feedback = useNachrichtenFeedback()
+  const mitFeedback = useMemo(() => {
+    const id = (p: Posten) => p.id
+    const antwort = ohneBeiClaude(antwortListe, feedback, id)
+    const loom = ohneBeiClaude(loomListe, feedback, id)
+    const erstnachricht = ohneBeiClaude(erstnachrichtListe, feedback, id)
+    const followup = ohneBeiClaude(followupListe, feedback, id)
+    return {
+      antwort: antwort.offen,
+      loom: loom.offen,
+      erstnachricht: erstnachricht.offen,
+      followup: followup.offen,
+      beiClaude: {
+        antworten: antwort.beiClaude,
+        looms: loom.beiClaude,
+        erstnachrichten: erstnachricht.beiClaude,
+        followups: followup.beiClaude,
+      } satisfies Partial<Record<StufenId, number>>,
+    }
+  }, [antwortListe, loomListe, erstnachrichtListe, followupListe, feedback])
+
   const quellen: PostenQuellen = useMemo(
     () => ({
       kundenaufgabe: kundenaufgabePosten,
       kunde_liegt: kundeLiegtListe,
-      antwort: antwortListe,
-      loom: loomListe,
-      erstnachricht: erstnachrichtListe,
-      followup: followupListe,
+      antwort: mitFeedback.antwort,
+      loom: mitFeedback.loom,
+      erstnachricht: mitFeedback.erstnachricht,
+      followup: mitFeedback.followup,
       aufgabe: eigeneAufgaben,
       anfrage: [],
       inmail: [],
     }),
-    [
-      kundenaufgabePosten,
-      kundeLiegtListe,
-      antwortListe,
-      loomListe,
-      erstnachrichtListe,
-      followupListe,
-      eigeneAufgaben,
-    ],
+    [kundenaufgabePosten, kundeLiegtListe, mitFeedback, eigeneAufgaben],
   )
 
   const geordnet = useMemo(() => ordnePosten(quellen, jetzt), [quellen, jetzt])
@@ -218,6 +243,7 @@ export function usePosten(slug: string | undefined): UsePostenResult {
     netzwerk,
     quellenFehler: quellenFehlerText,
     flowQuellenLaden,
+    beiClaude: mitFeedback.beiClaude,
   }
 }
 

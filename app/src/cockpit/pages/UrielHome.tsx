@@ -134,8 +134,8 @@ export function UrielHome() {
    * `usePosten` hat Threads und Erstnachrichten schon in der Hand.
    */
   const flowLive = useMemo(
-    () => flowQuellen({ ...posten.quellen, erstnachrichtWartend: posten.erstnachrichtWartend }, jetzt),
-    [posten.quellen, posten.erstnachrichtWartend, jetzt],
+    () => flowQuellen({ ...posten.quellen, erstnachrichtWartend: posten.erstnachrichtWartend, beiClaude: posten.beiClaude }, jetzt),
+    [posten.quellen, posten.erstnachrichtWartend, posten.beiClaude, jetzt],
   )
   const flow = useTagesFlow(
     metrics.today,

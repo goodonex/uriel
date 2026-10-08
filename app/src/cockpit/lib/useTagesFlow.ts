@@ -10,6 +10,7 @@ import { useLoomUrteile } from '../../hooks/useLoomUrteile'
 import { useActiveBrand } from './activeBrand'
 import { antwortPosten, erstnachrichtPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG, loomPosten } from './arbeitsmodusQuellen'
 import { useMetrikTag } from './useMetrikTag'
+import { ohneBeiClaude, useNachrichtenFeedback } from './nachrichtenFeedback'
 import { useTagesPortionen, type TagesPortionen } from './useTagesPortionen'
 import { useUiSetting } from './uiSettings'
 import {
@@ -49,7 +50,7 @@ const KEINE_ZIELE: ZielUeberschreibung = {}
 /** Die Live-Zahlen, die der Flow neben der Tageszeile braucht. */
 export type FlowLiveQuellen = Pick<
   FlowEingabe,
-  'faelligHeute' | 'erstnachrichtenOffen' | 'loomsOffen' | 'antworten' | 'portionen'
+  'faelligHeute' | 'erstnachrichtenOffen' | 'loomsOffen' | 'antworten' | 'portionen' | 'beiClaude'
 >
 
 export interface TagesFlowStand {
@@ -89,12 +90,28 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
   // eine Zähl-Sitzung dauert Minuten. Ein Minutentakt wie in `usePosten` würde
   // hier nur Neuberechnungen erzeugen, die nichts ändern.
   const jetzt = useMemo(() => new Date(), [])
-  const quellen = useMemo(
-    () =>
-      flowQuellen(
+  // Was bei Claude liegt, zählt hier genauso vorerst als erledigt wie in `usePosten` (08.10.2026).
+  const feedback = useNachrichtenFeedback()
+  const quellen = useMemo(() => {
+    const id = (p: { id: string }) => p.id
+    const followup = ohneBeiClaude(
+      followupPosten(threads.items, jetzt, contacts.items, undefined, undefined, undefined, FOLLOWUP_NUR_SENDEFERTIG),
+      feedback,
+      id,
+    )
+    const erstnachricht = ohneBeiClaude(erstnachrichtPosten(erstnachrichten.items, threads.items, netzwerk.items), feedback, id)
+    const loom = ohneBeiClaude(loomPosten(threads.items, loomUrteile.urteile), feedback, id)
+    const antwort = ohneBeiClaude(antwortPosten(threads.items, jetzt, contacts.items, loomUrteile.urteile), feedback, id)
+    return flowQuellen(
         {
-          followup: followupPosten(threads.items, jetzt, contacts.items, undefined, undefined, undefined, FOLLOWUP_NUR_SENDEFERTIG),
-          erstnachricht: erstnachrichtPosten(erstnachrichten.items, threads.items, netzwerk.items),
+          followup: followup.offen,
+          erstnachricht: erstnachricht.offen,
+          beiClaude: {
+            followups: followup.beiClaude,
+            erstnachrichten: erstnachricht.beiClaude,
+            looms: loom.beiClaude,
+            antworten: antwort.beiClaude,
+          },
           erstnachrichtWartend: angenommenOhneErstnachricht(
             netzwerk.items,
             threads.items,
@@ -103,13 +120,12 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
           )
             .filter((p) => nachStichtag(p.seit))
             .filter((p) => istArbeitsVorrat(icpUrteil(p.info ?? '', p.name).urteil)),
-          loom: loomPosten(threads.items, loomUrteile.urteile),
-          antwort: antwortPosten(threads.items, jetzt, contacts.items, loomUrteile.urteile),
+          loom: loom.offen,
+          antwort: antwort.offen,
         },
         jetzt,
-      ),
-    [threads.items, erstnachrichten.items, netzwerk.items, contacts.items, loomUrteile.urteile, jetzt],
-  )
+      )
+  }, [threads.items, erstnachrichten.items, netzwerk.items, contacts.items, loomUrteile.urteile, jetzt, feedback])
   const fehler = quellenFehler([
     { name: 'Threads', error: threads.error },
     { name: 'Erstnachrichten', error: erstnachrichten.error },

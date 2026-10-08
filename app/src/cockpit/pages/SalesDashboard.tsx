@@ -16,6 +16,7 @@ import { PhasenRing } from '../components/sales/PhasenRing'
 import { KartenNamen } from '../components/sales/KartenNamen'
 import { TagesListe } from '../components/sales/TagesListe'
 import { PruefListe } from '../components/sales/PruefListe'
+import { ohneBeiClaude, useNachrichtenFeedback, type FeedbackStufe } from '../lib/nachrichtenFeedback'
 import { AnfragenAnDich } from '../components/sales/AnfragenAnDich'
 import { anfragenZeilenText, teileAnfragen } from '../lib/anfragenAnDich'
 import { useEingehendeAnfragen } from '../../hooks/useEingehendeAnfragen'
@@ -416,6 +417,8 @@ export function SalesDashboard() {
   const { geordnet, quellen, liegend, jetzt, tasks, linkedinThreads, erstnachrichten, netzwerk } = posten
   /** Anfragen an dich (06.10.2026, Migration 0098) — eigene Quelle, eigene Zeile über dem Ritual. */
   const anfragen = useEingehendeAnfragen(slug)
+  /** Was Kevin an Claude gegeben hat (08.10.2026) — fehlt in „Prüfen" und „Anfragen an dich", zählt vorerst als erledigt. */
+  const feedback = useNachrichtenFeedback()
   /**
    * Laden noch Quellen? Dann ist `geordnet` nur ein Zwischenstand (O18).
    * Wichtig fuer `?modus=arbeit` unten — sonst startet der Arbeitsmodus mit den
@@ -535,8 +538,8 @@ export function SalesDashboard() {
   // `erstnachrichtWartend` steht bewusst NEBEN den Quellen: Es sind Menschen
   // ohne Text, also keine abarbeitbaren Posten (31.08.2026).
   const flowLive = useMemo(
-    () => flowQuellen({ ...quellen, erstnachrichtWartend: posten.erstnachrichtWartend }, jetzt),
-    [quellen, posten.erstnachrichtWartend, jetzt],
+    () => flowQuellen({ ...quellen, erstnachrichtWartend: posten.erstnachrichtWartend, beiClaude: posten.beiClaude }, jetzt),
+    [quellen, posten.erstnachrichtWartend, posten.beiClaude, jetzt],
   )
   const flow = useTagesFlow(metrics.today, flowLive, postenLaedt || metrics.loading, posten.quellenFehler)
   /**
@@ -898,9 +901,10 @@ export function SalesDashboard() {
   )
 
   const liste = useCallback(
-    (posten: Posten[]) => () => (
+    (posten: Posten[], feedbackStufen?: FeedbackStufe[]) => () => (
       <Arbeitsliste
         posten={posten}
+        feedbackStufen={feedbackStufen}
         onErledigt={onArbeitsmodusErledigt}
         onZaehler={() => setOffenKachelId('vernetzungsanfragen')}
         morgen={morgenAktion}
@@ -1114,7 +1118,7 @@ export function SalesDashboard() {
                   )()}
                 </div>
               )
-            : liste(erstnachrichtHeute),
+            : liste(erstnachrichtHeute, ['erstnachrichten']),
           fensterAktion: mobilArbeitsmodus('erstnachricht', erstnachrichtHeute),
         }
       }
@@ -1148,7 +1152,7 @@ export function SalesDashboard() {
           })(),
           inhalt: () => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {liste(antwortListe)()}
+              {liste(antwortListe, ['antworten'])()}
               {ausgeblendetListe.length > 0 ? (
                 <details>
                   <summary
@@ -1176,7 +1180,7 @@ export function SalesDashboard() {
               : (zuerst(followupPortionsListe) ?? 'Chats ohne Antwort — die heutige Portion.'),
           inhalt: () => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {liste(followupPortionsListe)()}
+              {liste(followupPortionsListe, ['followups'])()}
               {followupRueckstand > 0 ? (
                 <p style={{ fontSize: 12, color: 'var(--ck-text-3)', margin: 0 }}>
                   {followupRueckstand} weitere sind fällig, aber nicht Teil der heutigen Portion — sie
@@ -1220,7 +1224,7 @@ export function SalesDashboard() {
             loomListe.length > 0
               ? `${loomListe.length} zugesagt und offen — Stern = Ja zur Analyse.`
               : 'Zugesagte Analysen aufnehmen und rausschicken.',
-          inhalt: liste(loomListe),
+          inhalt: liste(loomListe, ['looms']),
           fensterAktion: mobilArbeitsmodus('loom', loomListe),
         }
     }
@@ -1584,7 +1588,7 @@ export function SalesDashboard() {
         inhalt: () => (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {k.vorlage ? <VorlagenKopf text={k.vorlage} /> : null}
-            {liste(posten)()}
+            {liste(posten, ['followups'])()}
           </div>
         ),
         fensterAktion: mobilArbeitsmodus('followup', posten),
@@ -1625,8 +1629,10 @@ export function SalesDashboard() {
    * Bewusst keine Stufe in `TAGES_FLOW`: Sie zählt nichts in `daily_metrics` und
    * hat kein Soll, nur eine Liste, die sich leert.
    */
-  const pruefOffen = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items).offen.filter(brauchtPruefung)
-  const pruefHeute = erstnachrichten.items.filter((e) => heuteGeprueft(e, jetzt)).length
+  const pruefAlle = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items).offen.filter(brauchtPruefung)
+  const { offen: pruefOffen, beiClaude: pruefBeiClaude } = ohneBeiClaude(pruefAlle, feedback, (e) => `erstnachricht:${e.id}`)
+  // Bei Claude zählt wie geprüft, bis der neue Text zurück ist.
+  const pruefHeute = erstnachrichten.items.filter((e) => heuteGeprueft(e, jetzt)).length + pruefBeiClaude
   const pruefZeile: FlowZeileDef = {
     id: 'pruefen',
     titel: 'Prüfen · vor den Anfragen',
@@ -1661,8 +1667,11 @@ export function SalesDashboard() {
     () =>
       anfragen.loading || anfragen.error || anfragen.tableMissing
         ? null
-        : teileAnfragen(anfragen.items, { threads: linkedinThreads.items, netzwerk: netzwerk.items, jetzt }),
-    [anfragen.loading, anfragen.error, anfragen.tableMissing, anfragen.items, linkedinThreads.items, netzwerk.items, jetzt],
+        : teileAnfragen(
+            anfragen.items.filter((a) => !feedback[`anfrage:${a.id}`]),
+            { threads: linkedinThreads.items, netzwerk: netzwerk.items, jetzt },
+          ),
+    [anfragen.loading, anfragen.error, anfragen.tableMissing, anfragen.items, linkedinThreads.items, netzwerk.items, jetzt, feedback],
   )
   const anfragenText = anfragenZeilenText({
     laedt: anfragen.loading,

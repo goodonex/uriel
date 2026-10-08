@@ -143,8 +143,8 @@ check(
 )
 check(
   'die Zeilen-Zahlen kommen aus denselben Listen wie die Fenster dahinter',
-  // Seit 31.08.2026 kommen die Wartenden neben den Quellen mit hinein.
-  /flowQuellen\(\{ \.\.\.quellen, erstnachrichtWartend: posten\.erstnachrichtWartend \}, jetzt\)/.test(dash),
+  // Seit 31.08.2026 kommen die Wartenden neben den Quellen mit hinein, seit 08.10. das, was bei Claude liegt.
+  /flowQuellen\(\{ \.\.\.quellen, erstnachrichtWartend: posten\.erstnachrichtWartend, beiClaude: posten\.beiClaude \}, jetzt\)/.test(dash),
   true,
 )
 

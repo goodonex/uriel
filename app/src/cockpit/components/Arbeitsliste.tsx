@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { versandText, type Slot } from '../lib/entwurfZeitangaben'
 import { EntwurfBox } from './EntwurfBox'
 import { useIsMobile } from '../../hooks/useViewport'
-import { nachrichtStand, type Posten } from '../lib/prioritaet'
+import { nachrichtStand, type Posten, type Spur } from '../lib/prioritaet'
 import type { ArbeitsmodusErgebnis } from './Arbeitsmodus'
 import { ListenZeile } from './home/ListenZeile'
 import { KlassenBadge } from './KlassenBadge'
-import { neuPruefenLink } from '../lib/neuPruefen'
+import { useNachrichtenFeedback, type FeedbackStufe } from '../lib/nachrichtenFeedback'
+import { BeiClaude, ClaudeFeedback } from './ClaudeFeedback'
 import { inZwischenablage as textInDieAblage } from '../lib/zwischenablage'
 
 /**
@@ -77,6 +78,19 @@ interface ArbeitslisteProps {
     moeglich: (posten: Posten) => boolean
     entscheide: (posten: Posten, zugesagt: boolean) => void
   }
+  /**
+   * Welche Stufen diese Liste zeigt — dann steht oben, wer davon gerade bei
+   * Claude liegt (08.10.2026). Ohne die Angabe keine Leiste.
+   */
+  feedbackStufen?: FeedbackStufe[]
+}
+
+/** In welcher Stufe eine Nachricht dieser Spur zählt — nur Spuren mit Text an den Lead. */
+const STUFE_JE_SPUR: Partial<Record<Spur, FeedbackStufe>> = {
+  erstnachricht: 'erstnachrichten',
+  antwort: 'antworten',
+  followup: 'followups',
+  loom: 'looms',
 }
 
 function linkLabel(url: string): string {
@@ -131,6 +145,7 @@ export function Arbeitsliste({
   projektLink,
   onNavigiere,
   loomUrteil,
+  feedbackStufen,
 }: ArbeitslisteProps) {
   // Nur die eingeklappte Zeile hat zwei Fassungen (O18, Zug 7). Alles darunter —
   // Text, Entwurf, Kopieren, Skript, Loom, Ins Projekt — ist auf beiden Seiten
@@ -219,16 +234,35 @@ export function Arbeitsliste({
     [inZwischenablage, zeitAenderungen],
   )
 
-  if (posten.length === 0) {
-    return <span style={{ fontSize: 13, color: 'var(--ck-text-3)' }}>Nichts offen.</span>
+  /**
+   * Was bei Claude liegt, steht nicht in der Liste (08.10.2026). Die Quellen in
+   * `usePosten` filtern schon; hier noch einmal, damit auch Listen ohne diesen
+   * Weg (ausgeblendete Antworten) die Nachricht sofort verlieren.
+   */
+  const feedback = useNachrichtenFeedback()
+  const sichtbar = useMemo(() => posten.filter((p) => !feedback[p.id]), [posten, feedback])
+  const leiste = feedbackStufen ? <BeiClaude stufen={feedbackStufen} /> : null
+
+  if (sichtbar.length === 0) {
+    return (
+      <div>
+        {leiste}
+        <span style={{ fontSize: 13, color: 'var(--ck-text-3)' }}>{leiste && posten.length ? 'Alles erledigt oder bei Claude.' : 'Nichts offen.'}</span>
+      </div>
+    )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {posten.map((p) => {
+      {leiste}
+      {sichtbar.map((p) => {
         const istOffen = offenId === p.id
         const istErledigt = erledigt.has(p.id)
         const kopierbar = p.spur === 'erstnachricht' || Boolean(p.entwurf)
+        // Feedback an Claude gibt es an jedem Text, der an einen Lead geht —
+        // nicht an den „wartend"-Zeilen ohne Text und nicht an Kundenaufgaben.
+        const feedbackStufe = STUFE_JE_SPUR[p.spur]
+        const feedbackMoeglich = Boolean(feedbackStufe) && (Boolean(p.entwurf) || (p.spur === 'erstnachricht' && Boolean(p.text)))
         const skriptUrl = p.spur === 'loom' ? (loom?.skriptUrl(p) ?? null) : null
         /**
          * „Ins Projekt" gilt fuer beide Kunden-Spuren. `kunde_liegt` war
@@ -476,6 +510,17 @@ export function Arbeitsliste({
                     Zwischenablage gesperrt — Text markieren und kopieren.
                   </span>
                 ) : null}
+                {feedbackMoeglich && feedbackStufe ? (
+                  <ClaudeFeedback
+                    schluessel={p.id}
+                    eintrag={{
+                      stufe: feedbackStufe,
+                      name: p.name,
+                      firma: p.firma,
+                      nachricht: p.entwurf ? versandText(p.entwurf, zeitAenderungen[p.id]) : p.text,
+                    }}
+                  />
+                ) : null}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {kopierbar ? (
                     <button
@@ -486,16 +531,6 @@ export function Arbeitsliste({
                     >
                       {kopiertId === p.id ? '✓ Kopiert' : 'Nachricht kopieren'}
                     </button>
-                  ) : null}
-                  {kopierbar && !mobil ? (
-                    <a
-                      className="ck-btn"
-                      style={{ minHeight: 40, display: 'inline-flex', alignItems: 'center' }}
-                      href={neuPruefenLink(p)}
-                      title="Öffnet in der Claude-App eine Session mit Lead, Nachricht und Entwurf"
-                    >
-                      Neu prüfen ↗
-                    </a>
                   ) : null}
                   {p.spur === 'loom' && loom ? (
                     skriptUrl ? (

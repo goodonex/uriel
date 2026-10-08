@@ -1030,6 +1030,86 @@ button.ck-nav-item { background: none; font-family: inherit; cursor: pointer; te
   color: var(--ck-accent-text);
 }
 
+/* --- „Claude sagen, was nicht passt" (08.10.2026) ---
+   Eine ruhige Fläche an jeder Nachricht, immer direkt über den Knöpfen. Sie
+   klappt an Ort und Stelle zu einem Schreibfeld auf, statt ein zweites Feld
+   neben die Knöpfe zu stellen. */
+.ck-feedback {
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius-innen);
+  background: color-mix(in srgb, var(--ck-panel-2) 55%, transparent);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.ck-feedback__griff {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  border-radius: inherit;
+  color: var(--ck-text-2);
+  font-family: var(--ck-font);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ck-feedback:has(.ck-feedback__griff:hover) { border-color: var(--ck-border-strong); background: var(--ck-panel-2); }
+.ck-feedback__griff:focus-visible { outline: 2px solid var(--ck-accent); outline-offset: 2px; }
+.ck-feedback__zeichen { color: var(--ck-accent); flex-shrink: 0; display: inline-flex; }
+.ck-feedback__neben { margin-left: auto; font-size: 12px; color: var(--ck-text-3); }
+.ck-feedback--offen {
+  border-color: color-mix(in srgb, var(--ck-accent) 35%, transparent);
+  background: var(--ck-panel-2);
+  animation: ck-feedback-auf 180ms ease-out;
+}
+.ck-feedback__inhalt { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ck-feedback__kopf { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ck-text-3); }
+.ck-feedback__feld {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  color: var(--ck-text-1);
+  font-family: var(--ck-font);
+  /* 16px: darunter zoomt iOS Safari beim Fokussieren rein. */
+  font-size: 16px;
+  line-height: 1.5;
+}
+@media (min-width: 900px) { .ck-feedback__feld { font-size: 14px; } }
+.ck-feedback__feld::placeholder { color: var(--ck-text-3); }
+/* Der Fokus zeigt sich am Rahmen der ganzen Fläche, nicht als zweiter Kasten im Kasten. */
+.ck-feedback__feld:focus-visible { outline: none; }
+.ck-feedback--offen:focus-within { border-color: color-mix(in srgb, var(--ck-accent) 60%, transparent); }
+.ck-feedback__fuss { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ck-feedback__hinweis { flex: 1 1 220px; font-size: 12px; line-height: 1.45; color: var(--ck-text-3); }
+.ck-feedback__bild { height: 56px; border-radius: 8px; border: 1px solid var(--ck-border-strong); display: block; }
+@keyframes ck-feedback-auf {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ck-feedback--offen { animation: none; }
+}
+
+/* Die Leiste „bei Claude" über einer Liste: was vorerst als erledigt zählt. */
+.ck-bei-claude {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--ck-radius-innen);
+  background: var(--ck-accent-dim);
+  font-size: 13px;
+  color: var(--ck-text-2);
+}
+
 /* --- Inputs --- */
 .ck-input {
   background: var(--ck-bg);
