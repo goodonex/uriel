@@ -231,7 +231,8 @@ funktionieren."* Die Muster:
   Seite ohne Mangel" (Scherer, 08.10.) ist kein Prüfgrund für Kevin, sondern
   ein `neu` mit `ansatz` (Aufbau S/T). „Winkel gegenlesen" ohne konkrete Frage
   ist ebenfalls keiner. Ein Hinweis an Kevin nennt immer etwas, das nur er
-  entscheiden kann (zwei plausible Firmen, Rolle widersprüchlich, Vorname fehlt).
+  entscheiden kann (zwei plausible Firmen, Rolle widersprüchlich). „Vorname
+  fehlt“ ist seit 08.10.2026 keiner mehr, siehe unten.
 - **Keine Kleinkram-Hinweise.** Itaj („warum müssen verkaufte Objekte unten
   auf der Startseite stehen? Das ist doch keine Regel"), Christoffers („ob ein
   schwebender Kontaktknopf sichtbar ist … die ganze Seite sieht aus wie
@@ -265,3 +266,30 @@ funktionieren."* Die Muster:
   leitet auf onoffice.com): Leitet die Domain woanders hin, ist das der
   Befund, nicht „Sicherheitszertifikat". Der Browser-Lauf hält die Weiterleitung
   fest, bevor der Text das Zertifikat behauptet.
+
+## Prüffälle aus Kevins Feedback vom 08.10.2026 (3 Texte)
+
+Alle drei Hinweise waren Rechercheaufträge an Kevin. Seine Antworten: *„auch
+nichts gefunden"* (zweimal) und *„wie soll ich das prüfen?"*. Er sucht dann
+dasselbe wie du, nur auf dem Handy, und findet nicht mehr.
+
+- **Ein Hinweis ist nie ein Rechercheauftrag.** „Prüfen, wer hinter Alimi Real
+  Estate steht", „Prüfen, ob er als Makler für Eigentümer arbeitet": Das klärst
+  du selbst aus Headline, Leistungen-Seite und Impressum. Prestige Real Estate
+  (Yuri Engelmann): Die Leistungen-Seite nennt „Immobilienverkauf, Vermarktung
+  Ihrer Luxusimmobilie", die Headline „Unternehmensinhaber". Damit ist er Makler
+  für Eigentümer und Entscheider, Urteil `ok` oder `neu`, kein Hinweis.
+  Lässt sich eine Frage weder aus Lead noch Seite beantworten, entscheidest du
+  mit dem, was da ist: Im Zweifel gilt die Headline.
+- **Profil nur mit Firmennamen, nichts zu finden → Text ohne Namen ist `ok`.**
+  Alimi Real Estate UG: kein Vorname, keine Seite, keine Registertreffer. Kevin
+  fand auch nichts. „Moin," ohne Namen mit Aufbau F oder D ist dann richtig und
+  kommt ohne Hinweis durch.
+- **Ein unbelegter oder überflüssiger Satz ist `neu` mit `beanstandet`, kein
+  Hinweis an Kevin.** Röper: Der Text erzählte, die Suche sei „nur bei einem
+  anderen Röper Immobilien in Lippstadt gelandet". Der Prüfer hielt den Satz
+  für erfunden (es gibt dort tatsächlich einen anderen Röper Immobilien, Inhaber
+  Stefan Zantow) und schickte das als Hinweis an Kevin, statt den Satz streichen
+  zu lassen. Ein Suchbericht gehört nie in die Nachricht, und was du
+  beanstanden kannst, beanstandest du selbst.
+

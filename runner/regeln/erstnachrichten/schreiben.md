@@ -231,9 +231,14 @@ ich hab nach eurer Website gesucht und keine gefunden. Eigentümer, die verkaufe
 Wo finde ich euch?
 ```
 
-`pruefen` = „Website nicht gefunden — Firma laut LinkedIn: {firma}, vor Versand
-kurz googeln". Arbeitet die Firma erkennbar bewusst nur über ein Portal, endet
+`pruefen` bleibt leer (seit 07.10.2026 kein Googeln-Hinweis an Kevin).
+Arbeitet die Firma erkennbar bewusst nur über ein Portal, endet
 D mit „Hast du was dagegen, wenn wir zehn Minuten telefonieren?".
+
+Nie erzählen, was die Suche stattdessen gefunden hat (Röper, 08.10.2026:
+*„bin bei der Suche nur bei einem anderen Röper Immobilien in Lippstadt
+gelandet"*). Das ist Suchbericht, kein Befund, und schwer zu belegen. Rapport
+aus dem Profil darf davor stehen, dann „keine Seite gefunden" und die Frage.
 
 ### Aufbau C — Seite offline (`seite-offline`)
 
@@ -392,6 +397,12 @@ Kleinigkeiten (schwebender Knopf, steht ein Block unten auf der Startseite)
 sind nie ein Prüfgrund: Bei einer schwachen Seite wählst du den größten
 Mangel und lässt Kleinkram weg (Kevin: *„auf was für eine Kleinigkeit willst
 du da hinaus, das nervt mich übertrieben"*).
+Auch keine Frage, die du selbst beantworten kannst (Kevin, 08.10.2026, zu
+„Prüfen, ob er als Makler für Eigentümer arbeitet": *„wie soll ich das
+prüfen?"*). Ob jemand für Eigentümer vermittelt, steht in Headline und
+Leistungen; wer hinter einer Firma steht, im Impressum. Steht es nirgends, gilt
+die Headline. Ein Profil nur mit Firmennamen bekommt „Moin," ohne Namen und
+keinen `pruefen`-Halbsatz.
 Mehrere Kontakte aus derselben Firma bekommen alle eine Nachricht.
 
 ## 10. Rückgabe
