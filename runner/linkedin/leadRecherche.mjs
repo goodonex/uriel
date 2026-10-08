@@ -44,7 +44,7 @@ import { starteBrowser, rendereKandidat, pruefeMetaAds } from './seiteRendern.mj
 import { leseErfahrung } from './erfahrung.mjs'
 import { personGleich, wortGleich } from './entscheider.mjs'
 import { pruefeGoogleAds } from './googleAds.mjs'
-import { googleTrefferDach } from './googleTreffer.mjs'
+import { asciiVarianten, googleTrefferBreit } from './googleTreffer.mjs'
 import { pruefeSeo } from './seo.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
 import { GESCHAEFTSMODELL_REGEL } from '../regeln/zielgruppe.mjs'
@@ -73,7 +73,7 @@ function baueFindenPrompt(lead, erfahrung, stationen = [], googleListe = []) {
     : '  (keine erkannt)'
 
   const google = googleListe.length
-    ? `\nECHTE GOOGLE-TREFFER (der Runner hat die Firma schon für dich gegoogelt, Kevin 07.10.2026: „Googeln ist deine Arbeit, nicht meine"). Such zuerst HIER. Ist die eigene Seite der Firma darunter, nimm sie, auch wenn sie nicht Treffer 1 ist, und suche nicht weiter:\n${googleListe.map((t) => `  ${t.platz}. ${t.domain} | ${t.titel}`).join('\n')}\n`
+    ? `\nECHTE GOOGLE-TREFFER (der Runner hat die Firma schon für dich gegoogelt, Kevin 07.10.2026: „Googeln ist deine Arbeit, nicht meine"). Such zuerst HIER. Ist die eigene Seite der Firma darunter, nimm sie, auch wenn sie nicht Treffer 1 ist, und suche nicht weiter. Die Liste mischt Suchen nach Firma und nach Person + Immobilien in Deutschland, der Schweiz und Österreich. Domains ohne Umlaut oder mit ae/oe/ue (gunes-immobilien.ch für Günes) und ohne „& Partner“ sind dieselbe Firma, wenn Ort oder Name passen (08.10.2026: drei Leads antworteten „Dann musst du richtig suchen“):\n${googleListe.map((t) => `  ${t.platz}. ${t.domain} | ${t.titel}`).join('\n')}\n`
     : ''
   return `Finde die Website EINES Immobilien-Kontakts und bestimme, womit er sein Geld verdient. Kein Text an den Kontakt.
 
@@ -418,7 +418,12 @@ const googleTrefferVon = new WeakMap()
 async function googleListeFuer(lead, stationen) {
   const firma = String(stationen?.find((s) => s.firma)?.firma ?? '').replace(/\s+(GmbH|UG|AG|mbH|e\.K\.|& Co\. KG|KG)\b.*$/i, '').trim()
   if (!firma) return []
-  const { treffer } = await googleTrefferDach(/immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`, { anzahl: 10 }).catch(() => ({ treffer: [] }))
+  // Mehrere Begriffe in DE/CH/AT (08.10.2026, „Dann musst du richtig suchen"): Firma, Firma
+  // ohne Umlaut, Person + Immobilien. Siehe `googleTrefferBreit`.
+  const basis = /immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`
+  const person = String(lead.name ?? '').replace(/\s+/g, ' ').trim()
+  const suchen = [basis, ...asciiVarianten(basis), person.includes(' ') ? `${person} Immobilien` : '']
+  const treffer = await googleTrefferBreit(suchen, { anzahl: 20 }).catch(() => [])
   googleTrefferVon.set(lead, treffer)
   return treffer
 }

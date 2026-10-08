@@ -69,6 +69,55 @@ export async function googleTreffer(suche, { land = LAND_DE, anzahl = 5, zugang 
   }
 }
 
+/** Umlaute zweifach auflösen: „Günes" → „Gunes" und „Guenes" (Domains schreiben beides). */
+export function asciiVarianten(text) {
+  const s = String(text ?? '')
+  if (!/[äöüÄÖÜß]/.test(s)) return []
+  const ohne = s.replace(/[äÄ]/g, 'a').replace(/[öÖ]/g, 'o').replace(/[üÜ]/g, 'u').replace(/ß/g, 'ss')
+  const mitE = s.replace(/ä/g, 'ae').replace(/Ä/g, 'Ae').replace(/ö/g, 'oe').replace(/Ö/g, 'Oe').replace(/ü/g, 'ue').replace(/Ü/g, 'Ue').replace(/ß/g, 'ss')
+  return [...new Set([ohne, mitE])]
+}
+
+/**
+ * Mehrere Suchen in allen drei Ländern gleichzeitig, zusammengeführt (08.10.2026).
+ *
+ * **Der Anlass.** Drei Leads schrieben Kevin binnen zwei Tagen „Dann hast du falsch
+ * gesucht" / „Dann musst du richtig suchen", nachdem die Erstnachricht „keine
+ * Website gefunden" behauptet hatte: Ariana Real Estate (arianarealestate.de),
+ * Günes Immobilien (gunes-immobilien.ch), Beros & Partner (beros-partner.ch).
+ * Kevin: *„Damit verbrennen wir böse Leads."* `googleTrefferDach` suchte genau einen
+ * Begriff und hörte im ersten Land mit irgendeinem Treffer auf: Für „Günes
+ * Immobilien" kamen fremde Firmen, gunes-immobilien.ch nie; „Ariana Real Estate
+ * Immobilien" lieferte in keinem Land etwas. Nachgemessen am 08.10.: „Gennaro
+ * Zingone Immobilien" (Personenname) bringt arianarealestate.de auf Platz 2,
+ * „Ervin Günes Immobilien" gunes-immobilien.ch auf Platz 4.
+ *
+ * Deshalb: jeder Suchbegriff (Firma, Firma ohne Umlaut, Person + Immobilien) in
+ * DE, CH und AT parallel, Treffer nach bester Platzierung gemischt. Kostet etwa
+ * 0,007 $ je Lead statt 0,0006 $; ein einziger verbrannter Lead kostet mehr.
+ */
+export async function googleTrefferBreit(suchen, { anzahl = 20, je = 10, ...opt } = {}) {
+  const begriffe = [...new Set((suchen ?? []).map((s) => String(s ?? '').trim()).filter(Boolean))]
+  const laeufe = begriffe.flatMap((suche) =>
+    [LAND_DE, LAND_CH, LAND_AT].map(async (land) => {
+      let r = await googleTreffer(suche, { ...opt, land, anzahl: je })
+      if (!r.treffer.length && r.grund) r = await googleTreffer(suche, { ...opt, land, anzahl: je })
+      return r.treffer.map((t) => ({ ...t, suche, land }))
+    }),
+  )
+  const alle = (await Promise.all(laeufe)).flat().sort((a, b) => a.platz - b.platz)
+  const gesehen = new Set()
+  const raus = []
+  for (const t of alle) {
+    // Eine Domain nur einmal: Fünf Unterseiten derselben Fremdfirma verdrängten sonst die richtige Seite.
+    const schluessel = t.domain || t.url
+    if (gesehen.has(schluessel)) continue
+    gesehen.add(schluessel)
+    raus.push(t)
+  }
+  return raus.slice(0, anzahl).map((t, i) => ({ ...t, platz: i + 1 }))
+}
+
 /**
  * Deutschland zuerst, dann Schweiz und Österreich, bis ein Lauf Treffer liefert.
  * Ein Abbruch oder Fehler ist kein „nichts gefunden": dasselbe Land dann einmal neu,
