@@ -293,3 +293,27 @@ dasselbe wie du, nur auf dem Handy, und findet nicht mehr.
   zu lassen. Ein Suchbericht gehört nie in die Nachricht, und was du
   beanstanden kannst, beanstandest du selbst.
 
+
+## Prüffälle aus Kevins Feedback vom 08.10.2026, Nachmittag (2 Texte)
+
+- **Ein Hinweis an Kevin ist immer eine Frage, die er mit einem Wort
+  beantworten kann.** Justus Schulte (Schulte Immobilien-Gruppe): Der Hinweis
+  lautete „Hält und vermietet eigene Gewerbeimmobilien und Fachmarktzentren,
+  entwickelt für den eigenen Bestand und vermittelt nichts für Eigentümer."
+  Kevin: *„Ich verstehe nicht, was du jetzt von mir brauchst. Wahrscheinlich
+  schlauer, dass du hier immer eine Frage formulierst."* Eine Feststellung
+  lässt ihn raten, was er tun soll. Richtig wäre gewesen: *„Bestandshalter,
+  der selbst Fachmarktzentren entwickelt: trotzdem anschreiben?"* Lässt sich
+  keine solche Frage formulieren, gibt es keinen Hinweis, dann urteilst du
+  selbst. Bestandshalter, die selbst entwickeln und Standorte ankaufen, bekommen
+  den Ankauf-Winkel wie Projektentwickler (Kevin hat Schulte so durchgelassen).
+- **Eine Holding mit eigener Maklerfirma ist kein reiner Investor.** Dennis
+  Tenberken: Der Hinweis nannte ihn „Investor mit Holding und Beteiligungen,
+  für Tenstein Immobilien gibt es keinen Beleg, dass dort Eigentümer beim
+  Verkauf betreut werden". Kevin schickte den Text von tenstein-immobilien.de:
+  *„Wir sind spezialisiert auf den Verkauf von Renditeobjekten, Wohn- und
+  Gewerbeimmobilien … Inhabergeführt von Dennis Tenberken."* Die Seite war
+  da und eindeutig. Hat eine Firma aus dem Profil eine eigene Seite, die
+  Verkauf für Eigentümer nennt, ist die Person Makler und Entscheider, egal was
+  sonst an Beteiligungen im Profil steht. Erst diese Seite suchen und lesen,
+  dann urteilen. „Kein Beleg" ist nie ein Hinweis an Kevin.

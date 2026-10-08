@@ -163,7 +163,9 @@ Fallback bleiben zwei Zeitvorschläge im Chat.
 ## Telefonat anbieten = immer direkt zwei konkrete Zeitfenster (06.10.2026)
 
 Jedes Gesprächsangebot nennt sofort zwei Zeitfenster, nie „Wann passt es dir?"
-und nie „Schick mir einen Zeitvorschlag". Kevins Wortlaut:
+und nie „Schick mir einen Zeitvorschlag". Einzige Ausnahme seit 08.10.2026
+(Regel 27): „Schick mir gern deine Nummer, dann telefonieren wir die Tage, wann
+es dir passt", wo das natürlicher wirkt. Kevins Wortlaut:
 
 ```
 Hast du was dagegen, wenn wir uns kurz austauschen? Mir würde zum Beispiel morgen Nachmittag oder übermorgen ganz gut passen.
@@ -633,6 +635,134 @@ gepasst hätte.
     Guten Tag, ich war mit Herrn Rees im Austausch, und ich soll bitte einmal einen Termin mit ihm abstimmen. Können Sie mir diese Woche drei passende Zeitfenster für 20 Minuten nennen?
 
     Kevin Herrmann
+    ```
+    **Jede E-Mail ist als E-Mail gekennzeichnet** (Kevin, 08.10.2026, Ozan Atas,
+    der an bianca.zilahi@… verwies: *„im Flow hätte ich das jetzt an ihn
+    geschickt. Das muss aber als E-Mail raus und muss so hier gekennzeichnet
+    sein."*). Kevin kopiert Entwürfe im Flow direkt in den LinkedIn-Chat. Ein
+    Entwurf, der an eine Adresse geht, beginnt deshalb immer mit diesen drei
+    Zeilen, dann eine Leerzeile, dann Anrede und Text:
+    ```
+    E-MAIL, NICHT AUF LINKEDIN SENDEN
+    An: name@firma.de
+    Betreff: …
+    ```
+
+## Regeln aus Kevins Rückmeldungen vom 08.10.2026 (13 Texte)
+
+Kevins Kernsatz dazu: *„Es geht darum (jedes Mal!), den Pain des Leads zu
+finden, um zu verstehen, was wir anbieten sollen. Immer!"*
+
+19. **Im Gespräch ist das Ziel der Pain, nicht der Termin.** Hat der Lead
+    geantwortet, sucht die nächste Nachricht seinen Schmerz: Was soll die
+    Website bewirken, welche Kunden oder Eigentümer braucht er, woran scheitern
+    seine Deals, wie lange dauern sie, woher kommt das nächste Objekt. **Eine**
+    einfache Frage, abgeleitet aus seiner letzten Aussage. Kein Fakten-Feuerwerk
+    über seine Seite, kein Telefonat, solange unklar ist, was Kevin ihm darin
+    anbieten soll. *Fehler: Hauke Heinen (RockSTR) schrieb von 50 Einheiten,
+    Direktvertrieb, Empfehlungen und drei bis sechs Monaten vom Lead zum Kunden.
+    Der Entwurf rechnete ihm seine Lage vor und bot sofort das Telefonat an.
+    Kevin: „Was soll ich dann im Telefonat, wenn er so überformt?"*
+    ```
+    Hey Hauke, Glückwunsch, erst die 50 und dann über 300 Einheiten durch die Übernahmen, das ist ein ordentlicher Sprung. Was hält einen Eigentümer in den drei bis sechs Monaten noch davon ab, bei euch zu unterschreiben?
+    ```
+
+20. **Einfach fragen schlägt clever fragen.** Ist die Website für den Lead kein
+    Thema („die Seite ist völlig irrelevant und verschwindet ohnehin"), keine
+    neue These aufmachen, sondern offen fragen, was ihn gerade beschäftigt.
+    Kevin (Robert Minnert): *„Hier viel einfacher, dass man fragt: okay gut,
+    was ist denn relevant momentan für dich?"*
+    ```
+    Robert, alles klar. Was ist denn momentan relevant für dich?
+    ```
+
+21. **Nie unterstellen, jemand habe kein Geld.** Weder „wenn das Kapital wieder
+    frei ist" noch „wann wird bei euch wieder Kapital frei?". Kevin (Danny
+    Kremkau): *„Hat nie gesagt, dass kein Kapital frei wäre. Nie jemandem
+    unterstellen, er habe kein Geld. Machst du das bei einem Baller, ist er
+    raus."* Stattdessen nach dem fragen, was ihn beschäftigt:
+    ```
+    Hallo Danny, Immobilien und Gastronomie im Ausland nebeneinander, das ist eine spannende Mischung. Was ist bei euren Immobilien gerade das größte Thema?
+    ```
+
+22. **Großer Player, andere Flughöhe.** Bei Milliarden-Volumen, institutionellen
+    Häusern und Konzernen ist ein einzelner Eigentümer, der direkt anfragt,
+    kein Hebel. Kevin (Robert Anzenberger, BA Real Estate Partners, über 30
+    Mrd. Transaktionsvolumen): *„Dann ist das ein geisteskranker Baller. Was
+    interessiert so jemanden? Einzelne Eigentümer?"* Die Frage zielt auf das,
+    was auf seiner Ebene zählt: Zugang zu Grundstücken, Investoren, Tempo.
+    ```
+    Sehr geehrter Herr Anzenberger, bei dem Volumen glaube ich das sofort. Woran hängt bei Ihnen heute eher der nächste Deal, am Zugang zu den richtigen Grundstücken oder an den Investoren dafür?
+    ```
+
+23. **Jede Behauptung über die Seite muss belegbar sein.** Kevin muss jede
+    Aussage mit einem Screenshot zeigen können. Kevin (Hendrik Steinbüchel, der
+    Entwurf behauptete „Auf eurer Startseite stehen Verkauf und Kapitalanlagen
+    nebeneinander"): *„Ich war auf der Website, finde ich nirgends. Belege mir
+    das! Solche Falschbehauptungen kosten ganz schnell einen Lead."* Auf der
+    Seite stand nur ein Banner, das auf eine Kapitalanlagen-Seite verlinkte,
+    von Verkauf keine Spur. Darum: Jede konkrete Aussage (was wo steht, was
+    fehlt, Zahlen) am selben Tag live auf der Seite gegenprüfen. „Fehlt" nur,
+    wenn die naheliegenden Unterseiten mit angesehen sind. Was sich nicht
+    belegen lässt, fliegt raus. Lieber eine Frage ohne Befund als ein falscher
+    Befund. Auf ein höfliches „bei Bedarf kommen wir auf dich zu" gilt dann
+    Regel 6 plus Regel 19:
+    ```
+    Hallo Hendrik, alles klar. Was ist bei euch gerade das größere Thema, genug Objekte reinzubekommen oder die vorhandenen schnell zu verkaufen?
+    ```
+
+24. **Kein Bittsteller-Ton im Nachfassen, Frame halten.** Hat sich der Lead
+    Kevins Seite angesehen oder Kevin etwas „versprochen", bezieht sich das
+    Follow-up nie darauf: kein „wie versprochen", kein „für den fairen
+    Vergleich", keine eigenen Testimonials, kein „das hatte ich übersehen".
+    Kevin stellt einen Befund wie ein Arzt. Kevin (Christian Lütke, CELUCON, der
+    Kevin im März auf dessen eigene Seite verwiesen hatte): *„Der hat mich
+    angeguckt. Hör auf, so unterwürfig zu sein, und bau Framing auf."*
+
+25. **Alte Erstnachricht ohne Befund: Das Follow-up ist die ordentliche
+    Erstnachricht.** Bis Sommer 2026 ging an viele Leads die alte Vorlage („Da
+    sind ein paar Dinge, die man schnell verbessern könnte. Nutzt ihr die
+    Website aktiv zur Leadgewinnung oder eher als Visitenkarte?"). Wer darauf
+    nie geantwortet hat, bekommt jetzt nicht eine lose Frage, sondern einmal den
+    vollständigen Text nach `erstnachrichten/schreiben.md` mit geprüftem Befund
+    und festem CTA (bei Verwaltungen Aufbau H, bei Verbund Aufbau V usw.).
+    Kevin (Andrea von Harten): *„Nicht einfach dumm weiterschreiben, sondern
+    jetzt einmal den ordentlichen Text schicken. Und wenn ich bei den nächsten
+    Leads nur ‚ordentlicher Follow-up' drinstehen habe, dann ist das damit
+    gemeint."* Steht in Kevins Rückmeldung nur „ordentlicher Follow-up", heißt
+    das genau diese Regel.
+
+26. **Verwaltungen bekommen nie direkt eine Analyse,** auch nicht im Gespräch
+    oder Follow-up. Erst klären, ob sie überhaupt neue Objekte aufnehmen. Kevin
+    (Cinzia Beros, Beros & Partner): *„Bei Verwaltungen nie direkt Analyse,
+    sondern erstmal herausfinden, ob es Sinn macht. Also ‚könnt ihr noch neu
+    aufnehmen' oder so ähnlich."*
+    ```
+    Hallo Cinzia, stimmt, jetzt hab ich beros-partner.ch. Könnt ihr aktuell noch neue Mandate aufnehmen, oder seid ihr gut ausgelastet?
+    ```
+
+27. **Verbund ohne eigene Seite: keine Analyse, sondern das Gespräch, gern ohne
+    Zeitfenster.** Wer unter einer Dachmarke arbeitet und an seiner eigenen
+    Marke baut, hat keine Seite, die man analysieren könnte. Kevin (Roger
+    Simmen, Engel & Völkers, „ich arbeite an meiner Marke als Person"): *„Dem
+    können wir keine Analyse schicken, dementsprechend einen Call anbieten. Es
+    muss nicht immer sein, dass ich die Zeit vorschlage: schick mir gern deine
+    Nummer, dann telefonieren wir einfach mal die Tage, wann es dir passt."*
+    Diese Form ist neben den zwei Zeitfenstern erlaubt, wo sie natürlicher
+    wirkt.
+    ```
+    Hallo Roger, Unternehmer mit Herzblut und eine Marke als Person, das passt zu dir. Im Moment findet man dich dafür aber nur über dein Engel & Völkers-Profil, eine eigene Seite gibt es noch nicht. Lass uns da mal zehn Minuten drüber sprechen. Schick mir gern deine Nummer, dann telefonieren wir die Tage, wann es dir passt.
+    ```
+
+28. **Hat der Lead auf eine Frage geantwortet, folgt keine Rechtfertigung,
+    sondern die nächste Pain-Frage.** Patrick Mächler (GU, Bauland) antwortete
+    auf „Kam das Land über euer Netzwerk oder direkt vom Eigentümer?" mit
+    „Unterschiedlich: Beziehungen, regionale Vernetzung und verfügbares Kapital,
+    damit schnelle Abwicklung ohne Auflagen". Der Entwurf behauptete, genau das
+    stehe auf der Bauland-Seite, „das hatte ich übersehen", und fragte nach
+    Grundstücken von Fremden. Kevin: *„Die Antwort ist komplett unpassend."*
+    ```
+    Patrick, Kapital und schnelle Abwicklung ohne Auflagen, das können nicht viele bieten. Woran scheitert ein Grundstück bei euch dann eher: dass ihr gar nicht davon erfahrt, oder dass ein anderer früher dran ist?
     ```
 
 ## Edge Cases
