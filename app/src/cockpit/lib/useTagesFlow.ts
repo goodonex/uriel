@@ -10,7 +10,7 @@ import { useLoomUrteile } from '../../hooks/useLoomUrteile'
 import { useActiveBrand } from './activeBrand'
 import { antwortPosten, erstnachrichtPosten, followupPosten, FOLLOWUP_NUR_SENDEFERTIG, loomPosten } from './arbeitsmodusQuellen'
 import { useMetrikTag } from './useMetrikTag'
-import { ohneBeiClaude, useNachrichtenFeedback } from './nachrichtenFeedback'
+import { ohneBeiClaude, pruefBeiClaude, useNachrichtenFeedback } from './nachrichtenFeedback'
 import { useTagesPortionen, type TagesPortionen } from './useTagesPortionen'
 import { useUiSetting } from './uiSettings'
 import {
@@ -108,7 +108,7 @@ export function useFlowLiveQuellen(): { quellen: FlowLiveQuellen; laedt: boolean
           erstnachricht: erstnachricht.offen,
           beiClaude: {
             followups: followup.beiClaude,
-            erstnachrichten: erstnachricht.beiClaude,
+            erstnachrichten: erstnachricht.beiClaude + pruefBeiClaude(erstnachrichten.items, threads.items, feedback),
             looms: loom.beiClaude,
             antworten: antwort.beiClaude,
           },

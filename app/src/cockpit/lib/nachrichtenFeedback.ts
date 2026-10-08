@@ -20,6 +20,9 @@
 
 import { useEffect, useSyncExternalStore } from 'react'
 import { DATEN_NEU_LADEN_EVENT } from '../../lib/datenFrische'
+import type { Erstnachricht } from '../../hooks/useErstnachrichten'
+import { echtOffeneErstnachrichten } from './erstnachrichtenOffen'
+import { brauchtPruefung } from './erstnachrichtenPruefung'
 import { supabase } from '../../lib/supabase'
 
 export const FEEDBACK_SCHLUESSEL = 'nachrichtenFeedback'
@@ -197,6 +200,20 @@ export function ohneBeiClaude<T>(liste: readonly T[], sammlung: FeedbackSammlung
     else offen.push(x)
   }
   return { offen, beiClaude }
+}
+
+/**
+ * Texte aus „Prüfen", die bei Claude liegen. Ihre Empfänger warten auch in der
+ * Erstnachrichten-Stufe — dort zählen sie ebenfalls vorerst als erledigt, sonst
+ * stünde „Prüfen 6 von 6" neben „Erstnachrichten 36 von 38, 2 liegen in Prüfen"
+ * (Kevin, 08.10.2026: „passt nicht zusammen").
+ */
+export function pruefBeiClaude(
+  leads: Erstnachricht[],
+  threads: Parameters<typeof echtOffeneErstnachrichten>[1],
+  sammlung: FeedbackSammlung,
+): number {
+  return echtOffeneErstnachrichten(leads, threads).filter((l) => brauchtPruefung(l) && sammlung[`erstnachricht:${l.id}`]).length
 }
 
 // ── Abholen in einer Session ───────────────────────────────────────────────

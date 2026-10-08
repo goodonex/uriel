@@ -9,7 +9,7 @@ import {
   liegendeProjekte,
 } from '../cockpit/lib/kundenarbeit'
 import { ordnePosten, type Posten, type PostenQuellen } from '../cockpit/lib/prioritaet'
-import { ohneBeiClaude, useNachrichtenFeedback } from '../cockpit/lib/nachrichtenFeedback'
+import { ohneBeiClaude, pruefBeiClaude, useNachrichtenFeedback } from '../cockpit/lib/nachrichtenFeedback'
 import type { StufenId } from '../cockpit/lib/tagesFlow'
 import { quellenFehler } from '../lib/datenFrische'
 import { useContacts, type UseContactsResult } from './useContacts'
@@ -193,11 +193,12 @@ export function usePosten(slug: string | undefined): UsePostenResult {
       beiClaude: {
         antworten: antwort.beiClaude,
         looms: loom.beiClaude,
-        erstnachrichten: erstnachricht.beiClaude,
+        // Dazu die Texte aus „Prüfen" bei Claude: Ihre Empfänger warten ebenfalls hier.
+        erstnachrichten: erstnachricht.beiClaude + pruefBeiClaude(erstnachrichten.items, linkedinThreads.items, feedback),
         followups: followup.beiClaude,
       } satisfies Partial<Record<StufenId, number>>,
     }
-  }, [antwortListe, loomListe, erstnachrichtListe, followupListe, feedback])
+  }, [antwortListe, loomListe, erstnachrichtListe, followupListe, feedback, erstnachrichten.items, linkedinThreads.items])
 
   const quellen: PostenQuellen = useMemo(
     () => ({

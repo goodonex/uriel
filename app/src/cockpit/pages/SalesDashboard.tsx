@@ -1056,7 +1056,9 @@ export function SalesDashboard() {
          * ist noch kein Text geschrieben", obwohl alle 25 Texte bereitlagen und
          * nur auf seinen Haken in „Prüfen" warteten.
          */
-        const imPruefen = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items).offen.filter(brauchtPruefung).length
+        // Ohne die Texte, die bei Claude liegen (08.10.2026) — die zählen vorerst als erledigt.
+        const imPruefen = teileErstnachrichten(erstnachrichten.items, linkedinThreads.items)
+          .offen.filter((e) => brauchtPruefung(e) && !feedback[`erstnachricht:${e.id}`]).length
         return {
           ...basis,
           id: 'erstnachrichten',
