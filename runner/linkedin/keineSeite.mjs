@@ -19,8 +19,21 @@ const MUSTER = [
   /\b(keine|keinen)\s+(eigene[nr]?\s+)?(website|webseite|seite|homepage|auftritt|online-auftritt)\b[^.?!\n]{0,30}\b(gefunden|finden|auffindbar)\b/i,
   /\bnicht\s+(auffindbar|zu finden)\b/i,
   /\b(googelt|sucht)\b[^.?!\n]{0,60}\blandet\b[^.?!\n]{0,60}\b(nicht bei|aber nicht|bei anderen|bei maklern)\b/i,
+  // „Wer euch googelt, landet bei einem anderen Röper Immobilien" (09.10.2026): Suchbericht statt Befund.
+  /\b(googelt|gegoogelt|sucht|gesucht)\b[^.?!\n]{0,60}\b(landet|lande|gelandet)\b[^.?!\n]{0,40}\b(einem anderen|einer anderen|anderen|fremden|falschen)\b/i,
   /\bfindet sich\b[^.?!\n]{0,40}\b(keine|kein|nichts)\b/i,
   /\bnichts gefunden\b/i,
+  // Lücken aus verschickten Texten (Audit 09.10.2026: Almshhour, Suverato, Köster, Scheer, Simmen, Scherhag):
+  /\b(website|webseite|seite|homepage|auftritt)\b[^.?!\n]{0,40}\b(hab|habe)\s+ich\b[^.?!\n]{0,25}\bnicht\s+(gefunden|entdeckt|gesehen)\b/i,
+  /\beigene[nr]?\s+(website|webseite|seite|homepage)\b[^.?!\n]{0,40}\baber nicht\b/i,
+  /\b(gesucht|gegoogelt)\b[^.?!\n]{0,50}\bnur\b[^.?!\n]{0,50}\bgefunden\b/i,
+  /\bgefunden\s+(hab|habe)\s+ich\s+nur\b/i,
+  /\bkeine[nr]?\s+eigene[nr]?\s+(markenpräsenz|präsenz|online-?präsenz|website|webseite|seite|homepage|auftritt)\b/i,
+  /\b(konnte|kann)\s+ich\b[^.?!\n]{0,30}\bnicht\s+(finden|entdecken)\b/i,
+  /\bauf\s+keine\s+(eigene\s+)?(website|webseite|seite|homepage)\b/i,
+  /\b(eigene\s+)?(website|webseite|seite|homepage)\b[^.?!\n]{0,20}\bgibt es\s+(noch\s+)?(nicht|keine)\b/i,
+  /\b(noch\s+)?keinen\s+(eigenen\s+)?(online-?)?auftritt\b/i,
+  /\bonline\b[^.?!\n]{0,30}\b(noch\s+)?(keinen|keine)\b[^.?!\n]{0,15}\b(auftritt|seite|präsenz)\b/i,
 ]
 
 /** @returns {string} der beanstandete Satzteil oder '' */

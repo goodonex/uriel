@@ -27,10 +27,34 @@ import { spawn } from 'node:child_process'
 import { regelwerk } from '../regeln/fassung.mjs'
 import { verbundFuer } from './entscheider.mjs'
 import { parseErstnachrichtenRoh } from './erstnachrichtenEntwuerfe.mjs'
+import { gewichtAus } from '../regeln/lage.mjs'
 
 /** Opus: Der Prüfer ist die letzte Stelle vor Kevins Namen. */
 const MODELL = process.env.ERSTNACHRICHTEN_PRUEFER_MODELL ?? 'opus'
 const LAUF_TIMEOUT_MS = Number(process.env.ERSTNACHRICHTEN_PRUEFER_TIMEOUT_MS ?? 8 * 60 * 1000)
+
+/**
+ * Gegründet in den letzten zwölf Monaten (09.10.2026)? Bis heute galt „seit
+ * Vorjahr" als frisch, und fünf Leads bekamen „noch ganz frisch, oder?", deren
+ * Firma über ein Jahr alt war. „03/2025" mit Monat, sonst nur das laufende Jahr.
+ */
+export function istFrisch(seit, heute = new Date()) {
+  const t = String(seit ?? '')
+  const mitMonat = t.match(/\b(0?[1-9]|1[0-2])\s*[./]\s*((?:19|20)\d{2})\b/)
+  if (mitMonat) {
+    const monate = (heute.getFullYear() - Number(mitMonat[2])) * 12 + (heute.getMonth() + 1 - Number(mitMonat[1]))
+    return monate >= 0 && monate <= 12
+  }
+  const monatsName = t.match(/\b(jan|feb|mär|mar|apr|mai|may|jun|jul|aug|sep|okt|oct|nov|dez|dec)\w*\.?\s+((?:19|20)\d{2})\b/i)
+  if (monatsName) {
+    const idx = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'].indexOf(monatsName[1].toLowerCase().replace('ä', 'a').replace('may', 'mai').replace('oct', 'okt').replace('dec', 'dez').slice(0, 3))
+    if (idx >= 0) {
+      const monate = (heute.getFullYear() - Number(monatsName[2])) * 12 + (heute.getMonth() - idx)
+      return monate >= 0 && monate <= 12
+    }
+  }
+  return (jahrAus(t) ?? 0) === heute.getFullYear()
+}
 
 const jahrAus = (t) => {
   const m = String(t ?? '').match(/(19|20)\d{2}/)
@@ -111,13 +135,14 @@ export function ohneVerbund(lead, heute = new Date()) {
   const dachmarke = verbundFuer(lead, lead?.recherche)
   const recherche = { ...(lead?.recherche ?? {}), verbund: '', verbund_verworfen: true }
   const a = ansatzFuer({ ...lead, recherche }, heute)
+  if ('spaeter' in a) return { zurueck: `[zurückgestellt] ${a.spaeter}`, dachmarke }
   if ('zurueck' in a) return { zurueck: a.zurueck, dachmarke }
   const { pruefHinweis: _alt, ...rest } = lead
   return { lead: { ...rest, recherche, ansatz: a.ansatz, ...(a.pruefen ? { pruefHinweis: a.pruefen } : {}) }, dachmarke }
 }
 
 /** Ansätze, auf die der Prüfer eine Analyse umlenken darf. */
-const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel']
+const UMLENK_ANSAETZE = ['starke-seite', 'starke-seite-funnel', 'grosser-player']
 
 /**
  * Welche Art Nachricht bekommt dieser Lead? Reine Funktion, damit sie sich
@@ -143,6 +168,17 @@ export function ansatzFuer(lead, heute = new Date()) {
     // Reine Angestellte hat `entscheiderZuerst` schon zurückgestellt; wer hier ankommt, ist Konzern-Marketing.
   }
 
+  /**
+   * Großer Player (09.10.2026, Aufbau G): Milliarden-Volumen, institutionelles
+   * Haus, ab 100 Mitarbeitenden. Kein Analyse-Angebot, keine Kritik an Seite,
+   * Formular oder Postfach, keine Offline-/Keine-Seite-Frage — eine Frage auf
+   * seiner Ebene. Robert Anzenberger (30 Mrd. Transaktionsvolumen) bekam am
+   * 05.10. „landet im selben Postfach wie eine Bewerbung" und sagte ab. Vor
+   * allen Seiten-Fragen, nach Verbund und Nebenfirma.
+   */
+  const gross = gewichtAus({ ...r, headline: r.headline ?? lead?.headline })
+  if (gross.gewicht === 'gross') return { ansatz: 'grosser-player', gewicht_beleg: gross.beleg }
+
   // Hausverwaltungen: erst den Engpass erfragen (Aufbau H, 25.09.2026).
   if (String(r.geschaeftsmodell ?? '') === 'hausverwaltung') return { ansatz: 'hausverwaltung' }
 
@@ -154,10 +190,23 @@ export function ansatzFuer(lead, heute = new Date()) {
   }
   if (r.erreichbar === 'offline' || r.erreichbar === 'umbau') return { ansatz: 'seite-offline' }
   if (!website || r.sicher === false) {
-    const jahr = heute.getFullYear()
-    const frisch = stationen.some((s) => s?.selbststaendig && (jahrAus(s.seit) ?? 0) >= jahr - 1)
+    /**
+     * „Keine Seite" nur nach vollständiger Suche (09.10.2026). Brach eine
+     * Google-Abfrage ab oder gab es gar keine, bleibt der Lead ohne Zeile im
+     * Vorrat und wird im nächsten Lauf neu gesucht. Blockiert ist nicht leer.
+     */
+    if (!website && r.suche_vollstaendig === false) return { spaeter: 'Website-Suche unvollständig (Google-Abfrage gescheitert), nächster Lauf sucht neu' }
+    const frisch = stationen.some((s) => s?.selbststaendig && istFrisch(s.seit, heute))
     return { ansatz: frisch ? 'frisch-ohne-seite' : 'keine-seite' }
   }
+
+  /**
+   * Frisch neu gemachte oder angekündigt umgebaute Seite (09.10.2026, Aufbau R):
+   * Wer gerade bezahlt hat, will keine Kritik an der neuen Seite (Stimme, Regel 4).
+   * Postmortem: 13 Leads, bei denen wir den Relaunch übersehen hatten.
+   */
+  if (r.relaunch === 'neu') return { ansatz: 'neue-seite' }
+  if (r.relaunch === 'im-umbau') return { ansatz: 'seite-im-umbau' }
 
   const stufe = String(r.website_stufe ?? '')
   const wow = String(r.wow_potenzial ?? '')
@@ -263,7 +312,8 @@ async function pruefeEinmal(nachrichten, leadsNachName, { cliPath, cwd }) {
     if (urteil !== 'ok' && UMLENK_ANSAETZE.includes(u?.ansatz)) {
       const lead = leadsNachName.get(String(u?.name ?? '').toLowerCase())
       eintrag.urteil = 'neu'
-      eintrag.ansatz = lead ? ansatzStarkeSeite(lead.recherche) : 'starke-seite-funnel'
+      // Der Prüfer erkennt einen großen Player, den der Code übersehen hat (09.10.2026): Aufbau G.
+      eintrag.ansatz = u.ansatz === 'grosser-player' ? 'grosser-player' : lead ? ansatzStarkeSeite(lead.recherche) : 'starke-seite-funnel'
     }
     // Satzgenau beanstandet: Der Nachschreiber ändert dann nur diese Sätze (07.10.2026).
     if (eintrag.urteil === 'neu' && Array.isArray(u?.beanstandet)) {

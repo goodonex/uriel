@@ -73,6 +73,22 @@ Annehmen", nie an die Vernetzung anknüpfen.
 | `starke-seite-funnel` | Seite stark, aber Anzeigen laufen schon oder sind nicht beidseitig geprüft | Aufbau T |
 | `hausverwaltung` | `geschaeftsmodell` = `hausverwaltung` | Aufbau H |
 | `verbund` | Person arbeitet unter einer Dachmarke (`verbund`, z. B. Evernest, RE/MAX, Engel & Völkers) | Aufbau V |
+| `neue-seite` | Seite erkennbar frisch neu gemacht (`relaunch` = `neu`) | Aufbau R |
+| `seite-im-umbau` | Seite kündigt an, gerade überarbeitet zu werden (`relaunch` = `im-umbau`) | Aufbau R2 |
+| `grosser-player` | Großes Haus mit Beleg (`gewicht_beleg`): Milliarden-Volumen, ab 500 Mio. mit Volumen-Wort, KVG/börsennotiert, ab 100 Mitarbeitenden, ab 8 Standorten | Aufbau G |
+
+**Analyse, Frage oder Telefonat** (Kevin, 09.10.2026: *„Es muss erkannt werden,
+wann wir eine Analyse schicken, wann das Sinn macht, wann aber vielleicht ein
+Telefonat mehr Sinn macht."*) entscheidet der Ansatz, nicht du:
+
+| Kanal | Ansätze | Warum |
+|---|---|---|
+| Analyse | `analyse`, `seite-ist-das-thema`, `projektentwickler` | Wir bauen sichtbar besser, und der Empfänger entscheidet selbst |
+| Frage | `neue-seite`, `seite-im-umbau`, `grosser-player`, `starke-seite`, `starke-seite-funnel`, `hausverwaltung`, `verbund`, `nebenfirma`, `frisch-ohne-seite`, `keine-seite`, `seite-offline` | Erst den Pain finden. Eine Analyse wäre hier geraten oder kleinlich |
+| Telefonat | nur Portal ohne eigene Seite (Aufbau D, Portal-Variante) | Es gibt nichts zu analysieren, aber einen klaren Bedarf |
+
+Ein Telefonat in der Erstnachricht gibt es sonst nie. Es kommt erst, wenn der
+Lead geantwortet und einen Pain genannt hat (Stimme, Regel 19).
 
 Nicht bei dir an kommen (der Code stellt sie vorher zurück):
 - Reine Angestellte (der Geschäftsführer kommt auf Kevins Anfrageliste).
@@ -249,7 +265,7 @@ D mit „Hast du was dagegen, wenn wir zehn Minuten telefonieren?".
 Nie erzählen, was die Suche stattdessen gefunden hat (Röper, 08.10.2026:
 *„bin bei der Suche nur bei einem anderen Röper Immobilien in Lippstadt
 gelandet"*). Das ist Suchbericht, kein Befund, und schwer zu belegen. Rapport
-aus dem Profil darf davor stehen, dann „keine Seite gefunden" und die Frage.
+aus dem Profil darf davor stehen, dann die Frage, ohne Satz über die Suche.
 
 ### Aufbau C — Seite offline (`seite-offline`)
 
@@ -349,6 +365,69 @@ Ehrliche Frage: Planst du, dich in Zukunft mit einer eigenen Marke selbstständi
 Nichts über die Dachmarke bewerten, nichts über Provisionsmodelle oder Konditionen
 sagen. Hat der Lead eine eigene Firma nebenher, gehört sie in den Rapport-Satz.
 
+### Aufbau G — großer Player (`grosser-player`)
+
+Seit 09.10.2026. Robert Anzenberger (BA Real Estate Partners, „über 30
+Milliarden begleitetes Transaktionsvolumen") bekam am 05.10. eine Nachricht,
+nach der Eigentümer bei ihm „im selben Postfach wie eine Bewerbung" landen, und
+eine Analyse dazu. Antwort: *„wir sind hier im Moment so zufrieden wie wir
+aufgestellt sind."* Kevin: *„Dann ist das ein geisteskranker Baller. Was
+interessiert so jemanden? Einzelne Eigentümer?"* Auf dieser Ebene ist der
+einzelne Eigentümer, der über die Seite anfragt, kein Hebel. Darum: **keine
+Analyse, kein Wort über Seite, Formular, Postfach, Bewertung oder Anzeigen.**
+Ein Satz Anerkennung für das, was die Firma tut (Geschäftsfelder, ein Projekt,
+ein Markt; keine Eigenlob-Zahl nacherzählen), dann die Frage auf seiner Ebene.
+**Per Sie**, ohne Herr/Frau (das Geschlecht steht nicht im Profil):
+
+```
+Guten Tag {Vorname} {Nachname},
+
+{ein Satz Anerkennung, konkret aus Seite oder Profil}.
+
+Ehrliche Frage: {Frage}
+```
+
+`{Frage}` wortgleich nach `geschaeftsmodell`:
+- `projektentwickler`, `investor`, `sonstiges` → *„Woran hängt bei Ihnen heute
+  eher der nächste Deal: am Zugang zu den richtigen Grundstücken oder an den
+  Investoren dafür?"*
+- `makler` → *„Was ist bei Ihnen gerade das größere Thema: genug Objekte
+  reinzubekommen oder die vorhandenen schnell zu verkaufen?"*
+- `hausverwaltung` → *„Wachsen Sie gerade aktiv über neue Verwaltungsobjekte,
+  oder sind Sie gut ausgelastet?"*
+
+So klingt es: *„Guten Tag Robert Anzenberger, Projektentwicklung, Bauträger
+und Transaktionsberatung unter einem Dach, das sieht man selten. Ehrliche
+Frage: Woran hängt bei Ihnen heute eher der nächste Deal: am Zugang zu den
+richtigen Grundstücken oder an den Investoren dafür?"*
+
+### Aufbau R — Seite frisch neu (`neue-seite`), R2 — im Umbau (`seite-im-umbau`)
+
+Seit 09.10.2026. Im Postmortem über alle Antworten waren 13 Leads dabei, deren
+Seite gerade neu war oder umgebaut wurde, und die trotzdem eine Kritik daran
+bekamen (*„haben wir gerade neu gemacht"*). Wer gerade bezahlt hat, will keine
+Besprechung seiner frischen Seite (Stimme, Regel 4). Keine Kritik, keine Analyse:
+
+```
+Moin {Vorname},
+
+ich hab mir {domain} angeschaut, Glückwunsch zur neuen Seite. {ein echtes Detail, das gelungen ist}.
+
+Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?
+```
+
+R2, Seite kündigt den Umbau an:
+
+```
+Moin {Vorname},
+
+ich hab mir {domain} angeschaut und gesehen, dass ihr die Seite gerade überarbeitet. {ein konkreter, warmer Satz zu Firma oder Profil}.
+
+Wann geht die neue Seite online?
+```
+
+Andere `zielgruppe` als Eigentümer: „Eigentümer" durch die Zielgruppe ersetzen.
+
 ### Aufbau H — Hausverwaltung (`hausverwaltung`)
 
 Seit 25.09.2026. Bei Verwaltungen ist erst zu klären, wo es hakt — kein
@@ -372,6 +451,9 @@ angeschaut" entfällt.
 | Analyse (A, P) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
 | Verbund (V) | `Ehrliche Frage: Planst du, dich in Zukunft mit einer eigenen Marke selbstständig zu machen?` |
 | Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
+| großer Player (G) | die Frage aus Aufbau G nach `geschaeftsmodell`, wortgleich |
+| neue Seite (R) | `Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?` |
+| Seite im Umbau (R2) | `Wann geht die neue Seite online?` |
 | keine Seite (D) | `Wo finde ich euch?` (ohne Behauptung davor, dass es keine Seite gibt) |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
 | nur Portal (D) | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |
@@ -391,6 +473,29 @@ euch um Website und Marketing, oder liegt das bei der Geschäftsführung?"
 - „unverbindlich", „darf ich", „soll ich", „möchtest du", Grußformel, Emojis,
   Geviertstriche (—) im Nachrichtentext.
 
+## 8a. Die Satz-Wache im Code (09.10.2026)
+
+Nach dir prüft nicht nur der Prüfer, sondern auch der Code jeden Satz
+(`runner/regeln/textWache.mjs`). Ein Treffer heißt: Dieser Satz wird neu
+geschrieben, und fällt er wieder auf, kommt der Lead nicht in Kevins Liste.
+Spar dir den Umweg und schreib nie:
+
+- dass es keine Website gibt oder du keine gefunden hast (nur fragen)
+- das Bewertungstool als Mangel: „nur Formular", „erst per E-Mail", „kein
+  Sofort-Wert", „Rückmeldung erst nach 24 Stunden". Bis zum 07.10. ging das
+  trotz Regel noch achtmal raus.
+- Kleinkram: Tippfehler, Copyright, Ladezeit, Cookie-Banner, Meta-Tags
+- Geld unterstellen („wenn das Kapital wieder frei ist")
+- Kundenstimmen „fake" oder „fiktiv"
+- Geviertstriche
+- eine Analyse, wenn der Ansatz keine vorsieht (siehe Kanal-Tabelle)
+- Formular, Knopf, Menüpunkt oder E-Mail als Mangel, wenn die Seite als Ganzes
+  schwach ist (`seite-ist-das-thema`): dann ist die Seite der Elefant
+- Postfach, Formular oder Kontaktweg bei einem großen Player
+- „keine Anzeigen", wenn Meta und Google nicht beide `nein` sind; „ihr schaltet
+  schon Anzeigen", wenn keins `ja` ist
+- „Eigentümer-Anfragen" oder „Verkaufsmandate" an Verwaltungen und Entwickler
+
 ## 9. Unsicher? Sag es
 
 Feld `pruefen`, ein Halbsatz: unklare Rolle, widersprüchliche Befunde. **Nie
@@ -399,10 +504,12 @@ Feld `pruefen`, ein Halbsatz: unklare Rolle, widersprüchliche Befunde. **Nie
 habe einfach die Firma eingegeben, gegoogelt, und es kam als erster Treffer.
 Genau dafür habe ich dich. Das muss funktionieren."*). Googeln ist deine Arbeit:
 Im Lead stehen unter `google_treffer` die echten ersten Google-Treffer, schau
-dort nach der Seite, bevor du „keine Website gefunden" schreibst. Steht dort
-eine eigene Seite der Firma, ist das die Website, auch wenn sie nicht Treffer 1
-ist. Nur wenn Treffer wirklich fehlen, gilt „keine Seite", und dann ohne
-Hinweis an Kevin. Ein `pruefen`-Halbsatz ist nur für Dinge, die weder du noch
+dort nach der Seite, bevor du Aufbau D schreibst. Steht dort eine eigene
+Seite der Firma, ist das die Website, auch wenn sie nicht Treffer 1 ist. Den
+Ansatz `keine-seite` vergibt seit 09.10.2026 nur noch der Code, und nur nach
+vollständiger Suche (Stufe-1-Fund, Google in DE/CH/AT ohne Fehler,
+Domain-Probe mit Impressum). Auch dann wird nie behauptet, es gebe keine
+Seite, nur gefragt. Ein `pruefen`-Halbsatz ist nur für Dinge, die weder du noch
 der Runner klären kann (zwei gleich plausible Firmen, widersprüchliche Rollen).
 Kleinigkeiten (schwebender Knopf, steht ein Block unten auf der Startseite)
 sind nie ein Prüfgrund: Bei einer schwachen Seite wählst du den größten

@@ -151,6 +151,11 @@ export function baueProfil(d, quellen = {}, jetzt = new Date()) {
     jahre_am_markt: g.jahr ? jetzt.getFullYear() - g.jahr : null,
     team_personen: team && team > 0 ? team : null,
     groesse: String(r.groesse ?? ''),
+    // Für die Lage im Antwort-Pfad (09.10.2026, `regeln/lage.mjs`): wer er ist und wie groß.
+    geschaeftsmodell: String(r.geschaeftsmodell ?? ''),
+    gewicht: String(r.gewicht ?? ''),
+    gewicht_beleg: String(r.gewicht_beleg ?? ''),
+    verbund: String(r.verbund ?? ''),
     bilanz_hinweis: '',
   }
 }

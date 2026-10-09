@@ -24,6 +24,8 @@ import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { icpUrteil, istArbeitsVorrat } from './icp.mjs'
+import { pruefeText } from '../regeln/textWache.mjs'
+import { lageAus } from '../regeln/lage.mjs'
 
 const STIMME_PFAD = fileURLToPath(new URL('../regeln/stimme/herrmann-outreach.md', import.meta.url))
 const MODELL = process.env.ANFRAGEN_MODELL ?? 'opus'
@@ -386,6 +388,14 @@ export async function bereiteAnfragenVor(ctx, { rechercheLeads, cliPath, cwd, si
   for (const e of antwort?.entwuerfe ?? []) {
     const l = nachKey.get(e.profil_key)
     const r = l?.recherche
+    // Satz-Wache (09.10.2026): auch hier kein „keine Seite gefunden", kein Bewertungstool als Mangel …
+    // Ein Treffer zählt als Versuch ohne Entwurf; der nächste Lauf schreibt neu.
+    const funde = l ? pruefeText(e.nachricht, { lage: r ? lageAus({ recherche: r, headline: l.headline }) : null }) : []
+    if (funde.length) {
+      console.warn(`[satz-wache] Anfrage ${l.name}: ${funde.map((f) => f.id).join(', ')} — kein Entwurf, nächster Lauf`)
+      await patch(ctx, `linkedin_anfragen?id=eq.${l.id}`, { entwurf_versuche: (l.entwurf_versuche ?? 0) + 1 }).catch(() => {})
+      continue
+    }
     await patch(ctx, `linkedin_anfragen?id=eq.${l.id}`, {
       entwurf: e.nachricht,
       entwurf_at: jetzt,

@@ -69,6 +69,16 @@ Urteile je Nachricht genau eins:
    an Gründer/Geschäftsführer in der Headline, sonst gilt Verbund.
    **`hausverwaltung` (Aufbau H)** ist kein „kein Makler"-Fall: Rapport plus die
    feste Frage, kein Angebot — sonst `neu`.
+   **`neue-seite` / `seite-im-umbau` (Aufbau R, R2)**: Glückwunsch bzw. Umbau
+   gesehen, ein echtes Detail, der feste Schlusssatz. Keine Kritik an der
+   neuen Seite, keine Analyse, sonst `neu`.
+   **`grosser-player` (Aufbau G)**: Sie-Form, ein Satz Anerkennung, die feste
+   Frage nach `geschaeftsmodell`. Kein Angebot, keine Analyse, kein Wort über
+   Seite, Formular, Postfach, Bewertung oder Anzeigen — sonst `neu`. Steht im
+   Destillat ein Beleg für ein großes Haus (Milliarden-Volumen, KVG,
+   börsennotiert, Hunderte Mitarbeitende, viele Standorte), der Ansatz ist aber
+   ein anderer: `neu` mit `"ansatz": "grosser-player"` (Anzenberger, 05.10.2026:
+   30 Mrd. Transaktionsvolumen, Postfach-Kritik plus Analyse, Absage).
 3. **Ist es der richtige Elefant?** Nie der Wertrechner/das Bewertungstool
    (auch nicht „nur Formular", „erst nach E-Mail", „hinter Cookie-Knopf"). Nie
    Kleinkram. Bei alter Seite ist die Seite selbst das Thema, nicht ein Detail.
@@ -158,7 +168,8 @@ Diese Fälle sind Maßstab. Kommt ein ähnlicher Fall, urteile wie Kevin.
   selbstsigniertes Zertifikat, Safari lässt niemanden auf die Seite). Aufbau C
   mit Zertifikats-Satz, siehe `schreiben.md`.
 - **Seite parkt oder ist leer** (Kremkau: 1blu-Platzhalter „Hier entsteht eine
-  neue Internetseite"): Dann stimmt „keine Website gefunden", der Text bleibt.
+  neue Internetseite"): Dann bleibt der Text, aber als Frage („Wo finde ich
+  euch?"). Behauptet wird auch hier nichts (Satz-Wache, 09.10.2026).
 
 ## Der Hinweis wird von Kevin gelesen
 
@@ -202,7 +213,9 @@ falsch, lass `beanstandet` weg.
 Jede vorgelegte Nachricht bekommt genau ein Urteil. `hinweis` ist bei `neu`
 und `zurueck` Pflicht, ein bis zwei Sätze. `art` ist bei `zurueck` Pflicht
 (`kein_ziel` oder `unsicher`). `ansatz` nur setzen, wenn eine Analyse auf
-Aufbau S/T umgelenkt werden soll.
+Aufbau S/T (`"starke-seite-funnel"`) oder G (`"grosser-player"`) umgelenkt
+werden soll. Bei einem Ansatz-Wechsel kein `beanstandet`: Der Text wird neu
+geschrieben, nicht geflickt.
 
 
 ## `hinweis_kevin` im Lead

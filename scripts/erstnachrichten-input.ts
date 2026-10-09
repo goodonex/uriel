@@ -177,8 +177,19 @@ async function main() {
    * höchsten Punkte. Noch nicht Bewertete stehen zwischen „jetzt" und
    * „später" — unter ihnen können die Besten sein.
    */
-  const bewertet = await alle<{ profil_key: string; punkte: number | null; topf: string | null }>(
-    `leads?brand_id=eq.${bid}&profil=not.is.null&select=profil_key,punkte:profil->punkte,topf:profil->>topf&order=id`,
+  const bewertet = await alle<{
+    profil_key: string
+    punkte: number | null
+    topf: string | null
+    s1_website: string | null
+    s1_sicherheit: number | null
+    s1_impressum: boolean | null
+    s1_verworfen: string | null
+    s1_firma: string | null
+  }>(
+    `leads?brand_id=eq.${bid}&profil=not.is.null&select=profil_key,punkte:profil->punkte,topf:profil->>topf,` +
+      `s1_website:profil->>website,s1_sicherheit:profil->website_sicherheit,s1_impressum:profil->impressum_gelesen,` +
+      `s1_verworfen:profil->>website_verworfen,s1_firma:profil->>firma_hinweis&order=id`,
   )
   const bewertung = new Map(bewertet.map((l) => [l.profil_key, l]))
   const TOPF_RANG: Record<string, number> = { jetzt: 0, spaeter: 2, 'starke-seite': 3, 'vermutlich-inaktiv': 4 }
@@ -187,6 +198,15 @@ async function main() {
     return t ? (TOPF_RANG[t] ?? 2) : 1
   }
   const punkte = (key: string) => Number(bewertung.get(key)?.punkte ?? 0)
+  const stufe1 = (key: string): Record<string, unknown> => {
+    const b = bewertung.get(key)
+    if (!b) return {}
+    return {
+      ...(b.s1_website ? { website_stufe1: { url: b.s1_website, sicherheit: Number(b.s1_sicherheit ?? 0), impressum: b.s1_impressum === true } } : {}),
+      ...(b.s1_verworfen ? { website_stufe1_verworfen: b.s1_verworfen } : {}),
+      ...(b.s1_firma ? { firma_stufe1: b.s1_firma } : {}),
+    }
+  }
   const sortiert = [...vorrat].sort((a, b) => {
     const va = veraltet.has(a.name.trim().toLowerCase()) ? 0 : 1
     const vb = veraltet.has(b.name.trim().toLowerCase()) ? 0 : 1
@@ -223,6 +243,13 @@ async function main() {
         angenommen_vor_tagen: p.tage,
         icp: icpUrteil(p.info ?? '', p.name).urteil,
         ...kevinsAngabe(p.name),
+        /**
+         * Was Stufe 1 schon gefunden hat (09.10.2026). ALCEMA, Jesinghaus, Noah
+         * Weber und immlab bekamen „keine Seite", obwohl Stufe 1 die Seite mit
+         * Sicherheit 0,95–1,0 gespeichert hatte. Die Recherche nimmt sie als
+         * ersten Kandidaten und sucht trotzdem weiter.
+         */
+        ...stufe1(p.key),
       })),
     }),
   )

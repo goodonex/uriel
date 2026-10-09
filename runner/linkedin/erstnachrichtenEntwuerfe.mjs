@@ -30,7 +30,7 @@
  * lässt sich hier nicht importieren; `scripts/verify-erstnachrichten-cta.ts`
  * hält beide zusammen).
  */
-import { behauptetKeineSeite } from './keineSeite.mjs'
+import { pruefeText } from '../regeln/textWache.mjs'
 import { QUELLE_PRAEFIX, istVeraltet } from '../regeln/fassung.mjs'
 import { immobilienInhaberMitMaklerHerkunft } from '../regeln/zielgruppe.mjs'
 
@@ -329,9 +329,10 @@ export async function schreibeErstnachrichten({
 
   for (const n of nachrichten) {
     // Harte Sperre (08.10.2026): „keine Website gefunden" geht nie in Kevins Liste, der Lead kommt im nächsten Lauf neu.
-    const keineSeite = behauptetKeineSeite(n.nachricht)
-    if (keineSeite) {
-      console.warn(`[runner] Erstnachricht ${n.name} verworfen, behauptet „keine Seite": ${keineSeite}`)
+    // Seit 09.10.2026 alle Satz-Wachen, die ohne Lage gelten (Bewertungstool, Kleinkram, Kapital, „fake", Geviertstrich).
+    const funde = pruefeText(n.nachricht)
+    if (funde.length) {
+      console.warn(`[runner] Erstnachricht ${n.name} verworfen (Satz-Wache ${funde.map((f) => f.id).join(', ')}): ${funde[0].satz.slice(0, 120)}`)
       continue
     }
     const zeile = {

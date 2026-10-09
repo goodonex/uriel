@@ -32,6 +32,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 // @ts-expect-error — .mjs ohne Typen, dieselbe Fassung wie im Runner
 import { regelwerk } from '../runner/regeln/fassung.mjs'
+// @ts-expect-error — .mjs ohne Typen, dieselbe Wache wie im Runner
+import { pruefeText } from '../runner/regeln/textWache.mjs'
 
 const SCHLUESSEL = 'nachrichtenFeedback'
 const ALT_SCHLUESSEL = 'erstnachrichtenFeedback'
@@ -222,6 +224,17 @@ async function setzen(datei: string) {
   const s = await sammlung()
   if (!s) throw new Error('Keine Rückmeldungen gespeichert')
   const jetzt = new Date().toISOString()
+  /**
+   * Satz-Wache vor dem Zurückschreiben (09.10.2026): Auch ein Text, den eine Session nach
+   * Kevins Feedback schreibt, darf nicht behaupten, es gebe keine Website, oder das
+   * Bewertungstool bemängeln. Erst alles prüfen, dann schreiben: Ein Fund bricht ab, bevor
+   * irgendetwas in der Datenbank landet.
+   */
+  const verstoesse = liste
+    .filter((e) => !e.zurueck && !e.aussortieren)
+    .flatMap((e) => (pruefeText(String(e.nachricht ?? '')) as { id: string; satz: string; grund: string }[]).map((f) => `${e.schluessel}: ${f.id} — „${f.satz}" (${f.grund})`))
+  if (verstoesse.length) throw new Error(`Satz-Wache, nichts geschrieben:\n${verstoesse.join('\n')}`)
+
   const zaehler = { neu: 0, raus: 0, zurueck: 0 }
   for (const e of liste) {
     const { art, id } = ziel(e.schluessel)

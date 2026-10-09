@@ -7,7 +7,8 @@
  * Bewusst zero-dependency (node:http). Bindet NUR an 127.0.0.1.
  * Start: node runner/index.mjs   (oder: npm run cockpit im Repo-Root)
  */
-import { behauptetKeineSeite } from './linkedin/keineSeite.mjs'
+import { pruefeText, alsBeanstandung } from './regeln/textWache.mjs'
+import { lageAus } from './regeln/lage.mjs'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
@@ -946,7 +947,38 @@ async function antwortEntwuerfeInput(now = new Date(), { nurAntworten = false } 
   // Alle wartenden Threads haben bereits einen frischen Entwurf → nichts zu tun.
   // Ein Lauf mit leerer Liste wäre nur eine Zeile Rauschen in der Freigaben-Queue.
   if (!gebaut.input.threads.length) return null
+  await mitLage(gebaut.input.threads, [...threads, ...(nachfassen?.threads ?? [])])
   return gebaut
+}
+
+/**
+ * Die Lage je Thread (09.10.2026, `regeln/lage.mjs`): großer Player, Verwaltung,
+ * Verbund, starke Seite → `kanal: "frage"`, und der Antwort-Agent bietet keine
+ * Analyse an. Bis heute kannte der Antwort-Pfad nur Klasse und Punkte; so bekam
+ * Robert Anzenberger (30 Mrd. Transaktionsvolumen, stand in Kevins eigener
+ * Erstnachricht) im Nachfassen Postfach-Kritik plus Analyse. Dazu der letzte
+ * Satz-Wache-Fund, damit derselbe Satz nicht wiederkommt. Nie werfen.
+ */
+async function mitLage(inputThreads, rohThreads) {
+  try {
+    const leadVon = new Map(rohThreads.map((t) => [t.thread_key, t.lead_id]))
+    const ids = [...new Set(inputThreads.map((t) => leadVon.get(t.thread_key)).filter(Boolean))]
+    const profile = new Map()
+    for (let i = 0; i < ids.length; i += 80) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=in.(${ids.slice(i, i + 80).join(',')})&select=id,profil`, { headers: supabaseHeaders() })
+      if (res.ok) for (const z of await res.json()) profile.set(z.id, z.profil ?? {})
+    }
+    for (const t of inputThreads) {
+      const p = profile.get(leadVon.get(t.thread_key)) ?? {}
+      const texte = [t.company, ...(Array.isArray(t.verlauf) ? t.verlauf.map((m) => m?.text) : [])]
+      const lage = lageAus({ recherche: p, headline: t.company, texte })
+      t.lage = { kanal: lage.kanal, gewicht: lage.gewicht, gewicht_beleg: lage.gewicht_beleg, geschaeftsmodell: lage.geschaeftsmodell, website: lage.website, website_stufe: lage.website_stufe, meta_ads_aktiv: lage.meta_ads_aktiv, google_ads_aktiv: lage.google_ads_aktiv }
+      const h = wacheHinweise.get(t.thread_key)
+      if (h) t.wache_hinweis = h
+    }
+  } catch (e) {
+    console.error('[runner] Lage für Antwort-Threads nicht gesetzt:', e?.message ?? e)
+  }
 }
 
 /**
@@ -992,6 +1024,13 @@ async function erstnachrichtenInput(limit = 12) {
  * Wie bei den Antwort-Entwürfen darf ein Fehler hier den Lauf nicht
  * nachträglich zum Fehlschlag machen — das Ergebnis steht in der Run-Datei.
  */
+/**
+ * Satz-Wache an Antwort- und Follow-up-Entwürfen (09.10.2026): je Thread, was
+ * der letzte Entwurf Verbotenes behauptet hat. Der nächste Lauf bekommt es als
+ * `wache_hinweis` mit. Nur im Speicher: Nach einem Neustart schreibt der Agent
+ * frei, und die Wache greift wieder, wenn nötig.
+ */
+const wacheHinweise = new Map()
 /** Namen, die die Recherche als angestellt erkannt hat — gesetzt vor dem Schreiblauf. */
 const angestellteVorgemerkt = new Set()
 /** Die Leads des laufenden Batches samt Recherche und Ansatz — für den Prüfer (23.09.2026). */
@@ -1061,13 +1100,35 @@ async function erstnachrichtenAnListe(runId, markdown) {
       if (rf?.neu) nochmal.push(rf.neu)
       else raus.push(rf?.raus ?? u)
     }
-    const p1 = await pruefeEntwuerfe(erster, erstnachrichtLeadsVorgemerkt, lauf)
+    /**
+     * Die Satz-Wache (09.10.2026, `regeln/textWache.mjs`): Was erwiesenermaßen
+     * Leads kostet, prüft der Code, nicht der Prüfer. Ein Treffer geht ohne
+     * Prüfer-Lauf direkt in den zweiten Versuch, nur die beanstandeten Sätze.
+     */
+    const wacheFuer = (n) => {
+      const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
+      return pruefeText(n.nachricht, { lage: lead ? lageAus({ recherche: lead.recherche, ansatz: lead.ansatz, headline: lead.headline }) : null })
+    }
+    const wacheProtokoll = []
+    const ersterSauber = []
+    for (const n of erster) {
+      const funde = wacheFuer(n)
+      const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
+      if (!funde.length || !lead) {
+        ersterSauber.push(n)
+        continue
+      }
+      console.log(`[satz-wache] ${n.name}: ${funde.map((f) => f.id).join(', ')} → zweiter Versuch`)
+      wacheProtokoll.push({ art: 'satz_wache', name: n.name, firma: n.firma ?? '', entscheidung: 'neu', grund: funde.map((f) => `${f.id}: ${f.satz}`).join(' | ').slice(0, 300), daten: { versuch: 1 } })
+      nochmal.push({ ...lead, hinweis_pruefer: funde.map((f) => f.grund).join(' · '), vorheriger_text: n.nachricht, beanstandet: alsBeanstandung(funde) })
+    }
+    const p1 = await pruefeEntwuerfe(ersterSauber, erstnachrichtLeadsVorgemerkt, lauf)
     kosten += p1.kosten
     if (!p1.urteile) {
       console.error(`[runner] Erstnachrichten: Prüfer ohne Ergebnis — ${erster.length} Texte bleiben ungeschrieben im Vorrat`)
       return
     }
-    for (const n of erster) {
+    for (const n of ersterSauber) {
       const u = p1.urteile.get(String(n.name).toLowerCase()) ?? { urteil: 'neu', hinweis: 'vom Prüfer nicht beurteilt' }
       const rf = u.urteil === 'ok' ? null : verbundRueckfall(n.name, 'Prüfer', u.hinweis)
       if (rf?.neu) nochmal.push(rf.neu)
@@ -1079,7 +1140,8 @@ async function erstnachrichtenAnListe(runId, markdown) {
       else if (u.urteil === 'zurueck') ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       else {
         const lead = erstnachrichtLeadsVorgemerkt.get(String(n.name).toLowerCase())
-        if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht, ...(u.beanstandet ? { beanstandet: u.beanstandet } : {}) })
+        // Ansatz-Wechsel (S/T/G): ganz neu schreiben, nicht einzelne Sätze flicken (09.10.2026).
+        if (lead) nochmal.push({ ...lead, ...(u.ansatz ? { ansatz: u.ansatz } : {}), hinweis_pruefer: u.hinweis, vorheriger_text: n.nachricht, ...(u.beanstandet && !u.ansatz ? { beanstandet: u.beanstandet } : {}) })
         else ok.push({ ...n, pruefen: klartextHinweis(u.hinweis) })
       }
     }
@@ -1093,7 +1155,14 @@ async function erstnachrichtenAnListe(runId, markdown) {
         if (rf?.neu) nochmal.push(rf.neu)
         else raus.push(rf?.raus ?? u)
       }
-      const zweiter = nachbearbeiten(zweit.nachrichten)
+      // Satz-Wache auch nach dem zweiten Versuch: Wer wieder auffällt, bleibt im Vorrat statt in Kevins Liste.
+      const zweiter = nachbearbeiten(zweit.nachrichten).filter((n) => {
+        const funde = wacheFuer(n)
+        if (!funde.length) return true
+        console.warn(`[satz-wache] ${n.name}: auch im zweiten Versuch ${funde.map((f) => f.id).join(', ')} — bleibt im Vorrat`)
+        wacheProtokoll.push({ art: 'satz_wache', name: n.name, firma: n.firma ?? '', entscheidung: 'vorrat', grund: funde.map((f) => `${f.id}: ${f.satz}`).join(' | ').slice(0, 300), daten: { versuch: 2 } })
+        return false
+      })
       const p2 = await pruefeEntwuerfe(zweiter, erstnachrichtLeadsVorgemerkt, lauf)
       kosten += p2.kosten
       const bekommen = new Set([...zweiter.map((n) => String(n.name).toLowerCase()), ...zweit.uebersprungen.map((u) => String(u.name).toLowerCase())])
@@ -1120,6 +1189,7 @@ async function erstnachrichtenAnListe(runId, markdown) {
         ...raus.map((z) => ({ art: 'aussortiert', name: z.name, firma: z.firma, entscheidung: /^\[zurückgestellt\]/.test(String(z.grund)) ? 'zurueckgestellt' : 'kein_ziel', grund: z.grund, daten: { weg: 'schreib-lauf' } })),
         ...ok.filter((n) => n.pruefen).map((n) => ({ art: 'pruefer_urteil', name: n.name, firma: n.firma, entscheidung: 'unsicher', grund: n.pruefen, daten: { website: n.website } })),
         ...rueckfaelle,
+        ...wacheProtokoll,
       ],
     )
     const r = await schreibeErstnachrichten({
@@ -1235,12 +1305,22 @@ async function entwuerfeAnThreads(runId, markdown, input = null) {
     const alleDrafts = parseDraftsRoh(markdown).map((d) => ({ ...d, message: ergaenzeAnrufVorschlaege(d.message, vorschlaege) }))
     // Harte Sperre (08.10.2026): Ein Text, der „keine Website gefunden" behauptet, kommt nicht an den Posten,
     // und der Thread wird im nächsten Lauf neu vorgelegt (wie „nicht geprüft").
+    // Seit 09.10.2026 die ganze Satz-Wache (`regeln/textWache.mjs`) mit der Lage des Leads und dem Verlauf:
+    // Analyse an einen großen Player, Du an jemanden, der siezt, Bewertungstool als Mangel …
+    // Der nächste Lauf bekommt die Beanstandung mit (`wacheHinweise`), damit er nicht denselben Satz schreibt.
+    const threadNachKey = new Map((Array.isArray(input?.threads) ? input.threads : []).map((t) => [t.thread_key, t]))
     for (const d of alleDrafts) {
-      const satz = d.thread_key ? behauptetKeineSeite(d.message) : ''
-      if (!satz) continue
+      if (!d.thread_key) continue
+      const t = threadNachKey.get(d.thread_key)
+      const funde = pruefeText(d.message, { lage: t?.lage ?? null, verlauf: t?.verlauf ?? [] })
+      if (!funde.length) {
+        wacheHinweise.delete(d.thread_key)
+        continue
+      }
       raus.add(d.thread_key)
       ungeprueft.add(d.thread_key)
-      console.warn(`[runner] ${runId}: Entwurf für ${d.name ?? d.thread_key} verworfen, behauptet „keine Seite": ${satz}`)
+      wacheHinweise.set(d.thread_key, funde.map((f) => ({ satz: f.satz, grund: f.grund })))
+      console.warn(`[satz-wache] ${runId}: Entwurf für ${d.name ?? d.thread_key} verworfen (${funde.map((f) => f.id).join(', ')}): ${funde[0].satz.slice(0, 120)}`)
     }
     const drafts = alleDrafts.filter((d) => !(d.thread_key && raus.has(d.thread_key)))
     if (drafts.length < alleDrafts.length) {
@@ -5345,6 +5425,11 @@ const ETAPPEN_ARBEIT = {
       leads = leads
         .map((l) => {
           const a = ansatzFuer(l)
+          // Suche unvollständig (09.10.2026): keine Zeile, der Lead bleibt im Vorrat und wird im nächsten Lauf neu gesucht.
+          if ('spaeter' in a) {
+            console.log(`[website-spur] ${l.name}: ${a.spaeter}`)
+            return null
+          }
           if ('zurueck' in a) {
             zurueckAnsatz.push({ profil_key: l.profil_key, name: l.name, firma: l.recherche?.firma ?? '', website: l.recherche?.website ?? '', grund: a.zurueck })
             return null

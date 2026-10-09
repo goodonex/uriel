@@ -220,6 +220,29 @@ export const NACHFASSEN_AB_TAGEN = 3
  * @param {Date} now
  * @param {Map<string, {text: string, ts: string}>} antwortenJeLead  lead_id → letzte Antwort des Leads
  */
+/**
+ * Hat der Lead klar abgesagt (09.10.2026)?
+ *
+ * Postmortem über 52 Antworten seit 16.09.: Das häufigste selbstverschuldete
+ * Ende war Nachfassen nach einem klaren Nein (13 Threads, darunter beide, die
+ * genervt antworteten: „Damit sollten wir es gut sein lassen"). Die
+ * Konterfrage ging viermal raus und bekam keine einzige Antwort.
+ *
+ * - `hart` — will keine Nachrichten mehr: kein Entwurf, kein Nachfassen.
+ * - `weich` — „kein Bedarf", „gut aufgestellt", „bei Bedarf melde ich mich":
+ *   EINE Antwort darauf (Stimme, „Die Absage ist keine Absage"), danach kein
+ *   Nachfassen mehr.
+ *
+ * @returns {'hart'|'weich'|''}
+ */
+export function klaresNein(text) {
+  const t = String(text ?? '').toLowerCase()
+  if (!t.trim()) return ''
+  if (/gut sein lassen|keine (weiteren )?(nachrichten|anfragen)|nicht (mehr )?(an)?schreiben|kein interesse|nicht interessiert|kein bedarf mehr|lass(t)? (mich|uns) in ruhe|bitte (nicht|keine)( mehr)? (kontakt|nachrichten|anschreiben)|unsubscribe|abmelden|zum letzten mal/.test(t)) return 'hart'
+  if (/kein bedarf|keinen bedarf|nicht benötigt|nicht notwendig|(sehr |voll )?zufrieden|gut aufgestellt|bei bedarf (melde|komme|kommen|melden)|(melde|melden) (mich|uns) bei bedarf|(aktuell|derzeit|momentan|im moment) (nicht|kein)|(haben|hab) (bereits|schon) (eine )?(agentur|webdesigner|dienstleister)|(gerade|erst) (neu gemacht|neu aufgesetzt|relauncht)|danke,? (aber )?nein|nein,? danke/.test(t)) return 'weich'
+  return ''
+}
+
 export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
   if (istEndzustand(thread.status)) return false
   if (thread.snoozed_until != null && new Date(thread.snoozed_until).getTime() > now.getTime()) return false
@@ -229,7 +252,9 @@ export function istNachfassFall(thread, now, antwortenJeLead = new Map()) {
   if (wartetAufLoom(thread)) return false
   const tage = tageSeit(thread.last_message_at, now)
   if (tage == null || tage < NACHFASSEN_AB_TAGEN) return false
-  return hatGeantwortet(thread, antwortenJeLead)
+  if (!hatGeantwortet(thread, antwortenJeLead)) return false
+  // Nach einem klaren Nein wird nicht nachgefasst (09.10.2026, siehe `klaresNein`).
+  return !klaresNein(letzteAntwortDesLeads(thread, antwortenJeLead)?.text)
 }
 
 /**
@@ -330,6 +355,8 @@ export function baueAntwortInput(threads, now = new Date(), max = ANTWORT_MAX, n
     // Wer schon einen frischen Entwurf hat, ist erledigte Arbeit — er blockiert
     // sonst jeden Lauf und der Rückstau dahinter kommt nie dran.
     .filter((t) => istDuBistDran(t, now) && !hatFrischenEntwurf(t))
+    // Hartes Nein („Damit sollten wir es gut sein lassen"): kein Entwurf (09.10.2026).
+    .filter((t) => klaresNein(letzteAntwortDesLeads(t, nachfassen?.antwortenJeLead ?? new Map())?.text) !== 'hart')
     // Unvollständiger Verlauf: erst der Tiefenlauf, dann der Entwurf (30.09.2026,
     // André Wackwitz — sonst antwortet der Text nur auf die letzte von zwei Nachrichten).
     // Höchstens drei Stunden: Scheitert der Tiefenlauf an einem Thread, bekommt er trotzdem einen Entwurf.

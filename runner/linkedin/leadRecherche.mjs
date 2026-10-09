@@ -47,7 +47,9 @@ import { pruefeGoogleAds } from './googleAds.mjs'
 import { asciiVarianten, googleTrefferBreit } from './googleTreffer.mjs'
 import { pruefeSeo } from './seo.mjs'
 import { baueProfil, klasseFuer } from './leadProfil.mjs'
+import { firmaAusHeadline } from './grundprofil.mjs'
 import { GESCHAEFTSMODELL_REGEL } from '../regeln/zielgruppe.mjs'
+import { gewichtAus } from '../regeln/lage.mjs'
 
 const LEAD_TIMEOUT_MS = Number(process.env.RECHERCHE_TIMEOUT_MS ?? 3 * 60 * 1000)
 /** Alles zusammen je Lead: Finden, Rendern, Befund, Anzeigen — siehe `arbeiter`. */
@@ -190,6 +192,7 @@ Antworte mit NICHTS als diesem JSON-Block:
   "website_stufe": "",
   "wow_potenzial": "",
   "wow_grund": "",
+  "relaunch": "",
   "gruendungsjahr": null,
   "gruendung_beleg": "",
   "team_personen": null,
@@ -218,6 +221,7 @@ Feldregeln:
 - "website_stufe": genau einer von "schwach" (wirkt veraltet, alt, amateurhaft oder leer), "solide" (zeitgemäß und ordentlich, aber Standard) oder "stark" (so gut, dass eine Agentur sie kaum besser bauen könnte: eigene Wege für Eigentümer/Verkäufer UND weitere Zielgruppen wie Bauträger, Käufer oder Tippgeber, ein Bewertungstool, viele Unterseiten, eigene Fotos, Vertrauen sichtbar). "stark" ist selten — im Zweifel "solide".
 - "wow_potenzial": Könnte eine gute Agentur hier eine Seite bauen, bei der der Inhaber beim Vorher-Nachher-Vergleich sofort „wow" sagt? "ja" (deutlich sichtbar besser möglich: alt, amateurhaft, leer, Stock-Bilder, kein Vertrauen, kein Weg für die Zielgruppe), "knapp" (ordentlich, besser ginge nur in Details) oder "nein" (so gut, dass wir sie nicht spürbar besser bauen würden). Kevin, 23.09.2026, zu zwei ordentlichen Seiten: *„Die Seite ist zu gut, eine Analyse wird dann nicht so viel bringen."* Streng urteilen: Ein Wertrechner, ein Eigentümer-Bereich, eigene Fotos und ein zeitgemäßes Layout zusammen heißen fast immer "nein".
 - "wow_grund": ein Satz, warum.
+- "relaunch": "neu", wenn die Seite erkennbar frisch neu gemacht ist (Hinweis „neue Website", „Relaunch", Launch-Datum in diesem Jahr, Copyright beginnt in diesem Jahr bei zeitgemäßer Optik); "im-umbau", wenn sie ankündigt, gerade überarbeitet zu werden („wird überarbeitet", „neue Seite in Kürze", Hinweis auf eine kommende Domain); sonst "". Nur mit sichtbarem Hinweis, nie geraten. Postmortem 09.10.2026: 13 Leads bekamen Kritik an einer Seite, die sie gerade bezahlt hatten oder die im Umbau war.
 - "gruendungsjahr": Gründungsjahr der Firma als Zahl, NUR wenn es im Text steht („gegründet 2005", „seit 1998", „Gründung 2011"). Sonst null. Nie aus dem Copyright schätzen.
 - "gruendung_beleg": die Stelle WÖRTLICH aus der Textdatei (max. 80 Zeichen), in der das Jahr steht. Ohne Beleg bleibt das Jahr leer — wird maschinell geprüft.
 - "team_personen": Wie viele Personen zeigt die Team-/Über-uns-Seite (oder die Startseite) mit Namen oder Foto? Zahl, nur gezählt, nicht geschätzt. Keine Personen erkennbar: null.
@@ -418,54 +422,131 @@ export function firmenSlugs(firma) {
   return [...new Set(varianten.map((v) => v.replace(/[^a-z0-9]+/g, '')).filter((v) => v.length >= 4))]
 }
 
+/** Immobilienbezug auf einer Seite: ohne ihn ist ein Namensgleicher eine fremde Firma (edguenes.at, Teppichreinigung). */
+const IMMO_KONTEXT = /immobil|makler|real ?estate|realty|propert|hausverwalt|liegenschaft|bauträger|bautraeger|projektentwick/i
+
+/** Seite holen, mit Zeitlimit. Nie werfen. */
+async function hole(url, fetchFn) {
+  const steuerung = new AbortController()
+  const uhr = setTimeout(() => steuerung.abort(), 8000)
+  try {
+    const res = await fetchFn(url, { redirect: 'follow', signal: steuerung.signal, headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36', 'Accept-Language': 'de-DE,de' } })
+    if (!res.ok) return { status: res.status, html: '' }
+    return { status: res.status, html: (await res.text()).slice(0, 300_000), url: res.url || url }
+  } catch {
+    return { status: 0, html: '' }
+  } finally {
+    clearTimeout(uhr)
+  }
+}
+
+/** Domain-Varianten zum Firmennamen: „Beros & Partner" → beros-partner, „DK Homes & Investments" → dk-homes, mit .de/.ch/.at/.com/.immo/.eu. */
+export function domainVarianten(firma) {
+  const slugs = firmenSlugs(firma)
+  const woerter = String(firma ?? '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/\b(gmbh|ug|ag|mbh|e\.?\s?k\.?|kg|co\.?|haftungsbeschränkt|haftungsbeschraenkt)\b/g, ' ').split(/[^a-z0-9]+/).filter(Boolean)
+  const ohneBranche = woerter.filter((w) => !/^(immobilien|immobilienmakler|real|estate|realestate|und|and|investments?|group|gruppe|holding)$/.test(w))
+  const namen = [
+    ...slugs,
+    ...slugs.map((s) => `${s}-immobilien`),
+    woerter.join(''),
+    woerter.join('-'),
+    ohneBranche.join(''),
+    ohneBranche.join('-'),
+    ohneBranche.slice(0, 2).join('-'),
+  ]
+  return [...new Set(namen)].filter((n) => n.replace(/-/g, '').length >= 4).flatMap((n) => ['de', 'ch', 'at', 'com', 'immo', 'eu'].map((tld) => `${n}.${tld}`))
+}
+
 /**
- * Hat die Firma doch eine eigene Seite? Ohne Modell, nur Code (08.10.2026).
+ * Hat die Firma doch eine eigene Seite? Ohne Modell, nur Code (08.10.2026, gehärtet 09.10.2026).
  *
  * Fünf Leads in zwei Tagen antworteten auf „keine Website gefunden" mit „Dann
  * musst du richtig suchen" (Ariana Real Estate, Günes, Beros & Partner, Offmarkly,
- * vorher ALCEMA, das wir dreimal angeschrieben hatten). Jedes Mal lag die Seite
- * unter einer Domain, die den Firmennamen enthält. Darum zwei Proben:
- * 1. eine Domain aus den Google-Treffern, die den Firmennamen enthält,
- * 2. die naheliegenden Domains selbst aufrufen (name.de/.ch/.at/.com, auch mit
- *    „-immobilien"), und nur nehmen, wenn die Seite Firmen- oder Nachnamen nennt.
- * Liefert die Startseite oder ''.
+ * vorher ALCEMA). Die erste Fassung nahm die erste Domain, die den Nachnamen
+ * irgendwo im HTML trug, und lieferte für Günes eine Teppichreinigung
+ * (edguenes.at) und für Beros eine fremde Firma (beros.at). Jetzt:
+ * 1. Kandidaten aus den Google-Treffern (Domain enthält den Firmennamen, oder
+ *    Nachname plus Immobilienbezug im Titel) und aus Domain-Varianten.
+ * 2. Je Kandidat Punkte, Immobilienbezug in Titel/Beschreibung/Impressum immer
+ *    vorausgesetzt: Impressum nennt die PERSON mit Vor- und Nachnamen → 4 (gilt
+ *    als sicher); Impressum nennt Firma oder Nachnamen → 3; Titel nennt die
+ *    Firma → 2; wehrt Abrufe ab (403/429/503, Cloudflare) und die Domain IST der
+ *    Firmenname → 1, dann entscheidet der echte Chrome beim Rendern.
+ *    Unter 4 Punkten ist die Seite nur ein Kandidat: Ein gleichnamiger Makler in
+ *    einer anderen Stadt (Röper, Lippstadt) bekommt so nie Kevins Befund.
+ * 3. Die besten zuerst, nicht der erste Treffer.
+ *
+ * @returns {Promise<{ url: string, punkte: number }[]>} Startseiten, beste zuerst (höchstens drei)
  */
-export async function websiteNachweis(firma, name, googleListe = [], fetchFn = fetch) {
+export async function websiteKandidatenBewertet(firma, name, googleListe = [], fetchFn = fetch) {
   const slugs = firmenSlugs(firma)
-  if (!slugs.length) return ''
-  const fremd = /linkedin|xing|facebook|instagram|youtube|immoscout|immowelt|kleinanzeigen|northdata|creditreform|gelbeseiten|dasoertliche|telefonbuch|moneyhouse|zefix|firmenabc|homegate|search\.ch|local\.ch|google|trustpilot|kununu/i
+  const nachname = nachnameVon(name)
+  const fremd = /linkedin|xing|facebook|instagram|youtube|immoscout|immowelt|kleinanzeigen|northdata|creditreform|gelbeseiten|dasoertliche|telefonbuch|moneyhouse|zefix|firmenabc|homegate|search\.ch|local\.ch|google|trustpilot|kununu|wikipedia|provenexpert/i
+  const kern = (d) => d.replace(/^www\./, '').split('.').slice(0, -1).join('').replace(/[^a-z0-9]/g, '')
+  const domains = new Set()
   for (const t of googleListe) {
-    const d = String(t.domain ?? '').toLowerCase()
+    const d = String(t.domain ?? '').toLowerCase().replace(/^www\./, '')
     if (!d || fremd.test(d)) continue
-    const kern = d.replace(/^www\./, '').split('.').slice(0, -1).join('').replace(/[^a-z0-9]/g, '')
-    if (slugs.some((s) => kern.includes(s))) return `https://${d.replace(/^www\./, '')}/`
+    const k = kern(d)
+    const titel = `${t.titel ?? ''} ${t.auszug ?? ''}`
+    if (slugs.some((s) => k.includes(s)) || (nachname.length >= 4 && k.includes(nachname.replace(/[^a-z]/g, '')) && IMMO_KONTEXT.test(titel))) domains.add(d)
   }
-  const nachname = String(name ?? '').trim().split(/\s+/).pop()?.toLowerCase() ?? ''
-  // Der volle Name ohne Rechtsform, zusammen und mit Bindestrich: arianarealestate.de, beros-partner.ch, qu-immobilien.com.
-  const woerter = String(firma ?? '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/\b(gmbh|ug|ag|mbh|e\.?\s?k\.?|kg|co\.?|haftungsbeschränkt)\b/g, ' ').split(/[^a-z0-9]+/).filter(Boolean)
-  const namen = [...new Set([...slugs, ...slugs.map((s) => `${s}-immobilien`), woerter.join(''), woerter.join('-')])].filter((n) => n.replace(/-/g, '').length >= 4)
-  const proben = namen.flatMap((n) => ['de', 'ch', 'at', 'com'].map((tld) => `${n}.${tld}`))
-  const ergebnisse = await Promise.all(proben.map(async (domain) => {
-    const steuerung = new AbortController()
-    const uhr = setTimeout(() => steuerung.abort(), 8000)
-    try {
-      const res = await fetchFn(`https://${domain}/`, { redirect: 'follow', signal: steuerung.signal, headers: { 'User-Agent': 'Mozilla/5.0' } })
-      if (!res.ok) return ''
-      const text = (await res.text()).slice(0, 200_000).toLowerCase()
-      if (/domain (is )?for sale|domain kaufen|website expired|parked|sedo/.test(text)) return ''
-      // Nachname des Kontakts auf der Seite, oder ein unverwechselbarer Firmenname (ab 6 Zeichen) im Seitentitel.
-      // Ob die Seite wirklich der Firma gehört, entscheidet danach wie immer der Impressums-Abgleich (`sicher`).
-      const titel = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? '').replace(/[^a-z0-9]/g, '')
-      const nennt = (nachname.length >= 3 && text.includes(nachname)) || slugs.some((s) => s.length >= 6 && titel.includes(s))
-      return nennt ? `https://${domain}/` : ''
-    } catch {
-      return ''
-    } finally {
-      clearTimeout(uhr)
+  if (slugs.length) for (const d of domainVarianten(firma)) domains.add(d)
+  if (!domains.size) return []
+
+  const worte = [...slugs, ...(nachname.length >= 4 ? [nachname] : [])]
+  const bewertet = await Promise.all([...domains].slice(0, 60).map(async (domain) => {
+    const start = await hole(`https://${domain}/`, fetchFn)
+    if (!start.html) {
+      const firmaIstDomain = slugs.some((s) => kern(domain) === s || kern(domain) === `${s}immobilien`)
+      return { domain, punkte: [401, 403, 406, 429, 503].includes(start.status) && firmaIstDomain ? 1 : 0 }
     }
+    const text = ohneAkzent(start.html)
+    if (/domain (is )?for sale|domain kaufen|website expired|parked|sedo|hier entsteht/.test(text)) return { domain, punkte: 0 }
+    const titelRoh = text.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? ''
+    const beschreibung = text.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)/)?.[1] ?? ''
+    const link = impressumLinkAus(start.html, start.url ?? `https://${domain}/`)
+    const imp = link ? ohneAkzent((await hole(link, fetchFn)).html) : ''
+    // Immobilienbezug aus Titel, Beschreibung oder Impressum, nicht aus irgendeinem Wort im Fließtext (Teppichreinigung „gunes.at").
+    const immo = IMMO_KONTEXT.test(`${titelRoh} ${beschreibung} ${imp.slice(0, 20_000)}`)
+    if (!immo) return { domain, punkte: 0 }
+    const vorname = ohneAkzent(String(name ?? '').trim().split(/\s+/)[0] ?? '')
+    if (imp && vorname.length >= 3 && nachname.length >= 3 && new RegExp(`${vorname}[^<]{0,40}${nachname}`).test(imp)) return { domain, punkte: 4 }
+    if (imp && worte.some((w) => imp.includes(w))) return { domain, punkte: 3 }
+    const titel = titelRoh.replace(/[^a-z0-9]/g, '')
+    if (slugs.some((s) => s.length >= 5 && titel.includes(s))) return { domain, punkte: 2 }
+    return { domain, punkte: 0 }
   }))
-  return ergebnisse.find(Boolean) ?? ''
+  return bewertet
+    .filter((b) => b.punkte > 0)
+    .sort((a, b) => b.punkte - a.punkte)
+    .slice(0, 3)
+    .map((b) => ({ url: `https://${b.domain}/`, punkte: b.punkte }))
+}
+
+/** Nur die Adressen, beste zuerst. */
+export async function websiteKandidaten(firma, name, googleListe = [], fetchFn = fetch) {
+  return (await websiteKandidatenBewertet(firma, name, googleListe, fetchFn)).map((k) => k.url)
+}
+
+/** Der beste Kandidat oder '' (alte Schnittstelle). */
+export async function websiteNachweis(firma, name, googleListe = [], fetchFn = fetch) {
+  return (await websiteKandidaten(firma, name, googleListe, fetchFn))[0] ?? ''
+}
+
+/** Impressum-Link aus HTML (dieselbe Regel wie Stufe 1). */
+function impressumLinkAus(html, basis) {
+  for (const m of String(html ?? '').matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    if (/impressum|imprint|legal notice|mentions l(é|e)gales/i.test(`${m[1]} ${m[2].replace(/<[^>]+>/g, ' ')}`)) {
+      try {
+        return new URL(m[1], basis).toString()
+      } catch {
+        /* ungültiger Link */
+      }
+    }
+  }
+  return ''
 }
 
 /**
@@ -474,16 +555,41 @@ export async function websiteNachweis(firma, name, googleListe = [], fetchFn = f
  */
 const googleTrefferVon = new WeakMap()
 async function googleListeFuer(lead, stationen) {
-  const firma = String(stationen?.find((s) => s.firma)?.firma ?? '').replace(/\s+(GmbH|UG|AG|mbH|e\.K\.|& Co\. KG|KG)\b.*$/i, '').trim()
-  if (!firma) return []
-  // Mehrere Begriffe in DE/CH/AT (08.10.2026, „Dann musst du richtig suchen"): Firma, Firma
-  // ohne Umlaut, Person + Immobilien. Siehe `googleTrefferBreit`.
-  const basis = /immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`
+  const ohneForm = (f) => String(f ?? '').replace(/\s+(GmbH|UG|AG|mbH|e\.K\.|& Co\. KG|KG)\b.*$/i, '').trim()
+  /**
+   * Firmennamen aus ALLEN Quellen (09.10.2026): erste Station, Stufe 1, Headline.
+   * Bis heute gab es ohne lesbare erste Station gar keine Google-Liste, und das
+   * Modell suchte mit einer US-Suche, die kleine DACH-Firmen nicht findet.
+   */
+  const firmen = [...new Set([stationen?.find((s) => s.firma)?.firma, lead.firma_stufe1, firmaAusHeadline(lead.headline)].map(ohneForm).filter((f) => f.length >= 3))].slice(0, 2)
   const person = String(lead.name ?? '').replace(/\s+/g, ' ').trim()
-  const suchen = [firma, basis, ...asciiVarianten(firma), person.includes(' ') ? `${person} Immobilien` : '']
-  const treffer = await googleTrefferBreit(suchen, { anzahl: 20 }).catch(() => [])
+  // Mehrere Begriffe in DE/CH/AT (08.10.2026, „Dann musst du richtig suchen"): Firma, Firma
+  // ohne Umlaut, Firma + Immobilien, Person + Immobilien. Siehe `googleTrefferBreit`.
+  const suchen = [
+    ...firmen.flatMap((firma) => [firma, /immo|makler|haus|real|bau|projekt/i.test(firma) ? '' : `${firma} Immobilien`, ...asciiVarianten(firma)]),
+    person.includes(' ') ? `${person} Immobilien` : '',
+  ].filter(Boolean)
+  if (!suchen.length) return []
+  const treffer = await googleTrefferBreit(suchen, { anzahl: 20 }).catch(() => Object.assign([], { abfragen: 0, fehler: 1 }))
   googleTrefferVon.set(lead, treffer)
   return treffer
+}
+
+/**
+ * Lief die Google-Suche vollständig (09.10.2026)? Nur dann darf „keine Seite" stehen.
+ * Fehlt die Liste ganz (keine Firma, keine Person), gilt die Suche als unvollständig.
+ */
+function sucheVollstaendig(liste) {
+  return Array.isArray(liste) && Number(liste.abfragen ?? 0) > 0 && Number(liste.fehler ?? 0) === 0
+}
+
+/** Startseite einer Adresse (https://x.de/team wird https://x.de/). */
+function startseite(u) {
+  try {
+    return new URL(/^https?:/.test(u) ? u : `https://${u}`).origin + '/'
+  } catch {
+    return String(u ?? '')
+  }
 }
 
 /** Ein Lead, drei Stufen. */
@@ -528,13 +634,31 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     })
     .filter((k, i, alle) => alle.indexOf(k) === i)
     .slice(0, 3)
+  /**
+   * Was Stufe 1 schon bestätigt hat, kommt zuerst (09.10.2026): ALCEMA, Jesinghaus,
+   * Noah Weber, immlab hatten dort eine Seite mit Sicherheit 0,95–1,0, die Recherche
+   * kannte sie nicht. Bestätigt = Impressum gelesen oder Sicherheit ab 0,9.
+   */
+  const stufe1 = lead.website_stufe1
+  const stufe1Sicher = Boolean(stufe1?.url) && (stufe1.impressum === true || Number(stufe1.sicherheit) >= 0.9)
+  /** Adressen, deren Zuordnung belegt ist: Kevin, Stufe 1 mit Impressum, Impressum nennt die Person. */
+  const belegt = new Set()
+  if (bekannt) belegt.add(startseite(bekannt))
+  if (stufe1Sicher && !bekannt) {
+    const u = startseite(stufe1.url)
+    if (!kandidaten.includes(u)) kandidaten.unshift(u)
+    belegt.add(u)
+  }
 
   const geschaeftsmodell = String(f.json.geschaeftsmodell ?? '').trim()
   const stationen = gelesen.stationen.length ? gelesen.stationen : stationenAusModell(f.json.stationen)
   const groesse = String(f.json.groesse ?? '').trim()
   const verbund = String(f.json.verbund ?? '').trim()
   const verbund_beleg = verbund ? String(f.json.verbund_beleg ?? '').trim().slice(0, 300) : ''
+  // Großer Player (09.10.2026, `lage.mjs`): schon aus Headline, Erfahrung und Suche, bevor eine Seite geladen ist.
+  const gewichtProfil = gewichtAus({ taetigkeit, firma, groesse: String(f.json.groesse ?? '') }, { texte: [lead.headline, erfahrung] })
   const leer = {
+    gewicht: gewichtProfil.gewicht, gewicht_beleg: gewichtProfil.beleg,
     firma, website: '', sicher: false, erreichbar: '', taetigkeit, geschaeftsmodell, erfahrung_gelesen: Boolean(erfahrung),
     rolle: rolleFuerSkill('unklar', f.json.rolle), rolle_impressum: 'unklar', impressum_gf: [], stationen, groesse, verbund, verbund_beleg,
     website_stufe: '', meta_ads_aktiv: 'unbekannt',
@@ -543,27 +667,49 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   }
   // Zweite Sicherung vor „keine Website gefunden" (08.10.2026, Offmarkly, Ariana, Günes, Beros):
   // Hat das Modell nichts gewählt, prüft der Code selbst Google-Liste und naheliegende Domains.
-  if (!kandidaten.length) {
-    const nachweis = await websiteNachweis(firma || gelesen.stationen?.find((s) => s.firma)?.firma || '', lead.name, googleTrefferVon.get(lead) ?? []).catch(() => '')
-    if (nachweis) {
-      console.log(`[runner] Recherche ${lead.name}: Modell fand keine Seite, Code fand ${nachweis}`)
-      kandidaten.push(nachweis)
+  // Seit 09.10.2026 mit Impressum-Abgleich; nur „Impressum nennt die Person" gilt als belegt.
+  const googleListe = googleTrefferVon.get(lead) ?? []
+  let codeFund = []
+  if (!kandidaten.length && !bekannt) {
+    const firmaFuerProbe = firma || gelesen.stationen?.find((s) => s.firma)?.firma || lead.firma_stufe1 || firmaAusHeadline(lead.headline) || ''
+    codeFund = await websiteKandidatenBewertet(firmaFuerProbe, lead.name, googleListe).catch(() => [])
+    for (const k of codeFund) {
+      kandidaten.push(k.url)
+      if (k.punkte >= 4) belegt.add(k.url)
     }
+    if (codeFund.length) console.log(`[runner] Recherche ${lead.name}: Modell fand keine Seite, Code fand ${codeFund.map((k) => `${k.url} (${k.punkte})`).join(', ')}`)
   }
-  if (!kandidaten.length) return { lead, destillat: mitProfil(leer), kosten, token, grund: null }
+  // Verworfene Stufe-1-Domain als letzte Wahl: der Befund entscheidet, ob sie passt.
+  if (lead.website_stufe1_verworfen) {
+    const u = startseite(String(lead.website_stufe1_verworfen))
+    if (!kandidaten.includes(u)) kandidaten.push(u)
+  }
+  const vollstaendig = Boolean(bekannt) || sucheVollstaendig(googleListe)
+  // Spur (09.10.2026, Kontrolle 16.10.): woher die Seite kam oder warum keine.
+  console.log(
+    `[website-spur] ${lead.name}: google ${googleListe.length} Treffer/${googleListe.fehler ?? '?'} Fehler · stufe1 ${stufe1?.url ? `${stufe1.url}${stufe1Sicher ? ' (belegt)' : ''}` : '-'} · ` +
+      `modell ${f.json.kandidaten?.length ?? 0} · code ${codeFund.length} · kandidaten ${kandidaten.length}${vollstaendig ? '' : ' · SUCHE UNVOLLSTÄNDIG'}`,
+  )
+  if (!kandidaten.length) return { lead, destillat: mitProfil({ ...leer, suche_vollstaendig: vollstaendig }), kosten, token, grund: null }
 
   // Stufe 2 — Rendern: erster Kandidat, der wirklich lädt
   const kuerzel = kuerzelFuer(lead)
   let render = null
   let ersterKaputt = null
-  for (const [i, url] of kandidaten.entries()) {
-    const r = await rendereKandidat(browser, url, { ordner, kuerzel: `${kuerzel}-${i}` })
-    if (r.start.erreichbar === 'ja' && (r.start.textLaenge ?? 0) > 0) {
-      render = r
-      break
+  let gerendert = -1
+  /** Nächster Kandidat ab `ab`, der wirklich lädt. */
+  const rendereAb = async (ab) => {
+    for (let i = ab; i < kandidaten.length; i++) {
+      const r = await rendereKandidat(browser, kandidaten[i], { ordner, kuerzel: `${kuerzel}-${i}` })
+      if (r.start.erreichbar === 'ja' && (r.start.textLaenge ?? 0) > 0) {
+        gerendert = i
+        return r
+      }
+      ersterKaputt ??= r.start
     }
-    ersterKaputt ??= r.start
+    return null
   }
+  render = await rendereAb(0)
   if (!render) {
     // Die Seite existiert, lädt aber nicht (oder startet einen Download) — das hat der Browser gesehen, nicht ein Modell.
     // Anzeigen trotzdem prüfen: Eine kaputte Seite, auf die bezahlte Klicks laufen, ist der teuerste Befund überhaupt.
@@ -577,7 +723,8 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
      */
     return {
       lead,
-      destillat: mitProfil({ ...leer, ...werbung, website: ersterKaputt.url, sicher: Boolean(bekannt), erreichbar: 'offline', befund: ersterKaputt.grund ?? '' }),
+      // Belegt (Kevin, Stufe 1 mit Impressum, Impressum nennt die Person) heißt Aufbau C. Sonst nur geraten, dann D-Frage.
+      destillat: mitProfil({ ...leer, ...werbung, website: ersterKaputt.url, sicher: belegt.has(startseite(ersterKaputt.url)), erreichbar: 'offline', befund: ersterKaputt.grund ?? '', suche_vollstaendig: vollstaendig }),
       kosten,
       token,
       grund: null,
@@ -585,25 +732,43 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
   }
 
   // Stufe 3 — Befund aus Screenshots und sichtbarem Text
-  const s = render.start
-  const u = render.unterseite
-  const textDatei = join(ordner, `${kuerzel}-text.md`)
-  const t = render.team
-  const sichtbarerText =
-    `# Startseite ${s.endUrl}\n\n${s.text}\n\n` +
-    (u?.erreichbar === 'ja' ? `# Eigentümer-Unterseite ${u.endUrl}\n\n${u.text}\n\n` : '') +
-    (t?.erreichbar === 'ja' ? `# Team-/Über-uns-Seite ${t.endUrl}\n\n${String(t.text ?? '').slice(0, 4000)}\n` : '')
-  await writeFile(textDatei, sichtbarerText.slice(0, 20_000))
-  const dateien = [
-    s.screenshotOben,
-    s.screenshotGanz,
-    ...(u?.erreichbar === 'ja' ? [u.screenshotGanz] : []),
-    ...(t?.erreichbar === 'ja' ? [t.screenshotGanz] : []),
-    textDatei,
-  ]
-  const b = await claudeLauf(baueBefundPrompt(lead, { firma, dateien, render }), { cliPath, cwd, tools: 'Read', budget: BUDGET_BEFUND, zusatzOrdner: ordner })
-  kosten += b.kosten
-  token += b.token
+  const befundFuer = async (render) => {
+    const s = render.start
+    const u = render.unterseite
+    const textDatei = join(ordner, `${kuerzel}-text.md`)
+    const t = render.team
+    const sichtbarerText =
+      `# Startseite ${s.endUrl}\n\n${s.text}\n\n` +
+      (u?.erreichbar === 'ja' ? `# Eigentümer-Unterseite ${u.endUrl}\n\n${u.text}\n\n` : '') +
+      (t?.erreichbar === 'ja' ? `# Team-/Über-uns-Seite ${t.endUrl}\n\n${String(t.text ?? '').slice(0, 4000)}\n` : '')
+    await writeFile(textDatei, sichtbarerText.slice(0, 20_000))
+    const dateien = [
+      s.screenshotOben,
+      s.screenshotGanz,
+      ...(u?.erreichbar === 'ja' ? [u.screenshotGanz] : []),
+      ...(t?.erreichbar === 'ja' ? [t.screenshotGanz] : []),
+      textDatei,
+    ]
+    const b = await claudeLauf(baueBefundPrompt(lead, { firma, dateien, render }), { cliPath, cwd, tools: 'Read', budget: BUDGET_BEFUND, zusatzOrdner: ordner })
+    kosten += b.kosten
+    token += b.token
+    return { s, u, t, sichtbarerText, b }
+  }
+  let bef = await befundFuer(render)
+  /**
+   * Passt die Seite nicht zur Person, kommt der nächste Kandidat (09.10.2026).
+   * Bis heute wurde die Website dann geleert, und der Lead bekam „keine Seite",
+   * obwohl ein zweiter Kandidat die richtige Seite war. Höchstens ein zweiter Befund.
+   */
+  if (bef.b.json?.passt_zur_person === false && gerendert + 1 < kandidaten.length) {
+    const zweit = await rendereAb(gerendert + 1)
+    if (zweit) {
+      console.log(`[runner] Recherche ${lead.name}: ${render.start.endUrl} passt nicht zur Person, prüfe ${zweit.start.endUrl}`)
+      render = zweit
+      bef = await befundFuer(render)
+    }
+  }
+  const { s, u, t, sichtbarerText, b } = bef
   if (!b.json) return { lead, destillat: null, kosten, token, grund: `Befund: ${b.grund}` }
 
   /**
@@ -638,6 +803,9 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
    * bis dahin nur Meta und nur bei `stark`). Siehe `pruefeWerbung`.
    */
   const stufe = websiteStufe(b.json)
+  // Großer Player mit Beleg von der Seite selbst („über 30 Milliarden Transaktionsvolumen"), sonst aus dem Profil.
+  const gewichtSeite = passt ? gewichtAus({ taetigkeit, firma, groesse, profil: { rechtsform: '' } }, { texte: [sichtbarerText] }) : { gewicht: 'normal', beleg: '' }
+  const gewicht = gewichtSeite.gewicht === 'gross' ? gewichtSeite : gewichtProfil
   const werbung = passt
     ? await pruefeWerbung(browser, s.endUrl, firma || render.start.titel)
     : { meta_ads_aktiv: 'unbekannt', google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null }
@@ -655,7 +823,15 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     destillat: mitProfil({
       firma,
       website: passt ? s.endUrl : '',
-      sicher: passt,
+      /**
+       * Sicher ist eine Seite, wenn sie passt UND ihre Zuordnung belegt ist (09.10.2026):
+       * vom Modell aus echten Treffern gewählt, von Kevin oder Stufe 1 bestätigt, oder
+       * das Impressum nennt die Person. Ein bloßer Domain-Fund des Codes (gleichnamiger
+       * Makler in einer anderen Stadt) bleibt unsicher, dann gibt es die D-Frage statt
+       * eines Befunds über eine fremde Seite.
+       */
+      sicher: passt && (!codeFund.some((k) => startseite(k.url) === startseite(kandidaten[gerendert] ?? '')) || belegt.has(startseite(kandidaten[gerendert] ?? '')) || rolleImpressum === 'gf'),
+      suche_vollstaendig: vollstaendig,
       erreichbar: 'ja',
       taetigkeit,
       geschaeftsmodell,
@@ -693,6 +869,9 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
       stationen,
       groesse,
       website_stufe: stufe,
+      relaunch: ['neu', 'im-umbau'].includes(b.json.relaunch) ? b.json.relaunch : '',
+      gewicht: gewicht.gewicht,
+      gewicht_beleg: gewicht.beleg,
       /**
        * Wow-Potenzial (23.09.2026): Kann Kevin eine sichtbar bessere Seite
        * bauen? Ohne „ja" gibt es keine Analyse (`ansatzFuer`).

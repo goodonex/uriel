@@ -61,7 +61,15 @@ export async function googleTreffer(suche, { land = LAND_DE, anzahl = 5, zugang 
       signal: steuerung.signal,
     })
     if (!res.ok) return { treffer: [], grund: `HTTP ${res.status}` }
-    return { treffer: trefferAuswerten(await res.json(), anzahl), grund: '' }
+    const antwort = await res.json()
+    /**
+     * Fehler auf Aufgaben-Ebene (09.10.2026): DataForSEO antwortet dann mit HTTP 200
+     * und ohne `items`, etwa `40101 Internal SE Server Error` (2 von 57 Abfragen im
+     * Test). Ohne Grund sah das aus wie „keine Treffer" und wurde nie wiederholt.
+     */
+    const code = Number(antwort?.tasks?.[0]?.status_code ?? 20000)
+    if (code !== 20000) return { treffer: [], grund: `DataForSEO ${code} ${String(antwort?.tasks?.[0]?.status_message ?? '').slice(0, 60)}`.trim() }
+    return { treffer: trefferAuswerten(antwort, anzahl), grund: '' }
   } catch (e) {
     return { treffer: [], grund: String(e?.message ?? e).slice(0, 80) }
   } finally {
@@ -98,10 +106,12 @@ export function asciiVarianten(text) {
  */
 export async function googleTrefferBreit(suchen, { anzahl = 20, je = 10, ...opt } = {}) {
   const begriffe = [...new Set((suchen ?? []).map((s) => String(s ?? '').trim()).filter(Boolean))]
+  let fehler = 0
   const laeufe = begriffe.flatMap((suche) =>
     [LAND_DE, LAND_CH, LAND_AT].map(async (land) => {
       let r = await googleTreffer(suche, { ...opt, land, anzahl: je })
       if (!r.treffer.length && r.grund) r = await googleTreffer(suche, { ...opt, land, anzahl: je })
+      if (!r.treffer.length && r.grund) fehler++
       return r.treffer.map((t) => ({ ...t, suche, land }))
     }),
   )
@@ -115,7 +125,15 @@ export async function googleTrefferBreit(suchen, { anzahl = 20, je = 10, ...opt 
     gesehen.add(schluessel)
     raus.push(t)
   }
-  return raus.slice(0, anzahl).map((t, i) => ({ ...t, platz: i + 1 }))
+  /**
+   * Wie vollständig war die Suche (09.10.2026)? „Blockiert" ist nicht „leer":
+   * Nur eine Suche ohne Fehler darf später „keine Seite" tragen. Als Eigenschaft
+   * am Array, damit alle bisherigen Aufrufer unverändert eine Liste bekommen.
+   */
+  const liste = raus.slice(0, anzahl).map((t, i) => ({ ...t, platz: i + 1 }))
+  liste.abfragen = begriffe.length * 3
+  liste.fehler = fehler
+  return liste
 }
 
 /**

@@ -72,6 +72,14 @@ Für jedes Muster, das wieder vorkommen kann:
 - Fehler in Antworten, Follow-ups oder Looms, oder in Kevins Ton allgemein →
   `runner/regeln/stimme/herrmann-outreach.md`.
 - Reine Einzelfälle (falsche Website, ein Tippfehler) → keine Regel.
+- **Kommt ein Fehler zum zweiten Mal, reicht keine Prompt-Regel** (seit 09.10.2026).
+  Dann gehört er in den Code: als Satz-Wache in `runner/regeln/textWache.mjs`
+  (verbotene Behauptung) oder in `ansatzFuer` (falscher Ansatz), und der echte
+  Satz bzw. Fall als Prüffall in `scripts/verify-fallkatalog.ts`. Danach
+  `npx tsx scripts/verify-fallkatalog.ts` muss grün sein. Übersicht aller
+  Fehlerklassen: `docs/fallkatalog-outreach.md`.
+- `setzen` prüft jeden neuen Text mit derselben Satz-Wache und schreibt nichts,
+  solange ein Satz hängen bleibt. Dann den Satz umformulieren, nicht die Wache.
 
 Dann sichern, **bevor** zurückgeschrieben wird — sonst hält der Mini die
 korrigierten Texte für veraltet und überschreibt sie:

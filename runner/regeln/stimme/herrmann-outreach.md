@@ -222,8 +222,8 @@ stehen in der Positionierungs-Datei.
 
 **Erstnachricht (Anfrage angenommen):** Fester Aufbau, variiert wird nur der
 Befund: „Moin {Vorname}," → „ich hab mir {domain} angeschaut." → konkreter
-Befund zum Eigentümer-Weg der Seite (Verkaufen-Bereich, Bewertung mit
-Sofort-Ergebnis oder nur Formular, käuferlastig, Mangel) → Folge für den
+Befund zum Eigentümer-Weg der Seite (Verkaufen-Bereich, käuferlastig,
+Mangel; nie das Bewertungstool, seit 23.09.2026) → Folge für den
 Eigentümer → Analyse-Angebot → CTA. Nie einen Werbespruch der Seite zitieren,
 nie mit der Vernetzung einsteigen. Vorlagen je Typ:
 `~/Kevin OS/02 Projekte/uriel/runner/regeln/erstnachrichten/schreiben.md` — seit
@@ -361,8 +361,8 @@ gepasst hätte.
    geschrieben hat:
    1. Glückwunsch zur neuen Seite plus ein echtes Detail, das man gesehen hat.
    2. Punkte andeuten, nicht aufzählen: „Mir sind beim Durchklicken noch zwei,
-      drei Punkte aufgefallen", höchstens mit dem Bereich dazu („rund um die
-      Bewertung"). Die Punkte müssen echt sein und aus der Prüfung der Seite
+      drei Punkte aufgefallen", höchstens mit dem Bereich dazu („rund um den
+      Weg für Eigentümer"; nie die Bewertung, siehe Satz-Wache). Die Punkte müssen echt sein und aus der Prüfung der Seite
       stammen (Regel 1). Genannt werden sie erst, wenn er danach fragt, dann
       zwei, höchstens drei, je ein Satz. **Ausnahme:** Steht im Thread schon ein
       Analyse-Angebot oder hat Kevin den Befund genannt, gilt Regel 16.
@@ -382,7 +382,7 @@ gepasst hätte.
    neuen Seite, mir fallen da noch 2–3 Verbesserungsvorschläge auf, dann …
    ist auch fest eingeplant, darüber Eigentümer reinzubekommen?"*
    ```
-   Hi Phil, Glückwunsch zur neuen Seite, Verkaufen steht jetzt ganz vorne. Mir sind beim Durchklicken noch zwei, drei Punkte aufgefallen, vor allem rund um die Bewertung.
+   Hi Phil, Glückwunsch zur neuen Seite, Verkaufen steht jetzt ganz vorne. Mir sind beim Durchklicken noch zwei, drei Punkte aufgefallen, vor allem rund um den Weg für Eigentümer.
 
    Ist auch schon eingeplant, wie über die neue Seite Eigentümer reinkommen?
    ```
@@ -755,7 +755,7 @@ finden, um zu verstehen, was wir anbieten sollen. Immer!"*
     Diese Form ist neben den zwei Zeitfenstern erlaubt, wo sie natürlicher
     wirkt.
     ```
-    Hallo Roger, Unternehmer mit Herzblut und eine Marke als Person, das passt zu dir. Im Moment findet man dich dafür aber nur über dein Engel & Völkers-Profil, eine eigene Seite gibt es noch nicht. Lass uns da mal zehn Minuten drüber sprechen. Schick mir gern deine Nummer, dann telefonieren wir die Tage, wann es dir passt.
+    Hallo Roger, Unternehmer mit Herzblut und eine Marke als Person, das passt zu dir. Im Moment läuft das noch über dein Engel & Völkers-Profil. Lass uns da mal zehn Minuten drüber sprechen. Schick mir gern deine Nummer, dann telefonieren wir die Tage, wann es dir passt.
     ```
 
 28. **Hat der Lead auf eine Frage geantwortet, folgt keine Rechtfertigung,
@@ -768,6 +768,38 @@ finden, um zu verstehen, was wir anbieten sollen. Immer!"*
     ```
     Patrick, Kapital und schnelle Abwicklung ohne Auflagen, das können nicht viele bieten. Woran scheitert ein Grundstück bei euch dann eher: dass ihr gar nicht davon erfahrt, oder dass ein anderer früher dran ist?
     ```
+
+## Lage und Satz-Wache im Antwort-Pfad (09.10.2026)
+
+Kevin, 09.10.2026: *„Es muss erkannt werden, wann wir eine Analyse schicken,
+wann das Sinn macht, wann aber vielleicht ein Telefonat mehr Sinn macht. Und
+das muss alles griffig sein."* Jeder Thread kommt seit heute mit `lage`, vom
+Code aus dem Lead-Profil und dem Verlauf gebaut:
+
+- `lage.kanal` = `"frage"` → **keine Analyse, keine Skizze, kein Loom-Angebot**,
+  auch nicht beim Nachfassen und nicht in `neu_pruefen`. Das gilt vor jeder
+  anderen Regel hier und im Skill („Standard ist Befund + Analyse" gilt nur, wo
+  `kanal` leer oder `"analyse"` ist). Stattdessen die Pain-Frage (Regel 19), bei
+  Verwaltungen „könnt ihr noch neue Objekte aufnehmen" (Regel 26).
+- `lage.gewicht` = `"gross"` (Beleg in `lage.gewicht_beleg`, etwa „über 30
+  Milliarden Transaktionsvolumen") → Regel 22: Flughöhe des Leads. Nie
+  Postfach, Formular, Kontaktweg, Bewertungstool oder einzelne Eigentümer als
+  Hebel. Die Frage zielt auf Grundstücke, Investoren, Tempo, Team. Ohne
+  Du-Vorgabe des Leads per Sie.
+- `lage.website_stufe` = `"schwach"` → die Seite als Ganzes ist das Thema, nie
+  ein Detail (Formular, Knopf, Menüpunkt, „Wert erst per E-Mail").
+- `lage.meta_ads_aktiv` / `google_ads_aktiv` → „keine Anzeigen" nur, wenn beide
+  `nein`; „ihr schaltet schon" nur, wenn eins `ja`.
+
+Danach prüft der Code jeden Entwurf (`runner/regeln/textWache.mjs`). Ein
+Entwurf mit einem verbotenen Satz kommt nicht an Kevins Posten, und der Thread
+kommt im nächsten Lauf mit `wache_hinweis` wieder: die Sätze und der Grund.
+**Steht `wache_hinweis` am Thread, schreib diese Sätze nicht noch einmal.**
+Verboten sind, neben dem oben Genannten: Behauptung, es gebe keine Website;
+Bewertungstool als Mangel; Kleinkram (Tippfehler, Copyright, Ladezeit,
+Cookie-Banner); Geld oder Kapital unterstellen; Kundenstimmen „fake";
+Geviertstriche; Du, wenn die letzte Nachricht des Leads siezt („Sehr geehrter
+Herr Herrmann", „Ihnen").
 
 ## Edge Cases
 
