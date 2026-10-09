@@ -30,6 +30,7 @@
  * lässt sich hier nicht importieren; `scripts/verify-erstnachrichten-cta.ts`
  * hält beide zusammen).
  */
+import { behauptetKeineSeite } from './keineSeite.mjs'
 import { QUELLE_PRAEFIX, istVeraltet } from '../regeln/fassung.mjs'
 import { immobilienInhaberMitMaklerHerkunft } from '../regeln/zielgruppe.mjs'
 
@@ -60,8 +61,8 @@ export const CTA_KATALOG = Object.freeze({
   telefon: 'Hast du was dagegen, wenn wir zehn Minuten telefonieren?',
   /** Nicht Entscheider, aber eigene Firma nebenher — Rapport statt Analyse (22.09.2026). */
   hauptfokus: 'Wo liegt bei dir gerade der Hauptfokus?',
-  /** Frisch gegründet, keine Seite gefunden — erst Rapport (22.09.2026). */
-  inPlanung: 'Ist die noch in Planung, oder hab ich sie übersehen?',
+  /** Frisch gegründet, keine Seite gefunden — erst Rapport (22.09.2026). Seit 08.10.2026 ohne „hab ich sie übersehen", siehe `keineSeite.mjs`. */
+  inPlanung: 'Gibt es schon eine eigene Seite, oder ist die noch in Planung?',
   /** Hausverwaltung — erst den Engpass erfragen, kein Angebot (Aufbau H, 25.09.2026). */
   verwaltung: 'Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?',
 })
@@ -327,6 +328,12 @@ export async function schreibeErstnachrichten({
   }
 
   for (const n of nachrichten) {
+    // Harte Sperre (08.10.2026): „keine Website gefunden" geht nie in Kevins Liste, der Lead kommt im nächsten Lauf neu.
+    const keineSeite = behauptetKeineSeite(n.nachricht)
+    if (keineSeite) {
+      console.warn(`[runner] Erstnachricht ${n.name} verworfen, behauptet „keine Seite": ${keineSeite}`)
+      continue
+    }
     const zeile = {
       brand_id: brandId,
       gruppe,

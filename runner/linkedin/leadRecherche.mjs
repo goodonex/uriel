@@ -410,6 +410,64 @@ function mitProfil(destillat, quellen = {}) {
   return { ...destillat, profil, klasse, klasse_grund: grund }
 }
 
+/** „Günes & Partner Immobilien GmbH" → ["gunes", "guenes"] (nur Buchstaben/Ziffern, ohne Rechtsform und Füllwörter). */
+export function firmenSlugs(firma) {
+  const roh = String(firma ?? '').toLowerCase()
+    .replace(/\b(gmbh|ug|ag|mbh|e\.?\s?k\.?|kg|co\.?|haftungsbeschränkt|immobilien|immobilienberatung|immobilienmakler|real estate|realestate|partner|gruppe|group|holding)\b/g, ' ')
+  const varianten = [roh.replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss'), roh.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')]
+  return [...new Set(varianten.map((v) => v.replace(/[^a-z0-9]+/g, '')).filter((v) => v.length >= 4))]
+}
+
+/**
+ * Hat die Firma doch eine eigene Seite? Ohne Modell, nur Code (08.10.2026).
+ *
+ * Fünf Leads in zwei Tagen antworteten auf „keine Website gefunden" mit „Dann
+ * musst du richtig suchen" (Ariana Real Estate, Günes, Beros & Partner, Offmarkly,
+ * vorher ALCEMA, das wir dreimal angeschrieben hatten). Jedes Mal lag die Seite
+ * unter einer Domain, die den Firmennamen enthält. Darum zwei Proben:
+ * 1. eine Domain aus den Google-Treffern, die den Firmennamen enthält,
+ * 2. die naheliegenden Domains selbst aufrufen (name.de/.ch/.at/.com, auch mit
+ *    „-immobilien"), und nur nehmen, wenn die Seite Firmen- oder Nachnamen nennt.
+ * Liefert die Startseite oder ''.
+ */
+export async function websiteNachweis(firma, name, googleListe = [], fetchFn = fetch) {
+  const slugs = firmenSlugs(firma)
+  if (!slugs.length) return ''
+  const fremd = /linkedin|xing|facebook|instagram|youtube|immoscout|immowelt|kleinanzeigen|northdata|creditreform|gelbeseiten|dasoertliche|telefonbuch|moneyhouse|zefix|firmenabc|homegate|search\.ch|local\.ch|google|trustpilot|kununu/i
+  for (const t of googleListe) {
+    const d = String(t.domain ?? '').toLowerCase()
+    if (!d || fremd.test(d)) continue
+    const kern = d.replace(/^www\./, '').split('.').slice(0, -1).join('').replace(/[^a-z0-9]/g, '')
+    if (slugs.some((s) => kern.includes(s))) return `https://${d.replace(/^www\./, '')}/`
+  }
+  const nachname = String(name ?? '').trim().split(/\s+/).pop()?.toLowerCase() ?? ''
+  // Der volle Name ohne Rechtsform, zusammen und mit Bindestrich: arianarealestate.de, beros-partner.ch, qu-immobilien.com.
+  const woerter = String(firma ?? '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/\b(gmbh|ug|ag|mbh|e\.?\s?k\.?|kg|co\.?|haftungsbeschränkt)\b/g, ' ').split(/[^a-z0-9]+/).filter(Boolean)
+  const namen = [...new Set([...slugs, ...slugs.map((s) => `${s}-immobilien`), woerter.join(''), woerter.join('-')])].filter((n) => n.replace(/-/g, '').length >= 4)
+  const proben = namen.flatMap((n) => ['de', 'ch', 'at', 'com'].map((tld) => `${n}.${tld}`))
+  const ergebnisse = await Promise.all(proben.map(async (domain) => {
+    const steuerung = new AbortController()
+    const uhr = setTimeout(() => steuerung.abort(), 8000)
+    try {
+      const res = await fetchFn(`https://${domain}/`, { redirect: 'follow', signal: steuerung.signal, headers: { 'User-Agent': 'Mozilla/5.0' } })
+      if (!res.ok) return ''
+      const text = (await res.text()).slice(0, 200_000).toLowerCase()
+      if (/domain (is )?for sale|domain kaufen|website expired|parked|sedo/.test(text)) return ''
+      // Nachname des Kontakts auf der Seite, oder ein unverwechselbarer Firmenname (ab 6 Zeichen) im Seitentitel.
+      // Ob die Seite wirklich der Firma gehört, entscheidet danach wie immer der Impressums-Abgleich (`sicher`).
+      const titel = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? '').replace(/[^a-z0-9]/g, '')
+      const nennt = (nachname.length >= 3 && text.includes(nachname)) || slugs.some((s) => s.length >= 6 && titel.includes(s))
+      return nennt ? `https://${domain}/` : ''
+    } catch {
+      return ''
+    } finally {
+      clearTimeout(uhr)
+    }
+  }))
+  return ergebnisse.find(Boolean) ?? ''
+}
+
 /**
  * Die ersten Google-Treffer zur Firma der aktuellen Station (07.10.2026). Ohne
  * erkennbare Firma: leer, dann sucht das Modell wie bisher selbst. Nie werfen.
@@ -422,7 +480,7 @@ async function googleListeFuer(lead, stationen) {
   // ohne Umlaut, Person + Immobilien. Siehe `googleTrefferBreit`.
   const basis = /immo|makler|haus|real|bau|projekt/i.test(firma) ? firma : `${firma} Immobilien`
   const person = String(lead.name ?? '').replace(/\s+/g, ' ').trim()
-  const suchen = [basis, ...asciiVarianten(basis), person.includes(' ') ? `${person} Immobilien` : '']
+  const suchen = [firma, basis, ...asciiVarianten(firma), person.includes(' ') ? `${person} Immobilien` : '']
   const treffer = await googleTrefferBreit(suchen, { anzahl: 20 }).catch(() => [])
   googleTrefferVon.set(lead, treffer)
   return treffer
@@ -482,6 +540,15 @@ async function rechercheEinen(lead, { cliPath, cwd, browser, ordner }) {
     website_stufe: '', meta_ads_aktiv: 'unbekannt',
     google_ads_aktiv: 'unbekannt', google_ads_seit: '', google_ads_zuletzt: '', google_ads_anzahl: null,
     eigentuemer_bereich: '', bewertung: '', ausrichtung: '', optik: '', inhalt: '', mangel: '', befund: '', nur_portal: Boolean(f.json.nur_portal),
+  }
+  // Zweite Sicherung vor „keine Website gefunden" (08.10.2026, Offmarkly, Ariana, Günes, Beros):
+  // Hat das Modell nichts gewählt, prüft der Code selbst Google-Liste und naheliegende Domains.
+  if (!kandidaten.length) {
+    const nachweis = await websiteNachweis(firma || gelesen.stationen?.find((s) => s.firma)?.firma || '', lead.name, googleTrefferVon.get(lead) ?? []).catch(() => '')
+    if (nachweis) {
+      console.log(`[runner] Recherche ${lead.name}: Modell fand keine Seite, Code fand ${nachweis}`)
+      kandidaten.push(nachweis)
+    }
   }
   if (!kandidaten.length) return { lead, destillat: mitProfil(leer), kosten, token, grund: null }
 

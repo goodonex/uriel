@@ -229,10 +229,14 @@ nie mit der Vernetzung einsteigen. Vorlagen je Typ:
 `~/Kevin OS/02 Projekte/uriel/runner/regeln/erstnachrichten/schreiben.md` — seit
 23.09.2026 die einzige Quelle für Erstnachrichten; bei Widerspruch gewinnt sie.
 
-**Lead ohne Website:** Das Fehlen selbst ist der Aufhänger ("ich hab nach eurer
-Website gesucht — und keine gefunden. Eigentümer, die verkaufen wollen, finden
-euch online nicht."). Kein Video zu einer Website anbieten, die nicht existiert
-— stattdessen direkt das Gespräch anbieten.
+**Lead ohne Website:** Nie behaupten, es gebe keine Seite (08.10.2026, fünf
+Leads antworteten „Dann musst du richtig suchen", Kevin: *„ich will echt keine
+Leads mehr verbrennen"*). Verboten in jeder Nachricht, auch im Follow-up und in
+Antworten: „ich hab nach eurer Website gesucht und keine gefunden", „finde ich
+online weiterhin nichts", „keinen eigenen Auftritt", „wer euch googelt, landet
+bei …". Stattdessen fragen: „Wo finde ich euch?" oder „Gibt es schon eine
+eigene Seite?". Kein Video zu einer Website anbieten, die vielleicht nicht
+existiert, stattdessen das Gespräch anbieten.
 
 **Antwort auf Reply:** Erst auf Inhalt/Ton des Leads eingehen (eine sympathische
 Rückfrage würdigen), dann einen Schritt weiter im Funnel. Fragt der Lead nach

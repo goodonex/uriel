@@ -7,6 +7,7 @@
  * Bewusst zero-dependency (node:http). Bindet NUR an 127.0.0.1.
  * Start: node runner/index.mjs   (oder: npm run cockpit im Repo-Root)
  */
+import { behauptetKeineSeite } from './linkedin/keineSeite.mjs'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
@@ -1232,6 +1233,15 @@ async function entwuerfeAnThreads(runId, markdown, input = null) {
     // Telefonat ohne Zeitvorschlag bekommt Kevins zwei Standard-Vorschläge (06.10.2026).
     const vorschlaege = input?.zeit?.anruf_vorschlaege ?? (await zeitFuerLauf()).anruf_vorschlaege
     const alleDrafts = parseDraftsRoh(markdown).map((d) => ({ ...d, message: ergaenzeAnrufVorschlaege(d.message, vorschlaege) }))
+    // Harte Sperre (08.10.2026): Ein Text, der „keine Website gefunden" behauptet, kommt nicht an den Posten,
+    // und der Thread wird im nächsten Lauf neu vorgelegt (wie „nicht geprüft").
+    for (const d of alleDrafts) {
+      const satz = d.thread_key ? behauptetKeineSeite(d.message) : ''
+      if (!satz) continue
+      raus.add(d.thread_key)
+      ungeprueft.add(d.thread_key)
+      console.warn(`[runner] ${runId}: Entwurf für ${d.name ?? d.thread_key} verworfen, behauptet „keine Seite": ${satz}`)
+    }
     const drafts = alleDrafts.filter((d) => !(d.thread_key && raus.has(d.thread_key)))
     if (drafts.length < alleDrafts.length) {
       console.log(`[runner] ${runId}: ${alleDrafts.length - drafts.length} Entwürfe für Kontakt/Akquise verworfen`)

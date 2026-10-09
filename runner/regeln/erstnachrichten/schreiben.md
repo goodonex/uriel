@@ -216,9 +216,9 @@ Rapport aufgebaut"*):
 ```
 Moin {Vorname},
 
-{Firma} ist noch ganz frisch, oder? Glückwunsch zum Start. Ich hab nach eurer Website gesucht und keine gefunden.
+{Firma} ist noch ganz frisch, oder? Glückwunsch zum Start.
 
-Ist die noch in Planung, oder hab ich sie übersehen?
+Gibt es schon eine eigene Seite, oder ist die noch in Planung?
 ```
 
 ### Aufbau D — keine Website (`keine-seite`)
@@ -226,10 +226,21 @@ Ist die noch in Planung, oder hab ich sie übersehen?
 ```
 Moin {Vorname},
 
-ich hab nach eurer Website gesucht und keine gefunden. Eigentümer, die verkaufen wollen, prüfen online, mit wem sie es zu tun haben, bevor sie anrufen.
+{ein konkreter, warmer Satz aus Profil oder Stationen}. Eigentümer, die verkaufen wollen, schauen sich online an, mit wem sie es zu tun haben, bevor sie anrufen.
 
 Wo finde ich euch?
 ```
+
+**Nie behaupten, es gebe keine Seite** (08.10.2026). „Ich hab nach eurer Website
+gesucht und keine gefunden" und jede Variante davon („finde ich online nichts",
+„keinen eigenen Auftritt", „wer euch googelt, landet bei …") sind verboten,
+auch im Follow-up. Innerhalb von zwei Tagen antworteten fünf Leads darauf „Dann
+hast du falsch gesucht" / „Dann musst du richtig suchen" (Ariana Real Estate,
+Günes, Beros & Partner, Offmarkly; ALCEMA hatten wir dreimal so angeschrieben,
+alcema.de gab es die ganze Zeit). Kevin: *„Damit verbrennen wir böse Leads. Ich
+will echt keine Leads mehr verbrennen."* Eine Frage kann nicht falsch sein: Hat
+der Lead eine Seite, schickt er den Link, und der nächste Text ist ein normaler
+Befund.
 
 `pruefen` bleibt leer (seit 07.10.2026 kein Googeln-Hinweis an Kevin).
 Arbeitet die Firma erkennbar bewusst nur über ein Portal, endet
@@ -361,7 +372,7 @@ angeschaut" entfällt.
 | Analyse (A, P) | `Hast du was dagegen, wenn ich sie dir einmal rüberschicke?` |
 | Verbund (V) | `Ehrliche Frage: Planst du, dich in Zukunft mit einer eigenen Marke selbstständig zu machen?` |
 | Hausverwaltung (H) | `Ehrliche Frage: Sucht ihr gerade eher neue Objekte zur Verwaltung, oder seid ihr ohnehin gut ausgelastet?` |
-| keine Seite (D) | `Wo finde ich euch?` |
+| keine Seite (D) | `Wo finde ich euch?` (ohne Behauptung davor, dass es keine Seite gibt) |
 | offline (C) | `Ist die Seite gerade offline, oder komme nur ich nicht drauf?` |
 | nur Portal (D) | `Hast du was dagegen, wenn wir zehn Minuten telefonieren?` |
 | Nebenfirma (N), frisch (F), starke Seite (S, T), freche Variante | eine offene, konkrete Frage mit Anlass (bei S und T wortgleich aus dem Aufbau) |
